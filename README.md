@@ -1,6 +1,4 @@
-# ARI Disease Metadata Manager v2
-
-Branch: `feature/metadata-manager_v2/ARI`
+# ARI Disease Metadata Manager
 
 A standalone **FastAPI** web app for browsing and editing the ARI autoimmune‑disease
 catalogue, stored as a single Protégé‑compatible **OWL** ontology. Editors sign in with
@@ -8,25 +6,24 @@ their **own GitHub account**; every saved change is committed and opened as a pu
 under their identity, so contributions are attributed on GitHub. Deployable on AWS Lightsail
 behind nginx.
 
-This branch evolves the earlier `Metadata-manager/` (v1) into a multi‑user, GitHub‑backed
-editor and folds in the full disease catalogue produced by the `main` report work.
+> **Repository move:** this app was originally developed inside the main
+> [`KrishnaTO/ARI`](https://github.com/KrishnaTO/ARI) repository under the
+> `metadata-manager/` area. It now lives in this standalone repository,
+> [`KrishnaTO/ARI-metadata-manager`](https://github.com/KrishnaTO/ARI-metadata-manager),
+> so paths and setup commands in this README are relative to this repository root.
 
-## What this branch adds on top of `main`
+## Repository scope
 
-| Area | Change |
-| --- | --- |
-| `metadata-manager_v2/` | The entire app — backend, frontend, deploy stack, data builders (39 files). This is the substantive branch work. |
-| `data/4-reports/`, `data/README.md` | Refreshed report set + a `4-reports/README.md`. Provenance documented in `data/README.md`. |
-| `notebook/ari-grounding/*.csv` | Regenerated DOID / SNOMED grounding match tables. |
-| `.gitignore` | Ignore runtime secrets and per‑user state. |
-
-The app is the only area unique to this branch; the report/notebook deltas are carried
-catalogue data described under `data/README.md`.
+This repository contains the metadata-manager app only: the FastAPI backend, vanilla-JS
+frontend, ontology seed/import tooling, and deployment assets. It no longer includes the
+full ARI monorepo history or sibling `data/` and `notebook/` areas from
+[`KrishnaTO/ARI`](https://github.com/KrishnaTO/ARI). The local ontology used by the app is
+kept under `ontologies/`.
 
 ## Areas (project structure)
 
 ```
-metadata-manager_v2/
+ARI-metadata-manager/
 ├── run.py                      # Local launcher: uvicorn on 127.0.0.1:8001, opens browser
 ├── requirements.txt            # owlready2, fastapi, uvicorn, httpx, itsdangerous, openpyxl
 ├── instructions.md             # Original product brief for the app
@@ -125,7 +122,7 @@ never sent to the browser.
 | Key | Purpose |
 | --- | --- |
 | `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET` | OAuth App credentials |
-| `GITHUB_OWNER` / `GITHUB_REPO` | Repo the app may write to (`KrishnaTO/ARI`) |
+| `GITHUB_OWNER` / `GITHUB_REPO` | Repo the app may write to, typically `KrishnaTO` / `ARI-metadata-manager` |
 | `GITHUB_BASE_BRANCH` | Default PR target and the branch the deploy tracks |
 | `APP_BASE_URL` | Public URL incl. subpath; must match the OAuth callback |
 | `OAUTH_CALLBACK_PATH` | `/auth/github/callback` |
@@ -184,7 +181,7 @@ tracks `GITHUB_BASE_BRANCH`.
 
 ## Data sources / provenance
 
-App data derives only from the master list and the local report build under `data/4-reports/`
-(itself built from `data/1-master/ARI Master List V 2.1 - 2026-06-04.xlsx` plus local
-`data/2-databases/` ontologies for grounding). No online data sources are pulled into the
-content — external-database identifiers are rendered as link-outs only.
+App data derives from the ARI catalogue sources previously maintained in
+[`KrishnaTO/ARI`](https://github.com/KrishnaTO/ARI) and from the generated local OWL file in
+`ontologies/`. No online data sources are pulled into the content at runtime —
+external-database identifiers are rendered as link-outs only.
