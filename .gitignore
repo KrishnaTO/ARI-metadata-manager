@@ -216,3 +216,13 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+.env
+.claude
+~$*
+*.log
+*.pyc
+*archive/
+*.zip
+run-local.sh
+app/node_modules/
