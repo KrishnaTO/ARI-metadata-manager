@@ -1,7 +1,7 @@
 # /etc/systemd/system/ari-mm-update.service
 [Unit]
-Description=Pull latest ARI branch and restart the manager
+Description=Pull latest ARI Metadata Manager app code and restart the manager
 [Service]
 Type=oneshot
 User=ariapp
-ExecStart=/opt/ari/repo/metadata-manager_v2/deploy/update.sh
+ExecStart=/opt/ari/ari-metadata-manager/deploy/update.sh

@@ -46,7 +46,7 @@ STATIC_DIR = Path(__file__).resolve().parent.parent / "static"
 
 def _app_version() -> str:
     """Manager version derived from git so it bumps on every update/deploy."""
-    root = Path(__file__).resolve().parent.parent.parent  # repo root
+    root = Path(__file__).resolve().parent.parent  # app repo root
     try:
         g = lambda *a: subprocess.check_output(["git", "-C", str(root), *a],
                                                text=True, stderr=subprocess.DEVNULL).strip()
@@ -62,11 +62,11 @@ GH_CLIENT_ID = os.environ.get("GITHUB_CLIENT_ID", "")
 GH_CLIENT_SECRET = os.environ.get("GITHUB_CLIENT_SECRET", "")
 GH_OWNER = os.environ.get("GITHUB_OWNER", "")
 GH_REPO = os.environ.get("GITHUB_REPO", "")
-GH_BASE_BRANCH = os.environ.get("GITHUB_BASE_BRANCH", "feature/metadata-manager_v2/ARI")
+GH_BASE_BRANCH = os.environ.get("GITHUB_BASE_BRANCH", "main")
 GH_ONTOLOGY_PATH = os.environ.get(
-    "GITHUB_ONTOLOGY_PATH", "metadata-manager_v2/ontologies/ari_t1d.owl")
-MAPPINGS_SSSOM_PATH = "metadata-manager_v2/mappings/ari.sssom.tsv"
-MAPPINGS_EQUIV_PATH = "metadata-manager_v2/mappings/ari.equivalencies.tsv"
+    "GITHUB_ONTOLOGY_PATH", "ontologies/ari_t1d.owl")
+MAPPINGS_SSSOM_PATH = os.environ.get("GITHUB_SSSOM_PATH", "mappings/ari.sssom.tsv")
+MAPPINGS_EQUIV_PATH = os.environ.get("GITHUB_EQUIV_PATH", "mappings/ari.equivalencies.tsv")
 APP_BASE_URL = os.environ.get("APP_BASE_URL", "http://localhost:8001").rstrip("/")
 OAUTH_CALLBACK_PATH = os.environ.get("OAUTH_CALLBACK_PATH", "/auth/github/callback")
 ALLOWED_LOGINS = [s.strip() for s in os.environ.get("ALLOWED_LOGINS", "").split(",") if s.strip()]
@@ -346,7 +346,7 @@ async def mappings(request: Request):
         sssom_text = await _read(MAPPINGS_SSSOM_PATH)
         equiv_text = await _read(MAPPINGS_EQUIV_PATH)
     if not sssom_text and not equiv_text:
-        root = Path(__file__).resolve().parent.parent.parent
+        root = Path(__file__).resolve().parent.parent
         for attr, p in (("sssom_text", MAPPINGS_SSSOM_PATH), ("equiv_text", MAPPINGS_EQUIV_PATH)):
             try:
                 txt = (root / p).read_text(encoding="utf-8")

@@ -55,37 +55,83 @@ EOF
 sudo chmod 644 /etc/ssl/certs/aurint.ca.pem
 sudo chmod 600 /etc/ssl/private/aurint.ca.key
 
-# clone the repo and check out the tracked branch
-sudo -u ariapp git clone https://github.com/KrishnaTO/ARI.git /opt/ari/repo
-cd /opt/ari/repo && sudo -u ariapp git checkout feature/metadata-manager_v2/ARI
+# clone the app repo and check out the tracked app branch
+sudo -u ariapp git clone https://github.com/KrishnaTO/ARI-metadata-manager.git /opt/ari/ari-metadata-manager
+cd /opt/ari/ari-metadata-manager && sudo -u ariapp git checkout main
+
+# optional local checkout of the ontology/data repo for debugging or manual inspection
+sudo -u ariapp git clone https://github.com/KrishnaTO/ARI.git /opt/ari/ari
+cd /opt/ari/ari && sudo -u ariapp git checkout main
 
 # python env (may need swapfile for owlready2 build — see Troubleshooting)
 sudo -u ariapp python3 -m venv /opt/ari/venv
-sudo -u ariapp /opt/ari/venv/bin/pip install --no-cache-dir -r metadata-manager_v2/requirements.txt
+sudo -u ariapp /opt/ari/venv/bin/pip install --no-cache-dir -r /opt/ari/ari-metadata-manager/requirements.txt
 
 # config (secrets server-side only)
-cd metadata-manager_v2
+cd /opt/ari/ari-metadata-manager
 sudo -u ariapp cp .env.example .env
 sudo -u ariapp nano .env     # fill in GITHUB_CLIENT_ID, GITHUB_CLIENT_SECRET, SESSION_SECRET
 # APP_BASE_URL is already set to https://aurint.ca/ari-editor
 sudo chmod 600 .env
 ```
 
+The split deployment layout is:
+```
+/opt/ari/ari-metadata-manager   # app repo: KrishnaTO/ARI-metadata-manager
+/opt/ari/ari                    # optional ontology/data repo checkout: KrishnaTO/ARI
+/opt/ari/venv                   # Python virtualenv used by the app and update scripts
+```
+
+The app reads ontology data from and writes PRs to the ARI repo configured in `.env`:
+```env
+GITHUB_OWNER=KrishnaTO
+GITHUB_REPO=ARI
+GITHUB_BASE_BRANCH=main
+GITHUB_ONTOLOGY_PATH=ontologies/ari_t1d.owl
+```
+
+If the ARI repo is private or unauthenticated API limits are a concern, set a
+server-side token for unattended ontology refreshes:
+```env
+GITHUB_SERVICE_TOKEN=github_pat_or_fine_grained_token
+```
+
 ## 5. Service + auto-update
 ```bash
-cd /opt/ari/repo/metadata-manager_v2/deploy
-sudo cp ari-mm.service ari-mm-update.service ari-mm-update.timer /etc/systemd/system/
+cd /opt/ari/ari-metadata-manager/deploy
+sudo cp ari-mm.service ari-mm-update.service ari-mm-update.timer \
+  ari-mm-ontology-update.service ari-mm-ontology-update.timer \
+  /etc/systemd/system/
 sudo systemctl daemon-reload
 sudo systemctl enable --now ari-mm           # runs uvicorn on 127.0.0.1:8001
-sudo systemctl enable --now ari-mm-update.timer   # pulls the branch every 10 min
+sudo systemctl enable --now ari-mm-update.timer   # pulls app repo main every 10 min
+sudo systemctl enable --now ari-mm-ontology-update.timer   # fetches ARI ontology every 10 min
 
-# allow the app user to restart the service from update.sh
+# allow the app user to restart the service from update scripts
 echo 'ariapp ALL=(root) NOPASSWD: /bin/systemctl restart ari-mm' | sudo tee /etc/sudoers.d/ari-mm
 ```
 
+There are two independent refresh paths:
+
+1. **App-code refresh**: `ari-mm-update.timer` runs `deploy/update.sh`, which
+   pulls `/opt/ari/ari-metadata-manager` from its app branch and restarts the app
+   only if app code changed.
+2. **Ontology-data refresh**: `ari-mm-ontology-update.timer` runs
+   `deploy/update-ontology.sh`, which fetches `GITHUB_ONTOLOGY_PATH` from
+   `KrishnaTO/ARI:GITHUB_BASE_BRANCH`, writes it to the local runtime ontology
+   file, and restarts the app only if the ontology bytes changed.
+
+The local runtime ontology defaults to:
+```bash
+/opt/ari/ari-metadata-manager/ontologies/ari_t1d.owl
+```
+
+Override it with `ARI_ONTOLOGY_FILE` in `.env` only if you intentionally want a
+different runtime location.
+
 ## 6. Nginx
 ```bash
-cd /opt/ari/repo/metadata-manager_v2/deploy
+cd /opt/ari/ari-metadata-manager/deploy
 sudo cp nginx.conf /etc/nginx/sites-available/ari-mm
 sudo ln -s /etc/nginx/sites-available/ari-mm /etc/nginx/sites-enabled/
 # Remove the default site if it conflicts
@@ -107,9 +153,12 @@ sudo systemctl restart ari-mm
 - `https://aurint.ca/ari-editor` loads with a valid Cloudflare-issued SSL certificate ✅
 - `/api/v2/me` shows `github_enabled: true`
 - Sign in, edit a disease, Publish → PR opens on `edit/<you>/<disease-slug>-<ts>`
-  against `GITHUB_BASE_BRANCH`, authored by you.
-- After a branch update merges, the timer pulls it and the app reflects it within ~10 min
-  (or run `deploy/update.sh` to refresh immediately).
+  against `KrishnaTO/ARI:GITHUB_BASE_BRANCH`, authored by you.
+- After ontology changes merge to `KrishnaTO/ARI:GITHUB_BASE_BRANCH`, the ontology
+  timer fetches `GITHUB_ONTOLOGY_PATH` and the app reflects it within ~10 min
+  (or run `deploy/update-ontology.sh` to refresh immediately).
+- After app-code changes merge to `KrishnaTO/ARI-metadata-manager:main`, the app
+  timer pulls them within ~10 min (or run `deploy/update.sh` immediately).
 
 ## How the subpath works
 - **nginx** (`deploy/nginx.conf`): the `location /ari-editor/` block strips the prefix via
@@ -137,7 +186,7 @@ sudo chown -R ariapp:ariapp /opt/ari
 sudo fallocate -l 2G /swapfile && sudo chmod 600 /swapfile && sudo mkswap /swapfile && sudo swapon /swapfile
 echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
 ```
-Then re-run `pip install --no-cache-dir -r metadata-manager_v2/requirements.txt`
+Then re-run `pip install --no-cache-dir -r /opt/ari/ari-metadata-manager/requirements.txt`
 
 ### .git lock files / corruption
 Close other git clients (GitHub Desktop, VS Code) that may be holding locks on the
@@ -152,6 +201,28 @@ The uvicorn process may not be running. Check with:
 ```bash
 sudo systemctl status ari-mm
 sudo journalctl -u ari-mm -n 20
+```
+
+### Ontology is not updating from ARI main
+Check the timer and service logs:
+```bash
+sudo systemctl status ari-mm-ontology-update.timer
+sudo journalctl -u ari-mm-ontology-update.service -n 50 --no-pager
+```
+
+Run an immediate ontology refresh:
+```bash
+sudo -u ariapp /opt/ari/ari-metadata-manager/deploy/update-ontology.sh
+```
+
+Confirm `.env` points to the ARI repo and ontology path:
+```bash
+grep -E '^(GITHUB_OWNER|GITHUB_REPO|GITHUB_BASE_BRANCH|GITHUB_ONTOLOGY_PATH)=' /opt/ari/ari-metadata-manager/.env
+```
+
+Check the local runtime ontology file timestamp:
+```bash
+ls -l /opt/ari/ari-metadata-manager/ontologies/ari_t1d.owl
 ```
 
 ### Cloudflare "SSL is not working on this site"

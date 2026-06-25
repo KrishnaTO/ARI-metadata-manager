@@ -1,0 +1,10 @@
+# /etc/systemd/system/ari-mm-ontology-update.timer  ->  enable with: systemctl enable --now ari-mm-ontology-update.timer
+[Unit]
+Description=Periodically refresh ARI ontology data from the ARI repo
+
+[Timer]
+OnBootSec=3min
+OnUnitActiveSec=10min
+
+[Install]
+WantedBy=timers.target

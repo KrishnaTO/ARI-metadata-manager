@@ -1,12 +1,11 @@
 #!/usr/bin/env bash
-# Pull the latest of the tracked branch and restart the app so the newest
-# version of the data populates. Branch comes from GITHUB_BASE_BRANCH in .env
-# (the "setting"); falls back to the working branch.
+# Pull the latest ARI Metadata Manager app code and restart the app when code
+# changes. Ontology data is refreshed separately by update-ontology.sh.
 set -euo pipefail
-REPO=/opt/ari/repo
+REPO=/opt/ari/ari-metadata-manager
 cd "$REPO"
-BRANCH="$(grep -E '^GITHUB_BASE_BRANCH=' metadata-manager_v2/.env 2>/dev/null | cut -d= -f2-)"
-BRANCH="${BRANCH:-feature/metadata-manager_v2/ARI}"
+BRANCH="$(grep -E '^APP_REPO_BRANCH=' .env 2>/dev/null | cut -d= -f2-)"
+BRANCH="${BRANCH:-main}"
 before="$(git rev-parse HEAD 2>/dev/null || echo none)"
 git fetch --quiet origin "$BRANCH"
 git checkout --quiet "$BRANCH"
