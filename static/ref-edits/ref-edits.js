@@ -55,6 +55,11 @@
   const $ = s => document.querySelector(s);
   const cellEl = (iri, db) => document.querySelector(`[data-cell="${CSS.escape(iri + '|' + db)}"]`);
 
+  function idBlock(id, attrs = '', activeId = null, openLabel = '') {
+    const activeCls = activeId != null && String(id) === String(activeId) ? ' active' : '';
+    return `<span class="xid-block${activeCls}"${attrs}><span class="xid-label">${esc(id)}</span>${openLabel ? `<span class="xid-open">${openLabel}</span>` : ''}</span>`;
+  }
+
   function reviewMessage() {
     const iris = new Set();
     Object.keys(edited).forEach(k => iris.add(k.split('|')[0]));
@@ -118,7 +123,7 @@
                     : pre === 'pos' ? ' prepos' : pre === 'neg' ? ' preneg' : '')
                     + (edited[key] ? ' edited' : '');
         const chips = ids.length
-          ? ids.map(id => `<span class="xid" data-iri="${esc(r.iri)}" data-db="${db.key}" data-id="${esc(id)}">${esc(id)}</span>`).join(' ')
+          ? `<div class="xid-list">${ids.map(id => idBlock(id, ` data-iri="${esc(r.iri)}" data-db="${db.key}" data-id="${esc(id)}"`)).join('')}</div>`
           : `<span class="add" data-iri="${esc(r.iri)}" data-db="${db.key}">+ add</span>`;
         const title = !reviewed[key] && pre ? ` title="Previously ${pre === 'pos' ? 'confirmed' : 'flagged'} in the curated mappings"` : '';
         h += `<td class="cell${cls}" data-cell="${esc(key)}"${title}>${chips}</td>`;
@@ -127,7 +132,7 @@
     }
     h += '</tbody></table>';
     $('#table-wrap').innerHTML = h;
-    $('#table-wrap').querySelectorAll('.xid').forEach(c => c.addEventListener('click', () => openPanel(c.dataset.iri, c.dataset.db, c.dataset.id)));
+    $('#table-wrap').querySelectorAll('.xid-block[data-id]').forEach(c => c.addEventListener('click', () => openPanel(c.dataset.iri, c.dataset.db, c.dataset.id)));
     $('#table-wrap').querySelectorAll('.add').forEach(c => c.addEventListener('click', () => openPanel(c.dataset.iri, c.dataset.db, null)));
   }
 
@@ -151,7 +156,9 @@
     if (ids.length) {
       const target = id || ids[0];
       frameSrc = db.link(target);
-      linksHtml = 'Open: ' + ids.map(x => `<a href="${esc(db.link(x))}" target="_blank" rel="noopener">${esc(x)} ↗</a>`).join(' · ');
+      linksHtml = `<div class="muted" style="margin-bottom:4px">Open / preview ${db.label} id(s):</div><div class="xid-list">` +
+        ids.map(x => `<a class="xid-block${String(x) === String(target) ? ' active' : ''}" href="${esc(db.link(x))}" target="_blank" rel="noopener" data-panel-id="${esc(x)}"><span class="xid-label">${esc(x)}</span><span class="xid-open">↗</span></a>`).join('') +
+        '</div>';
     } else {
       frameSrc = db.search(r.name);
       linksHtml = `No ${db.label} id yet — <a href="${esc(db.search(r.name))}" target="_blank" rel="noopener">search ${db.label} for "${esc(r.name)}" ↗</a>, then paste the id below.`;
