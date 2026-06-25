@@ -25,8 +25,6 @@ cleanup() { rm -f "$TMP"; }
 trap cleanup EXIT
 
 "/opt/ari/venv/bin/python" - "$OWNER" "$REPO" "$BRANCH" "$REMOTE_PATH" "$TOKEN" "$TMP" <<'PY'
-import base64
-import json
 import sys
 import urllib.parse
 import urllib.request
@@ -36,17 +34,14 @@ encoded_path = urllib.parse.quote(path)
 encoded_ref = urllib.parse.quote(branch)
 url = f"https://api.github.com/repos/{owner}/{repo}/contents/{encoded_path}?ref={encoded_ref}"
 headers = {
-    "Accept": "application/vnd.github+json",
+    "Accept": "application/vnd.github.raw+json",
     "User-Agent": "ari-metadata-manager-ontology-refresh",
 }
 if token:
     headers["Authorization"] = f"Bearer {token}"
 req = urllib.request.Request(url, headers=headers)
-with urllib.request.urlopen(req, timeout=60) as response:
-    payload = json.loads(response.read().decode("utf-8"))
-if payload.get("encoding") != "base64" or "content" not in payload:
-    raise SystemExit(f"GitHub response for {path}@{branch} did not contain base64 file content")
-data = base64.b64decode(payload["content"])
+with urllib.request.urlopen(req, timeout=120) as response:
+    data = response.read()
 with open(out, "wb") as fh:
     fh.write(data)
 PY
