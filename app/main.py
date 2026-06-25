@@ -1,4 +1,4 @@
-"""FastAPI app for ARI Disease Metadata Manager v2."""
+"""FastAPI app for ARI Disease Metadata Manager."""
 import os
 import json
 import time
@@ -39,7 +39,7 @@ ONTOLOGY_FILE = os.environ.get(
 )
 
 BASE = OntologyService(ONTOLOGY_FILE)   # shared, source-branch baseline
-app = FastAPI(title="ARI Metadata Manager v2")
+app = FastAPI(title="ARI Metadata Manager")
 
 STATIC_DIR = Path(__file__).resolve().parent.parent / "static"
 

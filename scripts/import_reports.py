@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Import the ARI disease reports into the metadata-manager v2 ontology.
+"""Import the ARI disease reports into the metadata-Manager ontology.
 
 Reads the curated report spreadsheets under ``data/4-reports/`` and folds every
 disease (and its symptoms, age-of-onset, prevalence, clinical subtypes, external

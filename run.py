@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Launcher for the ARI Metadata Manager v2.
+"""Launcher for the ARI Metadata Manager.
 
 Usage:
     python run.py [--port 8001] [--file path/to/ontology.owl]
@@ -14,7 +14,7 @@ HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="ARI Metadata Manager v2")
+    parser = argparse.ArgumentParser(description="ARI Metadata Manager")
     parser.add_argument("--port", type=int, default=8001, help="Port to serve on")
     parser.add_argument("--file",
                         default=str(HERE / "ontologies" / "ari_t1d.owl"),
@@ -29,6 +29,6 @@ if __name__ == "__main__":
     url = f"http://127.0.0.1:{args.port}"
     if not args.no_browser:
         webbrowser.open(url)
-    print(f"Starting ARI Metadata Manager v2 at {url}")
+    print(f"Starting ARI Metadata Manager at {url}")
     print(f"  Ontology: {args.file}")
     uvicorn.run("app.main:app", host="127.0.0.1", port=args.port, reload=False)

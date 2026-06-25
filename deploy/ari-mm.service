@@ -1,6 +1,6 @@
 # /etc/systemd/system/ari-mm.service
 [Unit]
-Description=ARI Disease Metadata Manager v2 (FastAPI)
+Description=ARI Disease Metadata Manager (FastAPI)
 After=network.target
 
 [Service]
