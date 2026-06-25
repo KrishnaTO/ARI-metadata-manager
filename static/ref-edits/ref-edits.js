@@ -55,31 +55,50 @@
   const $ = s => document.querySelector(s);
   const cellEl = (iri, db) => document.querySelector(`[data-cell="${CSS.escape(iri + '|' + db)}"]`);
 
-  function idBlock(id, attrs = '', activeId = null, openLabel = '') {
+  const reviewKey = (iri, db, id = '') => iri + '|' + db + '|' + id;
+  const legacyCellKey = (iri, db) => iri + '|' + db;
+  const splitReviewKey = k => {
+    const parts = k.split('|');
+    return { iri: parts[0], db: parts[1], id: parts.slice(2).join('|') };
+  };
+
+  function preJudgmentForId(r, dbkey, id) {
+    const ari = r.ari_id, prefix = PREFIX[dbkey];
+    if (!ari || !prefix || id == null) return null;
+    const j = mappings[ari + '|' + prefix + '|' + id];
+    return j === 'positive' ? 'pos' : j === 'negative' ? 'neg' : null;
+  }
+
+  function idBlock(id, attrs = '', activeId = null, openLabel = '', verdict = null, actionsHtml = '') {
     const activeCls = activeId != null && String(id) === String(activeId) ? ' active' : '';
-    return `<span class="xid-block${activeCls}"${attrs}><span class="xid-label">${esc(id)}</span>${openLabel ? `<span class="xid-open">${openLabel}</span>` : ''}</span>`;
+    const verdictCls = verdict === 'ok' ? ' ok' : verdict === 'bad' ? ' bad' : '';
+    return `<span class="xid-block${activeCls}${verdictCls}"${attrs}><span class="xid-label">${esc(id)}</span>${openLabel ? `<span class="xid-open">${openLabel}</span>` : ''}${actionsHtml}</span>`;
+  }
+
+  function idActions(iri, db, id) {
+    const v = reviewed[reviewKey(iri, db, id)];
+    return `<span class="xid-actions"><button class="xid-action ok ${v === 'ok' ? 'on' : ''}" data-review="ok" title="Mark this ID correct">✓</button><button class="xid-action bad ${v === 'bad' ? 'on' : ''}" data-review="bad" title="Mark this ID needs change">✗</button></span>`;
   }
 
   function reviewMessage() {
     const iris = new Set();
     Object.keys(edited).forEach(k => iris.add(k.split('|')[0]));
-    for (const [k, v] of Object.entries(reviewed)) if (v === 'ok') iris.add(k.split('|')[0]);
+    for (const [k, v] of Object.entries(reviewed)) if (v === 'ok') iris.add(splitReviewKey(k).iri);
     const ari = [...iris].map(i => (ROWS.find(x => x.iri === i) || {}).ari_id).filter(Boolean).sort();
     let lab = ari.slice(0, 6).join(', ');
     if (ari.length > 6) lab += ', +' + (ari.length - 6) + ' more';
     return '[' + (lab || 'cross-references') + '] - mappings review';
   }
 
-  // Collect this session's reviewed cells of a given verdict ('ok' positives /
+  // Collect this session's reviewed ids of a given verdict ('ok' positives /
   // 'bad' negatives) into the {ari_id, iri, name, db, ids} shape publish wants.
   function reviewedCells(verdict) {
     const out = [];
     for (const [k, v] of Object.entries(reviewed)) {
       if (v !== verdict) continue;
-      const [iri, db] = k.split('|');
+      const { iri, db, id } = splitReviewKey(k);
       const r = ROWS.find(x => x.iri === iri);
-      const ids = (r && r[db]) || [];
-      if (ids.length) out.push({ ari_id: r.ari_id, iri, name: r.name, db, ids });
+      if (r && id) out.push({ ari_id: r.ari_id, iri, name: r.name, db, ids: [id] });
     }
     return out;
   }
@@ -100,12 +119,15 @@
     const key = iri + '|' + db;
     const r = ROWS.find(x => x.iri === iri);
     const pre = r ? preJudgment(r, db) : null;
-    el.classList.toggle('ok', reviewed[key] === 'ok');
-    el.classList.toggle('bad', reviewed[key] === 'bad');
+    const ids = (r && r[db]) || [];
+    const anyOk = ids.some(id => reviewed[reviewKey(iri, db, id)] === 'ok');
+    const anyBad = ids.some(id => reviewed[reviewKey(iri, db, id)] === 'bad');
+    el.classList.toggle('ok', anyOk && !anyBad);
+    el.classList.toggle('bad', anyBad && !anyOk);
     el.classList.toggle('edited', !!edited[key]);
     // Pre-highlight only shows through when the curator hasn't judged it yet.
-    el.classList.toggle('prepos', !reviewed[key] && pre === 'pos');
-    el.classList.toggle('preneg', !reviewed[key] && pre === 'neg');
+    el.classList.toggle('prepos', !anyOk && !anyBad && pre === 'pos');
+    el.classList.toggle('preneg', !anyOk && !anyBad && pre === 'neg');
   }
 
   function renderTable(filter) {
@@ -117,29 +139,40 @@
       h += `<tr><td class="dz">${esc(r.name)}</td>`;
       for (const db of DBS) {
         const ids = r[db.key] || [];
-        const key = r.iri + '|' + db.key;
+        const key = legacyCellKey(r.iri, db.key);
         const pre = preJudgment(r, db.key);
-        const cls = (reviewed[key] === 'ok' ? ' ok' : reviewed[key] === 'bad' ? ' bad'
+        const anyOk = ids.some(id => reviewed[reviewKey(r.iri, db.key, id)] === 'ok');
+        const anyBad = ids.some(id => reviewed[reviewKey(r.iri, db.key, id)] === 'bad');
+        const cls = (anyOk && !anyBad ? ' ok' : anyBad && !anyOk ? ' bad'
                     : pre === 'pos' ? ' prepos' : pre === 'neg' ? ' preneg' : '')
                     + (edited[key] ? ' edited' : '');
         const chips = ids.length
-          ? `<div class="xid-list">${ids.map(id => idBlock(id, ` data-iri="${esc(r.iri)}" data-db="${db.key}" data-id="${esc(id)}"`)).join('')}</div>`
+          ? `<div class="xid-list">${ids.map(id => idBlock(id, ` data-iri="${esc(r.iri)}" data-db="${db.key}" data-id="${esc(id)}"`, null, '', reviewed[reviewKey(r.iri, db.key, id)], idActions(r.iri, db.key, id))).join('')}</div>`
           : `<span class="add" data-iri="${esc(r.iri)}" data-db="${db.key}">+ add</span>`;
-        const title = !reviewed[key] && pre ? ` title="Previously ${pre === 'pos' ? 'confirmed' : 'flagged'} in the curated mappings"` : '';
+        const title = !anyOk && !anyBad && pre ? ` title="Previously ${pre === 'pos' ? 'confirmed' : 'flagged'} in the curated mappings"` : '';
         h += `<td class="cell${cls}" data-cell="${esc(key)}"${title}>${chips}</td>`;
       }
       h += '</tr>';
     }
     h += '</tbody></table>';
     $('#table-wrap').innerHTML = h;
-    $('#table-wrap').querySelectorAll('.xid-block[data-id]').forEach(c => c.addEventListener('click', () => openPanel(c.dataset.iri, c.dataset.db, c.dataset.id)));
+    $('#table-wrap').querySelectorAll('.xid-block[data-id]').forEach(c => c.addEventListener('click', e => { if (e.target.closest('.xid-action')) return; openPanel(c.dataset.iri, c.dataset.db, c.dataset.id); }));
+    $('#table-wrap').querySelectorAll('.xid-action').forEach(b => b.addEventListener('click', e => { e.stopPropagation(); const block = b.closest('.xid-block'); setReview(block.dataset.iri, block.dataset.db, block.dataset.id, b.dataset.review); }));
     $('#table-wrap').querySelectorAll('.add').forEach(c => c.addEventListener('click', () => openPanel(c.dataset.iri, c.dataset.db, null)));
   }
 
-  function setReview(iri, db, v) {
-    const key = iri + '|' + db;
+  function setReview(iri, db, id, v) {
+    if (!id) return;
+    const key = reviewKey(iri, db, id);
     reviewed[key] = reviewed[key] === v ? null : v;
     setCellClass(iri, db); counts();
+    const block = document.querySelector(`.xid-block[data-iri="${CSS.escape(iri)}"][data-db="${CSS.escape(db)}"][data-id="${CSS.escape(id)}"]`);
+    if (block) {
+      block.classList.toggle('ok', reviewed[key] === 'ok');
+      block.classList.toggle('bad', reviewed[key] === 'bad');
+      block.querySelector('.xid-action.ok')?.classList.toggle('on', reviewed[key] === 'ok');
+      block.querySelector('.xid-action.bad')?.classList.toggle('on', reviewed[key] === 'bad');
+    }
     // update panel buttons in place (no reload)
     const ok = $('#p-ok'), bad = $('#p-bad');
     if (ok) ok.classList.toggle('on', reviewed[key] === 'ok');
@@ -151,13 +184,13 @@
     const r = ROWS.find(x => x.iri === iri);
     const db = DBMAP[dbkey];
     const ids = r[dbkey] || [];
-    const key = iri + '|' + dbkey;
+    const target = ids.length ? (id || ids[0]) : null;
+    const key = target ? reviewKey(iri, dbkey, target) : legacyCellKey(iri, dbkey);
     let frameSrc = '', linksHtml;
     if (ids.length) {
-      const target = id || ids[0];
       frameSrc = db.link(target);
       linksHtml = `<div class="muted" style="margin-bottom:4px">Open / preview ${db.label} id(s):</div><div class="xid-list">` +
-        ids.map(x => `<a class="xid-block${String(x) === String(target) ? ' active' : ''}" href="${esc(db.link(x))}" target="_blank" rel="noopener" data-panel-id="${esc(x)}"><span class="xid-label">${esc(x)}</span><span class="xid-open">↗</span></a>`).join('') +
+        ids.map(x => `<a class="xid-block${String(x) === String(target) ? ' active' : ''}${reviewed[reviewKey(iri, dbkey, x)] === 'ok' ? ' ok' : reviewed[reviewKey(iri, dbkey, x)] === 'bad' ? ' bad' : ''}" href="${esc(db.link(x))}" target="_blank" rel="noopener" data-panel-id="${esc(x)}"><span class="xid-label">${esc(x)}</span><span class="xid-open">↗</span></a>`).join('') +
         '</div>';
     } else {
       frameSrc = db.search(r.name);
@@ -166,7 +199,7 @@
     $('#panel').innerHTML = `
       <div class="p-head"><strong>${esc(r.name)}</strong> · ${db.label}
         <button class="btn" id="p-close" style="float:right">✕</button></div>
-      <div class="p-q">Is this ${db.label} reference correct?
+      <div class="p-q">Is this ${db.label} reference${target ? ` <strong>${esc(target)}</strong>` : ''} correct?
         <button class="btn ok ${reviewed[key] === 'ok' ? 'on' : ''}" id="p-ok">✓ Correct</button>
         <button class="btn bad ${reviewed[key] === 'bad' ? 'on' : ''}" id="p-bad">✗ Needs change</button></div>
       <div class="p-sub"><span class="muted">Distinct variant of this disease?</span>
@@ -183,8 +216,8 @@
     $('#side').classList.add('open');
     $('#divider').classList.add('show');
     $('#p-close').addEventListener('click', closePanel);
-    $('#p-ok').addEventListener('click', () => setReview(iri, dbkey, 'ok'));
-    $('#p-bad').addEventListener('click', () => setReview(iri, dbkey, 'bad'));
+    $('#p-ok').addEventListener('click', () => setReview(iri, dbkey, target, 'ok'));
+    $('#p-bad').addEventListener('click', () => setReview(iri, dbkey, target, 'bad'));
     $('#p-save').addEventListener('click', () => save(iri, dbkey));
     $('#p-subtype').addEventListener('click', () => openSubtypeOverlay(iri));
   }
