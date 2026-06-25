@@ -288,6 +288,8 @@ def import_into(onto_path: Path, reports: Path) -> dict:
     ensure("ARI_DXCODE", AnnotationProperty)
     ensure("ARI_MESH", AnnotationProperty)
     ensure("ARI_NCI", AnnotationProperty)
+    ensure("ARI_ORPHANET", AnnotationProperty)
+    ensure("ARI_OMIM", AnnotationProperty)
     ensure("ARI_RefLink", AnnotationProperty)
     ensure("ARI_Author", AnnotationProperty)
     ensure("ARI_AuthorDate", AnnotationProperty)

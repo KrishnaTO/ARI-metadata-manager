@@ -313,7 +313,7 @@ async def create_release(request: Request, payload: dict = Body(default={})):
 @app.get("/api/v2/xrefs")
 async def xrefs(request: Request):
     """All diseases with their database cross-references, for the reference-review page."""
-    keys = ["snomed", "omop", "doid", "umls", "mondo", "icd10", "mesh", "nci", "dxcode"]
+    keys = ["snomed", "omop", "doid", "umls", "mondo", "icd10", "mesh", "nci", "orphanet", "omim", "dxcode"]
     out = []
     svc = service_for(request)
     for it in svc.get_diseases_list():

@@ -19,19 +19,22 @@
     { key: 'snomed', label: 'SNOMED', link: id => `https://browser.ihtsdotools.org/?perspective=full&conceptId1=${num(id)}&edition=MAIN`, search: n => `https://browser.ihtsdotools.org/?perspective=full&edition=MAIN&languages=en&searchText=${enc(n)}` },
     { key: 'omop',   label: 'OMOP', noframe: true,   link: id => `https://athena.ohdsi.org/search-terms/terms/${num(id)}`, search: n => `https://athena.ohdsi.org/search-terms/terms?query=${enc(n)}` },
     { key: 'doid',   label: 'DOID',   link: id => `https://disease-ontology.org/?id=DOID:${num(id)}`, search: n => `https://www.disease-ontology.org/?q=${enc(n)}` },
-    { key: 'umls',   label: 'UMLS', noframe: true,   link: id => `https://uts.nlm.nih.gov/uts/umls/concept/${id}`, search: n => `https://uts.nlm.nih.gov/uts/umls/searchResults?searchString=${enc(n)}` },
     { key: 'mondo',  label: 'MONDO',  link: id => `https://www.ebi.ac.uk/ols4/ontologies/mondo/classes?short_form=MONDO_${num(id)}`, search: n => `https://www.ebi.ac.uk/ols4/search?q=${enc(n)}&ontology=mondo` },
-    { key: 'icd10',  label: 'ICD-10', link: id => `https://www.icd10data.com/search?s=${enc(id)}`, search: n => `https://www.icd10data.com/search?s=${enc(n)}` },
-    { key: 'mesh',   label: 'MeSH', noframe: true,   link: id => `https://meshb.nlm.nih.gov/record/ui?ui=${num(id)}`, search: n => `https://www.ncbi.nlm.nih.gov/mesh/?term=${enc(n)}` },
     { key: 'nci',    label: 'NCI',    link: id => `https://ncithesaurus.nci.nih.gov/ncitbrowser/ConceptReport.jsp?dictionary=NCI_Thesaurus&code=${num(id)}`, search: n => `https://www.ebi.ac.uk/ols4/search?q=${enc(n)}&ontology=ncit` },
+    { key: 'icd10',  label: 'ICD-10', link: id => `https://www.icd10data.com/search?s=${enc(id)}`, search: n => `https://www.icd10data.com/search?s=${enc(n)}` },
+    { key: 'orphanet', label: 'Orphanet', noframe: true, link: id => `https://www.orpha.net/en/disease/detail/${num(id)}`, search: n => `https://www.orpha.net/en/disease/search?keyword=${enc(n)}` },
+    { key: 'omim',   label: 'OMIM', noframe: true,   link: id => `https://omim.org/entry/${num(id)}`, search: n => `https://omim.org/search/?search=${enc(n)}` },
+    { key: 'umls',   label: 'UMLS', noframe: true,   link: id => `https://uts.nlm.nih.gov/uts/umls/concept/${id}`, search: n => `https://uts.nlm.nih.gov/uts/umls/searchResults?searchString=${enc(n)}` },
+    { key: 'mesh',   label: 'MeSH', noframe: true,   link: id => `https://meshb.nlm.nih.gov/record/ui?ui=${num(id)}`, search: n => `https://www.ncbi.nlm.nih.gov/mesh/?term=${enc(n)}` },
   ];
   const DBMAP = Object.fromEntries(DBS.map(d => [d.key, d]));
 
   // database key -> object-curie prefix (mirrors app/sssom_service.py PREFIX), so
   // stored mappings can be matched back to the cell they came from.
   const PREFIX = {
-    snomed: 'SNOMEDCT', omop: 'omop', doid: 'DOID', umls: 'umls',
-    mondo: 'MONDO', icd10: 'icd10cm', mesh: 'mesh', nci: 'ncit',
+    snomed: 'SNOMEDCT', omop: 'omop', doid: 'DOID', mondo: 'MONDO',
+    nci: 'ncit', icd10: 'icd10cm', orphanet: 'ORPHA', omim: 'OMIM',
+    umls: 'umls', mesh: 'mesh',
   };
 
   let ROWS = [], me = null, reviewed = {}, edited = {}, active = null, sessionBranch = null, _tissues = null;

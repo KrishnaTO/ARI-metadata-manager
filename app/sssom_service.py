@@ -13,7 +13,7 @@ import datetime
 PREFIX = {
     "snomed": "SNOMEDCT", "omop": "omop", "doid": "DOID", "umls": "umls",
     "mondo": "MONDO", "icd10": "icd10cm", "mesh": "mesh", "nci": "ncit",
-    "dxcode": "SNOMEDCT",
+    "orphanet": "ORPHA", "omim": "OMIM", "dxcode": "SNOMEDCT",
 }
 
 CURIE_MAP = {
@@ -29,6 +29,8 @@ CURIE_MAP = {
     "skos": "http://www.w3.org/2004/02/skos/core#",
     "semapv": "https://w3id.org/semapv/vocab/",
     "orcid": "https://orcid.org/",
+    "ORPHA": "https://www.orpha.net/en/disease/detail/",
+    "OMIM": "https://omim.org/entry/",
 }
 
 SSSOM_COLS = ["subject_id", "subject_label", "predicate_id", "predicate_modifier",

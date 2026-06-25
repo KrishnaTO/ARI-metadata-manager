@@ -4,8 +4,9 @@ import shutil
 import uuid
 from datetime import datetime
 from pathlib import Path
+import types
 
-from owlready2 import World, label, comment, destroy_entity
+from owlready2 import AnnotationProperty, World, label, comment, destroy_entity
 
 from .feedback_service import FeedbackStore
 from .schema import CATEGORIES, SEEALSO_IRI
@@ -65,6 +66,13 @@ class OntologyService:
             return []
         vals = prop[e] if hasattr(e, 'storid') else []
         return [str(v) for v in vals]
+
+    def _ensure_annotation_property(self, suffix: str):
+        prop = self.world[self.base + suffix]
+        if prop is not None:
+            return prop
+        with self.onto:
+            return types.new_class(suffix, (AnnotationProperty,))
 
     def _get_data(self, e, prop_name: str) -> list:
         prop = self.world[prop_name]
@@ -235,6 +243,8 @@ class OntologyService:
             "mesh": _split_csv(self._get_annotation(e, base + "ARI_MESH")),
             "nci": _split_csv(self._get_annotation(e, base + "ARI_NCI")),
             "omop": _split_csv(self._get_annotation(e, base + "ARI_OMOP")),
+            "orphanet": _split_csv(self._get_annotation(e, base + "ARI_ORPHANET")),
+            "omim": _split_csv(self._get_annotation(e, base + "ARI_OMIM")),
             "dxcode": _split_csv(self._get_annotation(e, base + "ARI_DXCODE")),
             "version": self._get_annotation(e, base + "ARI_Version"),
             "prevalence_desc": self._get_annotation(e, base + "ARI_PrevalenceDesc"),
@@ -495,6 +505,8 @@ class OntologyService:
         "mesh":              ("multi_ann", "ARI_MESH", str),
         "nci":               ("multi_ann", "ARI_NCI", str),
         "omop":              ("multi_ann", "ARI_OMOP", str),
+        "orphanet":          ("multi_ann", "ARI_ORPHANET", str),
+        "omim":              ("multi_ann", "ARI_OMIM", str),
         "dxcode":            ("multi_ann", "ARI_DXCODE", str),
         "def_source":        ("multi_ann", "ARI_DefSource", str),
         "pubmed":            ("ann", "ARI_Pubmed", str),
@@ -525,18 +537,14 @@ class OntologyService:
             elif kind == "comment":
                 comment[e] = [str(raw)] if str(raw).strip() else []
             elif kind == "multi_ann":
-                prop = self.world[base + suffix]
-                if prop is None:
-                    continue
+                prop = self._ensure_annotation_property(suffix)
                 if isinstance(raw, str):
                     items = [s.strip() for s in raw.replace("\n", ",").split(",")]
                 else:
                     items = [str(s).strip() for s in (raw or [])]
                 prop[e] = [s for s in items if s]
             elif kind == "ann":
-                prop = self.world[base + suffix]
-                if prop is None:
-                    continue
+                prop = self._ensure_annotation_property(suffix)
                 prop[e] = [str(raw)] if str(raw).strip() != "" else []
             elif kind == "data":
                 prop = self.world[base + suffix]
@@ -584,9 +592,9 @@ class OntologyService:
             comment[new_d] = [defn]
 
         def _ann(suffix, val):
-            prop = self.world[base + suffix]
+            prop = self._ensure_annotation_property(suffix)
             v = str(val).strip() if val else ""
-            if prop and v:
+            if v:
                 prop[new_d] = [v]
 
         def_src = data.get("def_source", "")
@@ -614,9 +622,7 @@ class OntologyService:
                 par_prop[new_d] = [parent]
 
         def _multi(suffix, val):
-            prop = self.world[base + suffix]
-            if not prop:
-                return
+            prop = self._ensure_annotation_property(suffix)
             if isinstance(val, str):
                 items = [s.strip() for s in val.replace("\n", ",").split(",")]
             else:
