@@ -24,6 +24,8 @@
     { key: 'icd10',  label: 'ICD-10', link: id => `https://www.icd10data.com/search?s=${enc(id)}`, search: n => `https://www.icd10data.com/search?s=${enc(n)}` },
     { key: 'mesh',   label: 'MeSH', noframe: true,   link: id => `https://meshb.nlm.nih.gov/record/ui?ui=${num(id)}`, search: n => `https://www.ncbi.nlm.nih.gov/mesh/?term=${enc(n)}` },
     { key: 'nci',    label: 'NCI',    link: id => `https://ncithesaurus.nci.nih.gov/ncitbrowser/ConceptReport.jsp?dictionary=NCI_Thesaurus&code=${num(id)}`, search: n => `https://www.ebi.ac.uk/ols4/search?q=${enc(n)}&ontology=ncit` },
+    { key: 'orphanet', label: 'Orphanet', noframe: true, link: id => `https://www.orpha.net/en/disease/detail/${num(id)}`, search: n => `https://www.orpha.net/en/disease/search?keyword=${enc(n)}` },
+    { key: 'omim',   label: 'OMIM', noframe: true,   link: id => `https://omim.org/entry/${num(id)}`, search: n => `https://omim.org/search/?search=${enc(n)}` },
   ];
   const DBMAP = Object.fromEntries(DBS.map(d => [d.key, d]));
 
@@ -32,6 +34,7 @@
   const PREFIX = {
     snomed: 'SNOMEDCT', omop: 'omop', doid: 'DOID', umls: 'umls',
     mondo: 'MONDO', icd10: 'icd10cm', mesh: 'mesh', nci: 'ncit',
+    orphanet: 'ORPHA', omim: 'OMIM',
   };
 
   let ROWS = [], me = null, reviewed = {}, edited = {}, active = null, sessionBranch = null, _tissues = null;
