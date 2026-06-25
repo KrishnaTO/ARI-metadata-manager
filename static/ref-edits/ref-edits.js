@@ -4,7 +4,7 @@
 // search page. Confirmed (correct) cross-references are written to SSSOM +
 // equivalency files in the published pull request.
 (function () {
-  const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&', '<': '<', '>': '>', '"': '"', "'": '&#39;' }[c]));
   const num = id => String(id).replace(/^[A-Za-z]+:/, '');
   const enc = encodeURIComponent;
   const apiUrl = p => new URL('../api/v2/' + p, location.href).href;
@@ -35,6 +35,11 @@
   };
 
   let ROWS = [], me = null, reviewed = {}, edited = {}, active = null, sessionBranch = null, _tissues = null;
+  // reviewed/edited keys: `${iri}|${db}|${id}` (per-ID, not per-cell)
+  // Helper: build the per-ID key
+  const idKey = (iri, db, id) => iri + '|' + db + '|' + id;
+  // Helper: build the per-cell key (for cell-level aggregation)
+  const cellKey = (iri, db) => iri + '|' + db;
   // Pre-existing curated judgments keyed `${ari_id}|${prefix}|${id}` -> 'positive'|'negative'.
   let mappings = {};
 
@@ -52,12 +57,36 @@
     }
     return neg ? 'neg' : null;
   }
+
+  // Per-ID pre-judgment: returns 'pos' | 'neg' | null for a specific id.
+  function preJudgmentId(r, dbkey, id) {
+    const ari = r.ari_id, prefix = PREFIX[dbkey];
+    if (!ari || !prefix) return null;
+    const j = mappings[ari + '|' + prefix + '|' + id];
+    if (j === 'positive') return 'pos';
+    if (j === 'negative') return 'neg';
+    return null;
+  }
+
   const $ = s => document.querySelector(s);
   const cellEl = (iri, db) => document.querySelector(`[data-cell="${CSS.escape(iri + '|' + db)}"]`);
 
-  function idBlock(id, attrs = '', activeId = null, openLabel = '') {
+  function idBlock(id, attrs = '', activeId = null, openLabel = '', extraCls = '') {
     const activeCls = activeId != null && String(id) === String(activeId) ? ' active' : '';
-    return `<span class="xid-block${activeCls}"${attrs}><span class="xid-label">${esc(id)}</span>${openLabel ? `<span class="xid-open">${openLabel}</span>` : ''}</span>`;
+    return `<span class="xid-block${activeCls}${extraCls ? ' ' + extraCls : ''}"${attrs}><span class="xid-label">${esc(id)}</span>${openLabel ? `<span class="xid-open">${openLabel}</span>` : ''}</span>`;
+  }
+
+  // Apply per-ID highlighting classes to an individual .xid-block element.
+  function setIdBlockClass(el, iri, db, id) {
+    if (!el) return;
+    const r = ROWS.find(x => x.iri === iri);
+    const key = idKey(iri, db, id);
+    const pre = r ? preJudgmentId(r, db, id) : null;
+    el.classList.toggle('ok', reviewed[key] === 'ok');
+    el.classList.toggle('bad', reviewed[key] === 'bad');
+    el.classList.toggle('edited', !!edited[key]);
+    el.classList.toggle('prepos', !reviewed[key] && pre === 'pos');
+    el.classList.toggle('preneg', !reviewed[key] && pre === 'neg');
   }
 
   function reviewMessage() {
@@ -72,16 +101,21 @@
 
   // Collect this session's reviewed cells of a given verdict ('ok' positives /
   // 'bad' negatives) into the {ari_id, iri, name, db, ids} shape publish wants.
+  // Aggregates per-ID reviews into per-cell groups.
   function reviewedCells(verdict) {
-    const out = [];
+    const cellMap = {};
     for (const [k, v] of Object.entries(reviewed)) {
       if (v !== verdict) continue;
-      const [iri, db] = k.split('|');
-      const r = ROWS.find(x => x.iri === iri);
-      const ids = (r && r[db]) || [];
-      if (ids.length) out.push({ ari_id: r.ari_id, iri, name: r.name, db, ids });
+      const parts = k.split('|');
+      const iri = parts[0], db = parts[1];
+      const ck = iri + '|' + db;
+      if (!cellMap[ck]) {
+        const r = ROWS.find(x => x.iri === iri);
+        cellMap[ck] = { ari_id: r ? r.ari_id : null, iri, name: r ? r.name : null, db, ids: [] };
+      }
+      cellMap[ck].ids.push(parts[2]);
     }
-    return out;
+    return Object.values(cellMap).filter(c => c.ids.length > 0);
   }
   const confirmedList = () => reviewedCells('ok');
   const flaggedList = () => reviewedCells('bad');
@@ -95,17 +129,26 @@
     $('#publish').disabled = !(me && me.authenticated && (ed > 0 || conf > 0 || flag > 0));
   }
 
+  // Update the cell-level class based on its per-ID children.
   function setCellClass(iri, db) {
     const el = cellEl(iri, db); if (!el) return;
-    const key = iri + '|' + db;
     const r = ROWS.find(x => x.iri === iri);
+    const ids = (r && r[db]) || [];
+    // Cell is 'ok' if ALL ids are reviewed 'ok'; 'bad' if ANY id is reviewed 'bad';
+    // 'edited' if any id is edited.
+    let anyOk = false, anyBad = false, anyEdited = false;
+    for (const id of ids) {
+      const key = idKey(iri, db, id);
+      if (reviewed[key] === 'ok') anyOk = true;
+      if (reviewed[key] === 'bad') anyBad = true;
+      if (edited[key]) anyEdited = true;
+    }
     const pre = r ? preJudgment(r, db) : null;
-    el.classList.toggle('ok', reviewed[key] === 'ok');
-    el.classList.toggle('bad', reviewed[key] === 'bad');
-    el.classList.toggle('edited', !!edited[key]);
-    // Pre-highlight only shows through when the curator hasn't judged it yet.
-    el.classList.toggle('prepos', !reviewed[key] && pre === 'pos');
-    el.classList.toggle('preneg', !reviewed[key] && pre === 'neg');
+    el.classList.toggle('ok', anyOk && !anyBad);
+    el.classList.toggle('bad', anyBad);
+    el.classList.toggle('edited', anyEdited);
+    el.classList.toggle('prepos', !anyOk && !anyBad && pre === 'pos');
+    el.classList.toggle('preneg', !anyOk && !anyBad && pre === 'neg');
   }
 
   function renderTable(filter) {
@@ -117,16 +160,31 @@
       h += `<tr><td class="dz">${esc(r.name)}</td>`;
       for (const db of DBS) {
         const ids = r[db.key] || [];
-        const key = r.iri + '|' + db.key;
+        const ck = cellKey(r.iri, db.key);
         const pre = preJudgment(r, db.key);
-        const cls = (reviewed[key] === 'ok' ? ' ok' : reviewed[key] === 'bad' ? ' bad'
-                    : pre === 'pos' ? ' prepos' : pre === 'neg' ? ' preneg' : '')
-                    + (edited[key] ? ' edited' : '');
+        // Determine cell-level class from per-ID states
+        let anyOk = false, anyBad = false, anyEdited = false;
+        for (const id of ids) {
+          const ik = idKey(r.iri, db.key, id);
+          if (reviewed[ik] === 'ok') anyOk = true;
+          if (reviewed[ik] === 'bad') anyBad = true;
+          if (edited[ik]) anyEdited = true;
+        }
+        const cellCls = (anyOk && !anyBad ? ' ok' : anyBad ? ' bad'
+                        : pre === 'pos' ? ' prepos' : pre === 'neg' ? ' preneg' : '')
+                        + (anyEdited ? ' edited' : '');
         const chips = ids.length
-          ? `<div class="xid-list">${ids.map(id => idBlock(id, ` data-iri="${esc(r.iri)}" data-db="${db.key}" data-id="${esc(id)}"`)).join('')}</div>`
+          ? `<div class="xid-list">${ids.map(id => {
+              const ik = idKey(r.iri, db.key, id);
+              const preId = preJudgmentId(r, db.key, id);
+              const idCls = (reviewed[ik] === 'ok' ? 'ok' : reviewed[ik] === 'bad' ? 'bad'
+                            : preId === 'pos' ? 'prepos' : preId === 'neg' ? 'preneg' : '')
+                            + (edited[ik] ? ' edited' : '');
+              return idBlock(id, ` data-iri="${esc(r.iri)}" data-db="${db.key}" data-id="${esc(id)}"`, null, '', idCls);
+            }).join('')}</div>`
           : `<span class="add" data-iri="${esc(r.iri)}" data-db="${db.key}">+ add</span>`;
-        const title = !reviewed[key] && pre ? ` title="Previously ${pre === 'pos' ? 'confirmed' : 'flagged'} in the curated mappings"` : '';
-        h += `<td class="cell${cls}" data-cell="${esc(key)}"${title}>${chips}</td>`;
+        const title = !anyOk && !anyBad && pre ? ` title="Previously ${pre === 'pos' ? 'confirmed' : 'flagged'} in the curated mappings"` : '';
+        h += `<td class="cell${cellCls}" data-cell="${esc(ck)}"${title}>${chips}</td>`;
       }
       h += '</tr>';
     }
@@ -136,28 +194,44 @@
     $('#table-wrap').querySelectorAll('.add').forEach(c => c.addEventListener('click', () => openPanel(c.dataset.iri, c.dataset.db, null)));
   }
 
-  function setReview(iri, db, v) {
-    const key = iri + '|' + db;
+  function setReview(iri, db, id, v) {
+    const key = idKey(iri, db, id);
     reviewed[key] = reviewed[key] === v ? null : v;
-    setCellClass(iri, db); counts();
-    // update panel buttons in place (no reload)
+    // Update the individual .xid-block element
+    const el = document.querySelector(`.xid-block[data-iri="${CSS.escape(iri)}"][data-db="${db}"][data-id="${CSS.escape(String(id))}"]`);
+    if (el) setIdBlockClass(el, iri, db, id);
+    setCellClass(iri, db);
+    counts();
+    // update panel buttons in place (no reload) — show state for the active id
     const ok = $('#p-ok'), bad = $('#p-bad');
-    if (ok) ok.classList.toggle('on', reviewed[key] === 'ok');
-    if (bad) bad.classList.toggle('on', reviewed[key] === 'bad');
+    if (ok && bad) {
+      const activeId = active && active.id;
+      if (String(id) === String(activeId)) {
+        ok.classList.toggle('on', reviewed[key] === 'ok');
+        bad.classList.toggle('on', reviewed[key] === 'bad');
+      }
+    }
   }
 
   function openPanel(iri, dbkey, id) {
-    active = { iri, dbkey };
+    active = { iri, dbkey, id };
     const r = ROWS.find(x => x.iri === iri);
     const db = DBMAP[dbkey];
     const ids = r[dbkey] || [];
-    const key = iri + '|' + dbkey;
+    const key = idKey(iri, dbkey, id);
     let frameSrc = '', linksHtml;
     if (ids.length) {
       const target = id || ids[0];
       frameSrc = db.link(target);
       linksHtml = `<div class="muted" style="margin-bottom:4px">Open / preview ${db.label} id(s):</div><div class="xid-list">` +
-        ids.map(x => `<a class="xid-block${String(x) === String(target) ? ' active' : ''}" href="${esc(db.link(x))}" target="_blank" rel="noopener" data-panel-id="${esc(x)}"><span class="xid-label">${esc(x)}</span><span class="xid-open">↗</span></a>`).join('') +
+        ids.map(x => {
+          const ik = idKey(iri, dbkey, x);
+          const preId = preJudgmentId(r, dbkey, x);
+          const idCls = (reviewed[ik] === 'ok' ? 'ok' : reviewed[ik] === 'bad' ? 'bad'
+                        : preId === 'pos' ? 'prepos' : preId === 'neg' ? 'preneg' : '')
+                        + (edited[ik] ? ' edited' : '');
+          return `<a class="xid-block${String(x) === String(target) ? ' active' : ''} ${idCls}" href="${esc(db.link(x))}" target="_blank" rel="noopener" data-panel-id="${esc(x)}"><span class="xid-label">${esc(x)}</span><span class="xid-open">↗</span></a>`;
+        }).join('') +
         '</div>';
     } else {
       frameSrc = db.search(r.name);
@@ -183,8 +257,8 @@
     $('#side').classList.add('open');
     $('#divider').classList.add('show');
     $('#p-close').addEventListener('click', closePanel);
-    $('#p-ok').addEventListener('click', () => setReview(iri, dbkey, 'ok'));
-    $('#p-bad').addEventListener('click', () => setReview(iri, dbkey, 'bad'));
+    $('#p-ok').addEventListener('click', () => setReview(iri, dbkey, id, 'ok'));
+    $('#p-bad').addEventListener('click', () => setReview(iri, dbkey, id, 'bad'));
     $('#p-save').addEventListener('click', () => save(iri, dbkey));
     $('#p-subtype').addEventListener('click', () => openSubtypeOverlay(iri));
   }
@@ -298,9 +372,21 @@
     try {
       const updated = await api('disease/' + encodeURIComponent(iri), { method: 'PUT', body: { changes: { [dbkey]: val } } });
       const r = ROWS.find(x => x.iri === iri);
-      r[dbkey] = updated[dbkey] || [];
-      edited[iri + '|' + dbkey] = true;
-      renderTable($('#filter').value); counts(); openPanel(iri, dbkey, null);
+      const oldIds = r[dbkey] || [];
+      const newIds = updated[dbkey] || [];
+      r[dbkey] = newIds;
+      // Mark all new ids as edited (per-ID)
+      for (const id of newIds) {
+        edited[idKey(iri, dbkey, id)] = true;
+      }
+      // Clear edited for ids that were removed
+      for (const id of oldIds) {
+        if (!newIds.includes(id)) {
+          delete edited[idKey(iri, dbkey, id)];
+          delete reviewed[idKey(iri, dbkey, id)];
+        }
+      }
+      renderTable($('#filter').value); counts(); openPanel(iri, dbkey, newIds.length ? newIds[0] : null);
     } catch (e) { alert('Save failed: ' + e.message); $('#p-save').disabled = false; $('#p-save').textContent = 'Save'; }
   }
 

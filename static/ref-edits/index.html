@@ -40,6 +40,11 @@
   .xid-block { display:inline-flex; align-items:center; gap:6px; max-width:100%; padding:3px 7px; border:1px solid var(--border); border-radius:6px; background:var(--bg2); color:var(--accent); cursor:pointer; text-decoration:none; white-space:nowrap; }
   .xid-block:hover { border-color:var(--accent); background:var(--accent-soft); text-decoration:underline; }
   .xid-block.active { border-color:var(--accent); box-shadow:inset 3px 0 0 var(--accent); background:var(--accent-soft); }
+  .xid-block.ok { background:rgba(5,150,105,.14); border-color:var(--ok); }
+  .xid-block.bad { background:rgba(220,38,38,.14); border-color:var(--bad); }
+  .xid-block.prepos { background:rgba(5,150,105,.05); box-shadow:inset 3px 0 0 var(--ok); }
+  .xid-block.preneg { background:rgba(220,38,38,.05); box-shadow:inset 3px 0 0 var(--bad); }
+  .xid-block.edited { outline:2px solid var(--accent); }
   .xid-block .xid-label { overflow:hidden; text-overflow:ellipsis; }
   .p-links .xid-list { padding:2px 0; }
   .p-links .xid-block { width:100%; justify-content:space-between; color:var(--text); }
