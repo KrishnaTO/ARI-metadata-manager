@@ -68,6 +68,7 @@ function renderDetail(d){
   }
 
   html += '<div class="meta">';
+  if (d.is_grouping) html += `<span class="tag grouping-tag">&#128193; Umbrella category</span>`;
   if (d.disease_category?.length) html += `<span class="tag">${esc(d.disease_category[0])}</span>`;
   if (d.evidence_quality?.length) html += `<span class="tag">Evidence: ${esc(d.evidence_quality[0])}</span>`;
   if (d.version?.length) html += `<span class="tag">v${esc(d.version[0])}</span>`;
@@ -137,9 +138,15 @@ function renderDetail(d){
   for (const b of boxDefs(d)) boxByKey[b.key] = b;
   const boxNote = b => b.count > 0 ? b.count + ' items' : (state.editMode && state.schema[b.key] ? '+ add' : (b.note || ''));
   const boxHtml = b => `<div class="box" data-box="${b.key}"><div class="icon">${b.icon}</div><div class="label">${esc(b.label)}</div><div class="count">${boxNote(b)}</div></div>`;
-  html += `<div class="section-label">Disease story</div><div class="story">`;
+  // Grouping/umbrella categories carry no disease-specific clinical metadata, so the
+  // narrative story is suppressed — only the record-keeping boxes apply.
+  if (d.is_grouping){
+    html += `<div class="grouping-note">&#128193; <strong>Grouping / umbrella category.</strong> Clinical disease metadata (symptoms, antibodies, genetics, treatments, …) isn't tracked here — the defining details for a grouping are its definition, database cross-references, clinical subtypes and member diseases above.</div>`;
+  }
+  html += `<div class="section-label">${d.is_grouping ? 'Record' : 'Disease story'}</div><div class="story">`;
   for (const grp of STORY_GROUPS){
-    const keys = grp.keys.filter(k => { const b = boxByKey[k]; return b && (b.show || (state.editMode && state.schema[k])); });
+    let keys = grp.keys.filter(k => { const b = boxByKey[k]; return b && (b.show || (state.editMode && state.schema[k])); });
+    if (d.is_grouping) keys = keys.filter(k => GROUPING_STORY_KEYS.includes(k));
     if (!keys.length) continue;
     html += `<div class="story-step"><div class="story-head"><span class="story-num${grp.num ? '' : ' muted'}">${grp.num ?? '•'}</span>`+
       `<span class="story-title">${esc(grp.title)}</span><span class="story-hint">${esc(grp.hint)}</span></div>`;

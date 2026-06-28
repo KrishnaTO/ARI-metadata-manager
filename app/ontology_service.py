@@ -92,6 +92,12 @@ class OntologyService:
         vals = self._get_annotation(e, self.base + "ARI_Obsolete")
         return bool(vals) and str(vals[0]).lower() == "true"
 
+    def _is_grouping(self, e) -> bool:
+        """A grouping / umbrella category collects related diseases and carries no
+        disease-specific clinical metadata of its own."""
+        vals = self._get_annotation(e, self.base + "ARI_IsGrouping")
+        return bool(vals) and str(vals[0]).lower() == "true"
+
     def _ref(self, e) -> dict:
         return {
             "iri": e.iri,
@@ -234,6 +240,7 @@ class OntologyService:
             "ari_id": self._get_annotation(e, base + "ARI_ID"),
             "definition": self._get_comment(e),
             "obsolete": self._is_obsolete(e),
+            "is_grouping": self._is_grouping(e),
             "synonyms": self._get_annotation(e, base + "ARI_Synonym"),
             "snomed": _split_csv(self._get_annotation(e, base + "ARI_SNOMED")),
             "doid": _split_csv(self._get_annotation(e, base + "ARI_DOID")),
@@ -512,6 +519,7 @@ class OntologyService:
         "pubmed":            ("ann", "ARI_Pubmed", str),
         "prevalence_desc":   ("ann", "ARI_PrevalenceDesc", str),
         "obsolete":          ("ann", "ARI_Obsolete", str),
+        "is_grouping":       ("ann", "ARI_IsGrouping", str),
         "evidence_quality":  ("data", "evidenceQuality", str),
         "disease_category":  ("data", "diseaseCategory", str),
         "incidence_rate":    ("data", "incidenceRate", str),
@@ -643,9 +651,8 @@ class OntologyService:
             elif kind == "multi_ann":
                 _multi(suffix, raw)
             elif kind == "ann":
-                prop = self.world[base + suffix]
-                if prop:
-                    prop[new_d] = [str(raw)] if str(raw).strip() else []
+                prop = self._ensure_annotation_property(suffix)
+                prop[new_d] = [str(raw)] if str(raw).strip() else []
             elif kind == "data":
                 prop = self.world[base + suffix]
                 if prop:

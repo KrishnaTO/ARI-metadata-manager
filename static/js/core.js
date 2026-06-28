@@ -89,6 +89,10 @@ const STORY_GROUPS = [
     keys:['changelog','feedback'] },
 ];
 
+// Story boxes that still apply to a grouping / umbrella category (everything else
+// — the disease-specific clinical metadata — is suppressed for groupings).
+const GROUPING_STORY_KEYS = ['changelog', 'feedback'];
+
 // Aspect category + concept description for each box, derived from the
 // Immunological Data Model (v3). Boxes are grouped by `aspect` within a story
 // step; `desc` is shown as the box subtitle.
