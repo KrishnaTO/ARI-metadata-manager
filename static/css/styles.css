@@ -11,7 +11,7 @@
   /* Global UI scale — bumps every page's text (and layout) up uniformly so the
      interface reads larger. Height is compensated by this factor (below) so the
      full-height flex layout still fits the viewport without an outer scrollbar. */
-  --ui-zoom: 1.1;
+  --ui-zoom: 1.25;
 
   /* type families (loaded in index.html) */
   --font-sans:  "Source Sans 3", "Segoe UI", system-ui, -apple-system, sans-serif;
