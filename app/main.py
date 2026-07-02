@@ -471,7 +471,20 @@ async def publish(request: Request, payload: dict = Body(default={})):
     disease = payload.get("disease") or "ontology"
     message = payload.get("message") or f"Update {disease}"
     comment = (payload.get("comment") or "").strip()
-    svc = service_for(request)
+
+    # Confirmed (positive) + flagged (negative) cross-references from a
+    # reference-review session (also written to the mapping files further below).
+    confirmed = payload.get("confirmed") or []
+    flagged = payload.get("flagged") or []
+    author = payload.get("author") or f"github:{u['identity']['login']}"
+
+    # Record the review in each affected disease's changelog before snapshotting
+    # the ontology for the commit. A write copy is used so the entries land in
+    # this user's working ontology, mirroring how field edits are handled.
+    svc = service_for(request, write=True) if (confirmed or flagged) else service_for(request)
+    if confirmed or flagged:
+        svc.log_xref_review(confirmed, flagged, editor=u["identity"]["login"])
+        _mark_dirty(request)
     content = svc.path.read_bytes()
 
     # Diff current vs the source branch to summarise previous -> new values.
@@ -491,11 +504,8 @@ async def publish(request: Request, payload: dict = Body(default={})):
             try: _os.unlink(tmp_path)
             except Exception: pass
 
-    # Confirmed (positive) + flagged (negative) cross-references ->
-    # SSSOM + equivalencies mapping files (accumulated).
-    confirmed = payload.get("confirmed") or []
-    flagged = payload.get("flagged") or []
-    author = payload.get("author") or f"github:{u['identity']['login']}"
+    # Confirmed / flagged cross-references also accumulate into the
+    # SSSOM + equivalencies mapping files.
     reuse_branch = payload.get("branch") or None
     labels = payload.get("labels") or ["edit term"]
     extra_files = {}
