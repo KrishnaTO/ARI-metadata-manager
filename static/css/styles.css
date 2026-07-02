@@ -8,6 +8,11 @@
    ============================================================ */
 
 :root {
+  /* Global UI scale — bumps every page's text (and layout) up uniformly so the
+     interface reads larger. Height is compensated by this factor (below) so the
+     full-height flex layout still fits the viewport without an outer scrollbar. */
+  --ui-zoom: 1.1;
+
   /* type families (loaded in index.html) */
   --font-sans:  "Source Sans 3", "Segoe UI", system-ui, -apple-system, sans-serif;
   --font-serif: "Source Serif 4", Georgia, "Times New Roman", serif;
@@ -47,7 +52,7 @@
   --cat-antibody: #4ade80; --cat-tissuedamage: #f87171; --cat-outcome: #94a3b8;
 }
 * { box-sizing: border-box; }
-body { margin: 0; font: 14px/1.5 var(--font-sans); color: var(--text); background: var(--bg); display: flex; flex-direction: column; height: 100vh; -webkit-font-smoothing: antialiased; }
+body { margin: 0; font: 14px/1.5 var(--font-sans); color: var(--text); background: var(--bg); display: flex; flex-direction: column; zoom: var(--ui-zoom); height: calc(100vh / var(--ui-zoom)); -webkit-font-smoothing: antialiased; }
 button { font: inherit; cursor: pointer; border: none; background: none; }
 .hidden { display: none !important; }
 a { color: var(--accent); }

@@ -5,10 +5,12 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>ARI · Cross-reference review</title>
 <style>
-  :root { --bg:#fff; --bg2:#f8fafc; --border:#e2e8f0; --text:#0f172a; --muted:#64748b; --accent:#2563eb; --accent-soft:#eff6ff; --ok:#059669; --bad:#dc2626; }
+  :root { --ui-zoom:1.1; --bg:#fff; --bg2:#f8fafc; --border:#e2e8f0; --text:#0f172a; --muted:#64748b; --accent:#2563eb; --accent-soft:#eff6ff; --ok:#059669; --bad:#dc2626; }
   html[data-theme="dark"] { --bg:#0f172a; --bg2:#1e293b; --border:#334155; --text:#e2e8f0; --muted:#94a3b8; --accent:#60a5fa; --accent-soft:#1e293b; --ok:#34d399; --bad:#f87171; }
   * { box-sizing: border-box; }
-  body { margin:0; font:14px/1.5 system-ui,-apple-system,sans-serif; color:var(--text); background:var(--bg); height:100vh; display:flex; flex-direction:column; }
+  /* Global UI scale — enlarge all text uniformly; height compensated so the
+     full-height flex layout still fits the viewport (see main styles.css). */
+  body { margin:0; font:14px/1.5 system-ui,-apple-system,sans-serif; color:var(--text); background:var(--bg); zoom:var(--ui-zoom); height:calc(100vh / var(--ui-zoom)); display:flex; flex-direction:column; }
   header { display:flex; align-items:center; gap:12px; padding:10px 16px; border-bottom:1px solid var(--border); flex-shrink:0; flex-wrap:wrap; }
   header h1 { font-size:16px; margin:0; }
   header .brand span { color:var(--accent); }
