@@ -96,6 +96,28 @@ function fieldArea(id, label, value){
   return `<div class="field"><label>${label}</label><textarea id="${id}">${esc(value)}</textarea></div>`;
 }
 
+// Read-only database cross-references block for the disease-field editor. These
+// are curated on the reference-review page (ref-edits/), so here we just display
+// the current values as linkouts and offer a button to open that page in a new tab.
+function xrefReadonlyHTML(d){
+  const kinds = [
+    ['icd10','ICD-10'], ['snomed','SNOMED'], ['doid','DOID'], ['umls','UMLS'],
+    ['mondo','MONDO'], ['mesh','MeSH'], ['nci','NCI'], ['omop','OMOP'],
+  ];
+  let chips = '';
+  for (const [kind, lbl] of kinds){
+    for (const v of (d[kind] || [])){
+      chips += `<a class="xref" href="${esc(xrefLink(kind, v))}" target="_blank" rel="noopener"><b>${lbl}</b> <code>${esc(v)}</code> &#8599;</a>`;
+    }
+  }
+  const body = chips
+    ? `<div class="xref-row">${chips}</div>`
+    : `<div style="font-size:12px;color:var(--muted);margin-bottom:6px">No cross-references recorded yet.</div>`;
+  return `<div class="field"><label>Database cross-references <span style="font-weight:400;text-transform:none;font-size:11px;color:var(--muted)">(curated on the reference-review page)</span></label>` +
+    body +
+    `<a class="hbtn" href="ref-edits/" target="_blank" rel="noopener" style="font-size:12px">&#128279; Edit cross-references in review page &#8599;</a></div>`;
+}
+
 // Disease-level field editor (opens in the right panel, like the item editors)
 async function openDiseaseFieldEditor(d){
   const diseases = await _ndDiseases();
@@ -114,18 +136,13 @@ async function openDiseaseFieldEditor(d){
   html += '<div class="field-grid">';
   html += fieldText('f_disease_category', 'Category', first(d.disease_category));
   html += fieldText('f_evidence_quality', 'Evidence quality', first(d.evidence_quality));
-  html += fieldText('f_icd10', 'ICD-10 (comma separated)', (d.icd10||[]).join(', '));
-  html += fieldText('f_snomed', 'SNOMED (comma separated)', (d.snomed||[]).join(', '));
-  html += fieldText('f_omop', 'OMOP (comma separated)', (d.omop||[]).join(', '));
-  html += fieldText('f_doid', 'DOID (comma separated)', (d.doid||[]).join(', '));
-  html += fieldText('f_umls', 'UMLS (comma separated)', (d.umls||[]).join(', '));
-  html += fieldText('f_mondo', 'MONDO (comma separated)', (d.mondo||[]).join(', '));
-  html += fieldText('f_mesh', 'MeSH (comma separated)', (d.mesh||[]).join(', '));
-  html += fieldText('f_nci', 'NCI (comma separated)', (d.nci||[]).join(', '));
   html += fieldText('f_prevalence_per_100k', 'Prevalence /100k', first(d.prevalence_per_100k));
   html += fieldText('f_prevalence_value', 'Estimated cases', first(d.prevalence_value));
   html += fieldText('f_incidence_rate', 'Incidence rate', first(d.incidence_rate));
   html += '</div>';
+  // Database cross-references are curated on the dedicated reference-review page,
+  // so they are shown here read-only with a link out rather than edited inline.
+  html += xrefReadonlyHTML(d);
   html += fieldText('f_demographic_bias', 'Demographic bias', first(d.demographic_bias));
   html += fieldText('f_age_range', 'Age range', first(d.age_range));
   html += fieldArea('f_prevalence_desc', 'Prevalence description', first(d.prevalence_desc));
@@ -156,9 +173,10 @@ async function saveEdits(){
     name: v('f_name'), definition: v('f_definition'),
     synonyms: v('f_synonyms'), clinical_subtypes: _collectSubtypes('f_sub_list'),
     disease_category: v('f_disease_category'),
-    evidence_quality: v('f_evidence_quality'), icd10: v('f_icd10'), snomed: v('f_snomed'),
-    doid: v('f_doid'), umls: v('f_umls'), mondo: v('f_mondo'),
-    omop: v('f_omop'), mesh: v('f_mesh'), nci: v('f_nci'),
+    evidence_quality: v('f_evidence_quality'),
+    // Database cross-references (icd10/snomed/doid/… ) are intentionally omitted:
+    // they are curated on the reference-review page, not this form. Sending them
+    // here would clear the stored values, since the inputs no longer exist.
     prevalence_per_100k: v('f_prevalence_per_100k'), prevalence_value: v('f_prevalence_value'),
     incidence_rate: v('f_incidence_rate'), demographic_bias: v('f_demographic_bias'),
     age_range: v('f_age_range'), prevalence_desc: v('f_prevalence_desc'),
