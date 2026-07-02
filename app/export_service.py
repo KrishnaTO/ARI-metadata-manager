@@ -74,9 +74,12 @@ def disease_to_row(d: dict) -> dict:
         "Code Status": "" if has_code else "No code",
         "Definition": _s(d.get("definition")),
         "Definition Source(s)": _s(d.get("def_source")),
-        "Tissue Region": _s(d.get("category")),
-        "Evidence Level": _s(d.get("evidence")),
-        "Autoimmune Modifier": _s(d.get("autoimmune")),
+        # These map back to the same fields import_reports.py reads them from:
+        # Tissue Region -> targetsTissue, Evidence Level -> evidenceQuality,
+        # Autoimmune Modifier -> diseaseCategory.
+        "Tissue Region": _s(d.get("tissue_targets")),
+        "Evidence Level": _s(d.get("evidence_quality")),
+        "Autoimmune Modifier": _s(d.get("disease_category")),
         "Version": _s(d.get("version")),
     }
 
