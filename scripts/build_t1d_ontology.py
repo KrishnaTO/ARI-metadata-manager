@@ -43,6 +43,7 @@ def build_ontology(output_path: str):
         class ARI_ORPHANET(AnnotationProperty):       namespace = onto
         class ARI_OMIM(AnnotationProperty):           namespace = onto
         class ARI_Obsolete(AnnotationProperty):       namespace = onto
+        class ARI_IsGrouping(AnnotationProperty):     namespace = onto
 
         # ============================================================
         # DATA PROPERTIES

@@ -78,6 +78,7 @@ function openDiseaseFieldEditor(d){
   html += `<div class="field"><label>Definition sources <span style="font-weight:400;text-transform:none;font-size:11px;color:var(--muted)">(URL required for each; label optional)</span></label>` +
     `<div id="f_defsrc_list">${_dsCites.map(c => defSrcRowHtml(c.text, c.url)).join('')}</div>` +
     `<button type="button" class="hbtn" id="f_defsrc_add" style="font-size:11px;margin-top:3px">&#xFF0B; Add source</button></div>`;
+  html += `<div class="field field-row"><input type="checkbox" id="f_is_grouping" ${d.is_grouping?'checked':''}><label style="margin:0">Grouping / umbrella category <span style="font-weight:400;text-transform:none;font-size:11px;color:var(--muted)">(collects related diseases; no disease-specific clinical metadata)</span></label></div>`;
   html += `<div class="field field-row"><input type="checkbox" id="f_obsolete" ${d.obsolete?'checked':''}><label style="margin:0">Mark as obsolete</label></div>`;
   html += `<div class="field"><label>Editor name</label><input id="f_editor" value="${esc(state.editor)}"></div>`;
   html += `<div class="edit-actions"><button class="hbtn primary" id="save-btn">💾 Save changes</button>
@@ -102,6 +103,7 @@ async function saveEdits(){
     age_range: v('f_age_range'), prevalence_desc: v('f_prevalence_desc'),
     def_source: _collectDefSrcs('f_defsrc_list'),
     obsolete: $('#f_obsolete').checked ? 'true' : 'false',
+    is_grouping: $('#f_is_grouping').checked ? 'true' : 'false',
   };
   state.editor = v('f_editor') || 'curator';
   try {
