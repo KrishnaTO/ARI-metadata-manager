@@ -21,6 +21,64 @@ function _collectDefSrcs(listId) {
   return srcs;
 }
 
+// ----------------------------------------------------------------- CLINICAL SUBTYPE ROW HELPER
+// Each clinical subtype is stored as "Name - description" with an optional
+// " | <disease-iri>" suffix that links it to an existing disease in the list.
+// The link is optional — a row with no disease selected stays an unlinked subtype.
+function subtypeRowHtml(diseases, currentIri, name = '', description = '', linkIri = '') {
+  const opts = ['<option value="">— no link —</option>'].concat(
+    (diseases || []).filter(x => x.iri !== currentIri).map(x =>
+      `<option value="${esc(x.iri)}" ${x.iri === linkIri ? 'selected' : ''}>${esc(x.name)}</option>`)
+  ).join('');
+  return `<div class="subtype-row">` +
+    `<input class="f_sub_name" type="text" placeholder="Subtype name" value="${esc(name)}">` +
+    `<input class="f_sub_desc" type="text" placeholder="Description (optional)" value="${esc(description)}">` +
+    `<select class="f_sub_link" title="Link to an existing disease (optional)">${opts}</select>` +
+    `<button type="button" class="hbtn subtype-rm-btn" onclick="this.closest('.subtype-row').remove()" title="Remove">&#x2715;</button>` +
+    `</div>`;
+}
+// Build the full subtype list editor (rows + "add" button) for container `listId`.
+function subtypeListHtml(listId, diseases, currentIri, parsed) {
+  const rows = (parsed && parsed.length ? parsed : [{ name: '', description: '', link_iri: '' }])
+    .map(s => subtypeRowHtml(diseases, currentIri, s.name || '', s.description || '', s.link_iri || '')).join('');
+  return `<div id="${listId}">${rows}</div>` +
+    `<button type="button" class="hbtn subtype-add-btn" data-sub-list="${listId}" style="font-size:11px;margin-top:3px">&#xFF0B; Add subtype</button>`;
+}
+// Wire the "Add subtype" button inside `rootEl` to append a fresh row.
+function wireSubtypeAdd(rootEl, diseases, currentIri) {
+  const btn = rootEl?.querySelector('.subtype-add-btn');
+  if (!btn) return;
+  btn.addEventListener('click', () => {
+    const list = document.getElementById(btn.dataset.subList);
+    if (list) list.insertAdjacentHTML('beforeend', subtypeRowHtml(diseases, currentIri));
+  });
+}
+// Collect the subtype rows in `listId` into stored annotation strings.
+function _collectSubtypes(listId) {
+  const out = [];
+  document.querySelectorAll(`#${listId} .subtype-row`).forEach(row => {
+    const name = (row.querySelector('.f_sub_name')?.value || '').trim();
+    const desc = (row.querySelector('.f_sub_desc')?.value || '').trim();
+    const link = (row.querySelector('.f_sub_link')?.value || '').trim();
+    if (!name) return;
+    let s = desc ? `${name} - ${desc}` : name;
+    if (link) s += ` | ${link}`;
+    out.push(s);
+  });
+  return out;
+}
+// Parse a legacy comma-separated "Name - description" prefill into subtype objects.
+function _parseSubtypePrefill(raw) {
+  if (!raw) return [];
+  const arr = Array.isArray(raw) ? raw : String(raw).split(',');
+  return arr.map(s => {
+    const t = String(s).trim();
+    if (!t) return null;
+    const [n, ...r] = t.split(' - ');
+    return { name: n.trim(), description: r.join(' - ').trim(), link_iri: '' };
+  }).filter(Boolean);
+}
+
 // ----------------------------------------------------------------- EDIT MODE
 $('#edit-toggle').addEventListener('click', () => {
   if (!state.detail) return;
@@ -39,7 +97,8 @@ function fieldArea(id, label, value){
 }
 
 // Disease-level field editor (opens in the right panel, like the item editors)
-function openDiseaseFieldEditor(d){
+async function openDiseaseFieldEditor(d){
+  const diseases = await _ndDiseases();
   state.activeBox = '__fields__';
   $('#layout').classList.add('split');
   $('#right-col').classList.add('open');
@@ -50,7 +109,8 @@ function openDiseaseFieldEditor(d){
   html += fieldText('f_name', 'Label', d.name);
   html += fieldArea('f_definition', 'Definition (markdown)', d.definition);
   html += fieldArea('f_synonyms', 'Synonyms (comma separated)', (d.synonyms||[]).join(', '));
-  html += fieldArea('f_clinical_subtypes', 'Clinical subtypes (comma separated)', (d.clinical_subtypes||[]).join(', '));
+  html += `<div class="field"><label>Clinical subtypes <span style="font-weight:400;text-transform:none;font-size:11px;color:var(--muted)">(each optionally links to an existing disease)</span></label>` +
+    subtypeListHtml('f_sub_list', diseases, d.iri, d.clinical_subtypes_parsed) + `</div>`;
   html += '<div class="field-grid">';
   html += fieldText('f_disease_category', 'Category', first(d.disease_category));
   html += fieldText('f_evidence_quality', 'Evidence quality', first(d.evidence_quality));
@@ -87,13 +147,14 @@ function openDiseaseFieldEditor(d){
   $('#save-btn').addEventListener('click', saveEdits);
   $('#f_defsrc_add')?.addEventListener('click', () =>
     $('#f_defsrc_list').insertAdjacentHTML('beforeend', defSrcRowHtml('', '')));
+  wireSubtypeAdd($('#right-panel-content'), diseases, d.iri);
 }
 
 async function saveEdits(){
   const v = id => $('#'+id)?.value ?? '';
   const changes = {
     name: v('f_name'), definition: v('f_definition'),
-    synonyms: v('f_synonyms'), clinical_subtypes: v('f_clinical_subtypes'),
+    synonyms: v('f_synonyms'), clinical_subtypes: _collectSubtypes('f_sub_list'),
     disease_category: v('f_disease_category'),
     evidence_quality: v('f_evidence_quality'), icd10: v('f_icd10'), snomed: v('f_snomed'),
     doid: v('f_doid'), umls: v('f_umls'), mondo: v('f_mondo'),
@@ -293,8 +354,8 @@ async function openNewDiseaseModal(prefill = {}) {
       <div class="field"><label>Evidence Quality</label>
         <input id="nd_evidence_quality" value="${preFill('evidence_quality')}" placeholder="e.g. High"></div>
     </div>
-    <div class="field"><label>Clinical Subtypes (comma-separated, format: Name - description)</label>
-      <input id="nd_clinical_subtypes" value="${preFill('clinical_subtypes')}" placeholder="Subtype 1 - description, Subtype 2"></div>
+    <div class="field"><label>Clinical Subtypes <span style="font-weight:400;text-transform:none;font-size:11px;color:var(--muted)">(each optionally links to an existing disease)</span></label>
+      ${subtypeListHtml('nd_sub_list', diseases, '', _parseSubtypePrefill(prefill.clinical_subtypes))}</div>
 
     <details style="margin-top:14px">
       <summary class="nd-section-label" style="cursor:pointer;user-select:none;list-style:none">&#x25B8; Additional fields (optional)</summary>
@@ -334,6 +395,7 @@ async function openNewDiseaseModal(prefill = {}) {
   $('#nd-overlay').addEventListener('click', e => { if (e.target.id === 'nd-overlay') close(); });
   $('#nd_defsrc_add')?.addEventListener('click', () =>
     $('#nd_defsrc_list').insertAdjacentHTML('beforeend', defSrcRowHtml('', '')));
+  wireSubtypeAdd($('#nd-overlay'), diseases, '');
   $('#nd-save').addEventListener('click', saveNewDisease);
 }
 
@@ -358,7 +420,7 @@ async function saveNewDisease() {
     synonyms:          v('#nd_synonyms'),
     disease_category:  v('#nd_disease_category'),
     evidence_quality:  v('#nd_evidence_quality'),
-    clinical_subtypes: v('#nd_clinical_subtypes'),
+    clinical_subtypes: _collectSubtypes('nd_sub_list'),
     icd10: v('#nd_icd10'), snomed: v('#nd_snomed'), doid: v('#nd_doid'),
     umls: v('#nd_umls'), mondo: v('#nd_mondo'), mesh: v('#nd_mesh'),
     nci: v('#nd_nci'), omop: v('#nd_omop'),

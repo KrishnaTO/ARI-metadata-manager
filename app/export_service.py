@@ -37,6 +37,25 @@ def _s(v):
     return str(v)
 
 
+def _subtypes(d: dict) -> str:
+    """Human-readable subtypes cell: ``Name - description`` with ``→ Linked
+    disease`` appended when the subtype links to an existing disease. Falls back
+    to the raw annotation strings if the parsed form is unavailable."""
+    parsed = d.get("clinical_subtypes_parsed")
+    if not parsed:
+        return _s(d.get("clinical_subtypes"))
+    parts = []
+    for s in parsed:
+        t = s.get("name") or ""
+        if s.get("description"):
+            t += f" - {s['description']}"
+        if s.get("link_name"):
+            t += f" → {s['link_name']}"
+        if t:
+            parts.append(t)
+    return "; ".join(parts)
+
+
 def disease_to_row(d: dict) -> dict:
     snomed = _s(d.get("snomed"))
     omop = _s(d.get("omop"))
@@ -47,7 +66,7 @@ def disease_to_row(d: dict) -> dict:
         "IRI": _s(d.get("iri")),
         "Preferred Name": _s(d.get("name")),
         "Synonyms": _s(d.get("synonyms")),
-        "Subtypes": _s(d.get("clinical_subtypes")),
+        "Subtypes": _subtypes(d),
         "SNOMED Code(s)": snomed,
         "Obsolete SNOMED": snomed if d.get("obsolete") else "",
         "OMOP ConceptID": omop,

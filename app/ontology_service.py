@@ -98,6 +98,36 @@ class OntologyService:
         vals = self._get_annotation(e, self.base + "ARI_IsGrouping")
         return bool(vals) and str(vals[0]).lower() == "true"
 
+    def _parse_subtype(self, raw: str) -> dict:
+        """Parse one clinical-subtype annotation into its display parts.
+
+        Stored form is ``"Name - description"`` with an optional ``" | <iri>"``
+        suffix that links the subtype to an existing disease individual. The link
+        is optional, so entries without it stay plain (unlinked) subtypes. When a
+        link is present its target label is resolved for display; a link pointing
+        at a missing entity is flagged as broken."""
+        s = str(raw)
+        link_iri = ""
+        if " | " in s:
+            head, tail = s.rsplit(" | ", 1)
+            tail = tail.strip()
+            if tail.startswith("http"):
+                s, link_iri = head, tail
+        name, _, desc = s.partition(" - ")
+        out = {
+            "name": name.strip(),
+            "description": desc.strip(),
+            "link_iri": link_iri,
+            "link_name": "",
+            "link_obsolete": False,
+        }
+        if link_iri:
+            target = self.world[link_iri]
+            if target is not None:
+                out["link_name"] = self._get_label(target)
+                out["link_obsolete"] = self._is_obsolete(target)
+        return out
+
     def _ref(self, e) -> dict:
         return {
             "iri": e.iri,
@@ -259,6 +289,10 @@ class OntologyService:
             "def_source": self._get_annotation(e, base + "ARI_DefSource"),
             "ref_links": self._get_annotation(e, base + "ARI_RefLink"),
             "clinical_subtypes": self._get_annotation(e, base + "ARI_ClinicalSubtype"),
+            "clinical_subtypes_parsed": [
+                self._parse_subtype(s)
+                for s in self._get_annotation(e, base + "ARI_ClinicalSubtype")
+            ],
             "authors": self._get_annotation(e, base + "ARI_Author"),
             "author_date": self._get_annotation(e, base + "ARI_AuthorDate"),
             "survey_code": self._get_annotation(e, base + "ARI_SurveyCode"),

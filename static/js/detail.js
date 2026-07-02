@@ -98,16 +98,23 @@ function renderDetail(d){
     html += `<div class="section-label">Target tissue</div><div style="font-size:12px;margin-bottom:4px">${d.tissue_targets.map(t => `<span class="tissue-chip">${esc(t.name)}</span>`).join('')}</div>`;
   }
 
-  // Clinical subtypes / variants (from the report Subtypes sheet): "name - description"
-  if (d.clinical_subtypes?.length){
+  // Clinical subtypes / variants (from the report Subtypes sheet): "name - description".
+  // Each subtype may optionally link to an existing disease ("→ disease"); unlinked
+  // subtypes stay plain text and can be promoted into a new child disease.
+  const subs = d.clinical_subtypes_parsed || [];
+  if (subs.length){
     html += `<div class="section-label">Clinical subtypes</div><ul class="subtype-list">`;
-    for (const sub of d.clinical_subtypes){
-      const [name, ...rest] = String(sub).split(' - ');
-      const desc = rest.join(' - ');
-      const btn = state.editMode
-        ? ` <button class="hbtn subtype-new-btn" data-subtype-name="${esc(name)}" title="Create this subtype as a new disease (child of this disease)">&#xFF0B; New disease</button>`
+    for (const sub of subs){
+      let linkHtml = '';
+      if (sub.link_iri && sub.link_name){
+        linkHtml = ` &rarr; <a href="#" class="parent-link subtype-link" data-iri="${esc(sub.link_iri)}">${esc(sub.link_name)}${sub.link_obsolete ? ' (obsolete)' : ''}</a>`;
+      } else if (sub.link_iri){
+        linkHtml = ` <span class="subtype-broken" title="Linked disease not found in this ontology">&#9888;&#65039; broken link</span>`;
+      }
+      const btn = (state.editMode && !sub.link_iri)
+        ? ` <button class="hbtn subtype-new-btn" data-subtype-name="${esc(sub.name)}" title="Create this subtype as a new disease (child of this disease)">&#xFF0B; New disease</button>`
         : '';
-      html += `<li><strong>${esc(name)}</strong>${desc ? ' &mdash; ' + esc(desc) : ''}${btn}</li>`;
+      html += `<li><strong>${esc(sub.name)}</strong>${sub.description ? ' &mdash; ' + esc(sub.description) : ''}${linkHtml}${btn}</li>`;
     }
     html += `</ul>`;
   }
