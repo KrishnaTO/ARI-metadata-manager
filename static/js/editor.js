@@ -339,7 +339,7 @@ async function openNewDiseaseModal(prefill = {}) {
   const html = `<div class="modal-overlay" id="nd-overlay"><div class="modal nd-modal">
     <div class="modal-head"><h2>&#xFF0B; New Disease</h2><button class="hbtn" id="nd-close">&#x2715;</button></div>
     <div class="modal-body">
-    <p class="nd-note">Fields marked <span class="nd-req">&#x2a;</span> are required. A provisional IRI (<code>ARI_new_…</code>) is assigned; curators set the final ARI ID after review.</p>
+    <p class="nd-note">Fields marked <span class="nd-req">&#x2a;</span> are required. The next sequential ARI ID (<code>ARI_00…</code>) is assigned automatically; a curator can still change it during review.</p>
 
     <div class="nd-section-label">Required</div>
     <div class="field"><label>Label <span class="nd-req">&#x2a;</span></label>
