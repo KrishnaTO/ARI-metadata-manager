@@ -29,6 +29,9 @@ $('#edit-toggle').addEventListener('click', () => {
   $('#edit-toggle').innerHTML = state.editMode ? '✓ Done' : '✎ Edit';
   closeRightPanel();
   renderDetail(state.detail);
+  // Entering edit mode jumps straight to the disease-field editor so curators
+  // don't have to hunt for the "Edit disease fields" button first.
+  if (state.editMode) openDiseaseFieldEditor(state.detail);
 });
 
 function fieldText(id, label, value){
