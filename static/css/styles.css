@@ -254,6 +254,15 @@ body.resizing-cols { cursor: col-resize; user-select: none; }
 .field input, .field textarea { width: 100%; padding: 8px 11px; border: 1px solid var(--border-strong); border-radius: 8px; font: inherit; font-size: 13px; outline: none; background: var(--bg); color: var(--text); transition: border-color .12s, box-shadow .12s; }
 .field input:focus, .field textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 28%, transparent); }
 .field textarea { resize: vertical; min-height: 54px; }
+/* Tag-chip editor (e.g. synonyms) — issue #27 */
+.tag-editor { display: flex; flex-wrap: wrap; gap: 5px; align-items: center; width: 100%; padding: 5px 6px; min-height: 38px;
+  border: 1px solid var(--border-strong); border-radius: 8px; background: var(--bg); cursor: text; transition: border-color .12s, box-shadow .12s; }
+.tag-editor:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 28%, transparent); }
+.tag-chip { display: inline-flex; align-items: center; gap: 5px; background: var(--accent-soft); color: var(--accent-strong);
+  border: 1px solid var(--accent-border); padding: 2px 4px 2px 9px; border-radius: 999px; font-size: 12px; line-height: 1.5; }
+.tag-chip-x { border: none; background: transparent; color: inherit; cursor: pointer; font-size: 14px; line-height: 1; padding: 0 3px; border-radius: 50%; opacity: .7; }
+.tag-chip-x:hover { opacity: 1; background: color-mix(in srgb, var(--accent) 22%, transparent); }
+.tag-input { flex: 1; min-width: 120px; border: none !important; outline: none; padding: 4px 4px !important; font: inherit; font-size: 13px; background: transparent !important; box-shadow: none !important; color: var(--text); }
 .field-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 12px; }
 .field-row { display: flex; align-items: center; gap: 8px; }
 .field-row input[type=checkbox] { width: auto; accent-color: var(--accent); }
