@@ -73,7 +73,17 @@ function renderDetail(d){
 
   html += '<div class="meta">';
   if (d.is_grouping) html += `<span class="tag grouping-tag">&#128193; Umbrella category</span>`;
-  if (d.disease_category?.length) html += `<span class="tag">${esc(d.disease_category[0])}</span>`;
+  // Confirmed autoimmune diseases are flagged with a distinctive highlighted
+  // badge so they stand out on the disease page (issue #21). The signal is the
+  // disease-category "Autoimmune" set on confirmed entries.
+  if (d.disease_category?.length){
+    const isAutoimmune = d.disease_category.some(c => String(c).toLowerCase().includes('autoimmune'));
+    if (isAutoimmune){
+      html += `<span class="tag autoimmune-tag" title="Confirmed autoimmune disease">&#10003; ${esc(d.disease_category[0])}</span>`;
+    } else {
+      html += `<span class="tag">${esc(d.disease_category[0])}</span>`;
+    }
+  }
   if (d.evidence_quality?.length) html += `<span class="tag">Evidence: ${esc(d.evidence_quality[0])}</span>`;
   if (d.version?.length) html += `<span class="tag">v${esc(d.version[0])}</span>`;
   html += '</div>';
