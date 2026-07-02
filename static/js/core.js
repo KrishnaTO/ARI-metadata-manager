@@ -156,6 +156,29 @@ function toast(msg){
   const t = document.createElement('div'); t.className = 'toast'; t.textContent = msg;
   document.body.appendChild(t); setTimeout(() => t.remove(), 2600);
 }
+
+// Copy text to the clipboard with a toast confirmation. Falls back to a hidden
+// textarea + execCommand when the async Clipboard API is unavailable (e.g. a
+// non-secure origin), so it still works when the app is served over plain HTTP.
+function copyToClipboard(text){
+  text = String(text ?? '');
+  const ok = () => toast('Copied: ' + text);
+  if (navigator.clipboard && window.isSecureContext){
+    navigator.clipboard.writeText(text).then(ok).catch(() => fallbackCopy(text, ok));
+  } else {
+    fallbackCopy(text, ok);
+  }
+}
+function fallbackCopy(text, ok){
+  try {
+    const ta = document.createElement('textarea');
+    ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+    document.body.appendChild(ta); ta.focus(); ta.select();
+    const done = document.execCommand('copy');
+    ta.remove();
+    done ? ok() : toast('Copy failed');
+  } catch (e){ toast('Copy failed'); }
+}
 function showLoading(sel){ $(sel).innerHTML = '<div class="loading">Loading...</div>'; }
 
 // Concept description (from the data model) shown under a deep-dive panel title.
