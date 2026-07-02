@@ -22,7 +22,7 @@
     { key: 'mondo',  label: 'MONDO',  link: id => `https://www.ebi.ac.uk/ols4/ontologies/mondo/classes?short_form=MONDO_${num(id)}`, search: n => `https://www.ebi.ac.uk/ols4/search?q=${enc(n)}&ontology=mondo` },
     { key: 'nci',    label: 'NCI',    link: id => `https://ncithesaurus.nci.nih.gov/ncitbrowser/ConceptReport.jsp?dictionary=NCI_Thesaurus&code=${num(id)}`, search: n => `https://www.ebi.ac.uk/ols4/search?q=${enc(n)}&ontology=ncit` },
     { key: 'icd10',  label: 'ICD-10', link: id => `https://www.icd10data.com/search?s=${enc(id)}`, search: n => `https://www.icd10data.com/search?s=${enc(n)}` },
-    { key: 'orphanet', label: 'Orphanet', noframe: true, link: id => `https://www.orpha.net/en/disease/detail/${num(id)}`, search: n => `https://www.orpha.net/en/disease/search?keyword=${enc(n)}` },
+    { key: 'orphanet', label: 'Orphanet', noframe: true, link: id => `https://www.orpha.net/en/disease/detail/${num(id)}`, search: n => `https://www.orpha.net/en/disease?keyword=${enc(n)}` },
     { key: 'omim',   label: 'OMIM', noframe: true,   link: id => `https://omim.org/entry/${num(id)}`, search: n => `https://omim.org/search/?search=${enc(n)}` },
     { key: 'umls',   label: 'UMLS', noframe: true,   link: id => `https://uts.nlm.nih.gov/uts/umls/concept/${id}`, search: n => `https://uts.nlm.nih.gov/uts/umls/searchResults?searchString=${enc(n)}` },
     { key: 'mesh',   label: 'MeSH', noframe: true,   link: id => `https://meshb.nlm.nih.gov/record/ui?ui=${num(id)}`, search: n => `https://www.ncbi.nlm.nih.gov/mesh/?term=${enc(n)}` },
