@@ -712,6 +712,43 @@ class OntologyService:
         if clog is not None:
             clog[disease_e] = list(clog[disease_e]) + [f"{ts} | {editor} | {msg}"]
 
+    def log_xref_review(self, confirmed=None, flagged=None, editor: str = "curator") -> int:
+        """Record a reference-review session in the affected diseases' changelogs.
+
+        Confirming / flagging a cross-reference on the review page only writes to
+        the SSSOM + equivalency mapping files; it does not otherwise touch the
+        ontology. This appends a per-disease changelog entry so the judgment is
+        also visible in the disease's own history. ``confirmed`` / ``flagged`` are
+        lists of ``{iri, db, ids, ...}`` (as the publish endpoint receives them).
+        Returns the number of diseases whose changelog was updated."""
+        # iri -> {"confirmed": {db: [ids]}, "flagged": {db: [ids]}}
+        groups: dict = {}
+        for verdict, items in (("confirmed", confirmed or []), ("flagged", flagged or [])):
+            for c in items:
+                iri = c.get("iri")
+                ids = [str(i) for i in (c.get("ids") or []) if str(i).strip()]
+                if not iri or not ids:
+                    continue
+                db = str(c.get("db", "")).strip()
+                groups.setdefault(iri, {}).setdefault(verdict, {}).setdefault(db, []).extend(ids)
+
+        updated = 0
+        for iri, verdicts in groups.items():
+            try:
+                e = self._entity(iri)
+            except KeyError:
+                continue
+            parts = []
+            for verdict in ("confirmed", "flagged"):
+                for db, ids in (verdicts.get(verdict) or {}).items():
+                    parts.append(f"{verdict} {(db or 'xref').upper()} {', '.join(ids)}")
+            if parts:
+                self._append_changelog(e, editor, "Cross-reference review: " + "; ".join(parts))
+                updated += 1
+        if updated:
+            self._save()
+        return updated
+
     # --------------------------------------------------------- ITEM CRUD
     def get_schema(self) -> dict:
         """Field schema for every editable disease-data category."""
