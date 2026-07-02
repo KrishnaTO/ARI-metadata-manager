@@ -88,17 +88,27 @@ footer#app-footer { flex-shrink: 0; display: flex; align-items: center; padding:
 
 /* Layout */
 .layout { display: flex; flex: 1; min-height: 0; transition: all .3s; }
-.layout.split .left-col { width: 24%; }
+.layout.split .left-col { width: var(--left-w, 24%); }
 .layout.split .mid-col { width: 26%; }
 /* Deep-teal sidebar: re-map tokens inside scope so inline var(--*) usages adapt */
-.left-col { width: 300px; min-width: 230px; border-right: 1px solid var(--border); background: #143e47; color: #fff; display: flex; flex-direction: column;
+.left-col { width: var(--left-w, 300px); min-width: 230px; border-right: 1px solid var(--border); background: #143e47; color: #fff; display: flex; flex-direction: column;
   --text: #ffffff; --muted: rgba(255,255,255,.6); --border: rgba(255,255,255,.12);
   --bg-side: rgba(255,255,255,.08); --accent: var(--lime); --accent-soft: rgba(255,255,255,.14);
   --accent-border: var(--lime); }
 .left-col .loading { color: rgba(255,255,255,.7); }
 .mid-col { flex: 1; display: flex; flex-direction: column; overflow: auto; }
 .right-col { width: 0; overflow: hidden; transition: width .25s cubic-bezier(.4,0,.2,1); border-left: 1px solid var(--border); background: var(--bg); }
-.right-col.open { width: 50%; min-width: 420px; overflow: auto; box-shadow: -8px 0 24px rgba(15,23,42,.06); }
+.right-col.open { width: var(--right-w, 50%); min-width: 360px; overflow: auto; box-shadow: -8px 0 24px rgba(15,23,42,.06); }
+
+/* Draggable column gutters (resize the list / the right panel) */
+.col-resizer { flex: 0 0 6px; align-self: stretch; cursor: col-resize; background: transparent; position: relative; z-index: 5; }
+.col-resizer::before { content: ''; position: absolute; top: 0; bottom: 0; left: 2px; width: 2px; background: var(--border); transition: background .12s; }
+.col-resizer:hover::before, .col-resizer.dragging::before { background: var(--accent); }
+#resize-right { display: none; }
+.layout.split #resize-right { display: block; }
+/* Suppress width transitions while dragging so the panel tracks the cursor 1:1 */
+.layout.resizing, .layout.resizing .left-col, .layout.resizing .right-col { transition: none !important; }
+body.resizing-cols { cursor: col-resize; user-select: none; }
 
 /* Tabs */
 .tabs { display: flex; border-bottom: 1px solid var(--border); flex-shrink: 0; padding: 4px 8px 0; gap: 4px; }
