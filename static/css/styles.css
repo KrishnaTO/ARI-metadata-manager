@@ -142,6 +142,15 @@ footer#app-footer { flex-shrink: 0; display: flex; align-items: center; padding:
 .def-src-row .f_defsrc_url:focus, .def-src-row .f_defsrc_text:focus { outline: none; border-color: var(--accent); }
 .defsrc-rm-btn { padding: 3px 8px; color: var(--muted); flex-shrink: 0; }
 .defsrc-rm-btn:hover { color: var(--danger); border-color: var(--danger); }
+
+/* Structured clinical-subtype editor rows (name + description + optional disease link) */
+.subtype-row { display: flex; gap: 5px; margin-bottom: 4px; align-items: center; }
+.subtype-row .f_sub_name { flex: 1; min-width: 0; padding: 6px 9px; border: 1px solid var(--border-strong); border-radius: 8px; font: inherit; font-size: 12px; background: var(--bg); color: var(--text); }
+.subtype-row .f_sub_desc { flex: 1.4; min-width: 0; padding: 6px 9px; border: 1px solid var(--border-strong); border-radius: 8px; font: inherit; font-size: 12px; background: var(--bg); color: var(--text); }
+.subtype-row .f_sub_link { flex: 1; min-width: 0; padding: 6px 9px; border: 1px solid var(--border-strong); border-radius: 8px; font: inherit; font-size: 12px; background: var(--bg); color: var(--text); }
+.subtype-row input:focus, .subtype-row select:focus { outline: none; border-color: var(--accent); }
+.subtype-rm-btn { padding: 3px 8px; color: var(--muted); flex-shrink: 0; }
+.subtype-rm-btn:hover { color: var(--danger); border-color: var(--danger); }
 .detail .meta { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
 .detail .meta .tag { background: var(--accent-soft); color: var(--accent); padding: 4px 10px; border-radius: 999px; font-size: 11px; font-weight: 600; }
 .detail .meta .tag code { }
@@ -165,6 +174,9 @@ footer#app-footer { flex-shrink: 0; display: flex; align-items: center; padding:
 .subtype-list li { margin: 4px 0; line-height: 1.45; }
 .subtype-new-btn { padding: 1px 7px; font-size: 10px; vertical-align: middle; color: var(--accent); border-color: var(--accent-border); }
 .subtype-new-btn:hover { background: var(--accent-soft); }
+.subtype-link { color: var(--accent); text-decoration: none; font-weight: 600; }
+.subtype-link:hover { text-decoration: underline; }
+.subtype-broken { color: var(--danger); font-size: 11px; font-weight: 600; }
 
 /* New-disease modal */
 .nd-modal { width: 640px; }
