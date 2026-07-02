@@ -693,12 +693,14 @@ class OntologyService:
                     tis_prop[new_d].append(tis)
 
         # Parent disease (object property)
+        parent_name = ""
         parent_iri = str(data.get("parent_iri", "")).strip()
         if parent_iri:
             par_prop = self.world[base + "hasParentDisease"]
             parent = self.world[parent_iri]
             if par_prop and parent is not None:
                 par_prop[new_d] = [parent]
+                parent_name = self._get_label(parent)
 
         def _multi(suffix, val):
             prop = self._ensure_annotation_property(suffix)
@@ -736,7 +738,13 @@ class OntologyService:
                         except (ValueError, TypeError):
                             pass
 
-        self._append_changelog(new_d, editor, f"Created: {lbl}")
+        # Record the origin in the changelog — including the parent disease when
+        # this was created as a subtype (e.g. from the reference-review page), so
+        # the disease's own history says where it came from (issue #24).
+        created_msg = f"Created: {lbl}"
+        if parent_name:
+            created_msg += f" (subtype of {parent_name})"
+        self._append_changelog(new_d, editor, created_msg)
         self._save()
         return self.get_disease_detail(new_d.iri)
 
