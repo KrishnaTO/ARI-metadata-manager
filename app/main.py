@@ -313,17 +313,7 @@ async def create_release(request: Request, payload: dict = Body(default={})):
 @app.get("/api/v2/xrefs")
 async def xrefs(request: Request):
     """All diseases with their database cross-references, for the reference-review page."""
-    keys = ["snomed", "omop", "doid", "umls", "mondo", "icd10", "mesh", "nci", "orphanet", "omim", "dxcode"]
-    out = []
-    svc = service_for(request)
-    for it in svc.get_diseases_list():
-        d = svc.get_disease_detail(it["iri"])
-        row = {"iri": d.get("iri"), "name": d.get("name"),
-               "ari_id": (d.get("ari_id") or [None])[0]}
-        for k in keys:
-            row[k] = d.get(k) or []
-        out.append(row)
-    return out
+    return service_for(request).get_xref_rows()
 
 
 @app.get("/api/v2/mappings")
@@ -630,19 +620,22 @@ async def export_excel(request: Request):
     baseline = None
     u = _user(request)
     if GH_ENABLED and u:
+        tmp_name = None
         try:
             data = await gh.get_file_at(u["token"], GH_OWNER, GH_REPO, GH_ONTOLOGY_PATH, STATE["source_branch"])
             tmp = tempfile.NamedTemporaryFile(suffix=".owl", delete=False)
-            tmp.write(data); tmp.close()
-            baseline = OntologyService(tmp.name)
+            tmp.write(data); tmp.close(); tmp_name = tmp.name
+            baseline = OntologyService(tmp_name)
         except Exception:
             baseline = None
         finally:
-            try:
-                if baseline is not None:
-                    _os.unlink(tmp.name)
-            except Exception:
-                pass
+            # Always remove the temp file, even if OntologyService() raised after
+            # it was created (owlready2 loads into memory, so the file isn't needed).
+            if tmp_name:
+                try:
+                    _os.unlink(tmp_name)
+                except Exception:
+                    pass
     xlsx = export_service.build_report(service_for(request), baseline)
     return StreamingResponse(
         _io.BytesIO(xlsx),

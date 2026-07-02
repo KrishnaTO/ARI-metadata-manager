@@ -182,19 +182,24 @@ class OntologyService:
             for piri in parent_of[d.iri]:
                 children_idx.setdefault(piri, []).append(d)
 
-        def node(d):
+        def node(d, seen):
+            # `seen` tracks the current ancestor path so a parent cycle (e.g. a
+            # disease listing itself as its own parent) can't recurse forever.
+            # It is path-scoped, so a disease with several parents still shows
+            # under each of them.
             kids = sorted(children_idx.get(d.iri, []), key=lambda x: self._get_label(x))
+            branch = seen | {d.iri}
             return {
                 "iri": d.iri,
                 "name": self._get_label(d),
                 "local_name": d.name,
                 "obsolete": self._is_obsolete(d),
-                "children": [node(k) for k in kids],
+                "children": [node(k, branch) for k in kids if k.iri not in branch],
             }
 
         roots = [d for d in diseases if not parent_of[d.iri]]
         roots = sorted(roots, key=lambda x: self._get_label(x))
-        return [node(d) for d in roots]
+        return [node(d, set()) for d in roots]
 
     def get_tissue_hierarchy(self) -> list:
         """Anatomical-structure (UBERON_0010000) hierarchy with diseases attached
@@ -214,15 +219,17 @@ class OntologyService:
                         classes.add(c.iri)
             dis_classes[d.iri] = classes
 
-        def walk(cls):
+        def walk(cls, seen):
             diseases_here = [
                 self._ref(d) for d in diseases if cls.iri in dis_classes[d.iri]
             ]
             diseases_here.sort(key=lambda x: x["name"])
+            branch = seen | {cls.iri}
             children = []
             for sub in sorted(cls.subclasses(), key=lambda c: c.name if hasattr(c, 'name') else ""):
-                if hasattr(sub, 'namespace') and sub.namespace == self.onto:
-                    children.append(walk(sub))
+                if (hasattr(sub, 'namespace') and sub.namespace == self.onto
+                        and sub.iri not in branch):   # guard against subclass cycles
+                    children.append(walk(sub, branch))
             ari_id = self._get_annotation(cls, base + "ARI_ID")
             return {
                 "iri": cls.iri,
@@ -233,7 +240,7 @@ class OntologyService:
                 "children": children,
             }
 
-        return [walk(root)]
+        return [walk(root, set())]
 
     def get_symptoms_index(self) -> list:
         """Flat list of all symptom individuals across diseases (symptoms context view)."""
@@ -257,6 +264,34 @@ class OntologyService:
                 "diseases": owner.get(s.iri, []),
             })
         return sorted(results, key=lambda x: x["name"])
+
+    # database key -> cross-reference annotation-property suffix (for the review grid)
+    XREF_SUFFIXES = {
+        "snomed": "ARI_SNOMED", "omop": "ARI_OMOP", "doid": "ARI_DOID",
+        "umls": "ARI_UMLS", "mondo": "ARI_MONDO", "icd10": "ARI_ICD10",
+        "mesh": "ARI_MESH", "nci": "ARI_NCI", "orphanet": "ARI_ORPHANET",
+        "omim": "ARI_OMIM", "dxcode": "ARI_DXCODE",
+    }
+
+    def get_xref_rows(self) -> list:
+        """Disease + cross-reference identifiers for the reference-review grid.
+
+        Reads only the id fields the review page needs, so it stays O(diseases)
+        rather than building the full get_disease_detail() (symptoms, pathway,
+        every immune component, and a re-scan of all diseases for subtypes) for
+        each of N diseases — which made the /api/v2/xrefs endpoint O(N^2)."""
+        base = self.base
+        rows = []
+        for ind in self._all_diseases():
+            ari = self._get_annotation(ind, base + "ARI_ID")
+            row = {"iri": ind.iri, "name": self._get_label(ind),
+                   "ari_id": ari[0] if ari else None}
+            for key, suffix in self.XREF_SUFFIXES.items():
+                row[key] = _split_csv(self._get_annotation(ind, base + suffix))
+            rows.append(row)
+        # Same ordering as get_diseases_list (sort by label) so the review grid
+        # is unchanged versus the previous per-disease-detail implementation.
+        return sorted(rows, key=lambda r: r["name"] or "")
 
     def get_disease_detail(self, iri: str) -> dict:
         """Return full detail about a disease individual and all its associations."""
@@ -462,6 +497,8 @@ class OntologyService:
         tissue_classes = set()
 
         def _collect(cls):
+            if cls in tissue_classes:      # already visited — also breaks any subclass cycle
+                return
             tissue_classes.add(cls)
             for sub in cls.subclasses(world=self.world):
                 _collect(sub)
