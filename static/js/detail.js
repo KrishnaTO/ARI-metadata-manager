@@ -4,6 +4,10 @@
 async function selectDisease(iri){
   state.activeIri = iri;
   state.editMode = false;
+  // Reset the edit toggle so it doesn't stay stuck on "Done" from the previous
+  // disease while edit options are hidden.
+  $('#edit-toggle').classList.remove('active');
+  $('#edit-toggle').innerHTML = '✎ Edit';
   closeRightPanel();
   $('#tree-pane').querySelectorAll('.selected').forEach(el => el.classList.remove('selected'));
   $('#tree-pane').querySelectorAll(`[data-iri="${CSS.escape(iri)}"]`).forEach(el => el.classList.add('selected'));
