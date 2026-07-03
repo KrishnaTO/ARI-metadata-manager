@@ -648,6 +648,12 @@ class OntologyService:
     # Width of the zero-padded numeric part of an ARI id (e.g. ARI:0001211).
     ARI_ID_WIDTH = 7
 
+    # Registry namespace that disease IRIs live under, e.g.
+    # https://diseases.autoimmuneregistry.org/disease/ARI_0001211. This is
+    # deliberately *not* the ontology's own aurint.org base namespace: curated
+    # diseases are minted under the registry namespace, and new ones must match.
+    DISEASE_NS = "https://diseases.autoimmuneregistry.org/disease/"
+
     def _next_ari_number(self) -> int:
         """Next number continuing the ARI:00NNNNN sequence.
 
@@ -685,12 +691,16 @@ class OntologyService:
 
         # Assign the next sequential ARI id (issue #28): the IRI local name and the
         # ARI_ID annotation share one number, matching the ARI:00NNNNN convention
-        # used by the curated diseases, instead of a random ARI_new_<hex> id.
+        # used by the curated diseases, instead of a random ARI_new_<hex> id. The
+        # individual is minted under the registry namespace so its IRI is
+        # https://diseases.autoimmuneregistry.org/disease/ARI_00NNNNN, matching the
+        # curated diseases, rather than the ontology's own aurint.org namespace.
         num = self._next_ari_number()
         ari_id = f"ARI:{num:0{self.ARI_ID_WIDTH}d}"
         local = f"ARI_{num:0{self.ARI_ID_WIDTH}d}"
+        disease_ns = self.onto.get_namespace(self.DISEASE_NS)
         with self.onto:
-            new_d = dis_cls(local)
+            new_d = dis_cls(local, namespace=disease_ns)
 
         label[new_d] = [lbl]
         self._ensure_annotation_property("ARI_ID")[new_d] = [ari_id]
