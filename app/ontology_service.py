@@ -1,5 +1,6 @@
 """Service layer for reading and editing the ARI T1D ontology via owlready2."""
 import json
+import re
 import shutil
 import uuid
 from datetime import datetime
@@ -653,8 +654,36 @@ class OntologyService:
 
         return self.get_disease_detail(iri)
 
+    # Width of the zero-padded numeric part of an ARI id (e.g. ARI:0001211).
+    ARI_ID_WIDTH = 7
+
+    # Registry namespace that disease IRIs live under, e.g.
+    # https://diseases.autoimmuneregistry.org/disease/ARI_0001211. This is
+    # deliberately *not* the ontology's own aurint.org base namespace: curated
+    # diseases are minted under the registry namespace, and new ones must match.
+    DISEASE_NS = "https://diseases.autoimmuneregistry.org/disease/"
+
+    def _next_ari_number(self) -> int:
+        """Next number continuing the ARI:00NNNNN sequence.
+
+        Scans both the ARI_ID annotation (e.g. ``ARI:0001211``) and the IRI local
+        name (e.g. ``ARI_0001080``) of every disease for the highest number, and
+        returns max + 1. Used so newly created diseases get a real, sequential
+        ARI id in the established format rather than a random placeholder."""
+        base = self.base
+        mx = 0
+        for d in self._all_diseases():
+            for v in self._get_annotation(d, base + "ARI_ID"):
+                m = re.search(r"(\d+)", str(v))
+                if m:
+                    mx = max(mx, int(m.group(1)))
+            m = re.match(r"ARI_0*(\d+)$", d.name or "")
+            if m:
+                mx = max(mx, int(m.group(1)))
+        return mx + 1
+
     def create_disease(self, data: dict, editor: str = "user") -> dict:
-        """Create a new AutoimmuneDisease individual with provisional IRI.
+        """Create a new AutoimmuneDisease individual with the next sequential ARI id.
 
         Required keys in data: label, definition, def_source, tissue_iris (list[str]).
         Optional: parent_iri, synonyms, authors, author_date, clinical_subtypes,
@@ -669,11 +698,21 @@ class OntologyService:
         if not lbl:
             raise ValueError("label is required")
 
-        local = f"ARI_new_{uuid.uuid4().hex[:8]}"
+        # Assign the next sequential ARI id (issue #28): the IRI local name and the
+        # ARI_ID annotation share one number, matching the ARI:00NNNNN convention
+        # used by the curated diseases, instead of a random ARI_new_<hex> id. The
+        # individual is minted under the registry namespace so its IRI is
+        # https://diseases.autoimmuneregistry.org/disease/ARI_00NNNNN, matching the
+        # curated diseases, rather than the ontology's own aurint.org namespace.
+        num = self._next_ari_number()
+        ari_id = f"ARI:{num:0{self.ARI_ID_WIDTH}d}"
+        local = f"ARI_{num:0{self.ARI_ID_WIDTH}d}"
+        disease_ns = self.onto.get_namespace(self.DISEASE_NS)
         with self.onto:
-            new_d = dis_cls(local)
+            new_d = dis_cls(local, namespace=disease_ns)
 
         label[new_d] = [lbl]
+        self._ensure_annotation_property("ARI_ID")[new_d] = [ari_id]
 
         defn = str(data.get("definition", "")).strip()
         if defn:
