@@ -27,7 +27,7 @@ function renderAlphabetical(){
       const obs = n.obsolete ? ' obsolete' : '';
       const obsTag = n.obsolete ? ' <span class="obsolete-tag">(obsolete)</span>' : '';
       let h = `<div class="node${hasKids ? ' collapsed' : ''}">`;
-      h += `<div class="node-row disease-row${sel}${obs}${autoimmuneClass(n)}" data-iri="${esc(n.iri)}">${twisty(true, !hasKids)}📘 <span>${esc(n.name)}</span>${obsTag}</div>`;
+      h += `<div class="node-row disease-row${sel}${obs}${autoimmuneClass(n)}" data-iri="${esc(n.iri)}">${twisty(true, !hasKids, hasKids)}📘 <span>${esc(n.name)}</span>${obsTag}</div>`;
       if (hasKids){ h += `<div class="children">${kids.map(node).join('')}</div>`; }
       h += `</div>`;
       return h;
