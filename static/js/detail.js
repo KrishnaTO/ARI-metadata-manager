@@ -28,7 +28,13 @@ function renderDetail(d){
   let html = `<div class="detail${obs ? ' obsolete' : ''}">
     <h1>${esc(d.name)}${obs ? ' <span class="obsolete-tag">(obsolete)</span>' : ''}</h1>
     <div class="iri">${esc(d.iri)}</div>`;
-  if (d.ari_id?.length) html += `<div class="ari-id">ARI ID: ${esc(d.ari_id[0])}</div>`;
+  if (d.ari_id?.length){
+    // Stored ARI IDs carry an "ARI:" (or "ARI_") prefix; the "ARI ID:" label
+    // already says "ARI", so show just the bare number and let it be copied.
+    const bareId = String(d.ari_id[0]).replace(/^ARI[\s:_-]*/i, '');
+    html += `<div class="ari-id">ARI ID: <span class="ari-id-val">${esc(bareId)}</span>` +
+      `<button class="copy-btn" data-copy="${esc(bareId)}" title="Copy ID ${esc(bareId)}" aria-label="Copy ID">&#128203;</button></div>`;
+  }
 
   if (state.editMode){
     html += `<div class="edit-banner">&#9998; <strong>Editing mode</strong> &mdash; edit the disease fields, or click a category below to add / edit / delete its data items.
@@ -187,6 +193,9 @@ function renderDetail(d){
 
   $('#detail-pane').querySelectorAll('.parent-link').forEach(a =>
     a.addEventListener('click', ev => { ev.preventDefault(); selectDisease(a.dataset.iri); }));
+
+  $('#detail-pane').querySelectorAll('.copy-btn').forEach(b =>
+    b.addEventListener('click', () => copyToClipboard(b.dataset.copy || '')));
 
   $('#detail-pane').querySelectorAll('.subtype-new-btn').forEach(btn =>
     btn.addEventListener('click', () =>

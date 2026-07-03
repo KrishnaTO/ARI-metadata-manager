@@ -1,8 +1,13 @@
 // Left-panel navigation: the three tree views (alphabetical / tissue / symptoms),
 // tab switching, tree-click handling, and header search.
 
-function twisty(collapsed, leaf){
-  return `<span class="twisty${leaf ? ' leaf' : ''}">${leaf ? '' : (collapsed ? '▸' : '▾')}</span>`;
+// The row toggle. When `subtype` is set (a disease that has child subtypes in the
+// alphabetical hierarchy) it gets a distinctive, accent-coloured branch marker so
+// the "this disease has subtypes" affordance stands out from plain grouping rows.
+function twisty(collapsed, leaf, subtype){
+  if (leaf) return `<span class="twisty leaf"></span>`;
+  const glyph = subtype ? (collapsed ? '▶' : '▼') : (collapsed ? '▸' : '▾');
+  return `<span class="twisty${subtype ? ' subtype' : ''}" title="${subtype ? 'Toggle subtypes' : ''}">${glyph}</span>`;
 }
 
 // Confirmed autoimmune diseases (diseaseCategory "Autoimmune") get a subtle
@@ -99,6 +104,8 @@ $('#tree-pane').addEventListener('click', e => {
   if (tw && !tw.classList.contains('leaf')){
     const nodeEl = tw.closest('.node');
     if (nodeEl) nodeEl.classList.toggle('collapsed');
+    // Keep the subtype box marker in sync with expanded/collapsed state.
+    if (tw.classList.contains('subtype')) tw.textContent = nodeEl?.classList.contains('collapsed') ? '▶' : '▼';
     e.stopPropagation();
     return;
   }
