@@ -10,6 +10,13 @@ function twisty(collapsed, leaf, subtype){
   return `<span class="twisty${subtype ? ' subtype' : ''}" title="${subtype ? 'Toggle subtypes' : ''}">${glyph}</span>`;
 }
 
+// Confirmed autoimmune diseases (diseaseCategory "Autoimmune") get a subtle
+// bold + colour shift on their row so they stand out from unconfirmed entries
+// in the hierarchical list, without adding icon clutter (issue #21).
+function autoimmuneClass(d){
+  return d && d.autoimmune ? ' autoimmune' : '';
+}
+
 function renderAlphabetical(){
   showLoading('#tree-pane');
   api('/api/v2/tree/alphabetical').then(roots => {
@@ -20,7 +27,7 @@ function renderAlphabetical(){
       const obs = n.obsolete ? ' obsolete' : '';
       const obsTag = n.obsolete ? ' <span class="obsolete-tag">(obsolete)</span>' : '';
       let h = `<div class="node${hasKids ? ' collapsed' : ''}">`;
-      h += `<div class="node-row disease-row${sel}${obs}" data-iri="${esc(n.iri)}">${twisty(true, !hasKids, hasKids)}📘 <span>${esc(n.name)}</span>${obsTag}</div>`;
+      h += `<div class="node-row disease-row${sel}${obs}${autoimmuneClass(n)}" data-iri="${esc(n.iri)}">${twisty(true, !hasKids)}📘 <span>${esc(n.name)}</span>${obsTag}</div>`;
       if (hasKids){ h += `<div class="children">${kids.map(node).join('')}</div>`; }
       h += `</div>`;
       return h;
@@ -46,7 +53,7 @@ function renderTissue(){
           const sel = state.activeIri === d.iri ? ' selected' : '';
           const obs = d.obsolete ? ' obsolete' : '';
           const obsTag = d.obsolete ? ' <span class="obsolete-tag">(obsolete)</span>' : '';
-          h += `<div class="node"><div class="node-row disease-row${sel}${obs}" data-iri="${esc(d.iri)}">${twisty(true, true)}📘 <span>${esc(d.name)}</span>${obsTag}</div></div>`;
+          h += `<div class="node"><div class="node-row disease-row${sel}${obs}${autoimmuneClass(d)}" data-iri="${esc(d.iri)}">${twisty(true, true)}📘 <span>${esc(d.name)}</span>${obsTag}</div></div>`;
         }
         h += `</div>`;
       }
