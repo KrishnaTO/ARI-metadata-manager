@@ -135,6 +135,9 @@ body.resizing-cols { cursor: col-resize; user-select: none; }
 .node.collapsed > .children { display: none; }
 .node-row .sub { font-size: 11px; color: var(--muted); margin-left: auto; }
 .ari-chip { font-size: 9px; color: var(--muted); margin-left: 6px; }
+/* Confirmed-autoimmune marker on hierarchical disease-list rows (issue #21) */
+.node-row .ai-mark { display: inline-flex; align-items: center; justify-content: center; width: 15px; height: 15px; margin-left: 5px; flex: none; border-radius: 50%; font-size: 9px; font-weight: 700; line-height: 1; background: var(--lime); color: var(--lime-soft); }
+.node-row.selected .ai-mark { background: #fff; color: var(--lime-strong); }
 
 /* Detail panel */
 .detail { padding: 20px 24px; }
@@ -172,8 +175,6 @@ body.resizing-cols { cursor: col-resize; user-select: none; }
 .detail .meta a.tag { text-decoration: none; }
 .detail .meta .tag.grouping-tag { background: #ede9fe; color: #6d28d9; }
 [data-theme="dark"] .detail .meta .tag.grouping-tag { background: #2e1065; color: #c4b5fd; }
-/* Confirmed-autoimmune highlight (issue #21) */
-.detail .meta .tag.autoimmune-tag { background: var(--lime-soft); color: var(--lime-strong); border: 1px solid var(--lime); font-weight: 700; box-shadow: 0 0 0 2px color-mix(in srgb, var(--lime) 22%, transparent); }
 .grouping-note { background: #f5f3ff; border: 1px solid #ddd6fe; color: #5b21b6; border-radius: 8px; padding: 10px 12px; font-size: 12px; line-height: 1.5; margin: 14px 0 6px; }
 [data-theme="dark"] .grouping-note { background: #241b3d; border-color: #4c3a7a; color: #c4b5fd; }
 .detail .meta a.tag:hover { background: var(--accent-border); }
