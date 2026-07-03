@@ -135,9 +135,10 @@ body.resizing-cols { cursor: col-resize; user-select: none; }
 .node.collapsed > .children { display: none; }
 .node-row .sub { font-size: 11px; color: var(--muted); margin-left: auto; }
 .ari-chip { font-size: 9px; color: var(--muted); margin-left: 6px; }
-/* Confirmed-autoimmune marker on hierarchical disease-list rows (issue #21) */
-.node-row .ai-mark { display: inline-flex; align-items: center; justify-content: center; width: 15px; height: 15px; margin-left: 5px; flex: none; border-radius: 50%; font-size: 9px; font-weight: 700; line-height: 1; background: var(--lime); color: var(--lime-soft); }
-.node-row.selected .ai-mark { background: #fff; color: var(--lime-strong); }
+/* Confirmed-autoimmune rows in the hierarchical disease list get a subtle bold +
+   colour shift so they stand out from unconfirmed entries (issue #21). */
+.node-row.disease-row.autoimmune { color: var(--lime-strong); font-weight: 600; }
+.node-row.disease-row.autoimmune.selected { color: #fff; }
 
 /* Detail panel */
 .detail { padding: 20px 24px; }
