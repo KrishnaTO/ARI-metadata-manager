@@ -131,6 +131,10 @@ body.resizing-cols { cursor: col-resize; user-select: none; }
 .node-row.obsolete { opacity: .5; }
 .twisty { width: 14px; font-size: 10px; color: var(--muted); flex: none; text-align: center; }
 .twisty.leaf { visibility: hidden; }
+/* Distinctive marker for a disease that has subtypes in the hierarchy (issue #26):
+   accent-coloured and bolder so the subtype-expansion affordance is unmistakable. */
+.twisty.subtype { color: var(--accent); font-size: 13px; font-weight: 700; }
+.node-row:hover .twisty.subtype { color: var(--accent-strong); }
 .children { margin-left: 14px; border-left: 1px solid var(--border); padding-left: 4px; }
 .node.collapsed > .children { display: none; }
 .node-row .sub { font-size: 11px; color: var(--muted); margin-left: auto; }
