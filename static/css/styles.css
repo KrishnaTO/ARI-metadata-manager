@@ -131,10 +131,18 @@ body.resizing-cols { cursor: col-resize; user-select: none; }
 .node-row.obsolete { opacity: .5; }
 .twisty { width: 14px; font-size: 10px; color: var(--muted); flex: none; text-align: center; }
 .twisty.leaf { visibility: hidden; }
+/* Distinctive marker for a disease that has subtypes in the hierarchy (issue #26):
+   accent-coloured and bolder so the subtype-expansion affordance is unmistakable. */
+.twisty.subtype { color: var(--accent); font-size: 13px; font-weight: 700; }
+.node-row:hover .twisty.subtype { color: var(--accent-strong); }
 .children { margin-left: 14px; border-left: 1px solid var(--border); padding-left: 4px; }
 .node.collapsed > .children { display: none; }
 .node-row .sub { font-size: 11px; color: var(--muted); margin-left: auto; }
 .ari-chip { font-size: 9px; color: var(--muted); margin-left: 6px; }
+/* Confirmed-autoimmune rows in the hierarchical disease list get a subtle lime
+   tint so they stand out from unconfirmed entries without shouting (issue #21). */
+.node-row.disease-row.autoimmune { color: color-mix(in srgb, var(--lime-strong) 45%, var(--text)); }
+.node-row.disease-row.autoimmune.selected { color: #fff; }
 
 /* Detail panel */
 .detail { padding: 20px 24px; }
@@ -142,7 +150,10 @@ body.resizing-cols { cursor: col-resize; user-select: none; }
 .detail h1 { font-family: var(--font-serif); font-size: 30px; font-weight: 700; letter-spacing: -.02em; line-height: 1.15; margin: 0 0 6px; }
 .detail .obsolete-tag { color: var(--danger); font-size: 13px; font-weight: 600; }
 .detail .iri { font-size: 11px; color: var(--muted); word-break: break-all; margin-bottom: 4px; }
-.detail .ari-id { font-size: 11px; color: var(--accent); margin-bottom: 12px; }
+.detail .ari-id { font-size: 11px; color: var(--accent); margin-bottom: 12px; display: inline-flex; align-items: center; gap: 6px; }
+.detail .ari-id .ari-id-val { font-family: var(--font-mono, monospace); }
+.copy-btn { border: none; background: transparent; cursor: pointer; padding: 1px 4px; font-size: 12px; line-height: 1; border-radius: 4px; opacity: .6; }
+.copy-btn:hover { opacity: 1; background: var(--accent-soft); }
 .detail .definition { font-size: 13px; line-height: 1.65; margin-bottom: 6px; padding: 14px 16px; background: var(--bg-side); border: 1px solid var(--border); border-radius: 8px; }
 .def-sources { margin: 0 0 12px 6px; padding: 2px 0 2px 12px; border-left: 2px solid var(--border); }
 .def-source-item { font-size: 12px; color: var(--muted); line-height: 1.5; }
