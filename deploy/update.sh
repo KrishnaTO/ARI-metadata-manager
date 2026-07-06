@@ -4,7 +4,10 @@
 set -euo pipefail
 REPO=/opt/ari/ari-metadata-manager
 cd "$REPO"
-BRANCH="$(grep -E '^APP_REPO_BRANCH=' .env 2>/dev/null | cut -d= -f2-)"
+# sed exits 0 when the key is absent (unlike grep, whose exit 1 under
+# `set -euo pipefail` would kill the script before the fetch ever runs);
+# `|| true` also covers a missing .env file.
+BRANCH="$(sed -n 's/^APP_REPO_BRANCH=//p' .env 2>/dev/null || true)"
 BRANCH="${BRANCH:-main}"
 before="$(git rev-parse HEAD 2>/dev/null || echo none)"
 git fetch --quiet origin "$BRANCH"
