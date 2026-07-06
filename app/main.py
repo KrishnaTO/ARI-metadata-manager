@@ -9,7 +9,7 @@ import subprocess
 from pathlib import Path
 
 from fastapi import FastAPI, Request, Body
-from fastapi.responses import JSONResponse, RedirectResponse, StreamingResponse
+from fastapi.responses import JSONResponse, RedirectResponse, StreamingResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
 
@@ -56,6 +56,26 @@ def _app_version() -> str:
 
 
 APP_VERSION = _app_version()
+
+
+def _asset_version() -> str:
+    """Single cache-busting token for every static asset, changing on each deploy.
+
+    The HTML pages tag all their js/css with `?v=__ASSETV__`, which is replaced
+    with this token when the page is served. One value busts every asset at once,
+    so there are no fragile per-file `?v=N` numbers to bump (and merge-conflict)."""
+    root = Path(__file__).resolve().parent.parent
+    try:
+        n = subprocess.check_output(["git", "-C", str(root), "rev-list", "--count", "HEAD"],
+                                    text=True, stderr=subprocess.DEVNULL).strip()
+        if n:
+            return n
+    except Exception:
+        pass
+    return str(int(time.time()))   # fallback: bust on each restart
+
+
+ASSET_VERSION = _asset_version()
 
 # ----------------------------------------------------------------- GitHub config
 GH_CLIENT_ID = os.environ.get("GITHUB_CLIENT_ID", "")
@@ -641,6 +661,32 @@ async def export_excel(request: Request):
         _io.BytesIO(xlsx),
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": 'attachment; filename="ARI_current_changes.xlsx"'})
+
+
+def _render_html(rel_path: str) -> HTMLResponse:
+    """Serve an app HTML page with the `__ASSETV__` asset token substituted.
+
+    The page is marked no-cache so it is always revalidated: it must be fresh to
+    carry the current deploy's token, which is what busts the (cacheable) assets."""
+    html = (STATIC_DIR / rel_path).read_text(encoding="utf-8")
+    return HTMLResponse(html.replace("__ASSETV__", ASSET_VERSION),
+                        headers={"Cache-Control": "no-cache, must-revalidate"})
+
+
+# These HTML routes are registered before the catch-all StaticFiles mount so they
+# take precedence and can inject the per-deploy cache-bust token. The mount still
+# serves the actual js/css/asset files.
+@app.get("/", include_in_schema=False)
+@app.get("/index.html", include_in_schema=False)
+async def _index_html():
+    return _render_html("index.html")
+
+
+@app.get("/ref-edits", include_in_schema=False)
+@app.get("/ref-edits/", include_in_schema=False)
+@app.get("/ref-edits/index.html", include_in_schema=False)
+async def _ref_edits_html():
+    return _render_html("ref-edits/index.html")
 
 
 app.mount("/", StaticFiles(directory=STATIC_DIR, html=True), name="static")
