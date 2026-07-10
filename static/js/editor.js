@@ -21,6 +21,56 @@ function _collectDefSrcs(listId) {
   return srcs;
 }
 
+// ----------------------------------------------------------------- TAG-CHIP EDITOR
+// A reusable removable-chip editor for list fields (e.g. synonyms). Each value
+// is a chip; typing a value and pressing Enter or ";" (or pasting a
+// ";"-separated list) adds it. ";" is the delimiter — not "," — because a
+// single synonym may itself contain a comma (e.g. "diabetes mellitus, type 1").
+function tagChipHtml(v){
+  return `<span class="tag-chip" data-val="${esc(v)}"><span class="tag-chip-label">${esc(v)}</span>` +
+    `<button type="button" class="tag-chip-x" title="Remove" aria-label="Remove">&#215;</button></span>`;
+}
+function tagEditorHtml(id, values){
+  const chips = (values || []).map(v => tagChipHtml(v)).join('');
+  return `<div class="tag-editor" id="${id}">${chips}` +
+    `<input type="text" class="tag-input" placeholder="Type, then Enter or ;"></div>`;
+}
+function wireTagEditor(sel){
+  const root = typeof sel === 'string' ? $(sel) : sel;
+  if (!root) return;
+  const input = root.querySelector('.tag-input');
+  if (!input) return;
+  const add = text => {
+    String(text).split(/[;\n]/).map(s => s.trim()).filter(Boolean).forEach(val => {
+      const dup = [...root.querySelectorAll('.tag-chip')]
+        .some(c => (c.dataset.val || '').toLowerCase() === val.toLowerCase());
+      if (!dup) input.insertAdjacentHTML('beforebegin', tagChipHtml(val));
+    });
+    input.value = '';
+  };
+  input.addEventListener('keydown', e => {
+    if (e.key === 'Enter' || e.key === ';'){ e.preventDefault(); if (input.value.trim()) add(input.value); }
+    else if (e.key === 'Backspace' && !input.value){
+      const chips = root.querySelectorAll('.tag-chip');
+      if (chips.length) chips[chips.length - 1].remove();
+    }
+  });
+  input.addEventListener('paste', e => {
+    const t = (e.clipboardData || window.clipboardData)?.getData('text') || '';
+    if (/[;\n]/.test(t)){ e.preventDefault(); add(t); }
+  });
+  input.addEventListener('blur', () => { if (input.value.trim()) add(input.value); });
+  root.addEventListener('click', e => {
+    const x = e.target.closest('.tag-chip-x');
+    if (x){ x.closest('.tag-chip').remove(); input.focus(); }
+    else if (e.target === root) input.focus();
+  });
+}
+// Collect the chips of a tag editor into an array of values.
+function collectTags(id){
+  return [...document.querySelectorAll(`#${id} .tag-chip`)].map(c => c.dataset.val);
+}
+
 // ----------------------------------------------------------------- CLINICAL SUBTYPE ROW HELPER
 // Each clinical subtype is stored as "Name - description" with an optional
 // " | <disease-iri>" suffix that links it to an existing disease in the list.
@@ -133,7 +183,8 @@ async function openDiseaseFieldEditor(d){
     <p style="font-size:12px;color:var(--muted);margin:0 0 12px">IRI / ARI local id is fixed. Saving appends a changelog entry and writes the OWL file.</p>`;
   html += fieldText('f_name', 'Label', d.name);
   html += fieldArea('f_definition', 'Definition (markdown)', d.definition);
-  html += fieldArea('f_synonyms', 'Synonyms (comma separated)', (d.synonyms||[]).join(', '));
+  html += `<div class="field"><label>Synonyms <span style="font-weight:400;text-transform:none;font-size:11px;color:var(--muted)">(one chip each — press Enter or ; to add)</span></label>` +
+    tagEditorHtml('f_synonyms', d.synonyms) + `</div>`;
   html += `<div class="field"><label>Clinical subtypes <span style="font-weight:400;text-transform:none;font-size:11px;color:var(--muted)">(each optionally links to an existing disease)</span></label>` +
     subtypeListHtml('f_sub_list', diseases, d.iri, d.clinical_subtypes_parsed) + `</div>`;
   html += '<div class="field-grid">';
@@ -167,6 +218,7 @@ async function openDiseaseFieldEditor(d){
   $('#save-btn').addEventListener('click', saveEdits);
   $('#f_defsrc_add')?.addEventListener('click', () =>
     $('#f_defsrc_list').insertAdjacentHTML('beforeend', defSrcRowHtml('', '')));
+  wireTagEditor('#f_synonyms');
   wireSubtypeAdd($('#right-panel-content'), diseases, d.iri);
 }
 
@@ -174,7 +226,7 @@ async function saveEdits(){
   const v = id => $('#'+id)?.value ?? '';
   const changes = {
     name: v('f_name'), definition: v('f_definition'),
-    synonyms: v('f_synonyms'), clinical_subtypes: _collectSubtypes('f_sub_list'),
+    synonyms: collectTags('f_synonyms'), clinical_subtypes: _collectSubtypes('f_sub_list'),
     disease_category: v('f_disease_category'),
     evidence_quality: v('f_evidence_quality'),
     // Database cross-references (icd10/snomed/doid/… ) are intentionally omitted:
@@ -339,7 +391,7 @@ async function openNewDiseaseModal(prefill = {}) {
   const html = `<div class="modal-overlay" id="nd-overlay"><div class="modal nd-modal">
     <div class="modal-head"><h2>&#xFF0B; New Disease</h2><button class="hbtn" id="nd-close">&#x2715;</button></div>
     <div class="modal-body">
-    <p class="nd-note">Fields marked <span class="nd-req">&#x2a;</span> are required. A provisional IRI (<code>ARI_new_…</code>) is assigned; curators set the final ARI ID after review.</p>
+    <p class="nd-note">Fields marked <span class="nd-req">&#x2a;</span> are required. The next sequential ARI ID (<code>ARI_00…</code>) is assigned automatically; a curator can still change it during review.</p>
 
     <div class="nd-section-label">Required</div>
     <div class="field"><label>Label <span class="nd-req">&#x2a;</span></label>
@@ -367,8 +419,8 @@ async function openNewDiseaseModal(prefill = {}) {
     <div class="nd-section-label" style="margin-top:14px">Recommended</div>
     <div class="field"><label>Parent Disease (optional — sets hierarchy)</label>
       <select id="nd_parent"><option value="">— none —</option>${parentOpts}</select></div>
-    <div class="field"><label>Synonyms (comma-separated)</label>
-      <input id="nd_synonyms" value="${preFill('synonyms')}" placeholder="Synonym 1, Synonym 2"></div>
+    <div class="field"><label>Synonyms <span style="font-weight:400;text-transform:none;font-size:11px;color:var(--muted)">(one chip each — press Enter or ;)</span></label>
+      ${tagEditorHtml('nd_synonyms', prefill.synonyms ? String(prefill.synonyms).split(/[;\n]/).map(s=>s.trim()).filter(Boolean) : [])}</div>
     <div class="field-grid">
       <div class="field"><label>Disease Category</label>
         <input id="nd_disease_category" value="${preFill('disease_category')}" placeholder="e.g. Autoimmune"></div>
@@ -416,6 +468,7 @@ async function openNewDiseaseModal(prefill = {}) {
   $('#nd-overlay').addEventListener('click', e => { if (e.target.id === 'nd-overlay') close(); });
   $('#nd_defsrc_add')?.addEventListener('click', () =>
     $('#nd_defsrc_list').insertAdjacentHTML('beforeend', defSrcRowHtml('', '')));
+  wireTagEditor('#nd_synonyms');
   wireSubtypeAdd($('#nd-overlay'), diseases, '');
   $('#nd-save').addEventListener('click', saveNewDisease);
 }
@@ -438,7 +491,7 @@ async function saveNewDisease() {
     authors:           v('#nd_authors'),
     author_date:       v('#nd_author_date'),
     parent_iri:        v('#nd_parent'),
-    synonyms:          v('#nd_synonyms'),
+    synonyms:          collectTags('nd_synonyms'),
     disease_category:  v('#nd_disease_category'),
     evidence_quality:  v('#nd_evidence_quality'),
     clinical_subtypes: _collectSubtypes('nd_sub_list'),

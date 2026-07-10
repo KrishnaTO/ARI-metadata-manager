@@ -1,8 +1,20 @@
 // Left-panel navigation: the three tree views (alphabetical / tissue / symptoms),
 // tab switching, tree-click handling, and header search.
 
-function twisty(collapsed, leaf){
-  return `<span class="twisty${leaf ? ' leaf' : ''}">${leaf ? '' : (collapsed ? '▸' : '▾')}</span>`;
+// The row toggle. When `subtype` is set (a disease that has child subtypes in the
+// alphabetical hierarchy) it gets a distinctive, accent-coloured branch marker so
+// the "this disease has subtypes" affordance stands out from plain grouping rows.
+function twisty(collapsed, leaf, subtype){
+  if (leaf) return `<span class="twisty leaf"></span>`;
+  const glyph = subtype ? (collapsed ? '▶' : '▼') : (collapsed ? '▸' : '▾');
+  return `<span class="twisty${subtype ? ' subtype' : ''}" title="${subtype ? 'Toggle subtypes' : ''}">${glyph}</span>`;
+}
+
+// Confirmed autoimmune diseases (diseaseCategory "Autoimmune") get a subtle
+// bold + colour shift on their row so they stand out from unconfirmed entries
+// in the hierarchical list, without adding icon clutter (issue #21).
+function autoimmuneClass(d){
+  return d && d.autoimmune ? ' autoimmune' : '';
 }
 
 function renderAlphabetical(){
@@ -15,7 +27,7 @@ function renderAlphabetical(){
       const obs = n.obsolete ? ' obsolete' : '';
       const obsTag = n.obsolete ? ' <span class="obsolete-tag">(obsolete)</span>' : '';
       let h = `<div class="node${hasKids ? ' collapsed' : ''}">`;
-      h += `<div class="node-row disease-row${sel}${obs}" data-iri="${esc(n.iri)}">${twisty(true, !hasKids)}📘 <span>${esc(n.name)}</span>${obsTag}</div>`;
+      h += `<div class="node-row disease-row${sel}${obs}${autoimmuneClass(n)}" data-iri="${esc(n.iri)}">${twisty(true, !hasKids, hasKids)}📘 <span>${esc(n.name)}</span>${obsTag}</div>`;
       if (hasKids){ h += `<div class="children">${kids.map(node).join('')}</div>`; }
       h += `</div>`;
       return h;
@@ -41,7 +53,7 @@ function renderTissue(){
           const sel = state.activeIri === d.iri ? ' selected' : '';
           const obs = d.obsolete ? ' obsolete' : '';
           const obsTag = d.obsolete ? ' <span class="obsolete-tag">(obsolete)</span>' : '';
-          h += `<div class="node"><div class="node-row disease-row${sel}${obs}" data-iri="${esc(d.iri)}">${twisty(true, true)}📘 <span>${esc(d.name)}</span>${obsTag}</div></div>`;
+          h += `<div class="node"><div class="node-row disease-row${sel}${obs}${autoimmuneClass(d)}" data-iri="${esc(d.iri)}">${twisty(true, true)}📘 <span>${esc(d.name)}</span>${obsTag}</div></div>`;
         }
         h += `</div>`;
       }
@@ -92,6 +104,8 @@ $('#tree-pane').addEventListener('click', e => {
   if (tw && !tw.classList.contains('leaf')){
     const nodeEl = tw.closest('.node');
     if (nodeEl) nodeEl.classList.toggle('collapsed');
+    // Keep the subtype box marker in sync with expanded/collapsed state.
+    if (tw.classList.contains('subtype')) tw.textContent = nodeEl?.classList.contains('collapsed') ? '▶' : '▼';
     e.stopPropagation();
     return;
   }
