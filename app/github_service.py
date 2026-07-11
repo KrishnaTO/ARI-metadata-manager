@@ -208,3 +208,35 @@ async def get_file_at(token: str | None, owner: str, repo: str, path: str, ref: 
         if r.status_code >= 300:
             raise ValueError(f"Could not fetch {path}@{ref}: {r.status_code} {r.text[:200]}")
         return r.content
+
+
+async def list_open_prs(token: str | None, owner: str, repo: str) -> list[dict]:
+    """Open pull requests in the repo (token optional for public repos).
+
+    Returns a compact record per PR — number, title, url, head branch, author and
+    updated_at — used to surface unreviewed edits on the matching disease page.
+    """
+    hdrs = {"Accept": "application/vnd.github+json"}
+    if token:
+        hdrs["Authorization"] = f"Bearer {token}"
+    out, page = [], 1
+    async with httpx.AsyncClient(timeout=20, headers=hdrs) as c:
+        while True:
+            r = await c.get(f"{API}/repos/{owner}/{repo}/pulls",
+                            params={"state": "open", "per_page": 100, "page": page})
+            if r.status_code >= 300:
+                raise ValueError(f"Could not list pull requests: {r.status_code} {r.text[:200]}")
+            batch = r.json()
+            for pr in batch:
+                out.append({
+                    "number": pr.get("number"),
+                    "title": pr.get("title") or "",
+                    "url": pr.get("html_url") or "",
+                    "branch": (pr.get("head") or {}).get("ref") or "",
+                    "author": (pr.get("user") or {}).get("login") or "",
+                    "updated_at": pr.get("updated_at") or "",
+                })
+            if len(batch) < 100:
+                break
+            page += 1
+    return out

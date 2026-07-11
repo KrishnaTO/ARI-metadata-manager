@@ -36,6 +36,9 @@ function renderDetail(d){
       `<button class="copy-btn" data-copy="${esc(bareId)}" title="Copy ID ${esc(bareId)}" aria-label="Copy ID">&#128203;</button></div>`;
   }
 
+  // Populated asynchronously with any open PRs whose branch targets this disease.
+  html += `<div id="disease-pr-banner"></div>`;
+
   if (state.editMode){
     html += `<div class="edit-banner">&#9998; <strong>Editing mode</strong> &mdash; edit the disease fields, or click a category below to add / edit / delete its data items.
       <button class="hbtn" id="edit-fields-btn">Edit disease fields</button></div>`;
@@ -191,6 +194,8 @@ function renderDetail(d){
 
   $('#detail-pane').innerHTML = html;
 
+  loadDiseasePRs(d);
+
   $('#detail-pane').querySelectorAll('.parent-link').forEach(a =>
     a.addEventListener('click', ev => { ev.preventDefault(); selectDisease(a.dataset.iri); }));
 
@@ -241,4 +246,40 @@ function boxDefs(d){
     { key:'changelog', icon:'📋', label:'Change Log', count: d.changelog?.length||0, show: true, note:'history' },
     { key:'feedback', icon:'💬', label:'Feedback', count: 0, show: true, note:'comment' },
   ];
+}
+
+// ----------------------------------------------------------------- OPEN-PR CHANGES (issue #19)
+// Mirror github_service.slugify: lowercase, non-alphanumerics -> "-", trimmed, capped.
+function ariSlug(name){
+  return (String(name || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60)) || 'disease';
+}
+
+// Open PRs are fetched once per page load and reused across disease selections.
+let _openPRsCache = null;
+async function getOpenPRs(){
+  if (_openPRsCache) return _openPRsCache;
+  try { const r = await api('/api/v2/open-prs'); _openPRsCache = (r && r.prs) || []; }
+  catch(e){ _openPRsCache = []; }
+  return _openPRsCache;
+}
+// A publish branch is `edit/<login>/<slug>-<timestamp>`; the disease slug is the
+// last path segment with the trailing `-<timestamp>` removed.
+function prTargetsDisease(pr, slug){
+  const seg = String(pr.branch || '').split('/').pop().replace(/-\d+$/, '');
+  return seg === slug;
+}
+async function loadDiseasePRs(d){
+  const el = $('#disease-pr-banner');
+  if (!el) return;
+  const prs = await getOpenPRs();
+  if (!prs.length) return;
+  // Guard against a stale async result after the user switched diseases.
+  if (state.detail !== d) return;
+  const slug = ariSlug(d.name);
+  const matches = prs.filter(pr => prTargetsDisease(pr, slug));
+  if (!matches.length) return;
+  el.innerHTML = `<div class="pr-banner"><div class="pr-banner-head">&#128260; ${matches.length} open pull request${matches.length===1?'':'s'} with unreviewed changes to this disease</div>` +
+    matches.map(pr => `<a class="pr-banner-item" href="${esc(pr.url)}" target="_blank" rel="noopener">` +
+      `<span class="pr-num">#${esc(pr.number)}</span> ${esc(pr.title)} <span class="pr-author">@${esc(pr.author)}</span> &#8599;</a>`).join('') +
+    `</div>`;
 }

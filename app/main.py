@@ -446,6 +446,23 @@ async def feedback_delete(fid: str):
 
 
 # ----------------------------------------------------------------- GITHUB AUTH + PUBLISH
+@app.get("/api/v2/open-prs")
+async def open_prs(request: Request):
+    """Open pull requests in the repo, so the disease page can surface unmerged /
+    unreviewed changes (issue #19). Works unauthenticated for a public repo; a
+    signed-in user's token is used when available (e.g. private repos, rate limit).
+    The frontend matches a PR to a disease via its `edit/<login>/<slug>-<ts>` branch."""
+    if not GH_ENABLED:
+        return {"github_enabled": False, "prs": []}
+    u = _user(request)
+    token = u["token"] if u else None
+    try:
+        prs = await gh.list_open_prs(token, GH_OWNER, GH_REPO)
+    except Exception:
+        prs = []
+    return {"github_enabled": True, "prs": prs}
+
+
 @app.get("/api/v2/me")
 async def me(request: Request):
     if not GH_ENABLED:
