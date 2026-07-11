@@ -25,14 +25,14 @@ jobs:
         run: pytest -q
 
   lint:
-    # Advisory only for now: surfaces lint without blocking merges while the
-    # existing code is brought up to the ruleset. Flip continue-on-error off once green.
+    # Advisory for now: runs ruff and prints every finding to the log, but
+    # --exit-zero keeps the check green while the existing code is brought up to
+    # the ruleset. Drop --exit-zero to make lint a required gate once it's clean.
     runs-on: ubuntu-latest
-    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
       - run: pip install ruff
-      - run: ruff check .
+      - run: ruff check . --exit-zero
