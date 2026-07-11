@@ -20,6 +20,7 @@ from . import github_service as gh
 from . import export_service
 from . import diff_service
 from . import sssom_service
+from . import xref_registry
 
 log = logging.getLogger(__name__)
 
@@ -352,6 +353,14 @@ async def create_release(request: Request, payload: dict = Body(default={})):
 async def xrefs(request: Request):
     """All diseases with their database cross-references, for the reference-review page."""
     return service_for(request).get_xref_rows()
+
+
+@app.get("/api/v2/xref-databases")
+async def xref_databases():
+    """Cross-reference database registry (labels, CURIE prefixes, link-out URL
+    templates). The single source both frontend pages build their columns and
+    link-outs from, kept in step with the SSSOM prefixes on the server."""
+    return xref_registry.public_list()
 
 
 @app.get("/api/v2/mappings")

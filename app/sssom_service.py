@@ -9,28 +9,17 @@ read them back so the review page can pre-highlight already-judged cells.
 """
 import datetime
 
-# database key -> bioregistry-style prefix for the object/target
-PREFIX = {
-    "snomed": "SNOMEDCT", "omop": "omop", "doid": "DOID", "umls": "umls",
-    "mondo": "MONDO", "icd10": "icd10cm", "mesh": "mesh", "nci": "ncit",
-    "orphanet": "ORPHA", "omim": "OMIM", "dxcode": "SNOMEDCT",
-}
+from .xref_registry import CURIE_BASES, PREFIX  # db key -> object/target prefix
 
+# CURIE map for the SSSOM header: object-database prefixes come from the shared
+# xref registry (so they can't drift from the review page / ontology); the subject
+# (ARI) and SSSOM-vocabulary prefixes are specific to this file.
 CURIE_MAP = {
     "ARI": "https://diseases.autoimmuneregistry.org/disease/ARI_",
-    "DOID": "http://purl.obolibrary.org/obo/DOID_",
-    "MONDO": "http://purl.obolibrary.org/obo/MONDO_",
-    "SNOMEDCT": "http://snomed.info/id/",
-    "ncit": "http://purl.obolibrary.org/obo/NCIT_",
-    "mesh": "http://id.nlm.nih.gov/mesh/",
-    "umls": "https://uts.nlm.nih.gov/uts/umls/concept/",
-    "icd10cm": "http://purl.bioontology.org/ontology/ICD10CM/",
-    "omop": "https://athena.ohdsi.org/search-terms/terms/",
+    **CURIE_BASES,
     "skos": "http://www.w3.org/2004/02/skos/core#",
     "semapv": "https://w3id.org/semapv/vocab/",
     "orcid": "https://orcid.org/",
-    "ORPHA": "https://www.orpha.net/en/disease/detail/",
-    "OMIM": "https://omim.org/entry/",
 }
 
 SSSOM_COLS = ["subject_id", "subject_label", "predicate_id", "predicate_modifier",

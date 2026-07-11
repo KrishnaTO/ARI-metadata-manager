@@ -10,6 +10,7 @@ import types
 
 from owlready2 import AnnotationProperty, World, label, comment, destroy_entity
 
+from . import xref_registry
 from .feedback_service import FeedbackStore
 from .schema import CATEGORIES, SEEALSO_IRI
 
@@ -278,13 +279,10 @@ class OntologyService:
             })
         return sorted(results, key=lambda x: x["name"])
 
-    # database key -> cross-reference annotation-property suffix (for the review grid)
-    XREF_SUFFIXES = {
-        "snomed": "ARI_SNOMED", "omop": "ARI_OMOP", "doid": "ARI_DOID",
-        "umls": "ARI_UMLS", "mondo": "ARI_MONDO", "icd10": "ARI_ICD10",
-        "mesh": "ARI_MESH", "nci": "ARI_NCI", "orphanet": "ARI_ORPHANET",
-        "omim": "ARI_OMIM", "dxcode": "ARI_DXCODE",
-    }
+    # database key -> cross-reference annotation-property suffix (for the review
+    # grid). Sourced from the shared xref registry so it can't drift from the SSSOM
+    # prefixes or the frontend link-outs.
+    XREF_SUFFIXES = xref_registry.XREF_SUFFIXES
 
     def get_xref_rows(self) -> list:
         """Disease + cross-reference identifiers for the reference-review grid.

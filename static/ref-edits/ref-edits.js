@@ -15,27 +15,22 @@
     return r.json();
   }
 
-  const DBS = [
-    { key: 'snomed', label: 'SNOMED', link: id => `https://browser.ihtsdotools.org/?perspective=full&conceptId1=${num(id)}&edition=MAIN`, search: n => `https://browser.ihtsdotools.org/?perspective=full&edition=MAIN&languages=en&searchText=${enc(n)}` },
-    { key: 'omop',   label: 'OMOP', noframe: true,   link: id => `https://athena.ohdsi.org/search-terms/terms/${num(id)}`, search: n => `https://athena.ohdsi.org/search-terms/terms?query=${enc(n)}` },
-    { key: 'doid',   label: 'DOID',   link: id => `https://disease-ontology.org/?id=DOID:${num(id)}`, search: n => `https://www.disease-ontology.org/?q=${enc(n)}` },
-    { key: 'mondo',  label: 'MONDO',  link: id => `https://www.ebi.ac.uk/ols4/ontologies/mondo/classes?short_form=MONDO_${num(id)}`, search: n => `https://www.ebi.ac.uk/ols4/search?q=${enc(n)}&ontology=mondo` },
-    { key: 'nci',    label: 'NCI',    link: id => `https://ncithesaurus.nci.nih.gov/ncitbrowser/ConceptReport.jsp?dictionary=NCI_Thesaurus&code=${num(id)}`, search: n => `https://www.ebi.ac.uk/ols4/search?q=${enc(n)}&ontology=ncit` },
-    { key: 'icd10',  label: 'ICD-10', link: id => `https://www.icd10data.com/search?s=${enc(id)}`, search: n => `https://www.icd10data.com/search?s=${enc(n)}` },
-    { key: 'orphanet', label: 'Orphanet', noframe: true, link: id => `https://www.orpha.net/en/disease/detail/${num(id)}`, search: n => `https://www.orpha.net/en/disease?keyword=${enc(n)}` },
-    { key: 'omim',   label: 'OMIM', noframe: true,   link: id => `https://omim.org/entry/${num(id)}`, search: n => `https://omim.org/search/?search=${enc(n)}` },
-    { key: 'umls',   label: 'UMLS', noframe: true,   link: id => `https://uts.nlm.nih.gov/uts/umls/concept/${id}`, search: n => `https://uts.nlm.nih.gov/uts/umls/searchResults?searchString=${enc(n)}` },
-    { key: 'mesh',   label: 'MeSH', noframe: true,   link: id => `https://meshb.nlm.nih.gov/record/ui?ui=${num(id)}`, search: n => `https://www.ncbi.nlm.nih.gov/mesh/?term=${enc(n)}` },
-  ];
-  const DBMAP = Object.fromEntries(DBS.map(d => [d.key, d]));
-
-  // database key -> object-curie prefix (mirrors app/sssom_service.py PREFIX), so
-  // stored mappings can be matched back to the cell they came from.
-  const PREFIX = {
-    snomed: 'SNOMEDCT', omop: 'omop', doid: 'DOID', mondo: 'MONDO',
-    nci: 'ncit', icd10: 'icd10cm', orphanet: 'ORPHA', omim: 'OMIM',
-    umls: 'umls', mesh: 'mesh',
-  };
+  // The database columns (labels, link/search URL builders, object-curie prefixes)
+  // are all built from the shared registry served by /api/v2/xref-databases
+  // (app/xref_registry.py) — the single source of truth, so the PREFIX map here
+  // can no longer drift from the server's SSSOM prefixes. Populated by init().
+  let DBS = [], DBMAP = {}, PREFIX = {};
+  function buildDatabases(list) {
+    const fillId = (t, id) => t.replace('{num}', num(id)).replace('{id}', enc(id));
+    const fillName = (t, n) => t.replace('{name}', enc(n));
+    DBS = (list || []).filter(d => d.review).map(d => ({
+      key: d.key, label: d.label, noframe: d.noframe,
+      link: id => fillId(d.link, id),
+      search: n => fillName(d.search, n),
+    }));
+    DBMAP = Object.fromEntries(DBS.map(d => [d.key, d]));
+    PREFIX = Object.fromEntries((list || []).map(d => [d.key, d.prefix]));
+  }
 
   let ROWS = [], me = null, reviewed = {}, edited = {}, active = null, sessionBranch = null, _tissues = null;
   // reviewed/edited keys: `${iri}|${db}|${id}` (per-ID, not per-cell)
@@ -437,6 +432,8 @@
     $('#auth').innerHTML = !me.authenticated
       ? (me.github_enabled ? `<a class="btn" href="${new URL('../auth/github?next=' + encodeURIComponent(location.pathname + location.search), location.href).href}">Sign in with GitHub</a>` : '<span class="muted">GitHub off — review only</span>')
       : `<span class="muted">@${esc(me.login)}</span>`;
+    try { buildDatabases(await api('xref-databases')); }
+    catch (e) { $('#table-wrap').innerHTML = '<p class="muted" style="padding:16px">Failed to load the database registry: ' + esc(e.message) + '</p>'; return; }
     try { ROWS = await api('xrefs'); } catch (e) { $('#table-wrap').innerHTML = '<p class="muted" style="padding:16px">Failed to load: ' + esc(e.message) + '</p>'; return; }
     // Pre-existing curated judgments pre-highlight cells; failure is non-fatal.
     try {
