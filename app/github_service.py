@@ -8,12 +8,15 @@ the OAuth App client secret, which never leaves the server.
 """
 import asyncio
 import base64
+import logging
 import re
 import time
 import httpx
 
 GH = "https://github.com"
 API = "https://api.github.com"
+
+log = logging.getLogger(__name__)
 
 
 def slugify(text: str) -> str:
@@ -55,8 +58,8 @@ async def get_identity(token: str) -> dict:
             primary = next((e for e in verified if e.get("primary")), verified[0] if verified else None)
             if primary:
                 email = primary["email"]
-        except Exception:
-            pass
+        except Exception as e:
+            log.debug("Could not read verified emails (user:email scope may be absent): %s", e)
     if not email:
         email = f"{user['id']}+{user['login']}@users.noreply.github.com"
     return {"login": user["login"], "name": user.get("name") or user["login"],
@@ -170,8 +173,8 @@ async def publish_file(*, token: str, owner: str, repo: str, base_branch: str, p
                              json={"name": name, "color": label_colors.get(name, "ededed")})
             await c.post(f"{API}/repos/{owner}/{repo}/issues/{prj['number']}/labels",
                          json={"labels": labels})
-        except Exception:
-            pass
+        except Exception as e:
+            log.debug("Could not apply PR labels (best-effort; outside contributors cannot label): %s", e)
     return {"branch": branch, "pr_number": prj["number"], "pr_url": prj["html_url"], "fork": (not can_push)}
 
 

@@ -1,5 +1,6 @@
 """Service layer for reading and editing the ARI T1D ontology via owlready2."""
 import json
+import logging
 import re
 import shutil
 import uuid
@@ -9,8 +10,11 @@ import types
 
 from owlready2 import AnnotationProperty, World, label, comment, destroy_entity
 
+from . import xref_registry
 from .feedback_service import FeedbackStore
 from .schema import CATEGORIES, SEEALSO_IRI
+
+log = logging.getLogger(__name__)
 
 
 def _split_csv(values):
@@ -275,13 +279,10 @@ class OntologyService:
             })
         return sorted(results, key=lambda x: x["name"])
 
-    # database key -> cross-reference annotation-property suffix (for the review grid)
-    XREF_SUFFIXES = {
-        "snomed": "ARI_SNOMED", "omop": "ARI_OMOP", "doid": "ARI_DOID",
-        "umls": "ARI_UMLS", "mondo": "ARI_MONDO", "icd10": "ARI_ICD10",
-        "mesh": "ARI_MESH", "nci": "ARI_NCI", "orphanet": "ARI_ORPHANET",
-        "omim": "ARI_OMIM", "dxcode": "ARI_DXCODE",
-    }
+    # database key -> cross-reference annotation-property suffix (for the review
+    # grid). Sourced from the shared xref registry so it can't drift from the SSSOM
+    # prefixes or the frontend link-outs.
+    XREF_SUFFIXES = xref_registry.XREF_SUFFIXES
 
     def get_xref_rows(self) -> list:
         """Disease + cross-reference identifiers for the reference-review grid.
@@ -950,7 +951,8 @@ class OntologyService:
         if self._manifest_path.exists():
             try:
                 return json.loads(self._manifest_path.read_text(encoding="utf-8"))
-            except (json.JSONDecodeError, OSError):
+            except (json.JSONDecodeError, OSError) as e:
+                log.warning("Could not read releases manifest %s: %s", self._manifest_path, e)
                 return []
         return []
 

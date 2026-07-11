@@ -1,0 +1,5 @@
+# Development / CI tooling (not needed to run the app). Install with:
+#   pip install -r requirements-dev.txt
+-r requirements.txt
+pytest>=8,<9
+ruff>=0.6

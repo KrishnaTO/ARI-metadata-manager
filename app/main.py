@@ -1,11 +1,13 @@
 """FastAPI app for ARI Disease Metadata Manager."""
 import os
 import json
+import logging
 import time
 import shutil
 import asyncio
 import secrets
 import subprocess
+from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI, Request, Body
@@ -18,6 +20,9 @@ from . import github_service as gh
 from . import export_service
 from . import diff_service
 from . import sssom_service
+from . import xref_registry
+
+log = logging.getLogger(__name__)
 
 
 def _load_dotenv():
@@ -39,7 +44,24 @@ ONTOLOGY_FILE = os.environ.get(
 )
 
 BASE = OntologyService(ONTOLOGY_FILE)   # shared, source-branch baseline
-app = FastAPI(title="ARI Metadata Manager")
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Background task: periodically sweep idle per-user working copies so disk
+    use stays bounded. The task is cancelled on shutdown."""
+    async def _sweep_loop():
+        while True:
+            _sweep_user_data()
+            await asyncio.sleep(6 * 3600)   # every 6 hours
+    task = asyncio.create_task(_sweep_loop())
+    try:
+        yield
+    finally:
+        task.cancel()
+
+
+app = FastAPI(title="ARI Metadata Manager", lifespan=lifespan)
 
 STATIC_DIR = Path(__file__).resolve().parent.parent / "static"
 
@@ -51,7 +73,8 @@ def _app_version() -> str:
         g = lambda *a: subprocess.check_output(["git", "-C", str(root), *a],
                                                text=True, stderr=subprocess.DEVNULL).strip()
         return f"2.{g('rev-list', '--count', 'HEAD')} ({g('show', '-s', '--format=%cd', '--date=short', 'HEAD')})"
-    except Exception:
+    except (OSError, subprocess.SubprocessError) as e:
+        log.debug("Could not derive app version from git: %s", e)
         return "2.x"
 
 
@@ -70,8 +93,8 @@ def _asset_version() -> str:
                                     text=True, stderr=subprocess.DEVNULL).strip()
         if n:
             return n
-    except Exception:
-        pass
+    except (OSError, subprocess.SubprocessError) as e:
+        log.debug("Could not derive asset version from git, using time fallback: %s", e)
     return str(int(time.time()))   # fallback: bust on each restart
 
 
@@ -99,9 +122,12 @@ SESSIONS_FILE = Path(__file__).resolve().parent.parent / ".sessions.json"
 
 
 def _load_sessions() -> dict:
+    if not SESSIONS_FILE.exists():
+        return {}
     try:
         return json.loads(SESSIONS_FILE.read_text())
-    except Exception:
+    except (OSError, json.JSONDecodeError) as e:
+        log.warning("Could not read %s (%s); starting with an empty session store", SESSIONS_FILE.name, e)
         return {}
 
 
@@ -109,8 +135,8 @@ def _save_sessions():
     try:
         SESSIONS_FILE.write_text(json.dumps(SESSIONS))
         os.chmod(SESSIONS_FILE, 0o600)
-    except Exception:
-        pass
+    except OSError as e:
+        log.warning("Could not persist sessions to %s (%s); a restart will sign users out", SESSIONS_FILE.name, e)
 
 
 # Server-side token store, persisted to disk so a restart (e.g. the auto-update
@@ -180,8 +206,10 @@ def _reset_user(login):
     USER_DIRTY.discard(login)
     try:
         (USER_DIR / f"{login}.owl").unlink()
-    except Exception:
-        pass
+    except FileNotFoundError:
+        pass                                    # never edited — nothing to reset
+    except OSError as e:
+        log.warning("Could not delete working copy for %s: %s", login, e)
 
 
 def _mark_dirty(request: Request):
@@ -208,17 +236,8 @@ def _sweep_user_data():
                 USER_SVC.pop(login, None)
                 USER_DIRTY.discard(login)
                 f.unlink()
-        except Exception:
-            pass
-
-
-@app.on_event("startup")
-async def _start_sweeper():
-    async def loop():
-        while True:
-            _sweep_user_data()
-            await asyncio.sleep(6 * 3600)   # every 6 hours
-    asyncio.create_task(loop())
+        except OSError as e:
+            log.warning("Could not sweep idle working copy %s: %s", f.name, e)
 
 
 @app.middleware("http")
@@ -336,6 +355,14 @@ async def xrefs(request: Request):
     return service_for(request).get_xref_rows()
 
 
+@app.get("/api/v2/xref-databases")
+async def xref_databases():
+    """Cross-reference database registry (labels, CURIE prefixes, link-out URL
+    templates). The single source both frontend pages build their columns and
+    link-outs from, kept in step with the SSSOM prefixes on the server."""
+    return xref_registry.public_list()
+
+
 @app.get("/api/v2/mappings")
 async def mappings(request: Request):
     """Already-curated positive/negative cross-reference judgments.
@@ -351,7 +378,8 @@ async def mappings(request: Request):
         async def _read(path):
             try:
                 return (await gh.get_file_at(u["token"], GH_OWNER, GH_REPO, path, STATE["source_branch"])).decode("utf-8")
-            except Exception:
+            except Exception as e:
+                log.debug("Could not read %s@%s from GitHub, falling back to local: %s", path, STATE["source_branch"], e)
                 return ""
         sssom_text = await _read(MAPPINGS_SSSOM_PATH)
         equiv_text = await _read(MAPPINGS_EQUIV_PATH)
@@ -360,7 +388,8 @@ async def mappings(request: Request):
         for attr, p in (("sssom_text", MAPPINGS_SSSOM_PATH), ("equiv_text", MAPPINGS_EQUIV_PATH)):
             try:
                 txt = (root / p).read_text(encoding="utf-8")
-            except Exception:
+            except OSError as e:
+                log.debug("Could not read local mapping file %s: %s", p, e)
                 txt = ""
             if attr == "sssom_text":
                 sssom_text = txt
@@ -507,12 +536,15 @@ async def publish(request: Request, payload: dict = Body(default={})):
         tf.write(data); tf.close(); tmp_path = tf.name
         baseline = OntologyService(tmp_path)
         summary = diff_service.build_change_summary(svc, baseline)
-    except Exception:
+    except Exception as e:
+        log.warning("Could not build change summary against source branch %s: %s", STATE["source_branch"], e)
         summary = "_Change summary unavailable (could not load the source-branch baseline)._"
     finally:
         if tmp_path:
-            try: _os.unlink(tmp_path)
-            except Exception: pass
+            try:
+                _os.unlink(tmp_path)
+            except OSError as e:
+                log.debug("Could not remove temp baseline %s: %s", tmp_path, e)
 
     # Confirmed / flagged cross-references also accumulate into the
     # SSSOM + equivalencies mapping files.
@@ -526,7 +558,8 @@ async def publish(request: Request, payload: dict = Body(default={})):
         async def _read(path):
             try:
                 return (await gh.get_file_at(u["token"], GH_OWNER, GH_REPO, path, STATE["source_branch"])).decode("utf-8")
-            except Exception:
+            except Exception as e:
+                log.debug("Could not read existing mapping file %s@%s, starting fresh: %s", path, STATE["source_branch"], e)
                 return ""
         files = sssom_service.build(confirmed, author, await _read(SS_PATH), await _read(EQ_PATH), flagged=flagged)
         extra_files = {SS_PATH: files["sssom"].encode("utf-8"),
@@ -575,7 +608,8 @@ async def get_settings(request: Request):
     if GH_ENABLED:
         try:
             branches = _allowed_branches(await gh.list_branches(token, GH_OWNER, GH_REPO))
-        except Exception:
+        except Exception as e:
+            log.warning("Could not list branches from GitHub: %s", e)
             branches = [GH_BASE_BRANCH]
     return {"github_enabled": GH_ENABLED, "authenticated": bool(u),
             "working_branch": GH_BASE_BRANCH, "source_branch": STATE["source_branch"],
@@ -646,7 +680,8 @@ async def export_excel(request: Request):
             tmp = tempfile.NamedTemporaryFile(suffix=".owl", delete=False)
             tmp.write(data); tmp.close(); tmp_name = tmp.name
             baseline = OntologyService(tmp_name)
-        except Exception:
+        except Exception as e:
+            log.warning("Could not load export baseline from source branch %s: %s", STATE["source_branch"], e)
             baseline = None
         finally:
             # Always remove the temp file, even if OntologyService() raised after
@@ -654,8 +689,8 @@ async def export_excel(request: Request):
             if tmp_name:
                 try:
                     _os.unlink(tmp_name)
-                except Exception:
-                    pass
+                except OSError as e:
+                    log.debug("Could not remove temp baseline %s: %s", tmp_name, e)
     xlsx = export_service.build_report(service_for(request), baseline)
     return StreamingResponse(
         _io.BytesIO(xlsx),

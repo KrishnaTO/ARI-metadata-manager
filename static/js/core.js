@@ -198,18 +198,18 @@ async function api(path, opts={}){
 }
 
 // ----------------------------------------------------------------- cross-ref linkouts
+// Cross-reference database registry (key -> {label, link template, ...}), fetched
+// once from /api/v2/xref-databases during init(). The link-out URLs live in one
+// place on the server (app/xref_registry.py) instead of being duplicated here and
+// in the reference-review page.
+let XREF_DB = {};
+function setXrefDatabases(list){ XREF_DB = Object.fromEntries((list || []).map(d => [d.key, d])); }
+
+// Fill a database's {num}/{id} URL template for one cross-reference id.
 function xrefLink(kind, id){
   if (!id) return '#';
+  const d = XREF_DB[kind];
+  if (!d || !d.link) return '#';
   const num = String(id).replace(/^[A-Za-z]+:/, '');
-  switch(kind){
-    case 'icd10': return `https://www.icd10data.com/search?s=${encodeURIComponent(id)}`;
-    case 'snomed': return `https://browser.ihtsdotools.org/?perspective=full&conceptId1=${num}&edition=MAIN`;
-    case 'doid': return `https://disease-ontology.org/?id=DOID:${num}`;
-    case 'umls': return `https://uts.nlm.nih.gov/uts/umls/concept/${id}`;
-    case 'mondo': return `https://www.ebi.ac.uk/ols4/ontologies/mondo/classes?short_form=MONDO_${num}`;
-    case 'mesh': return `https://meshb.nlm.nih.gov/record/ui?ui=${num}`;
-    case 'nci': return `https://ncithesaurus.nci.nih.gov/ncitbrowser/ConceptReport.jsp?dictionary=NCI_Thesaurus&code=${num}`;
-    case 'omop': return `https://athena.ohdsi.org/search-terms/terms/${num}`;
-    default: return '#';
-  }
+  return d.link.replace('{num}', num).replace('{id}', encodeURIComponent(id));
 }

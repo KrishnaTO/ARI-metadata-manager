@@ -6,9 +6,12 @@ disease term. By default an entry lives only until the next version release, at 
 point it is moved into ``feedback/archive/``; entries flagged ``keep`` survive releases.
 """
 import json
+import logging
 import uuid
 from datetime import datetime
 from pathlib import Path
+
+log = logging.getLogger(__name__)
 
 
 def _now() -> str:
@@ -28,7 +31,8 @@ class FeedbackStore:
         if self.path.exists():
             try:
                 return json.loads(self.path.read_text(encoding="utf-8"))
-            except (json.JSONDecodeError, OSError):
+            except (json.JSONDecodeError, OSError) as e:
+                log.warning("Could not read feedback store %s: %s", self.path, e)
                 return []
         return []
 

@@ -1,0 +1,38 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  smoke:
+    # Blocking gate: the app must install, byte-compile, and import (which loads
+    # the ontology) cleanly. This is the safety net until a real test suite lands.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m pip install --upgrade pip
+      - run: pip install -r requirements-dev.txt
+      - name: Byte-compile
+        run: python -m compileall app scripts run.py
+      - name: Import smoke test (loads the ontology)
+        run: python -c "import app.main; print('app.main imported OK')"
+      - name: Tests
+        run: pytest -q
+
+  lint:
+    # Advisory for now: runs ruff and prints every finding to the log, but
+    # --exit-zero keeps the check green while the existing code is brought up to
+    # the ruleset. Drop --exit-zero to make lint a required gate once it's clean.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install ruff
+      - run: ruff check . --exit-zero

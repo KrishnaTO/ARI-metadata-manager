@@ -1,0 +1,9 @@
+# Lint config for the ARI Metadata Manager backend (app/, scripts/, run.py).
+# Kept intentionally lenient to start: high-signal error/flake rules only, with a
+# generous line length to match the existing style. Tighten over time.
+line-length = 120
+target-version = "py311"
+extend-exclude = ["ontologies", "static"]
+
+[lint]
+select = ["E", "F", "W", "I"]
