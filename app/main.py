@@ -6,6 +6,7 @@ import shutil
 import asyncio
 import secrets
 import subprocess
+from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI, Request, Body
@@ -39,7 +40,24 @@ ONTOLOGY_FILE = os.environ.get(
 )
 
 BASE = OntologyService(ONTOLOGY_FILE)   # shared, source-branch baseline
-app = FastAPI(title="ARI Metadata Manager")
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Background task: periodically sweep idle per-user working copies so disk
+    use stays bounded. The task is cancelled on shutdown."""
+    async def _sweep_loop():
+        while True:
+            _sweep_user_data()
+            await asyncio.sleep(6 * 3600)   # every 6 hours
+    task = asyncio.create_task(_sweep_loop())
+    try:
+        yield
+    finally:
+        task.cancel()
+
+
+app = FastAPI(title="ARI Metadata Manager", lifespan=lifespan)
 
 STATIC_DIR = Path(__file__).resolve().parent.parent / "static"
 
@@ -210,15 +228,6 @@ def _sweep_user_data():
                 f.unlink()
         except Exception:
             pass
-
-
-@app.on_event("startup")
-async def _start_sweeper():
-    async def loop():
-        while True:
-            _sweep_user_data()
-            await asyncio.sleep(6 * 3600)   # every 6 hours
-    asyncio.create_task(loop())
 
 
 @app.middleware("http")

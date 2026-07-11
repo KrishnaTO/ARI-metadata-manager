@@ -1,6 +1,10 @@
-owlready2>=0.46
-fastapi>=0.110
-uvicorn[standard]>=0.29
-httpx>=0.27
-itsdangerous>=2.1
-openpyxl>=3.1
+# Runtime dependencies. Floors are the minimum tested versions; upper bounds keep
+# an unattended rebuild / auto-update from pulling a breaking new major without a
+# code change. owlready2 is pre-1.0 and changes behaviour between minors, so it is
+# capped tightly. Bump these deliberately (and re-test) rather than removing them.
+owlready2>=0.46,<0.52
+fastapi>=0.110,<1.0
+uvicorn[standard]>=0.29,<1.0
+httpx>=0.27,<1.0
+itsdangerous>=2.1,<3.0
+openpyxl>=3.1,<4.0
