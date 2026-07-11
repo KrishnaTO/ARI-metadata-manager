@@ -1,6 +1,7 @@
 """FastAPI app for ARI Disease Metadata Manager."""
 import os
 import json
+import logging
 import time
 import shutil
 import asyncio
@@ -19,6 +20,8 @@ from . import github_service as gh
 from . import export_service
 from . import diff_service
 from . import sssom_service
+
+log = logging.getLogger(__name__)
 
 
 def _load_dotenv():
@@ -69,7 +72,8 @@ def _app_version() -> str:
         g = lambda *a: subprocess.check_output(["git", "-C", str(root), *a],
                                                text=True, stderr=subprocess.DEVNULL).strip()
         return f"2.{g('rev-list', '--count', 'HEAD')} ({g('show', '-s', '--format=%cd', '--date=short', 'HEAD')})"
-    except Exception:
+    except (OSError, subprocess.SubprocessError) as e:
+        log.debug("Could not derive app version from git: %s", e)
         return "2.x"
 
 
@@ -88,8 +92,8 @@ def _asset_version() -> str:
                                     text=True, stderr=subprocess.DEVNULL).strip()
         if n:
             return n
-    except Exception:
-        pass
+    except (OSError, subprocess.SubprocessError) as e:
+        log.debug("Could not derive asset version from git, using time fallback: %s", e)
     return str(int(time.time()))   # fallback: bust on each restart
 
 
@@ -117,9 +121,12 @@ SESSIONS_FILE = Path(__file__).resolve().parent.parent / ".sessions.json"
 
 
 def _load_sessions() -> dict:
+    if not SESSIONS_FILE.exists():
+        return {}
     try:
         return json.loads(SESSIONS_FILE.read_text())
-    except Exception:
+    except (OSError, json.JSONDecodeError) as e:
+        log.warning("Could not read %s (%s); starting with an empty session store", SESSIONS_FILE.name, e)
         return {}
 
 
@@ -127,8 +134,8 @@ def _save_sessions():
     try:
         SESSIONS_FILE.write_text(json.dumps(SESSIONS))
         os.chmod(SESSIONS_FILE, 0o600)
-    except Exception:
-        pass
+    except OSError as e:
+        log.warning("Could not persist sessions to %s (%s); a restart will sign users out", SESSIONS_FILE.name, e)
 
 
 # Server-side token store, persisted to disk so a restart (e.g. the auto-update
@@ -198,8 +205,10 @@ def _reset_user(login):
     USER_DIRTY.discard(login)
     try:
         (USER_DIR / f"{login}.owl").unlink()
-    except Exception:
-        pass
+    except FileNotFoundError:
+        pass                                    # never edited — nothing to reset
+    except OSError as e:
+        log.warning("Could not delete working copy for %s: %s", login, e)
 
 
 def _mark_dirty(request: Request):
@@ -226,8 +235,8 @@ def _sweep_user_data():
                 USER_SVC.pop(login, None)
                 USER_DIRTY.discard(login)
                 f.unlink()
-        except Exception:
-            pass
+        except OSError as e:
+            log.warning("Could not sweep idle working copy %s: %s", f.name, e)
 
 
 @app.middleware("http")
@@ -360,7 +369,8 @@ async def mappings(request: Request):
         async def _read(path):
             try:
                 return (await gh.get_file_at(u["token"], GH_OWNER, GH_REPO, path, STATE["source_branch"])).decode("utf-8")
-            except Exception:
+            except Exception as e:
+                log.debug("Could not read %s@%s from GitHub, falling back to local: %s", path, STATE["source_branch"], e)
                 return ""
         sssom_text = await _read(MAPPINGS_SSSOM_PATH)
         equiv_text = await _read(MAPPINGS_EQUIV_PATH)
@@ -369,7 +379,8 @@ async def mappings(request: Request):
         for attr, p in (("sssom_text", MAPPINGS_SSSOM_PATH), ("equiv_text", MAPPINGS_EQUIV_PATH)):
             try:
                 txt = (root / p).read_text(encoding="utf-8")
-            except Exception:
+            except OSError as e:
+                log.debug("Could not read local mapping file %s: %s", p, e)
                 txt = ""
             if attr == "sssom_text":
                 sssom_text = txt
@@ -516,12 +527,15 @@ async def publish(request: Request, payload: dict = Body(default={})):
         tf.write(data); tf.close(); tmp_path = tf.name
         baseline = OntologyService(tmp_path)
         summary = diff_service.build_change_summary(svc, baseline)
-    except Exception:
+    except Exception as e:
+        log.warning("Could not build change summary against source branch %s: %s", STATE["source_branch"], e)
         summary = "_Change summary unavailable (could not load the source-branch baseline)._"
     finally:
         if tmp_path:
-            try: _os.unlink(tmp_path)
-            except Exception: pass
+            try:
+                _os.unlink(tmp_path)
+            except OSError as e:
+                log.debug("Could not remove temp baseline %s: %s", tmp_path, e)
 
     # Confirmed / flagged cross-references also accumulate into the
     # SSSOM + equivalencies mapping files.
@@ -535,7 +549,8 @@ async def publish(request: Request, payload: dict = Body(default={})):
         async def _read(path):
             try:
                 return (await gh.get_file_at(u["token"], GH_OWNER, GH_REPO, path, STATE["source_branch"])).decode("utf-8")
-            except Exception:
+            except Exception as e:
+                log.debug("Could not read existing mapping file %s@%s, starting fresh: %s", path, STATE["source_branch"], e)
                 return ""
         files = sssom_service.build(confirmed, author, await _read(SS_PATH), await _read(EQ_PATH), flagged=flagged)
         extra_files = {SS_PATH: files["sssom"].encode("utf-8"),
@@ -584,7 +599,8 @@ async def get_settings(request: Request):
     if GH_ENABLED:
         try:
             branches = _allowed_branches(await gh.list_branches(token, GH_OWNER, GH_REPO))
-        except Exception:
+        except Exception as e:
+            log.warning("Could not list branches from GitHub: %s", e)
             branches = [GH_BASE_BRANCH]
     return {"github_enabled": GH_ENABLED, "authenticated": bool(u),
             "working_branch": GH_BASE_BRANCH, "source_branch": STATE["source_branch"],
@@ -655,7 +671,8 @@ async def export_excel(request: Request):
             tmp = tempfile.NamedTemporaryFile(suffix=".owl", delete=False)
             tmp.write(data); tmp.close(); tmp_name = tmp.name
             baseline = OntologyService(tmp_name)
-        except Exception:
+        except Exception as e:
+            log.warning("Could not load export baseline from source branch %s: %s", STATE["source_branch"], e)
             baseline = None
         finally:
             # Always remove the temp file, even if OntologyService() raised after
@@ -663,8 +680,8 @@ async def export_excel(request: Request):
             if tmp_name:
                 try:
                     _os.unlink(tmp_name)
-                except Exception:
-                    pass
+                except OSError as e:
+                    log.debug("Could not remove temp baseline %s: %s", tmp_name, e)
     xlsx = export_service.build_report(service_for(request), baseline)
     return StreamingResponse(
         _io.BytesIO(xlsx),
