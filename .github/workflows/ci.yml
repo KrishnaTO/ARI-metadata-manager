@@ -16,19 +16,13 @@ jobs:
         with:
           python-version: "3.12"
       - run: python -m pip install --upgrade pip
-      - run: pip install -r requirements.txt
+      - run: pip install -r requirements-dev.txt
       - name: Byte-compile
         run: python -m compileall app scripts run.py
       - name: Import smoke test (loads the ontology)
         run: python -c "import app.main; print('app.main imported OK')"
-      - name: Run tests if any exist
-        run: |
-          pip install pytest
-          if [ -d tests ] || ls test_*.py **/test_*.py >/dev/null 2>&1; then
-            pytest -q
-          else
-            echo "No tests yet — skipping (see tech-debt Phase 2)."
-          fi
+      - name: Tests
+        run: pytest -q
 
   lint:
     # Advisory only for now: surfaces lint without blocking merges while the
