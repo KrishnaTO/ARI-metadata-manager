@@ -56,7 +56,9 @@
   .xid-block .xid-name { color:var(--muted); font-weight:400; overflow:hidden; text-overflow:ellipsis; max-width:16ch; }
   .xid-block .xid-label { overflow:hidden; text-overflow:ellipsis; }
   .p-links .xid-list { padding:2px 0; }
-  .p-links .xid-block { width:100%; justify-content:space-between; color:var(--text); }
+  .p-links .xid-block { width:100%; justify-content:space-between; color:var(--text); white-space:normal; align-items:flex-start; }
+  /* In the panel link-out list show the concept's full name (no cell-width truncation). */
+  .p-links .xid-name { flex:1; max-width:none; overflow:visible; white-space:normal; text-overflow:clip; margin:0 8px; text-align:left; }
   .p-links .xid-block .xid-label { color:var(--accent); font-weight:600; }
   .p-links .xid-open { color:var(--muted); flex-shrink:0; }
   .xid { color:var(--accent); cursor:pointer; text-decoration:underline; margin-right:4px; white-space:nowrap; }
