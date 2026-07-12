@@ -152,10 +152,15 @@
   function renderTable(filter) {
     const q = (filter || '').trim().toLowerCase();
     const rows = ROWS.filter(r => !q || (r.name || '').toLowerCase().includes(q) ||
+      (r.synonyms || []).some(s => String(s).toLowerCase().includes(q)) ||
       DBS.some(db => (r[db.key] || []).some(id => String(id).toLowerCase().includes(q))));
     let h = '<table><thead><tr><th>Disease</th>' + DBS.map(d => `<th>${d.label}</th>`).join('') + '</tr></thead><tbody>';
     for (const r of rows) {
-      h += `<tr><td class="dz">${esc(r.name)}</td>`;
+      const syns = (r.synonyms || []).filter(Boolean);
+      const synHtml = syns.length
+        ? `<div class="dz-syns">${syns.map(s => `<span class="dz-syn">${esc(s)}</span>`).join('')}</div>`
+        : '';
+      h += `<tr><td class="dz"><div class="dz-name">${esc(r.name)}</div>${synHtml}</td>`;
       for (const db of DBS) {
         const ids = r[db.key] || [];
         const ck = cellKey(r.iri, db.key);
