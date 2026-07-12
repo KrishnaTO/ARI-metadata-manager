@@ -154,6 +154,10 @@ body.resizing-cols { cursor: col-resize; user-select: none; }
 .detail .ari-id .ari-id-val { font-family: var(--font-mono, monospace); }
 .copy-btn { border: none; background: transparent; cursor: pointer; padding: 1px 4px; font-size: 12px; line-height: 1; border-radius: 4px; opacity: .6; }
 .copy-btn:hover { opacity: 1; background: var(--accent-soft); }
+/* "Copy link" deep-link action beside the disease title (issue #37) */
+.detail h1 .link-btn { vertical-align: middle; margin-left: 10px; padding: 3px 8px; font-size: 12px;
+  font-weight: 600; color: var(--accent); border: 1px solid var(--border-strong); border-radius: 6px; }
+.detail h1 .link-btn:hover { border-color: var(--accent); }
 /* Open-PR "unreviewed changes" banner on the disease page (issue #19) */
 .pr-banner { margin: 0 0 12px; padding: 9px 12px; border: 1px solid var(--warn); border-left: 3px solid var(--warn);
   border-radius: 8px; background: color-mix(in srgb, var(--warn) 10%, var(--bg)); font-size: 12px; }
