@@ -1,16 +1,26 @@
 #!/usr/bin/env python3
-"""Download reference ontologies and build the compact cross-reference indexes
+"""Download reference databases and build the compact cross-reference indexes
 used by ``app/predict_service`` (issue #42).
 
-For each freely-redistributable source (MONDO, DOID, ...) this downloads the raw
-OBO into ``data/2-databases/raw/`` (git-ignored — large) and distills it into
-``data/2-databases/<db>.index.tsv``: one row per ontology term with its label,
-exact synonyms, and the ids it cross-references in each target database. The index
-files are small and are committed for local version control; the raw dumps are not.
+For each freely-redistributable source this downloads the raw release into
+``data/2-databases/raw/`` (git-ignored — large) and distils it into
+``data/2-databases/<db>.index.tsv``: one row per term with its label, exact
+synonyms, and the ids it cross-references in each target database. The index files
+are small and are committed for local version control; the raw dumps are not.
 
-MONDO is the hub — a single MONDO term xrefs SNOMED/DOID/NCI/ICD-10/Orphanet/OMIM/
-UMLS/MeSH — so its index alone can predict nine of the ten target columns. OMOP is
-OHDSI-specific and is not carried by these ontologies; see the README.
+Sources and formats:
+  mondo, doid  OBO ontologies. MONDO is the hub — one term xrefs SNOMED/DOID/NCI/
+               ICD-10/Orphanet/OMIM/UMLS/MeSH, so it alone predicts nine columns.
+  ncit         NCI Thesaurus OBO, filtered to disease semantic types; also carries
+               its UMLS CUI (P207) as a umls xref.
+  mesh         NLM MeSH descriptor XML, filtered to the Diseases (C*) and Mental
+               Disorders (F03*) tree categories.
+  orphanet     Orphanet nomenclature XML (en_product1), with its exact-mapped
+               ICD-10 / OMIM / UMLS / MeSH / SNOMED cross-references.
+
+MONDO/DOID/NCI/MeSH/Orphanet all match a disease directly on their own labels and
+synonyms — independent lexical sources, not just MONDO's xref view. OMOP is
+OHDSI-specific and is carried by none of them; see the README.
 
 Usage:
     python scripts/fetch_databases.py                # download (if missing) + build
@@ -27,13 +37,27 @@ from pathlib import Path
 DATA_DIR = Path(__file__).resolve().parent.parent / "data" / "2-databases"
 RAW_DIR = DATA_DIR / "raw"
 
-# Freely-redistributable OBO sources. ``db`` is the owning target-database key
-# (its own id lands in that column). Add more OBO ontologies here as needed.
+# Freely-redistributable sources. The dict key is the owning target-database key
+# (its own id lands in that column). ``format`` selects the parser.
 SOURCES = {
     "mondo": {"url": "https://purl.obolibrary.org/obo/mondo.obo",
-              "raw": "mondo.obo", "id_prefix": "MONDO"},
+              "raw": "mondo.obo", "format": "obo", "id_prefix": "MONDO"},
     "doid": {"url": "https://purl.obolibrary.org/obo/doid.obo",
-             "raw": "doid.obo", "id_prefix": "DOID"},
+             "raw": "doid.obo", "format": "obo", "id_prefix": "DOID"},
+    "ncit": {"url": "https://purl.obolibrary.org/obo/ncit.obo",
+             "raw": "ncit.obo", "format": "obo", "id_prefix": "NCIT", "disease_only": True},
+    "mesh": {"url": "https://nlmpubs.nlm.nih.gov/projects/mesh/MESH_FILES/xmlmesh/desc2026.xml",
+             "raw": "mesh_desc2026.xml", "format": "mesh-xml"},
+    "orphanet": {"url": "https://www.orphadata.com/data/xml/en_product1.xml",
+                 "raw": "orphanet_product1.xml", "format": "orphanet-xml"},
+}
+
+# NCI Thesaurus semantic types (property NCIT:P106) that denote a disease/disorder,
+# used to keep the ncit index disease-focused rather than all ~180k NCIt concepts.
+NCIT_DISEASE_SEMANTIC_TYPES = {
+    "Disease or Syndrome", "Neoplastic Process", "Mental or Behavioral Dysfunction",
+    "Congenital Abnormality", "Acquired Abnormality", "Anatomical Abnormality",
+    "Experimental Model of Disease",
 }
 
 # Import the shared column contract / normalization from the app so the builder and
@@ -98,22 +122,41 @@ def _parse_synonym(line: str) -> str | None:
     return text
 
 
-def parse_obo(path: Path, id_prefix: str) -> list[dict]:
+def _property_value(line: str) -> tuple[str, str]:
+    """Parse ``property_value: PROP "value" type`` -> ``(PROP, value)`` (``("","")`` if not)."""
+    body = line[len("property_value:"):].strip()
+    parts = body.split(None, 1)
+    if len(parts) != 2 or not parts[1].startswith('"'):
+        return "", ""
+    end = parts[1].find('"', 1)
+    if end < 1:
+        return "", ""
+    return parts[0], parts[1][1:end]
+
+
+def parse_obo(path: Path, id_prefix: str, disease_only: bool = False) -> list[dict]:
     """Distil one OBO file into index rows for terms of ``id_prefix``.
 
     Each row: ``{"id", "label", "synonyms": [...], "<db>": [ids...]}``. The term's
     own id also fills its owning-database column, so a MONDO term carries its MONDO
-    id plus every xref it declares.
+    id plus every xref it declares. ``disease_only`` keeps only NCIt terms whose
+    semantic type (NCIT:P106) is a disease/disorder — the NCIt release is otherwise
+    ~180k mostly-non-disease concepts. NCIt's UMLS CUI (NCIT:P207) is harvested as a
+    umls cross-reference.
     """
     rows: list[dict] = []
     cur: dict | None = None
     obsolete = False
+    sem_types: set[str] = set()
 
     def flush():
-        nonlocal cur, obsolete
-        if cur and not obsolete and cur.get("id", "").startswith(id_prefix + ":") and cur.get("label"):
+        nonlocal cur, obsolete, sem_types
+        keep = cur and not obsolete and cur.get("id", "").startswith(id_prefix + ":") and cur.get("label")
+        if keep and disease_only:
+            keep = bool(sem_types & NCIT_DISEASE_SEMANTIC_TYPES)
+        if keep:
             rows.append(cur)
-        cur, obsolete = None, False
+        cur, obsolete, sem_types = None, False, set()
 
     with open(path, encoding="utf-8") as f:
         for raw in f:
@@ -122,6 +165,7 @@ def parse_obo(path: Path, id_prefix: str) -> list[dict]:
                 flush()
                 cur = {"synonyms": []}
                 obsolete = False
+                sem_types = set()
                 continue
             if line.startswith("[") and line.endswith("]"):
                 flush()          # [Typedef] etc. — leave term context
@@ -148,7 +192,87 @@ def parse_obo(path: Path, id_prefix: str) -> list[dict]:
                 db = _db_for_prefix(prefix)
                 if db and ident:
                     cur.setdefault(db, []).append(ident)
+            elif line.startswith("property_value: NCIT:P106 "):
+                _, val = _property_value(line)
+                if val:
+                    sem_types.add(val)
+            elif line.startswith("property_value: NCIT:P207 "):
+                _, val = _property_value(line)       # UMLS CUI
+                if val:
+                    cur.setdefault("umls", []).append(val)
     flush()
+    return rows
+
+
+def _local_tag(elem) -> str:
+    return elem.tag.rsplit("}", 1)[-1]
+
+
+def parse_mesh_xml(path: Path, keep_tree_prefixes: tuple[str, ...] = ("C", "F03")) -> list[dict]:
+    """Distil NLM MeSH descriptor XML into index rows (Diseases + Mental Disorders).
+
+    Keeps descriptors with a tree number under ``keep_tree_prefixes`` (C = Diseases,
+    F03 = Mental Disorders). Label = DescriptorName; synonyms = the terms of the
+    *preferred* concept only (non-preferred concepts are narrower and would make an
+    unsafe exact match). No cross-references (MeSH descriptors carry none to the
+    other target databases); only the ``mesh`` column is filled.
+    """
+    import xml.etree.ElementTree as ET
+
+    rows: list[dict] = []
+    for _event, elem in ET.iterparse(path, events=("end",)):
+        if _local_tag(elem) != "DescriptorRecord":
+            continue
+        ui = elem.findtext("DescriptorUI") or ""
+        name = elem.findtext("DescriptorName/String") or ""
+        trees = [t.text or "" for t in elem.iterfind("TreeNumberList/TreeNumber")]
+        if ui and name and any(t.startswith(keep_tree_prefixes) for t in trees):
+            synonyms = []
+            for concept in elem.iterfind("ConceptList/Concept"):
+                if concept.get("PreferredConceptYN") != "Y":
+                    continue
+                for term in concept.iterfind("TermList/Term/String"):
+                    if term.text and term.text != name:
+                        synonyms.append(term.text)
+            rows.append({"id": f"MESH:{ui}", "label": name, "synonyms": synonyms, "mesh": [ui]})
+        elem.clear()
+    return rows
+
+
+# Orphanet en_product1 external-reference source label -> target-database key.
+_ORPHA_SOURCE_DB = {"ICD-10": "icd10", "OMIM": "omim", "UMLS": "umls",
+                    "MeSH": "mesh", "SNOMED CT": "snomed"}
+
+
+def parse_orphanet_xml(path: Path) -> list[dict]:
+    """Distil the Orphanet nomenclature XML (en_product1) into index rows.
+
+    Own id = OrphaCode; label = Name; synonyms = SynonymList. Only *exact* external
+    references (DisorderMappingRelation ``E``) become cross-references, mapped to
+    ICD-10 / OMIM / UMLS / MeSH / SNOMED so a broader/narrower Orphanet mapping is
+    never emitted as a skos:exactMatch prediction.
+    """
+    import xml.etree.ElementTree as ET
+
+    rows: list[dict] = []
+    for _event, elem in ET.iterparse(path, events=("end",)):
+        if _local_tag(elem) != "Disorder":
+            continue
+        code = elem.findtext("OrphaCode") or ""
+        name = elem.findtext("Name") or ""
+        if code and name:
+            row = {"id": f"ORPHA:{code}", "label": name, "synonyms": [], "orphanet": [code]}
+            for syn in elem.iterfind("SynonymList/Synonym"):
+                if syn.text:
+                    row["synonyms"].append(syn.text)
+            for ref in elem.iterfind("ExternalReferenceList/ExternalReference"):
+                db = _ORPHA_SOURCE_DB.get(ref.findtext("Source") or "")
+                ident = ref.findtext("Reference") or ""
+                relation = ref.findtext("DisorderMappingRelation/Name") or ""
+                if db and ident and relation.strip().startswith("E "):
+                    row.setdefault(db, []).append(ident)
+            rows.append(row)
+        elem.clear()
     return rows
 
 
@@ -180,7 +304,16 @@ def build(only: list[str] | None) -> None:
             print(f"[{db}] raw file missing ({raw}); run without --offline first", file=sys.stderr)
             continue
         print(f"[{db}] parsing {raw.name} ...")
-        rows = parse_obo(raw, cfg["id_prefix"])
+        fmt = cfg.get("format", "obo")
+        if fmt == "obo":
+            rows = parse_obo(raw, cfg["id_prefix"], disease_only=cfg.get("disease_only", False))
+        elif fmt == "mesh-xml":
+            rows = parse_mesh_xml(raw)
+        elif fmt == "orphanet-xml":
+            rows = parse_orphanet_xml(raw)
+        else:
+            print(f"[{db}] unknown format {fmt!r}; skipping", file=sys.stderr)
+            continue
         out = write_index(db, rows)
         rel = out.relative_to(DATA_DIR.parent.parent)
         print(f"[{db}] wrote {rel} ({len(rows):,} terms, {out.stat().st_size:,} bytes)")

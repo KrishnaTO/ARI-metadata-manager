@@ -12,7 +12,18 @@ which a curator then verifies and confirms.
 | --- | --- | --- | --- |
 | `mondo.index.tsv` | [MONDO](https://mondo.monarchinitiative.org/) (CC BY 4.0) | `raw/mondo.obo` | yes |
 | `doid.index.tsv`  | [Human Disease Ontology](https://disease-ontology.org/) (CC0) | `raw/doid.obo` | yes |
-| `raw/` | downloaded OBO dumps | — | no (git-ignored, large) |
+| `ncit.index.tsv`  | [NCI Thesaurus](https://ncithesaurus.nci.nih.gov/) (public domain) | `raw/ncit.obo` | yes |
+| `mesh.index.tsv`  | [MeSH](https://www.nlm.nih.gov/mesh/) (NLM, public domain) | `raw/mesh_desc2026.xml` | yes |
+| `orphanet.index.tsv` | [Orphanet](https://www.orphadata.com/) (CC BY 4.0) | `raw/orphanet_product1.xml` | yes |
+| `raw/` | downloaded release dumps | — | no (git-ignored, large) |
+
+`ncit`, `mesh` and `orphanet` are filtered to disease terms so the indexes stay
+small: NCIt to its disease semantic types (NCIT:P106) — and its UMLS CUI (P207) is
+harvested as a `umls` cross-reference; MeSH to the Diseases (`C*`) and Mental
+Disorders (`F03*`) tree categories; Orphanet's cross-references are limited to its
+*exact* mappings (ICD-10/OMIM/UMLS/MeSH/SNOMED). All five match a disease directly
+on their own labels and synonyms — independent lexical sources, not just MONDO's
+xref view.
 
 Each `*.index.tsv` is one row per ontology term:
 
@@ -27,14 +38,17 @@ id	label	synonyms	snomed	omop	doid	mondo	nci	icd10	orphanet	omim	umls	mesh
 
 **MONDO is the hub.** A single MONDO term carries xrefs to SNOMED (`SCTID`), DOID,
 NCI, ICD-10-CM, Orphanet, OMIM, UMLS and MeSH, so matching a disease name to MONDO
-can fill **nine of the ten** columns at once. DOID adds a second, independent lexical
-source. Both are freely redistributable, so their indexes are committed here.
+can fill **nine of the ten** columns at once. DOID, NCI, MeSH and Orphanet add four
+more independent lexical sources — a disease whose name misses MONDO but hits one of
+them still gets a prediction, and NCI/Orphanet contribute their own cross-references
+(NCI→UMLS; Orphanet→ICD-10/OMIM/UMLS/MeSH/SNOMED). All five are freely
+redistributable, so their indexes are committed here.
 
 **OMOP is not covered.** OMOP concept ids are OHDSI-specific and are not carried by
 these ontologies. Predicting OMOP requires the OHDSI **Athena** vocabulary bundle,
-which is license-gated and cannot be redistributed here. Likewise, SNOMED/OMIM/UMLS
-predictions come *only* via MONDO's xrefs — the primary SNOMED CT, OMIM and UMLS
-releases are license-restricted and are not stored in this repo.
+which is license-gated and cannot be redistributed here. SNOMED predictions come
+only via MONDO's / Orphanet's xrefs — the primary SNOMED CT release is
+license-restricted and is not stored in this repo.
 
 To extend predictions with a licensed vocabulary you are entitled to use, drop a
 compatible `<db>.index.tsv` (same columns) into this folder — `predict_service`
