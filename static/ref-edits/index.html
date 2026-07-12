@@ -26,7 +26,10 @@
   table { border-collapse:collapse; width:100%; font-size:12px; }
   th, td { border:1px solid var(--border); padding:5px 7px; text-align:left; vertical-align:top; }
   th { position:sticky; top:0; background:var(--bg2); z-index:1; }
-  td.dz { font-weight:600; white-space:nowrap; position:sticky; left:0; background:var(--bg); }
+  td.dz { position:sticky; left:0; background:var(--bg); }
+  td.dz .dz-name { font-weight:600; white-space:nowrap; }
+  td.dz .dz-syns { display:flex; flex-wrap:wrap; gap:3px; margin-top:4px; max-width:260px; }
+  td.dz .dz-syn { font-size:10px; font-weight:400; color:var(--muted); background:var(--bg2); border:1px solid var(--border); border-radius:99px; padding:1px 7px; white-space:nowrap; }
   .cell.ok { background:rgba(5,150,105,.14); }
   .cell.bad { background:rgba(220,38,38,.14); }
   /* Pre-highlight from already-curated mappings: a faint tint + colored edge bar,
