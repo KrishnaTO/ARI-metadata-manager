@@ -398,6 +398,16 @@ async def mappings(request: Request):
     return sssom_service.load_judgments(sssom_text, equiv_text)
 
 
+@app.get("/api/v2/predictions")
+async def predictions(request: Request):
+    """Predicted cross-references for blank review-grid cells (issue #42).
+
+    Exact name/synonym matches against the downloaded reference-database indexes
+    (``data/2-databases``); the review page shows these as yellow "predicted" cells
+    the curator can verify and confirm. Empty list when no indexes are present."""
+    return service_for(request).predict_xrefs()
+
+
 @app.get("/api/v2/tissues")
 async def tissues_list(request: Request):
     """All tissue-target individuals for new-disease creation forms."""

@@ -1,0 +1,12 @@
+# Raw ontology dumps are large (MONDO ~53 MB, DOID ~7 MB) and re-downloadable, so
+# they are not version-controlled. The compact *.index.tsv files distilled from
+# them (below) ARE committed — they are what app/predict_service reads.
+raw/
+
+# Any user-supplied licensed vocabularies (SNOMED CT, OMOP/Athena, OMIM, UMLS)
+# dropped here to extend predictions must not be committed (redistribution is
+# license-restricted). Keep them out; commit only indexes you are permitted to.
+snomed/
+omop/
+umls/
+*.zip

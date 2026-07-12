@@ -40,6 +40,23 @@
   const cellKey = (iri, db) => iri + '|' + db;
   // Pre-existing curated judgments keyed `${ari_id}|${prefix}|${id}` -> 'positive'|'negative'.
   let mappings = {};
+  // Predicted matches (issue #42) keyed `${ari_id}|${prefix}|${id}` -> {label, match_field}.
+  // Populated from /api/v2/predictions: exact name/synonym hits for blank cells.
+  let predicted = {};
+
+  // Predicted candidate ids for a currently-blank (disease, db) cell. Returns
+  // [{id, label, match_field}], skipping any id already flagged negative earlier.
+  function predFor(r, dbkey) {
+    const ari = r.ari_id, prefix = PREFIX[dbkey];
+    if (!ari || !prefix || (r[dbkey] || []).length) return [];
+    const out = [];
+    for (const [k, meta] of Object.entries(predicted)) {
+      const [a, p, id] = k.split('|');
+      if (a === ari && p === prefix && mappings[k] !== 'negative')
+        out.push({ id, label: meta.label, match_field: meta.match_field });
+    }
+    return out;
+  }
 
   // Has this (disease, db) cell been judged positive/negative in an earlier
   // session (per the stored mappings)? Returns 'pos' | 'neg' | null. A positive
@@ -168,20 +185,31 @@
           if (reviewed[ik] === 'bad') anyBad = true;
           if (edited[ik]) anyEdited = true;
         }
+        const preds = ids.length ? [] : predFor(r, db.key);
         const cellCls = (anyOk && !anyBad ? ' ok' : anyBad ? ' bad'
-                        : pre === 'pos' ? ' prepos' : pre === 'neg' ? ' preneg' : '')
+                        : pre === 'pos' ? ' prepos' : pre === 'neg' ? ' preneg'
+                        : preds.length ? ' predicted' : '')
                         + (anyEdited ? ' edited' : '');
-        const chips = ids.length
-          ? `<div class="xid-list">${ids.map(id => {
+        let chips;
+        if (ids.length) {
+          chips = `<div class="xid-list">${ids.map(id => {
               const ik = idKey(r.iri, db.key, id);
               const preId = preJudgmentId(r, db.key, id);
               const idCls = (reviewed[ik] === 'ok' ? 'ok' : reviewed[ik] === 'bad' ? 'bad'
                             : preId === 'pos' ? 'prepos' : preId === 'neg' ? 'preneg' : '')
                             + (edited[ik] ? ' edited' : '');
               return idBlock(id, ` data-iri="${esc(r.iri)}" data-db="${db.key}" data-id="${esc(id)}"`, null, '', idCls);
-            }).join('')}</div>`
-          : `<span class="add" data-iri="${esc(r.iri)}" data-db="${db.key}">+ add</span>`;
-        const title = !anyOk && !anyBad && pre ? ` title="Previously ${pre === 'pos' ? 'confirmed' : 'flagged'} in the curated mappings"` : '';
+            }).join('')}</div>`;
+        } else if (preds.length) {
+          // Yellow predicted candidates: click to verify + confirm in the panel.
+          chips = `<div class="xid-list">${preds.map(p =>
+              `<span class="xid-block predicted" data-iri="${esc(r.iri)}" data-db="${db.key}" data-pred-id="${esc(p.id)}" title="Predicted by exact ${p.match_field} match: ${esc(p.label)} — click to verify"><span class="xid-label">${esc(p.id)}</span>${p.label ? `<span class="xid-name">${esc(p.label)}</span>` : ''}</span>`
+            ).join('')}<span class="add" data-iri="${esc(r.iri)}" data-db="${db.key}">+ add</span></div>`;
+        } else {
+          chips = `<span class="add" data-iri="${esc(r.iri)}" data-db="${db.key}">+ add</span>`;
+        }
+        const title = !anyOk && !anyBad && pre ? ` title="Previously ${pre === 'pos' ? 'confirmed' : 'flagged'} in the curated mappings"`
+                    : preds.length ? ` title="${preds.length} predicted exact-match candidate${preds.length > 1 ? 's' : ''} to verify"` : '';
         h += `<td class="cell${cellCls}" data-cell="${esc(ck)}"${title}>${chips}</td>`;
       }
       h += '</tr>';
@@ -189,6 +217,7 @@
     h += '</tbody></table>';
     $('#table-wrap').innerHTML = h;
     $('#table-wrap').querySelectorAll('.xid-block[data-id]').forEach(c => c.addEventListener('click', () => openPanel(c.dataset.iri, c.dataset.db, c.dataset.id)));
+    $('#table-wrap').querySelectorAll('.xid-block[data-pred-id]').forEach(c => c.addEventListener('click', () => openPanel(c.dataset.iri, c.dataset.db, null, c.dataset.predId)));
     $('#table-wrap').querySelectorAll('.add').forEach(c => c.addEventListener('click', () => openPanel(c.dataset.iri, c.dataset.db, null)));
   }
 
@@ -211,13 +240,14 @@
     }
   }
 
-  function openPanel(iri, dbkey, id) {
+  function openPanel(iri, dbkey, id, predId) {
     active = { iri, dbkey, id };
     const r = ROWS.find(x => x.iri === iri);
     const db = DBMAP[dbkey];
     const ids = r[dbkey] || [];
     const key = idKey(iri, dbkey, id);
-    let frameSrc = '', linksHtml;
+    const preds = ids.length ? [] : predFor(r, dbkey);
+    let frameSrc = '', linksHtml, prefill = ids.join(', ');
     if (ids.length) {
       const target = id || ids[0];
       frameSrc = db.link(target);
@@ -231,6 +261,15 @@
           return `<a class="xid-block${String(x) === String(target) ? ' active' : ''} ${idCls}" href="${esc(db.link(x))}" target="_blank" rel="noopener" data-panel-id="${esc(x)}"><span class="xid-label">${esc(x)}</span><span class="xid-open">↗</span></a>`;
         }).join('') +
         '</div>';
+    } else if (preds.length) {
+      // Predicted (issue #42): preview the candidate concept(s) and pre-fill the id
+      // box so the curator only has to verify the source page and Save.
+      const target = predId || preds[0].id;
+      prefill = target;
+      frameSrc = db.link(target);
+      linksHtml = `<div class="muted" style="margin-bottom:4px">Predicted by exact name/synonym match — verify against ${db.label}, then Save:</div><div class="xid-list">` +
+        preds.map(p => `<a class="xid-block predicted${String(p.id) === String(target) ? ' active' : ''}" href="${esc(db.link(p.id))}" target="_blank" rel="noopener" data-panel-id="${esc(p.id)}"><span class="xid-label">${esc(p.id)}</span>${p.label ? `<span class="xid-name">${esc(p.label)}</span>` : ''}<span class="xid-open">↗</span></a>`).join('') +
+        `</div><div class="muted" style="margin-top:6px">Not right? <a href="${esc(db.search(r.name))}" target="_blank" rel="noopener">search ${db.label} for "${esc(r.name)}" ↗</a></div>`;
     } else {
       frameSrc = db.search(r.name);
       linksHtml = `No ${db.label} id yet — <a href="${esc(db.search(r.name))}" target="_blank" rel="noopener">search ${db.label} for "${esc(r.name)}" ↗</a>, then paste the id below.`;
@@ -244,8 +283,8 @@
       <div class="p-sub"><span class="muted">Distinct variant of this disease?</span>
         <button class="btn" id="p-subtype">＋ New subtype</button></div>
       <div class="p-edit">
-        <label>${db.label} id(s) — comma separated (add an alternate id here)</label>
-        <input id="p-ids" value="${esc(ids.join(', '))}" placeholder="e.g. 12345, 67890">
+        <label>${db.label} id(s) — comma separated${preds.length ? ' (predicted id pre-filled — verify, then Save)' : ' (add an alternate id here)'}</label>
+        <input id="p-ids" value="${esc(prefill)}" placeholder="e.g. 12345, 67890">
         <button class="btn primary" id="p-save">Save</button>
       </div>
       <div class="p-links">${linksHtml}</div>
@@ -440,6 +479,12 @@
       mappings = {};
       for (const m of await api('mappings')) mappings[m.ari_id + '|' + m.prefix + '|' + m.id] = m.judgment;
     } catch (e) { mappings = {}; }
+    // Predicted exact-match candidates for blank cells (issue #42); non-fatal.
+    try {
+      predicted = {};
+      for (const p of await api('predictions'))
+        predicted[p.ari_id + '|' + p.prefix + '|' + p.id] = { label: p.object_label, match_field: p.match_field };
+    } catch (e) { predicted = {}; }
     renderTable(''); counts(); initDivider();
     $('#filter').addEventListener('input', e => renderTable(e.target.value));
     $('#publish').addEventListener('click', publish);
