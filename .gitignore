@@ -226,3 +226,4 @@ __marimo__/
 *.zip
 run-local.sh
 app/node_modules/
+CLAUDE.md
