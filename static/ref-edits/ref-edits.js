@@ -40,12 +40,14 @@
   const cellKey = (iri, db) => iri + '|' + db;
   // Pre-existing curated judgments keyed `${ari_id}|${prefix}|${id}` -> 'positive'|'negative'.
   let mappings = {};
-  // Predicted matches (issue #42) keyed `${ari_id}|${prefix}|${id}` -> {label, match_field}.
-  // Populated from /api/v2/predictions: exact name/synonym hits for blank cells.
+  // Predicted matches (issue #42) keyed `${ari_id}|${prefix}|${id}` ->
+  // {label, match_field, confidence}. From /api/v2/predictions: exact name/synonym
+  // hits for blank cells. confidence 'high' = the disease label matched a concept;
+  // 'low' = only a synonym matched (label matched nothing) — worth a closer look.
   let predicted = {};
 
   // Predicted candidate ids for a currently-blank (disease, db) cell. Returns
-  // [{id, label, match_field}], skipping any id already flagged negative earlier.
+  // [{id, label, match_field, confidence}], skipping any id already flagged negative.
   function predFor(r, dbkey) {
     const ari = r.ari_id, prefix = PREFIX[dbkey];
     if (!ari || !prefix || (r[dbkey] || []).length) return [];
@@ -53,7 +55,7 @@
     for (const [k, meta] of Object.entries(predicted)) {
       const [a, p, id] = k.split('|');
       if (a === ari && p === prefix && mappings[k] !== 'negative')
-        out.push({ id, label: meta.label, match_field: meta.match_field });
+        out.push({ id, label: meta.label, match_field: meta.match_field, confidence: meta.confidence });
     }
     return out;
   }
@@ -202,9 +204,14 @@
             }).join('')}</div>`;
         } else if (preds.length) {
           // Yellow predicted candidates: click to verify + confirm in the panel.
-          chips = `<div class="xid-list">${preds.map(p =>
-              `<span class="xid-block predicted" data-iri="${esc(r.iri)}" data-db="${db.key}" data-pred-id="${esc(p.id)}" title="Predicted by exact ${p.match_field} match: ${esc(p.label)} — click to verify"><span class="xid-label">${esc(p.id)}</span>${p.label ? `<span class="xid-name">${esc(p.label)}</span>` : ''}</span>`
-            ).join('')}<span class="add" data-iri="${esc(r.iri)}" data-db="${db.key}">+ add</span></div>`;
+          // Low-confidence (synonym-only) chips are dimmed and labelled as such.
+          chips = `<div class="xid-list">${preds.map(p => {
+              const lc = p.confidence === 'low' ? ' low' : '';
+              const tip = p.confidence === 'low'
+                ? `Predicted from a synonym only (label matched nothing): ${esc(p.label)} — verify`
+                : `Predicted by exact ${p.match_field} match: ${esc(p.label)} — click to verify`;
+              return `<span class="xid-block predicted${lc}" data-iri="${esc(r.iri)}" data-db="${db.key}" data-pred-id="${esc(p.id)}" title="${tip}"><span class="xid-label">${esc(p.id)}</span>${p.label ? `<span class="xid-name">${esc(p.label)}</span>` : ''}</span>`;
+            }).join('')}<span class="add" data-iri="${esc(r.iri)}" data-db="${db.key}">+ add</span></div>`;
         } else {
           chips = `<span class="add" data-iri="${esc(r.iri)}" data-db="${db.key}">+ add</span>`;
         }
@@ -483,7 +490,7 @@
     try {
       predicted = {};
       for (const p of await api('predictions'))
-        predicted[p.ari_id + '|' + p.prefix + '|' + p.id] = { label: p.object_label, match_field: p.match_field };
+        predicted[p.ari_id + '|' + p.prefix + '|' + p.id] = { label: p.object_label, match_field: p.match_field, confidence: p.confidence };
     } catch (e) { predicted = {}; }
     renderTable(''); counts(); initDivider();
     $('#filter').addEventListener('input', e => renderTable(e.target.value));

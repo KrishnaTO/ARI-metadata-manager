@@ -53,6 +53,8 @@
   .xid-block.edited { outline:2px solid var(--accent); }
   .xid-block.predicted { background:rgba(217,119,6,.10); border-color:var(--predict); border-style:dashed; color:var(--predict); }
   .xid-block.predicted:hover { background:rgba(217,119,6,.18); border-color:var(--predict); }
+  /* Low-confidence (synonym-only) predictions are dimmed — the label matched no term. */
+  .xid-block.predicted.low { opacity:.6; }
   .xid-block .xid-name { color:var(--muted); font-weight:400; overflow:hidden; text-overflow:ellipsis; max-width:16ch; }
   .xid-block .xid-label { overflow:hidden; text-overflow:ellipsis; }
   .p-links .xid-list { padding:2px 0; }

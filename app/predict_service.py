@@ -162,49 +162,66 @@ def predict_for_disease(disease: dict, indexes: list[LexicalIndex],
     ``disease`` = ``{"ari_id", "name", "synonyms": [...], "existing": {db: [ids]}}``.
     A cell is only predicted when ``existing[db]`` is empty. Returns a list of
     prediction dicts (see :func:`predict_matches`), deduplicated by ``(db, id)``,
-    each carrying the provenance of every index/name that produced it.
+    each carrying the provenance of every index/name that produced it and a
+    ``confidence`` of ``"high"`` (label-anchored) or ``"low"`` (synonym-only).
+
+    The disease's **label is its identity anchor**: if the label exactly matches any
+    reference term, only those term(s) — and the databases they cross-reference —
+    are used. Synonyms are trusted only when the label matches nothing (a disease
+    known here solely by a synonym, e.g. "Kawasaki disease"). This is deliberate: ARI
+    synonym lists sometimes contain *associated* conditions rather than true
+    name-variants (e.g. "Megaloblastic anemia" under "Autoimmune gastritis"), and
+    matching those would link the disease to an unrelated concept.
     """
     target_dbs = target_dbs or TARGET_DBS
-    names = [disease.get("name", "")] + list(disease.get("synonyms") or [])
+    label = disease.get("name", "")
+    label_norm = normalize(label)
     existing = disease.get("existing") or {}
     blank = [db for db in target_dbs if not (existing.get(db))]
     if not blank:
         return []
 
+    # Anchor on the label; fall back to synonyms only when the label matches nothing.
+    matches = []   # (record, matched_text, field, source)
+    for idx in indexes:
+        for rec in idx.lookup(label):
+            matches.append((rec, label, "label", idx.source))
+    anchored = bool(matches)
+    if not anchored:
+        for syn in (disease.get("synonyms") or []):
+            if not syn or normalize(syn) == label_norm:
+                continue
+            for idx in indexes:
+                for rec in idx.lookup(syn):
+                    matches.append((rec, syn, "synonym", idx.source))
+
     # (db, id) -> prediction, so several matches for the same id merge their evidence.
     found: dict[tuple[str, str], dict] = {}
-    for name in names:
-        if not name:
-            continue
-        match_field = "synonym" if normalize(name) != normalize(disease.get("name", "")) else "label"
-        for idx in indexes:
-            for rec in idx.lookup(name):
-                for db in blank:
-                    # A record supplies ``db`` either as its own id (same ontology)
-                    # or through a cross-reference it carries to ``db``.
-                    ids = rec["by_db"].get(db, [])
-                    for ident in ids:
-                        key = (db, ident)
-                        pred = found.get(key)
-                        if pred is None:
-                            pred = found[key] = {
-                                "ari_id": disease.get("ari_id"),
-                                "subject_label": disease.get("name", ""),
-                                "db": db,
-                                "prefix": PREFIX.get(db, db),
-                                "id": ident,
-                                # The concept label from the remote source, so the
-                                # curator needn't open the resource (issue #42).
-                                "object_label": rec["label"],
-                                "match_field": match_field,
-                                "evidence": [],
-                            }
-                        elif match_field == "label" and pred["match_field"] == "synonym":
-                            pred["match_field"] = "label"      # prefer a label hit
-                        pred["evidence"].append({
-                            "via": rec["id"], "source": idx.source,
-                            "matched": name, "match_field": match_field,
-                        })
+    for rec, matched, field, source in matches:
+        for db in blank:
+            # A record supplies ``db`` either as its own id (same ontology) or
+            # through a cross-reference it carries to ``db``.
+            for ident in rec["by_db"].get(db, []):
+                key = (db, ident)
+                pred = found.get(key)
+                if pred is None:
+                    pred = found[key] = {
+                        "ari_id": disease.get("ari_id"),
+                        "subject_label": disease.get("name", ""),
+                        "db": db,
+                        "prefix": PREFIX.get(db, db),
+                        "id": ident,
+                        # The concept label from the remote source, so the curator
+                        # needn't open the resource (issue #42).
+                        "object_label": rec["label"],
+                        "match_field": field,
+                        "confidence": "high" if anchored else "low",
+                        "evidence": [],
+                    }
+                pred["evidence"].append({
+                    "via": rec["id"], "source": source,
+                    "matched": matched, "match_field": field,
+                })
     return sorted(found.values(), key=lambda p: (target_dbs.index(p["db"]), p["id"]))
 
 
@@ -219,7 +236,8 @@ def predict_matches(diseases: list[dict], indexes: list[LexicalIndex] | None = N
     files from ``index_dir`` when ``indexes`` isn't passed. Returns a flat list of
     prediction dicts::
 
-        {ari_id, subject_label, db, prefix, id, object_label, match_field, evidence}
+        {ari_id, subject_label, db, prefix, id, object_label, match_field,
+         confidence, evidence}
     """
     if indexes is None:
         indexes = get_indexes(index_dir)
@@ -242,7 +260,8 @@ def to_cells(predictions: list[dict]) -> list[dict]:
         out.append({"ari_id": p.get("ari_id"), "prefix": p.get("prefix"), "id": p["id"],
                     "dbs": PREFIX_TO_DBS.get(p.get("prefix"), [p["db"]]),
                     "object_label": p.get("object_label", ""),
-                    "match_field": p.get("match_field", "")})
+                    "match_field": p.get("match_field", ""),
+                    "confidence": p.get("confidence", "high")})
     return out
 
 
@@ -268,7 +287,7 @@ def from_xref_rows(rows: list[dict], synonyms_by_iri: dict | None = None) -> lis
 # ----------------------------------------------------------------------- SSSOM I/O
 _SSSOM_COLS = ["subject_id", "subject_label", "predicate_id", "object_id",
                "object_label", "mapping_justification", "subject_match_field",
-               "match_string", "mapping_provider", "author_id", "mapping_date"]
+               "match_string", "confidence", "mapping_provider", "author_id", "mapping_date"]
 
 
 def _sssom_header() -> str:
@@ -299,7 +318,7 @@ def build_predicted_sssom(predictions: list[dict], author: str = "ari:predict_se
         row = [subj, p.get("subject_label", ""), "skos:exactMatch", obj,
                p.get("object_label", ""), "semapv:LexicalMatching",
                p.get("match_field", ""), ev.get("matched", ""),
-               ev.get("via", ""), author, today]
+               p.get("confidence", "high"), ev.get("via", ""), author, today]
         lines.append("\t".join(str(x) for x in row))
     return "\n".join(lines) + "\n"
 
@@ -333,5 +352,6 @@ def load_predictions(sssom_text: str = "") -> list[dict]:
         out.append({"ari_id": ari, "prefix": prefix, "id": ident,
                     "dbs": PREFIX_TO_DBS.get(prefix, []),
                     "object_label": row.get("object_label", ""),
-                    "match_field": row.get("subject_match_field", "")})
+                    "match_field": row.get("subject_match_field", ""),
+                    "confidence": row.get("confidence", "high")})
     return out

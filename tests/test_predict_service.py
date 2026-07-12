@@ -59,17 +59,47 @@ def test_predicts_all_xreffed_dbs_for_a_label_match():
     assert snomed["object_label"] == "type 1 diabetes mellitus"
 
 
-def test_synonym_match_is_flagged_as_synonym():
-    # subject_match_field describes which field of the ARI disease matched: here the
-    # label ("Sugar sickness") misses and only a disease synonym hits the hub term.
+def test_synonym_match_is_flagged_as_synonym_and_low_confidence():
+    # Label ("Sugar sickness") misses; only a disease synonym hits the hub term, so
+    # the match falls back to synonyms and is flagged low-confidence.
     d = _disease("Sugar sickness", synonyms=["Juvenile diabetes"])
     preds = ps.predict_for_disease(d, [HUB])
     assert preds and all(p["match_field"] == "synonym" for p in preds)
+    assert all(p["confidence"] == "low" for p in preds)
 
 
-def test_label_match_beats_synonym_match_field():
+def test_label_match_is_high_confidence():
     p = ps.predict_for_disease(_disease("type 1 diabetes mellitus"), [HUB])[0]
-    assert p["match_field"] == "label"
+    assert p["match_field"] == "label" and p["confidence"] == "high"
+
+
+# Two distinct concepts: a label match (gastritis) and a separate concept that a
+# mis-curated synonym (an associated condition) would otherwise pull in (anemia).
+ANCHOR = _index(
+    ("MONDO:0031014", "autoimmune gastritis", [], {"mondo": ["0031014"], "snomed": ["111"]}),
+    ("MONDO:0001700", "megaloblastic anemia", [], {"mondo": ["0001700"], "snomed": ["222"]}),
+)
+
+
+def test_label_anchor_suppresses_conflicting_synonym():
+    # Reproduces issue: "Autoimmune gastritis" with an associated-condition synonym.
+    d = _disease("Autoimmune gastritis", synonyms=["Megaloblastic anemia"])
+    preds = ps.predict_for_disease(d, [ANCHOR])
+    ids = {(p["db"], p["id"]) for p in preds}
+    assert ("mondo", "0031014") in ids and ("snomed", "111") in ids   # the disease itself
+    assert ("mondo", "0001700") not in ids                            # associated condition dropped
+    assert ("snomed", "222") not in ids
+    assert all(p["confidence"] == "high" for p in preds)
+
+
+def test_synonym_used_only_when_label_matches_nothing():
+    # No label match anywhere -> the synonym is the disease's only handle (Kawasaki
+    # pattern); it is kept but as a low-confidence candidate.
+    d = _disease("Some descriptive ARI label", synonyms=["Megaloblastic anemia"])
+    preds = ps.predict_for_disease(d, [ANCHOR])
+    ids = {(p["db"], p["id"]) for p in preds}
+    assert ("mondo", "0001700") in ids
+    assert all(p["confidence"] == "low" for p in preds)
 
 
 def test_blank_cells_only_no_prediction_when_already_filled():
@@ -104,14 +134,15 @@ def test_build_and_reload_predicted_sssom_round_trips():
     reloaded = ps.load_predictions(tsv)
     assert {r["prefix"] + ":" + r["id"] for r in reloaded} == {
         p["prefix"] + ":" + p["id"] for p in preds}
-    # object_label survives the round-trip (issue #42: name from the remote source)
+    # object_label + confidence survive the round-trip (issue #42: name from source)
     assert all(r["object_label"] == "type 1 diabetes mellitus" for r in reloaded)
+    assert all(r["confidence"] == "high" for r in reloaded)
 
 
 def test_to_cells_shape_matches_mappings_endpoint():
     cells = ps.to_cells(ps.predict_for_disease(_disease("Type 1 diabetes mellitus"), [HUB]))
     c = cells[0]
-    assert set(c) == {"ari_id", "prefix", "id", "dbs", "object_label", "match_field"}
+    assert set(c) == {"ari_id", "prefix", "id", "dbs", "object_label", "match_field", "confidence"}
     # SNOMED's prefix backs both snomed and dxcode review columns
     snomed = next(x for x in cells if x["prefix"] == "SNOMEDCT")
     assert set(snomed["dbs"]) == {"snomed", "dxcode"}
