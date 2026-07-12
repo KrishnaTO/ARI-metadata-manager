@@ -365,7 +365,8 @@ body.resizing-cols { cursor: col-resize; user-select: none; }
 
 /* Modal */
 .modal-overlay { position: fixed; inset: 0; background: rgba(15,23,42,.5); backdrop-filter: blur(4px); display: flex; align-items: center; justify-content: center; z-index: 100; }
-.modal { background: var(--bg); border-radius: 16px; width: 520px; max-width: 92vw; max-height: 86vh; overflow: auto; box-shadow: var(--shadow-lg); animation: ari-modal-pop .2s cubic-bezier(.4,0,.2,1); }
+/* vw/vh units ignore the body zoom, so divide by --ui-zoom to keep modals inside the visual viewport */
+.modal { background: var(--bg); border-radius: 16px; width: 520px; max-width: calc(92vw / var(--ui-zoom)); max-height: calc(86vh / var(--ui-zoom)); overflow: auto; box-shadow: var(--shadow-lg); animation: ari-modal-pop .2s cubic-bezier(.4,0,.2,1); }
 @keyframes ari-modal-pop { from { transform: translateY(8px) scale(.99); opacity: 0; } to { transform: translateY(0) scale(1); opacity: 1; } }
 .modal-head { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; border-bottom: 1px solid var(--border); }
 .modal-head h2 { margin: 0; font-family: var(--font-serif); font-size: 19px; }

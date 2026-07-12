@@ -97,14 +97,14 @@
         <div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:14px">
           <div>
             <div class="field" style="margin-bottom:6px"><input id="sym-q" placeholder="Filter symptoms..."></div>
-            <div id="sym-list" style="max-height:52vh;overflow:auto;border:1px solid var(--border);border-radius:6px;padding:4px"><div class="loading">Loading...</div></div>
+            <div id="sym-list" style="max-height:calc(52vh / var(--ui-zoom));overflow:auto;border:1px solid var(--border);border-radius:6px;padding:4px"><div class="loading">Loading...</div></div>
           </div>
           <div>
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
               <label style="font-size:12px;color:var(--muted)"><input type="checkbox" id="sym-all"> Require all selected</label>
               <span id="sym-res-count" style="font-size:12px;color:var(--muted)"></span>
             </div>
-            <div id="sym-results" style="max-height:52vh;overflow:auto;border:1px solid var(--border);border-radius:6px;padding:4px"></div>
+            <div id="sym-results" style="max-height:calc(52vh / var(--ui-zoom));overflow:auto;border:1px solid var(--border);border-radius:6px;padding:4px"></div>
           </div>
         </div>
       </div></div></div>`);
