@@ -1,7 +1,11 @@
 // Middle panel: selecting a disease, rendering the ontology detail header and
 // the narrative "disease story" of selectable category boxes.
 
-async function selectDisease(iri){
+// opts.history === false  -> selection driven by the URL (initial load or a
+//   Back/Forward navigation); don't push another history entry.
+// opts.scroll === true     -> reveal and scroll the tree to the row (used when
+//   the selection came from a link rather than a visible click).
+async function selectDisease(iri, opts = {}){
   state.activeIri = iri;
   state.editMode = false;
   // Reset the edit toggle so it doesn't stay stuck on "Done" from the previous
@@ -11,6 +15,9 @@ async function selectDisease(iri){
   closeRightPanel();
   $('#tree-pane').querySelectorAll('.selected').forEach(el => el.classList.remove('selected'));
   $('#tree-pane').querySelectorAll(`[data-iri="${CSS.escape(iri)}"]`).forEach(el => el.classList.add('selected'));
+  // Mirror the selection in the URL so it can be shared / bookmarked.
+  if (opts.history !== false) pushDiseaseHash(iri);
+  if (opts.scroll) scrollTreeToActive();
   const d = await api(`/api/v2/disease/${encodeURIComponent(iri)}`);
   state.detail = d;
   $('#edit-toggle').disabled = false;
@@ -26,7 +33,9 @@ function linkifySource(text){
 function renderDetail(d){
   const obs = d.obsolete;
   let html = `<div class="detail${obs ? ' obsolete' : ''}">
-    <h1>${esc(d.name)}${obs ? ' <span class="obsolete-tag">(obsolete)</span>' : ''}</h1>
+    <h1>${esc(d.name)}${obs ? ' <span class="obsolete-tag">(obsolete)</span>' : ''}
+      <button class="copy-btn link-btn" data-copy="${esc(diseaseLinkUrl(d.iri))}" title="Copy a shareable link to this disease" aria-label="Copy link to this disease">&#128279; Copy link</button>
+    </h1>
     <div class="iri">${esc(d.iri)}</div>`;
   if (d.ari_id?.length){
     // Stored ARI IDs carry an "ARI:" (or "ARI_") prefix; the "ARI ID:" label

@@ -90,6 +90,29 @@ function renderTab(){
   else if (state.activeTab === 'symptoms') renderSymptomsView();
 }
 
+// Expand any collapsed ancestor rows of a disease and scroll it into view.
+// Returns false when the row isn't in the current tree (still loading, or the
+// disease lives only under a different tab) so the caller can retry.
+function revealTreeRow(iri){
+  if (!iri) return false;
+  const pane = $('#tree-pane');
+  const row = pane.querySelector(`[data-iri="${CSS.escape(iri)}"]`);
+  if (!row) return false;
+  for (let el = row.parentElement; el && el !== pane; el = el.parentElement){
+    if (el.classList.contains('node')) el.classList.remove('collapsed');
+  }
+  row.scrollIntoView({ block: 'center' });
+  return true;
+}
+
+// The tree list renders asynchronously on first paint, so a disease opened from
+// a URL may not have its row yet. Poll briefly until it appears, then scroll.
+function scrollTreeToActive(attempts){
+  attempts = attempts == null ? 25 : attempts;
+  if (revealTreeRow(state.activeIri) || attempts <= 0) return;
+  setTimeout(() => scrollTreeToActive(attempts - 1), 100);
+}
+
 document.querySelectorAll('.tab').forEach(tab => {
   tab.addEventListener('click', () => {
     document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t === tab));

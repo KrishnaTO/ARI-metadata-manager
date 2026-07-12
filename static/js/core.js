@@ -20,6 +20,34 @@ const BASE_PATH = (() => {
 
 let state = { activeIri: null, activeTab: 'alphabetical', activeBox: null, editMode: false, detail: null, schema: {}, editor: 'curator', githubName: null };
 
+// --------------------------------------------------------------- deep links
+// The selected disease is mirrored in the URL fragment as
+// `#/disease/<encoded-iri>` so a disease can be linked to, bookmarked, and
+// reopened directly — the app reads the fragment on load and scrolls to it.
+const DISEASE_HASH_PREFIX = '#/disease/';
+
+// The disease IRI encoded in the current URL fragment, or '' when none.
+function diseaseHashIri(){
+  const h = window.location.hash || '';
+  if (!h.startsWith(DISEASE_HASH_PREFIX)) return '';
+  try { return decodeURIComponent(h.slice(DISEASE_HASH_PREFIX.length)); } catch (e){ return ''; }
+}
+
+// Push the selected disease onto the URL fragment (a real history entry, so the
+// Back button steps between diseases). pushState changes the fragment without
+// firing hashchange/popstate, so this never re-enters the selection code.
+function pushDiseaseHash(iri){
+  const target = DISEASE_HASH_PREFIX + encodeURIComponent(iri);
+  if (window.location.hash === target) return;
+  try { history.pushState(null, '', target); }
+  catch (e){ window.location.hash = target; }
+}
+
+// Absolute, shareable URL for a disease (used by the "Copy link" button).
+function diseaseLinkUrl(iri){
+  return window.location.origin + window.location.pathname + DISEASE_HASH_PREFIX + encodeURIComponent(iri);
+}
+
 // --------------------------------------------------------------- markdown
 // Minimal, HTML-safe markdown renderer (escapes first, then formats). Used for
 // disease definition and definition sources.

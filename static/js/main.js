@@ -8,7 +8,27 @@ async function init(){
   if (!Object.keys(state.schema).length){ try { state.schema = await api('/api/v2/schema'); } catch(e){} }
   if (!Object.keys(XREF_DB).length){ try { setXrefDatabases(await api('/api/v2/xref-databases')); } catch(e){} }
   renderTab();
+  // Open the disease named directly in the URL (a shared/bookmarked deep link)
+  // and scroll the list to it once the tree has rendered.
+  openDiseaseFromHash();
 }
+
+// Load the disease named in the URL fragment (if any). A stale or malformed link
+// shouldn't throw — show a friendly note in the detail pane instead.
+function openDiseaseFromHash(){
+  const iri = diseaseHashIri();
+  if (!iri || iri === state.activeIri) return;
+  selectDisease(iri, { history: false, scroll: true }).catch(() => {
+    $('#detail-pane').innerHTML = '<div class="empty-state">That disease link could not be opened.</div>';
+  });
+}
+
+// Keep the selection in sync with the URL for Back/Forward navigation (popstate)
+// and manual edits of the fragment (hashchange). selectDisease uses history:false
+// here so it doesn't push a duplicate entry back onto the stack.
+function navigateToHash(){ openDiseaseFromHash(); }
+window.addEventListener('popstate', navigateToHash);
+window.addEventListener('hashchange', navigateToHash);
 
 // ----------------------------------------------------------------- THEME
 function applyTheme(theme) {
