@@ -102,6 +102,25 @@ def test_synonym_used_only_when_label_matches_nothing():
     assert all(p["confidence"] == "low" for p in preds)
 
 
+def test_blocklist_removes_a_synonym_fallback_prediction():
+    # A blocklisted (mis-curated) synonym is dropped even in the synonym-only path.
+    d = _disease("Some descriptive ARI label", ari="ARI:0009999",
+                 synonyms=["Megaloblastic anemia"])
+    block = {"ARI:0009999": {ps.normalize("Megaloblastic anemia")}}
+    preds = ps.predict_for_disease(d, [ANCHOR], blocklist=block)
+    assert preds == []                              # its only handle was blocklisted
+
+
+def test_load_synonym_blocklist(tmp_path):
+    p = tmp_path / "block.tsv"
+    p.write_text("# comment\nari_id\tsynonym\tnames_instead\n"
+                 "ARI:0001031\tMegaloblastic Anemia\tDOID:13382 megaloblastic anemia\n",
+                 encoding="utf-8")
+    bl = ps.load_synonym_blocklist(p)
+    assert bl == {"ARI:0001031": {ps.normalize("Megaloblastic Anemia")}}
+    assert ps.load_synonym_blocklist(tmp_path / "missing.tsv") == {}
+
+
 def test_blank_cells_only_no_prediction_when_already_filled():
     d = _disease("Type 1 diabetes mellitus", existing={"snomed": ["46635009"], "omim": ["222100"]})
     dbs = {p["db"] for p in ps.predict_for_disease(d, [HUB])}
@@ -189,3 +208,20 @@ def test_service_predict_xrefs_only_fills_blanks(ro_service):
         for db in c["dbs"]:
             if db in row:
                 assert not row[db], f"predicted {db} for a non-blank cell of {c['ari_id']}"
+
+
+@needs_indexes
+def test_report_flags_the_reported_mis_curated_synonym(base_owl):
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("report_synonyms", ROOT / "scripts" / "report_synonyms.py")
+    rep = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(rep)
+    rows = rep.analyse(base_owl)
+    # The reported case: "Autoimmune gastritis" wrongly lists "Megaloblastic anemia".
+    hit = [r for r in rows if r[1] == "Autoimmune gastritis"
+           and ps.normalize(r[2]) == ps.normalize("Megaloblastic anemia")]
+    assert hit and hit[0][8] == "conflicts_with_label"
+    # A legitimate verbose-label case must NOT be a hard conflict (label matches
+    # nothing, so it is a review item, never auto-blocklisted).
+    review = [r for r in rows if r[8] == "synonym_only_review"]
+    assert all(r[8] != "conflicts_with_label" for r in review)

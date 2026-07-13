@@ -45,6 +45,9 @@ TARGET_DBS = [d["key"] for d in XREF_DATABASES if d.get("review")]
 INDEX_COLS = ["id", "label", "synonyms"] + TARGET_DBS
 
 DEFAULT_INDEX_DIR = Path(__file__).resolve().parent.parent / "data" / "2-databases"
+# Curated list of ARI synonyms that actually name a *different* disease and must be
+# ignored when matching (see scripts/report_synonyms.py). Absent file -> no blocklist.
+DEFAULT_BLOCKLIST_PATH = Path(__file__).resolve().parent.parent / "mappings" / "ari.synonym_blocklist.tsv"
 
 
 # --------------------------------------------------------------------------- text
@@ -154,9 +157,40 @@ def get_indexes(index_dir: str | Path = DEFAULT_INDEX_DIR) -> list[LexicalIndex]
     return idxs
 
 
+def load_synonym_blocklist(path: str | Path = DEFAULT_BLOCKLIST_PATH) -> dict[str, set[str]]:
+    """Load the mis-curated-synonym blocklist -> ``{ari_id: {normalized synonym}}``.
+
+    TSV with an ``ari_id``/``synonym`` header (extra columns and ``#`` comments
+    ignored). Synonyms here name a *different* disease than their ARI record and are
+    skipped during matching. Missing file -> empty blocklist.
+    """
+    path = Path(path)
+    out: dict[str, set[str]] = {}
+    if not path.is_file():
+        return out
+    cols = None
+    try:
+        text = path.read_text(encoding="utf-8")
+    except OSError:
+        return out
+    for line in text.splitlines():
+        if not line.strip() or line.startswith("#"):
+            continue
+        parts = line.split("\t")
+        if cols is None:
+            cols = parts
+            continue
+        row = dict(zip(cols, parts))
+        ari, syn = row.get("ari_id", "").strip(), row.get("synonym", "")
+        if ari and syn.strip():
+            out.setdefault(ari, set()).add(normalize(syn))
+    return out
+
+
 # ------------------------------------------------------------------------- predict
 def predict_for_disease(disease: dict, indexes: list[LexicalIndex],
-                        target_dbs: list[str] | None = None) -> list[dict]:
+                        target_dbs: list[str] | None = None,
+                        blocklist: dict[str, set[str]] | None = None) -> list[dict]:
     """Candidate ids for one disease's currently-blank target-database cells.
 
     ``disease`` = ``{"ari_id", "name", "synonyms": [...], "existing": {db: [ids]}}``.
@@ -171,7 +205,9 @@ def predict_for_disease(disease: dict, indexes: list[LexicalIndex],
     known here solely by a synonym, e.g. "Kawasaki disease"). This is deliberate: ARI
     synonym lists sometimes contain *associated* conditions rather than true
     name-variants (e.g. "Megaloblastic anemia" under "Autoimmune gastritis"), and
-    matching those would link the disease to an unrelated concept.
+    matching those would link the disease to an unrelated concept. ``blocklist``
+    (``{ari_id: {normalized synonym}}`` from :func:`load_synonym_blocklist`) drops
+    known mis-curated synonyms outright before matching.
     """
     target_dbs = target_dbs or TARGET_DBS
     label = disease.get("name", "")
@@ -180,6 +216,7 @@ def predict_for_disease(disease: dict, indexes: list[LexicalIndex],
     blank = [db for db in target_dbs if not (existing.get(db))]
     if not blank:
         return []
+    blocked = (blocklist or {}).get(disease.get("ari_id") or "", set())
 
     # Anchor on the label; fall back to synonyms only when the label matches nothing.
     matches = []   # (record, matched_text, field, source)
@@ -189,7 +226,7 @@ def predict_for_disease(disease: dict, indexes: list[LexicalIndex],
     anchored = bool(matches)
     if not anchored:
         for syn in (disease.get("synonyms") or []):
-            if not syn or normalize(syn) == label_norm:
+            if not syn or normalize(syn) == label_norm or normalize(syn) in blocked:
                 continue
             for idx in indexes:
                 for rec in idx.lookup(syn):
@@ -227,23 +264,27 @@ def predict_for_disease(disease: dict, indexes: list[LexicalIndex],
 
 def predict_matches(diseases: list[dict], indexes: list[LexicalIndex] | None = None,
                     index_dir: str | Path = DEFAULT_INDEX_DIR,
-                    target_dbs: list[str] | None = None) -> list[dict]:
+                    target_dbs: list[str] | None = None,
+                    blocklist: dict[str, set[str]] | None = None,
+                    blocklist_path: str | Path = DEFAULT_BLOCKLIST_PATH) -> list[dict]:
     """Predicted cross-references for a list of diseases (only blank cells).
 
     ``diseases`` items are the shape :func:`predict_for_disease` accepts, or the
     review-grid rows from ``OntologyService.get_xref_rows`` (name + ``ari_id`` +
     a list per db key); :func:`from_xref_rows` adapts the latter. Loads the index
-    files from ``index_dir`` when ``indexes`` isn't passed. Returns a flat list of
-    prediction dicts::
+    files from ``index_dir`` and the mis-curated-synonym blocklist from
+    ``blocklist_path`` when not passed in. Returns a flat list of prediction dicts::
 
         {ari_id, subject_label, db, prefix, id, object_label, match_field,
          confidence, evidence}
     """
     if indexes is None:
         indexes = get_indexes(index_dir)
+    if blocklist is None:
+        blocklist = load_synonym_blocklist(blocklist_path)
     out = []
     for d in diseases:
-        out.extend(predict_for_disease(d, indexes, target_dbs))
+        out.extend(predict_for_disease(d, indexes, target_dbs, blocklist))
     return out
 
 
