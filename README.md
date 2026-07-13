@@ -69,9 +69,12 @@ ARI-metadata-manager/
 │   │   ├── github.js           #     sign-in + publish control
 │   │   ├── settings.js         #     fetch-from-branch, switch source, PR target
 │   │   └── main.js             #     bootstrap
-│   └── ref-edits/              #   Cross-reference review subpage
+│   ├── ref-edits/              #   Cross-reference review subpage (matrix)
+│   │   ├── index.html
+│   │   └── ref-edits.js        #     diseases x databases grid, side-panel review, SSSOM publish
+│   └── ref-curate/             #   Disease curator subpage (one disease at a time)
 │       ├── index.html
-│       └── ref-edits.js        #     diseases x databases grid, side-panel review, SSSOM publish
+│       └── ref-curate.js       #     per-disease DB cards, preview, subtype, same SSSOM publish
 │
 ├── deploy/                          # ── Hosting (systemd + nginx) ──
 │   ├── ari-mm.service               #   uvicorn service (runs as ariapp on :8001)
@@ -118,6 +121,12 @@ and included in the PR. Built by `app/sssom_service.py` + `static/ref-edits/`. T
 databases (labels, CURIE prefixes, and link-out/search URL templates) lives in one place,
 `app/xref_registry.py`, which both frontend pages fetch via `GET /api/v2/xref-databases`, so a
 database is added or changed once instead of in four hand-synced spots.
+
+The `ref-curate` subpage is a disease-first companion to that matrix: pick one disease and
+curate all of its cross-references in a single stacked view — existing ids, prior judgments,
+and exact-match predictions per database — with a live source preview and a new-subtype form.
+It reuses the same APIs and writes the same SSSOM + equivalency files, so the two pages are
+interchangeable. The main app's field editor deep-links into it (`ref-curate/#<disease-iri>`).
 
 ### Report import
 `scripts/import_reports.py` folds the curated `data/4-reports/` catalogue (diseases, symptoms,

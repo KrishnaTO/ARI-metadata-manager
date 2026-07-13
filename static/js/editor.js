@@ -166,9 +166,14 @@ function xrefReadonlyHTML(d){
   const body = chips
     ? `<div class="xref-row">${chips}</div>`
     : `<div style="font-size:12px;color:var(--muted);margin-bottom:6px">No cross-references recorded yet.</div>`;
-  return `<div class="field"><label>Database cross-references <span style="font-weight:400;text-transform:none;font-size:11px;color:var(--muted)">(curated on the reference-review page)</span></label>` +
+  // "Curate this disease" deep-links straight to this disease in the disease
+  // curator (ref-curate/#<iri>); "review page" opens the full matrix (ref-edits/).
+  const curateHref = 'ref-curate/#' + encodeURIComponent(d.iri || '');
+  return `<div class="field"><label>Database cross-references <span style="font-weight:400;text-transform:none;font-size:11px;color:var(--muted)">(curated on the reference pages)</span></label>` +
     body +
-    `<a class="hbtn" href="ref-edits/" target="_blank" rel="noopener" style="font-size:12px">&#128279; Edit cross-references in review page &#8599;</a></div>`;
+    `<div style="display:flex;gap:8px;flex-wrap:wrap">` +
+    `<a class="hbtn" href="${esc(curateHref)}" target="_blank" rel="noopener" style="font-size:12px">&#9905; Curate this disease &#8599;</a>` +
+    `<a class="hbtn" href="ref-edits/" target="_blank" rel="noopener" style="font-size:12px">&#128279; Open review matrix &#8599;</a></div></div>`;
 }
 
 // Disease-level field editor (opens in the right panel, like the item editors)
