@@ -1,0 +1,9 @@
+[Unit]
+Description=Fetch latest ARI mapping TSVs from GitHub and restart the manager if changed
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=ariapp
+ExecStart=/opt/ari/ari-metadata-manager/deploy/update-mappings.sh

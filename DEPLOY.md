@@ -101,17 +101,19 @@ GITHUB_SERVICE_TOKEN=github_pat_or_fine_grained_token
 cd /opt/ari/ari-metadata-manager/deploy
 sudo cp ari-mm.service ari-mm-update.service ari-mm-update.timer \
   ari-mm-ontology-update.service ari-mm-ontology-update.timer \
+  ari-mm-mapping-update.service ari-mm-mapping-update.timer \
   /etc/systemd/system/
 sudo systemctl daemon-reload
 sudo systemctl enable --now ari-mm           # runs uvicorn on 127.0.0.1:8001
 sudo systemctl enable --now ari-mm-update.timer   # pulls app repo main every 10 min
 sudo systemctl enable --now ari-mm-ontology-update.timer   # fetches ARI ontology every 10 min
+sudo systemctl enable --now ari-mm-mapping-update.timer   # fetches ARI mappings every 10 min
 
 # allow the app user to restart the service from update scripts
 echo 'ariapp ALL=(root) NOPASSWD: /bin/systemctl restart ari-mm' | sudo tee /etc/sudoers.d/ari-mm
 ```
 
-There are two independent refresh paths:
+There are three independent refresh paths:
 
 1. **App-code refresh**: `ari-mm-update.timer` runs `deploy/update.sh`, which
    pulls `/opt/ari/ari-metadata-manager` from its app branch and restarts the app
@@ -128,6 +130,25 @@ The local runtime ontology defaults to:
 
 Override it with `ARI_ONTOLOGY_FILE` in `.env` only if you intentionally want a
 different runtime location.
+
+3. **Mapping-data refresh**: `ari-mm-mapping-update.timer` runs
+   `deploy/update-mappings.sh`, which fetches the mapping TSV files from
+   `KrishnaTO/ARI:GITHUB_BASE_BRANCH` (defaults to the five `mappings/*.tsv`
+   files), writes them to the local runtime mapping directory, and restarts the
+   app only if any mapping bytes changed.
+
+The local runtime mappings default to:
+```bash
+/opt/ari/ari-metadata-manager/mappings/ari.equivalencies.tsv
+/opt/ari/ari-metadata-manager/mappings/ari.mis_curated_synonyms.tsv
+/opt/ari/ari-metadata-manager/mappings/ari.predicted.sssom.tsv
+/opt/ari/ari-metadata-manager/mappings/ari.sssom.tsv
+/opt/ari/ari-metadata-manager/mappings/ari.synonym_blocklist.tsv
+```
+
+To customize which mapping files are fetched or where they are stored locally,
+set `ARI_MAPPING_FILES` in `.env`. The format is a newline-separated list of
+`remote_path:local_path` pairs. Leave it unset to use the built-in defaults.
 
 ## 6. Nginx
 ```bash
@@ -159,6 +180,9 @@ sudo systemctl restart ari-mm
   (or run `deploy/update-ontology.sh` to refresh immediately).
 - After app-code changes merge to `KrishnaTO/ARI-metadata-manager:main`, the app
   timer pulls them within ~10 min (or run `deploy/update.sh` immediately).
+- After mapping or ontology changes merge to `KrishnaTO/ARI:main`, the respective
+  timer fetches them within ~10 min (or run `deploy/update-mappings.sh` or
+  `deploy/update-ontology.sh` immediately).
 
 ## How the subpath works
 - **nginx** (`deploy/nginx.conf`): the `location /ari-editor/` block strips the prefix via
@@ -201,6 +225,28 @@ The uvicorn process may not be running. Check with:
 ```bash
 sudo systemctl status ari-mm
 sudo journalctl -u ari-mm -n 20
+```
+
+### Mappings not updating from ARI main
+Check the timer and service logs:
+```bash
+sudo systemctl status ari-mm-mapping-update.timer
+sudo journalctl -u ari-mm-mapping-update.service -n 50 --no-pager
+```
+
+Run an immediate mapping refresh:
+```bash
+sudo -u ariapp /opt/ari/ari-metadata-manager/deploy/update-mappings.sh
+```
+
+Confirm `.env` points to the ARI repo:
+```bash
+grep -E '^(GITHUB_OWNER|GITHUB_REPO|GITHUB_BASE_BRANCH|ARI_MAPPING_FILES)=' /opt/ari/ari-metadata-manager/.env
+```
+
+Check the local runtime mapping file timestamps:
+```bash
+ls -l /opt/ari/ari-metadata-manager/mappings/ari.*.tsv
 ```
 
 ### Ontology is not updating from ARI main

@@ -1,0 +1,10 @@
+[Unit]
+Description=ARI Metadata Manager mapping refresh timer (every 10 minutes)
+
+[Timer]
+OnBootSec=5min
+OnUnitActiveSec=10min
+Unit=ari-mm-mapping-update.service
+
+[Install]
+WantedBy=timers.target
