@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ARI · Disease curator</title>
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<style>
+  :root { --ui-zoom:1.25; --bg:#fff; --bg2:#f8fafc; --border:#e2e8f0; --text:#0f172a; --muted:#64748b; --accent:#2563eb; --accent-soft:#eff6ff; --ok:#059669; --bad:#dc2626; --predict:#d97706; }
+  html[data-theme="dark"] { --bg:#0f172a; --bg2:#1e293b; --border:#334155; --text:#e2e8f0; --muted:#94a3b8; --accent:#60a5fa; --accent-soft:#1e293b; --ok:#34d399; --bad:#f87171; --predict:#fbbf24; }
+  * { box-sizing: border-box; }
+  /* Global UI scale — mirrors the ref-edits / main app zoom so text lines up. */
+  body { margin:0; font:14px/1.5 system-ui,-apple-system,sans-serif; color:var(--text); background:var(--bg); zoom:var(--ui-zoom); height:calc(100vh / var(--ui-zoom)); display:flex; flex-direction:column; }
+  header { display:flex; align-items:center; gap:12px; padding:10px 16px; border-bottom:1px solid var(--border); flex-shrink:0; flex-wrap:wrap; }
+  header h1 { font-size:16px; margin:0; }
+  header .brand span { color:var(--accent); }
+  .muted { color:var(--muted); font-size:12px; }
+  .btn { background:var(--bg); color:var(--text); border:1px solid var(--border); border-radius:6px; padding:5px 10px; cursor:pointer; font-size:13px; text-decoration:none; display:inline-block; }
+  .btn.primary { background:var(--accent); color:#fff; border-color:var(--accent); }
+  .btn.ok.on { background:var(--ok); color:#fff; border-color:var(--ok); }
+  .btn.bad.on { background:var(--bad); color:#fff; border-color:var(--bad); }
+  .btn:disabled { opacity:.5; cursor:not-allowed; }
+  .body { flex:1; display:flex; min-height:0; position:relative; }
+
+  /* ---- Left: disease picker ---- */
+  #pick { width:280px; flex-shrink:0; border-right:1px solid var(--border); display:flex; flex-direction:column; min-height:0; }
+  #pick-search { padding:8px; border-bottom:1px solid var(--border); flex-shrink:0; }
+  #pick-search input { width:100%; padding:6px 10px; border:1px solid var(--border); border-radius:6px; background:var(--bg); color:var(--text); }
+  #pick-list { overflow:auto; flex:1; }
+  .pick-row { padding:7px 12px; border-bottom:1px solid var(--border); cursor:pointer; font-size:13px; }
+  .pick-row:hover { background:var(--bg2); }
+  .pick-row.active { background:var(--accent-soft); box-shadow:inset 3px 0 0 var(--accent); }
+  .pick-row .pr-name { font-weight:600; }
+  .pick-row .pr-meta { font-size:11px; color:var(--muted); margin-top:2px; }
+  .pick-row .pr-dot { display:inline-block; width:7px; height:7px; border-radius:99px; margin-left:5px; vertical-align:1px; }
+  .pr-dot.done { background:var(--ok); }
+  .pr-dot.part { background:var(--predict); }
+
+  /* ---- Center: the selected disease's cross-references ---- */
+  #work { flex:1; overflow:auto; padding:14px 16px; min-width:200px; }
+  #work .empty { color:var(--muted); padding:40px 8px; text-align:center; }
+  .dz-head { margin-bottom:12px; }
+  .dz-head h2 { margin:0 0 4px; font-size:18px; }
+  .dz-head .dz-syns { display:flex; flex-wrap:wrap; gap:4px; margin-top:6px; }
+  .dz-head .dz-syn { font-size:11px; color:var(--muted); background:var(--bg2); border:1px solid var(--border); border-radius:99px; padding:1px 8px; }
+  .progress { font-size:12px; color:var(--muted); margin-top:6px; }
+
+  .db-card { border:1px solid var(--border); border-radius:8px; margin-bottom:10px; overflow:hidden; }
+  .db-card .db-top { display:flex; align-items:center; gap:8px; padding:8px 11px; background:var(--bg2); border-bottom:1px solid var(--border); }
+  .db-card .db-top .db-label { font-weight:600; }
+  .db-card .db-top .db-status { font-size:11px; color:var(--muted); margin-left:auto; }
+  .db-card .db-body { padding:9px 11px; display:flex; flex-direction:column; gap:8px; }
+
+  .id-row { display:flex; align-items:center; gap:8px; flex-wrap:wrap; padding:5px 7px; border:1px solid var(--border); border-radius:6px; }
+  .id-row.ok { background:rgba(5,150,105,.14); border-color:var(--ok); }
+  .id-row.bad { background:rgba(220,38,38,.14); border-color:var(--bad); }
+  .id-row.prepos { background:rgba(5,150,105,.05); box-shadow:inset 3px 0 0 var(--ok); }
+  .id-row.preneg { background:rgba(220,38,38,.05); box-shadow:inset 3px 0 0 var(--bad); }
+  .id-row.edited { outline:2px solid var(--accent); }
+  .id-row.predicted { background:rgba(217,119,6,.06); box-shadow:inset 3px 0 0 var(--predict); border-color:var(--predict); border-style:dashed; }
+  .id-row.predicted.low { opacity:.7; }
+  .id-code { font-weight:600; cursor:pointer; color:var(--accent); text-decoration:underline; white-space:nowrap; }
+  .id-code.active { background:var(--accent-soft); border-radius:4px; padding:0 4px; }
+  .id-name { color:var(--muted); font-size:12px; overflow:hidden; text-overflow:ellipsis; }
+  .id-row .spacer { flex:1; }
+  .id-row .mini { padding:3px 8px; font-size:12px; }
+  .id-pred-tag { font-size:10px; text-transform:uppercase; letter-spacing:.04em; color:var(--predict); font-weight:600; }
+  .db-add { display:flex; gap:6px; align-items:center; }
+  .db-add input { flex:1; min-width:120px; padding:5px 8px; border:1px solid var(--border); border-radius:6px; background:var(--bg); color:var(--text); }
+  .db-empty { font-size:12px; color:var(--muted); }
+  .db-empty a { color:var(--accent); }
+  .link-out { color:var(--muted); text-decoration:none; flex-shrink:0; }
+  .link-out:hover { color:var(--accent); }
+
+  /* ---- Right: preview ---- */
+  #divider { width:6px; flex-shrink:0; cursor:col-resize; background:var(--border); display:none; touch-action:none; }
+  #divider.show { display:block; }
+  #side { width:0; flex-shrink:0; border-left:1px solid var(--border); overflow:hidden; transition:width .15s; display:flex; flex-direction:column; }
+  #side.open { width:42%; min-width:300px; }
+  body.dragging #side { transition:none; }
+  body.dragging iframe { pointer-events:none; }
+  .p-head { padding:9px 12px; border-bottom:1px solid var(--border); display:flex; align-items:center; gap:8px; flex-shrink:0; }
+  .p-head .p-title { font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  #p-frame { flex:1; width:100%; border:0; background:#fff; }
+  .p-note { padding:16px; }
+</style>
+</head>
+<body>
+<header>
+  <h1 class="brand">ARI <span>Disease curator</span></h1>
+  <span id="counts" class="muted"></span>
+  <span style="flex:1"></span>
+  <span id="auth"></span>
+  <a class="btn" id="prlink" target="_blank" rel="noopener" style="display:none"></a>
+  <button class="btn primary" id="publish" disabled>Publish review (PR)</button>
+  <a class="btn" href="../ref-edits/" title="Matrix view of every disease × database">▦ Matrix view</a>
+  <a class="btn" href="../">← Back to app</a>
+</header>
+<div class="body">
+  <div id="pick">
+    <div id="pick-search"><input id="filter" placeholder="Search diseases…"></div>
+    <div id="pick-list"><p class="muted" style="padding:16px">Loading diseases…</p></div>
+  </div>
+  <div id="work"><div class="empty">Select a disease on the left to curate its cross-references.</div></div>
+  <div id="divider"></div>
+  <div id="side"><div id="panel" style="display:flex;flex-direction:column;height:100%"></div></div>
+</div>
+<script>
+  try { var t = localStorage.getItem('theme'); if (t) document.documentElement.dataset.theme = t;
+    else if (matchMedia('(prefers-color-scheme: dark)').matches) document.documentElement.dataset.theme = 'dark'; } catch(e){}
+</script>
+<script src="ref-curate.js?v=__ASSETV__"></script>
+</body>
+</html>

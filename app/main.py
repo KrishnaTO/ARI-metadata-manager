@@ -751,4 +751,11 @@ async def _ref_edits_html():
     return _render_html("ref-edits/index.html")
 
 
+@app.get("/ref-curate", include_in_schema=False)
+@app.get("/ref-curate/", include_in_schema=False)
+@app.get("/ref-curate/index.html", include_in_schema=False)
+async def _ref_curate_html():
+    return _render_html("ref-curate/index.html")
+
+
 app.mount("/", StaticFiles(directory=STATIC_DIR, html=True), name="static")
