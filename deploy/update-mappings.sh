@@ -18,12 +18,11 @@ REPO="${GITHUB_REPO:-ARI}"
 BRANCH="${GITHUB_BASE_BRANCH:-main}"
 TOKEN="${GITHUB_SERVICE_TOKEN:-}"
 
-# Default mapping files if not configured. Format: remote_path:local_path
+# Default mapping files if not configured.
+# Note: the ARI repo currently only hosts two mapping files; the remaining three are
+# managed in the app repo. We therefore only attempt to fetch these two by default.
 DEFAULT_MAPPINGS="mappings/ari.equivalencies.tsv:$APP_DIR/mappings/ari.equivalencies.tsv
-mappings/ari.mis_curated_synonyms.tsv:$APP_DIR/mappings/ari.mis_curated_synonyms.tsv
-mappings/ari.predicted.sssom.tsv:$APP_DIR/mappings/ari.predicted.sssom.tsv
-mappings/ari.sssom.tsv:$APP_DIR/mappings/ari.sssom.tsv
-mappings/ari.synonym_blocklist.tsv:$APP_DIR/mappings/ari.synonym_blocklist.tsv"
+mappings/ari.sssom.tsv:$APP_DIR/mappings/ari.sssom.tsv"
 
 MAPPING_CONFIG="${ARI_MAPPING_FILES:-$DEFAULT_MAPPINGS}"
 

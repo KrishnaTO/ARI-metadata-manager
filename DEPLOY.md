@@ -133,17 +133,20 @@ different runtime location.
 
 3. **Mapping-data refresh**: `ari-mm-mapping-update.timer` runs
    `deploy/update-mappings.sh`, which fetches the mapping TSV files from
-   `KrishnaTO/ARI:GITHUB_BASE_BRANCH` (defaults to the five `mappings/*.tsv`
-   files), writes them to the local runtime mapping directory, and restarts the
-   app only if any mapping bytes changed.
+   `KrishnaTO/ARI:GITHUB_BASE_BRANCH` (defaults to two mapping files currently
+   in the ARI repo: `mappings/ari.equivalencies.tsv` and
+   `mappings/ari.sssom.tsv`), writes them to the local runtime mapping
+   directory, and restarts the app only if any mapping bytes changed.
+
+Note: the remaining three mapping TSVs currently live in the
+`ARI-metadata-manager` repo and are updated via the app-code refresh path
+above. If they move to the ARI repo, add them to `ARI_MAPPING_FILES` or
+update `deploy/update-mappings.sh` defaults.
 
 The local runtime mappings default to:
 ```bash
 /opt/ari/ari-metadata-manager/mappings/ari.equivalencies.tsv
-/opt/ari/ari-metadata-manager/mappings/ari.mis_curated_synonyms.tsv
-/opt/ari/ari-metadata-manager/mappings/ari.predicted.sssom.tsv
 /opt/ari/ari-metadata-manager/mappings/ari.sssom.tsv
-/opt/ari/ari-metadata-manager/mappings/ari.synonym_blocklist.tsv
 ```
 
 To customize which mapping files are fetched or where they are stored locally,
