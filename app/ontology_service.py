@@ -305,6 +305,30 @@ class OntologyService:
         # is unchanged versus the previous per-disease-detail implementation.
         return sorted(rows, key=lambda r: r["name"] or "")
 
+    def predict_xrefs(self, index_dir=None) -> list:
+        """Predicted cross-references for the review grid's blank cells.
+
+        For every disease, exact-matches its label and synonyms against the
+        downloaded reference-database indexes (``data/2-databases``) and returns a
+        candidate id for each currently-empty target-database cell — the yellow
+        "predicted" highlights of issue #42. Read-only: nothing is written to the
+        ontology. Returns the compact per-cell shape ``to_cells`` produces."""
+        from . import predict_service as ps
+        base = self.base
+        diseases = []
+        for ind in self._all_diseases():
+            ari = self._get_annotation(ind, base + "ARI_ID")
+            diseases.append({
+                "ari_id": ari[0] if ari else None,
+                "iri": ind.iri,
+                "name": self._get_label(ind),
+                "synonyms": self._get_annotation(ind, base + "ARI_Synonym"),
+                "existing": {db: _split_csv(self._get_annotation(ind, base + suffix))
+                             for db, suffix in self.XREF_SUFFIXES.items()},
+            })
+        preds = ps.predict_matches(diseases, index_dir=index_dir or ps.DEFAULT_INDEX_DIR)
+        return ps.to_cells(preds)
+
     def get_disease_detail(self, iri: str) -> dict:
         """Return full detail about a disease individual and all its associations."""
         e = self._entity(iri)

@@ -6,8 +6,8 @@
 <title>ARI · Cross-reference review</title>
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <style>
-  :root { --ui-zoom:1.25; --bg:#fff; --bg2:#f8fafc; --border:#e2e8f0; --text:#0f172a; --muted:#64748b; --accent:#2563eb; --accent-soft:#eff6ff; --ok:#059669; --bad:#dc2626; }
-  html[data-theme="dark"] { --bg:#0f172a; --bg2:#1e293b; --border:#334155; --text:#e2e8f0; --muted:#94a3b8; --accent:#60a5fa; --accent-soft:#1e293b; --ok:#34d399; --bad:#f87171; }
+  :root { --ui-zoom:1.25; --bg:#fff; --bg2:#f8fafc; --border:#e2e8f0; --text:#0f172a; --muted:#64748b; --accent:#2563eb; --accent-soft:#eff6ff; --ok:#059669; --bad:#dc2626; --predict:#d97706; }
+  html[data-theme="dark"] { --bg:#0f172a; --bg2:#1e293b; --border:#334155; --text:#e2e8f0; --muted:#94a3b8; --accent:#60a5fa; --accent-soft:#1e293b; --ok:#34d399; --bad:#f87171; --predict:#fbbf24; }
   * { box-sizing: border-box; }
   /* Global UI scale — enlarge all text uniformly; height compensated so the
      full-height flex layout still fits the viewport (see main styles.css). */
@@ -38,10 +38,14 @@
   .cell.prepos { background:rgba(5,150,105,.05); box-shadow:inset 3px 0 0 var(--ok); }
   .cell.preneg { background:rgba(220,38,38,.05); box-shadow:inset 3px 0 0 var(--bad); }
   .cell.edited { outline:2px solid var(--accent); }
+  /* Predicted (issue #42): a blank cell whose disease name/synonym exactly matches
+     a reference-ontology term — a yellow candidate the curator can verify+confirm. */
+  .cell.predicted { background:rgba(217,119,6,.06); box-shadow:inset 3px 0 0 var(--predict); }
   .legend { display:flex; align-items:center; gap:10px; font-size:11px; color:var(--muted); }
   .legend .sw { display:inline-block; width:11px; height:11px; border-radius:2px; vertical-align:-1px; margin-right:3px; }
   .legend .sw.pos { box-shadow:inset 3px 0 0 var(--ok); background:rgba(5,150,105,.05); }
   .legend .sw.neg { box-shadow:inset 3px 0 0 var(--bad); background:rgba(220,38,38,.05); }
+  .legend .sw.pred { box-shadow:inset 3px 0 0 var(--predict); background:rgba(217,119,6,.06); }
   .xid-list { display:flex; flex-direction:column; gap:4px; align-items:flex-start; }
   .xid-block { display:inline-flex; align-items:center; gap:6px; max-width:100%; padding:3px 7px; border:1px solid var(--border); border-radius:6px; background:var(--bg2); color:var(--accent); cursor:pointer; text-decoration:none; white-space:nowrap; }
   .xid-block:hover { border-color:var(--accent); background:var(--accent-soft); text-decoration:underline; }
@@ -51,9 +55,16 @@
   .xid-block.prepos { background:rgba(5,150,105,.05); box-shadow:inset 3px 0 0 var(--ok); }
   .xid-block.preneg { background:rgba(220,38,38,.05); box-shadow:inset 3px 0 0 var(--bad); }
   .xid-block.edited { outline:2px solid var(--accent); }
+  .xid-block.predicted { background:rgba(217,119,6,.10); border-color:var(--predict); border-style:dashed; color:var(--predict); }
+  .xid-block.predicted:hover { background:rgba(217,119,6,.18); border-color:var(--predict); }
+  /* Low-confidence (synonym-only) predictions are dimmed — the label matched no term. */
+  .xid-block.predicted.low { opacity:.6; }
+  .xid-block .xid-name { color:var(--muted); font-weight:400; overflow:hidden; text-overflow:ellipsis; max-width:16ch; }
   .xid-block .xid-label { overflow:hidden; text-overflow:ellipsis; }
   .p-links .xid-list { padding:2px 0; }
-  .p-links .xid-block { width:100%; justify-content:space-between; color:var(--text); }
+  .p-links .xid-block { width:100%; justify-content:space-between; color:var(--text); white-space:normal; align-items:flex-start; }
+  /* In the panel link-out list show the concept's full name (no cell-width truncation). */
+  .p-links .xid-name { flex:1; max-width:none; overflow:visible; white-space:normal; text-overflow:clip; margin:0 8px; text-align:left; }
   .p-links .xid-block .xid-label { color:var(--accent); font-weight:600; }
   .p-links .xid-open { color:var(--muted); flex-shrink:0; }
   .xid { color:var(--accent); cursor:pointer; text-decoration:underline; margin-right:4px; white-space:nowrap; }
@@ -96,9 +107,10 @@
   <h1 class="brand">ARI <span>Cross-reference review</span></h1>
   <input id="filter" placeholder="Filter diseases or ids...">
   <span id="counts" class="muted"></span>
-  <span class="legend" title="Cells already judged in the curated mappings are pre-highlighted">
+  <span class="legend" title="Cells already judged in the curated mappings are pre-highlighted; yellow cells are automatic exact-name/synonym predictions to verify">
     <span><span class="sw pos"></span>prev. confirmed</span>
     <span><span class="sw neg"></span>prev. flagged</span>
+    <span><span class="sw pred"></span>predicted</span>
   </span>
   <span style="flex:1"></span>
   <span id="auth"></span>
