@@ -39,7 +39,8 @@
         <div class="edit-actions" style="margin:4px 0 14px"><button class="hbtn" id="set-orcid-save">Save ORCID</button></div>
 
         <div class="section-label">Reference review</div>
-        <div class="edit-actions" style="margin:4px 0 14px"><a class="hbtn" href="ref-edits/" target="_blank">&#128279; Open cross-reference review page</a></div>
+        <div class="edit-actions" style="margin:4px 0 6px"><a class="hbtn" href="ref-curate/" target="_blank">&#9905; Open disease curator (one disease at a time)</a></div>
+        <div class="edit-actions" style="margin:0 0 14px"><a class="hbtn" href="ref-edits/" target="_blank">&#128279; Open cross-reference review matrix</a></div>
 
         <div class="section-label">Export</div>
         <div class="edit-actions" style="margin-top:4px"><button class="hbtn" id="set-export">&#128202; Export current data to Excel</button></div>

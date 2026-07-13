@@ -139,10 +139,134 @@
   }
 
   // -------------------------------------------------- CENTER: one disease
-  function selectDisease(iri) {
+  function selectDisease(iri, updateHash = true) {
     currentIri = iri;
+    closeSubtypeOverlay();
+    // Deep-link: reflect the selection in the URL hash so a disease view can be
+    // bookmarked / linked to (the main app links here as ref-curate/#<iri>).
+    if (updateHash) {
+      const want = '#' + enc(iri);
+      if (location.hash !== want) { try { history.replaceState(null, '', want); } catch (e) { location.hash = want; } }
+    }
     renderPicker($('#filter').value);
     renderWork();
+  }
+
+  // The disease iri named by the current URL hash, if it is one we know.
+  function diseaseFromHash() {
+    let h = (location.hash || '').replace(/^#/, '');
+    try { h = decodeURIComponent(h); } catch (e) { /* leave raw */ }
+    h = h.trim();
+    return h && ROWS.some(r => r.iri === h) ? h : null;
+  }
+
+  // -------------------------------------------------- NEW-SUBTYPE OVERLAY
+  // Ported from ref-edits.js: covers the work column so the reference preview on
+  // the right stays visible while a curator fills in a new child disease.
+  let _tissues = null;
+  async function loadTissues() {
+    if (!_tissues) _tissues = await api('tissues');
+    return _tissues;
+  }
+  function closeSubtypeOverlay() { $('#subtype-overlay').classList.remove('open'); }
+
+  async function openSubtypeOverlay(parentIri) {
+    const r = ROWS.find(x => x.iri === parentIri);
+    if (!r) return;
+    const ov = $('#subtype-overlay');
+    // Position the overlay over the work column (which starts to the right of
+    // the disease picker), leaving the preview panel on the right visible.
+    // Use offsetLeft/offsetWidth (layout px), not getBoundingClientRect: the page
+    // sets `zoom:1.25`, which scales getBoundingClientRect but not the offset*
+    // properties — and the overlay's own `left`/`width` are in that same layout
+    // space, so mixing in scaled rect values would shift it by the zoom factor.
+    const work = $('#work');   // shares offsetParent (.body) with the overlay
+    ov.style.left = work.offsetLeft + 'px';
+    ov.style.width = work.offsetWidth + 'px';
+    ov.innerHTML = `
+      <div class="so-head"><strong>＋ New subtype</strong><span style="flex:1"></span>
+        <button class="btn" id="so-close">✕</button></div>
+      <div class="so-body">
+        <div class="so-parent-info">Parent disease: <strong>${esc(r.name)}</strong><br>
+          Created as a child (subtype) of this disease. Use the reference info on the right to fill the cross-reference ids after it is created.</div>
+        <div class="so-field" id="so-existing-wrap" style="display:none"><label>Start from an existing clinical subtype</label>
+          <select id="so-existing"><option value="">— blank —</option></select></div>
+        <div class="so-field"><label>Label <span class="so-req">*</span></label>
+          <input id="so-label" placeholder="e.g. Juvenile-onset ${esc(r.name)}"></div>
+        <div class="so-field"><label>Definition <span class="so-req">*</span></label>
+          <textarea id="so-definition" placeholder="A subtype of ${esc(r.name)} characterized by…"></textarea></div>
+        <div class="so-field"><label>Definition source <span class="so-req">*</span></label>
+          <input id="so-defsrc" placeholder="URL or PMID: 12345678"></div>
+        <div class="so-field"><label>Target tissue <span class="so-req">*</span></label>
+          <div class="so-tissue-grid" id="so-tissues"><span class="muted">Loading…</span></div></div>
+        <div class="so-field"><label>Synonyms (comma separated)</label>
+          <input id="so-synonyms" placeholder="Synonym 1, Synonym 2"></div>
+        <div class="so-field"><label>Disease category</label><input id="so-category"></div>
+        <div class="so-field"><label>Clinical subtypes (comma separated)</label>
+          <input id="so-clinical" placeholder="Name - description, …"></div>
+        <div class="so-field"><label>Editor name</label>
+          <input id="so-editor" value="${esc((me && me.login) || '')}"></div>
+      </div>
+      <div class="so-actions">
+        <button class="btn primary" id="so-save">＋ Create subtype</button>
+        <button class="btn" id="so-cancel">Cancel</button></div>`;
+    ov.classList.add('open');
+    $('#so-close').addEventListener('click', closeSubtypeOverlay);
+    $('#so-cancel').addEventListener('click', closeSubtypeOverlay);
+    $('#so-save').addEventListener('click', () => submitSubtype(parentIri));
+    // Offer the parent's existing clinical subtypes as a starting point.
+    api('disease/' + enc(parentIri)).then(det => {
+      const subs = (det && det.clinical_subtypes) || [];
+      if (!subs.length) return;
+      const sel = $('#so-existing');
+      if (!sel) return;
+      sel.innerHTML = '<option value="">— blank —</option>' +
+        subs.map((s, i) => `<option value="${i}">${esc(String(s).split(' - ')[0])}</option>`).join('');
+      sel.addEventListener('change', () => {
+        if (sel.value === '') return;
+        const raw = String(subs[sel.value]), dash = raw.indexOf(' - ');
+        $('#so-label').value = dash >= 0 ? raw.slice(0, dash) : raw;
+        if (dash >= 0) $('#so-definition').value = raw.slice(dash + 3);
+      });
+      $('#so-existing-wrap').style.display = '';
+    }).catch(() => {});   // existing-subtype picker is optional; ignore failures
+    try {
+      const tissues = await loadTissues();
+      $('#so-tissues').innerHTML = tissues.length
+        ? tissues.map(t => `<label class="so-tissue-check"><input type="checkbox" value="${esc(t.iri)}"> ${esc(t.name)}</label>`).join('')
+        : '<span class="muted">No tissues available</span>';
+    } catch (e) { $('#so-tissues').innerHTML = '<span class="muted">Failed to load tissues: ' + esc(e.message) + '</span>'; }
+  }
+
+  async function submitSubtype(parentIri) {
+    if (!me || !me.authenticated) { alert('Sign in with GitHub first.'); return; }
+    const val = id => ($('#' + id)?.value || '').trim();
+    const label = val('so-label'), definition = val('so-definition'), defsrc = val('so-defsrc');
+    const tissue_iris = [...document.querySelectorAll('#so-tissues input:checked')].map(c => c.value);
+    if (!label)              { alert('Label is required'); return; }
+    if (!definition)         { alert('Definition is required'); return; }
+    if (!defsrc)             { alert('Definition source is required'); return; }
+    if (!tissue_iris.length) { alert('Select at least one target tissue'); return; }
+    const editor = val('so-editor') || (me && me.login) || 'curator';
+    const data = {
+      label, definition, def_source: [defsrc], tissue_iris, parent_iri: parentIri,
+      synonyms: val('so-synonyms'), disease_category: val('so-category'),
+      clinical_subtypes: val('so-clinical'),
+    };
+    const btn = $('#so-save');
+    btn.disabled = true; btn.textContent = 'Creating…';
+    try {
+      const created = await api('disease', { method: 'POST', body: { data, editor } });
+      ROWS = await api('xrefs');            // refresh so the new subtype is selectable
+      closeSubtypeOverlay();
+      // Jump straight into curating the freshly-created child.
+      const child = ROWS.find(x => x.name === created.name) || ROWS.find(x => x.iri === created.iri);
+      if (child) selectDisease(child.iri); else { renderPicker($('#filter').value); counts(); }
+      alert('Created subtype: ' + created.name);
+    } catch (e) {
+      alert('Create failed: ' + e.message);
+      btn.disabled = false; btn.textContent = '＋ Create subtype';
+    }
   }
 
   function idRowHtml(r, db, id) {
@@ -180,8 +304,11 @@
     const syns = (r.synonyms || []).filter(Boolean);
     const prog = diseaseProgress(r);
     let h = `<div class="dz-head">
-      <h2>${esc(r.name)}</h2>
-      <div class="muted">${r.ari_id ? esc(r.ari_id) + ' · ' : ''}${DBS.length} review databases</div>
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+        <h2 style="margin:0">${esc(r.name)}</h2>
+        <button class="btn" id="dz-subtype" title="Create a distinct variant of this disease as a child">＋ New subtype</button>
+      </div>
+      <div class="muted" style="margin-top:4px">${r.ari_id ? esc(r.ari_id) + ' · ' : ''}${DBS.length} review databases</div>
       ${syns.length ? `<div class="dz-syns">${syns.map(s => `<span class="dz-syn">${esc(s)}</span>`).join('')}</div>` : ''}
       <div class="progress">${prog.touched}/${prog.withIds} id-bearing database${prog.withIds === 1 ? '' : 's'} reviewed</div>
     </div>`;
@@ -221,6 +348,8 @@
   }
 
   function wireWork(r) {
+    const sub = document.querySelector('#dz-subtype');
+    if (sub) sub.addEventListener('click', () => openSubtypeOverlay(r.iri));
     // Review verdict buttons on existing ids.
     $('#work').querySelectorAll('.id-row[data-id]').forEach(row => {
       const db = row.dataset.db, id = row.dataset.id;
@@ -344,6 +473,14 @@
     renderPicker(''); counts(); initDivider();
     $('#filter').addEventListener('input', e => renderPicker(e.target.value));
     $('#publish').addEventListener('click', publish);
+    // Deep-link: open the disease named in the URL hash (e.g. linked from the
+    // main app's field editor), and follow later hash changes.
+    const initial = diseaseFromHash();
+    if (initial) selectDisease(initial, /*updateHash*/ false);
+    window.addEventListener('hashchange', () => {
+      const iri = diseaseFromHash();
+      if (iri && iri !== currentIri) selectDisease(iri, /*updateHash*/ false);
+    });
   }
   document.addEventListener('DOMContentLoaded', init);
 })();
