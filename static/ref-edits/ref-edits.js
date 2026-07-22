@@ -208,14 +208,17 @@
               return idBlock(id, ` data-iri="${esc(r.iri)}" data-db="${db.key}" data-id="${esc(id)}"`, null, '', idCls);
             }).join('')}</div>`;
         } else if (preds.length) {
-          // Yellow predicted candidates: click to verify + confirm in the panel.
-          // Low-confidence (synonym-only) chips are dimmed and labelled as such.
+          // Yellow predicted candidates: click to verify + confirm in the panel, or
+          // click the ✕ to discard (issue #52) — a wrong prediction with no correct
+          // value in this db. Low-confidence (synonym-only) chips are dimmed/labelled.
           chips = `<div class="xid-list">${preds.map(p => {
               const lc = p.confidence === 'low' ? ' low' : '';
+              const disc = reviewed[idKey(r.iri, db.key, p.id)] === 'bad' ? ' discarded' : '';
               const tip = p.confidence === 'low'
                 ? `Predicted from a synonym only (label matched nothing): ${esc(p.label)} — verify`
                 : `Predicted by exact ${p.match_field} match: ${esc(p.label)} — click to verify`;
-              return `<span class="xid-block predicted${lc}" data-iri="${esc(r.iri)}" data-db="${db.key}" data-pred-id="${esc(p.id)}" title="${tip}"><span class="xid-label">${esc(p.id)}</span>${p.label ? `<span class="xid-name">${esc(p.label)}</span>` : ''}</span>`;
+              const dtip = disc ? 'Restore this prediction' : 'Discard — mark this prediction wrong (no correct value)';
+              return `<span class="xid-block predicted${lc}${disc}" data-iri="${esc(r.iri)}" data-db="${db.key}" data-pred-id="${esc(p.id)}" title="${tip}"><span class="xid-label">${esc(p.id)}</span>${p.label ? `<span class="xid-name">${esc(p.label)}</span>` : ''}<span class="xid-discard" data-iri="${esc(r.iri)}" data-db="${db.key}" data-pred-id="${esc(p.id)}" title="${dtip}">${disc ? '↩' : '✕'}</span></span>`;
             }).join('')}<span class="add" data-iri="${esc(r.iri)}" data-db="${db.key}">+ add</span></div>`;
         } else {
           chips = `<span class="add" data-iri="${esc(r.iri)}" data-db="${db.key}">+ add</span>`;
@@ -230,6 +233,8 @@
     $('#table-wrap').innerHTML = h;
     $('#table-wrap').querySelectorAll('.xid-block[data-id]').forEach(c => c.addEventListener('click', () => openPanel(c.dataset.iri, c.dataset.db, c.dataset.id)));
     $('#table-wrap').querySelectorAll('.xid-block[data-pred-id]').forEach(c => c.addEventListener('click', () => openPanel(c.dataset.iri, c.dataset.db, null, c.dataset.predId)));
+    // Discard ✕ inside a predicted chip: toggle without opening the panel.
+    $('#table-wrap').querySelectorAll('.xid-discard').forEach(c => c.addEventListener('click', e => { e.stopPropagation(); toggleDiscard(c.dataset.iri, c.dataset.db, c.dataset.predId); }));
     $('#table-wrap').querySelectorAll('.add').forEach(c => c.addEventListener('click', () => openPanel(c.dataset.iri, c.dataset.db, null)));
   }
 
@@ -252,13 +257,41 @@
     }
   }
 
+  // Discard (issue #52): flag a predicted candidate as a negative mapping so it
+  // publishes as a "Not" cross-reference and is not predicted again. Reversible
+  // in-session (toggles like the review buttons); the chip stays visible, struck
+  // through, until published. Reuses the same per-ID 'bad' review state and the
+  // flagged publish path as "Needs change".
+  function toggleDiscard(iri, dbkey, predId) {
+    const key = idKey(iri, dbkey, predId);
+    const on = reviewed[key] !== 'bad';
+    reviewed[key] = on ? 'bad' : null;
+    // Update the grid chip in place (no re-render — keeps any open iframe alive).
+    const chip = document.querySelector(`.xid-block[data-pred-id="${CSS.escape(String(predId))}"][data-iri="${CSS.escape(iri)}"][data-db="${dbkey}"]`);
+    if (chip) {
+      chip.classList.toggle('discarded', on);
+      const x = chip.querySelector('.xid-discard');
+      if (x) { x.textContent = on ? '↩' : '✕'; x.title = on ? 'Restore this prediction' : 'Discard — mark this prediction wrong (no correct value)'; }
+    }
+    counts();
+    // Reflect state on the panel's discard button when it's showing this prediction.
+    const dbtn = $('#p-discard');
+    if (dbtn && active && active.iri === iri && active.dbkey === dbkey && String(active.predId) === String(predId)) {
+      dbtn.classList.toggle('on', on);
+      dbtn.textContent = on ? '↩ Restore prediction' : '✗ Discard prediction';
+    }
+  }
+
   function openPanel(iri, dbkey, id, predId) {
-    active = { iri, dbkey, id };
     const r = ROWS.find(x => x.iri === iri);
     const db = DBMAP[dbkey];
     const ids = r[dbkey] || [];
     const key = idKey(iri, dbkey, id);
     const preds = ids.length ? [] : predFor(r, dbkey);
+    const isPred = !ids.length && preds.length > 0;
+    const predTarget = isPred ? (predId || preds[0].id) : null;
+    const discKey = isPred ? idKey(iri, dbkey, predTarget) : null;
+    active = { iri, dbkey, id, predId: predTarget };
     let frameSrc = '', linksHtml, prefill = ids.join(', ');
     if (ids.length) {
       const target = id || ids[0];
@@ -276,7 +309,7 @@
     } else if (preds.length) {
       // Predicted (issue #42): preview the candidate concept(s) and pre-fill the id
       // box so the curator only has to verify the source page and Save.
-      const target = predId || preds[0].id;
+      const target = predTarget;
       prefill = target;
       frameSrc = db.link(target);
       linksHtml = `<div class="muted" style="margin-bottom:4px">Predicted by exact name/synonym match — verify against ${db.label}, then Save:</div><div class="xid-list">` +
@@ -289,9 +322,12 @@
     $('#panel').innerHTML = `
       <div class="p-head"><strong>${esc(r.name)}</strong> · ${db.label}
         <button class="btn" id="p-close" style="float:right">✕</button></div>
-      <div class="p-q">Is this ${db.label} reference correct?
-        <button class="btn ok ${reviewed[key] === 'ok' ? 'on' : ''}" id="p-ok">✓ Correct</button>
-        <button class="btn bad ${reviewed[key] === 'bad' ? 'on' : ''}" id="p-bad">✗ Needs change</button></div>
+      ${isPred
+        ? `<div class="p-q">Wrong prediction, or no correct value in ${db.label}?
+             <button class="btn bad ${reviewed[discKey] === 'bad' ? 'on' : ''}" id="p-discard">${reviewed[discKey] === 'bad' ? '↩ Restore prediction' : '✗ Discard prediction'}</button></div>`
+        : `<div class="p-q">Is this ${db.label} reference correct?
+             <button class="btn ok ${reviewed[key] === 'ok' ? 'on' : ''}" id="p-ok">✓ Correct</button>
+             <button class="btn bad ${reviewed[key] === 'bad' ? 'on' : ''}" id="p-bad">✗ Needs change</button></div>`}
       <div class="p-sub"><span class="muted">Distinct variant of this disease?</span>
         <button class="btn" id="p-subtype">＋ New subtype</button></div>
       <div class="p-edit">
@@ -306,8 +342,12 @@
     $('#side').classList.add('open');
     $('#divider').classList.add('show');
     $('#p-close').addEventListener('click', closePanel);
-    $('#p-ok').addEventListener('click', () => setReview(iri, dbkey, id, 'ok'));
-    $('#p-bad').addEventListener('click', () => setReview(iri, dbkey, id, 'bad'));
+    if (isPred) {
+      $('#p-discard').addEventListener('click', () => toggleDiscard(iri, dbkey, predTarget));
+    } else {
+      $('#p-ok').addEventListener('click', () => setReview(iri, dbkey, id, 'ok'));
+      $('#p-bad').addEventListener('click', () => setReview(iri, dbkey, id, 'bad'));
+    }
     $('#p-save').addEventListener('click', () => save(iri, dbkey));
     $('#p-subtype').addEventListener('click', () => openSubtypeOverlay(iri));
   }
@@ -424,9 +464,12 @@
       const oldIds = r[dbkey] || [];
       const newIds = updated[dbkey] || [];
       r[dbkey] = newIds;
-      // Mark all new ids as edited (per-ID)
+      // Mark all new ids as edited (per-ID). Clear any prior 'bad' review on the
+      // same id (e.g. a discarded prediction the curator then decided to keep) so
+      // a saved id is never also published as a negative mapping.
       for (const id of newIds) {
         edited[idKey(iri, dbkey, id)] = true;
+        delete reviewed[idKey(iri, dbkey, id)];
       }
       // Clear edited for ids that were removed
       for (const id of oldIds) {

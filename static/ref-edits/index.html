@@ -59,6 +59,14 @@
   .xid-block.predicted:hover { background:rgba(217,119,6,.18); border-color:var(--predict); }
   /* Low-confidence (synonym-only) predictions are dimmed — the label matched no term. */
   .xid-block.predicted.low { opacity:.6; }
+  /* Discard control (issue #52): a small ✕ on a predicted chip flags the prediction
+     as a negative ("Not") mapping — a wrong prediction with no correct value in the
+     target db. Reversible in-session; the chip stays struck-through until published. */
+  .xid-block .xid-discard { color:var(--muted); cursor:pointer; font-weight:700; flex-shrink:0; line-height:1; padding:0 3px; border-radius:4px; }
+  .xid-block .xid-discard:hover { color:#fff; background:var(--bad); }
+  .xid-block.predicted.discarded { opacity:.55; border-style:solid; }
+  .xid-block.predicted.discarded .xid-label, .xid-block.predicted.discarded .xid-name { text-decoration:line-through; text-decoration-color:var(--bad); }
+  .xid-block.predicted.discarded .xid-discard { color:var(--bad); }
   .xid-block .xid-name { color:var(--muted); font-weight:400; overflow:hidden; text-overflow:ellipsis; max-width:16ch; }
   .xid-block .xid-label { overflow:hidden; text-overflow:ellipsis; }
   .p-links .xid-list { padding:2px 0; }
