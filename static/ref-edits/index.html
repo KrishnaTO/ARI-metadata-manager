@@ -26,8 +26,14 @@
   #table-wrap { flex:1; overflow:auto; padding:8px; min-width:120px; }
   table { border-collapse:collapse; width:100%; font-size:12px; }
   th, td { border:1px solid var(--border); padding:5px 7px; text-align:left; vertical-align:top; }
-  th { position:sticky; top:0; background:var(--bg2); z-index:1; }
-  td.dz { position:sticky; left:0; background:var(--bg); }
+  th { position:sticky; top:0; background:var(--bg2); z-index:2; }
+  /* Sticky disease column: an explicit z-index keeps it above the horizontally
+     scrolling data cells (incl. semi-transparent predicted cells) so their
+     content never bleeds through it — WebKit paints a z-index:auto sticky cell
+     *under* later cells (issue #54). */
+  td.dz { position:sticky; left:0; background:var(--bg); z-index:1; }
+  /* Top-left corner cell: pin on both axes above both sticky bands. */
+  thead th:first-child { left:0; z-index:3; }
   td.dz .dz-name { font-weight:600; white-space:nowrap; }
   td.dz .dz-syns { display:flex; flex-wrap:wrap; gap:3px; margin-top:4px; max-width:260px; }
   td.dz .dz-syn { font-size:10px; font-weight:400; color:var(--muted); background:var(--bg2); border:1px solid var(--border); border-radius:99px; padding:1px 7px; white-space:nowrap; }
