@@ -88,6 +88,94 @@
   const $ = s => document.querySelector(s);
   const cellEl = (iri, db) => document.querySelector(`[data-cell="${CSS.escape(iri + '|' + db)}"]`);
 
+  // Fold a string the way app/predict_service.normalize() does (NFKD, drop combining
+  // marks, casefold, collapse non-alphanumerics), so the compare pane's string-match
+  // highlighting agrees with what the matcher actually treats as the same name.
+  const normTxt = s => (s == null ? '' : String(s)).normalize('NFKD')
+    .replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^0-9a-z]+/g, ' ').trim();
+
+  // Session caches for the compare pane, keyed `${db}|${id}` (concept lookups) and by
+  // iri (ARI disease detail). The pane never blocks the verdict buttons on these.
+  const conceptCache = {}, diseaseCache = {};
+
+  async function conceptFor(db, id) {
+    const key = db + '|' + id;
+    if (!(key in conceptCache)) {
+      conceptCache[key] = api('concept/' + enc(db) + '/' + enc(id)).catch(() => null);
+    }
+    return conceptCache[key];
+  }
+  async function diseaseFor(iri) {
+    if (!(iri in diseaseCache)) diseaseCache[iri] = api('disease/' + enc(iri)).catch(() => null);
+    return diseaseCache[iri];
+  }
+
+  // Render a value list, wrapping any entry whose normalized form is in `hits`
+  // (the other column's strings) in `.hit` so the shared strings line up visually.
+  function cmpList(values, hits) {
+    if (!values || !values.length) return '<span class="cmp-empty">—</span>';
+    return values.map(v => {
+      const cls = hits.has(normTxt(v)) ? ' class="hit"' : '';
+      return `<span${cls}>${esc(v)}</span>`;
+    }).join('');
+  }
+
+  function cmpColumn(title, sub, label, synonyms, definition, parents, hits, note) {
+    const labelCls = label && hits.has(normTxt(label)) ? ' hit' : '';
+    return `<div class="cmp-col">
+      <div class="cmp-h">${esc(title)}${sub ? ` <span class="cmp-sub">${esc(sub)}</span>` : ''}</div>
+      <div class="cmp-label${labelCls}">${label ? esc(label) : '<span class="cmp-empty">—</span>'}</div>
+      ${note ? `<div class="cmp-note">${esc(note)}</div>` : ''}
+      <div class="cmp-field"><span class="cmp-k">Synonyms</span>${cmpList(synonyms, hits)}</div>
+      <div class="cmp-field"><span class="cmp-k">Definition</span>${definition ? esc(definition) : '<span class="cmp-empty">—</span>'}</div>
+      <div class="cmp-field"><span class="cmp-k">Parents</span>${cmpList(parents, hits)}</div>
+    </div>`;
+  }
+
+  // Fill the panel's compare pane: ARI disease (left) vs the target concept (right),
+  // mirrored so the two read as a side-by-side "same disease?" judgement. Runs after
+  // the panel is wired, so the verdict buttons and hotkeys stay live while it loads.
+  async function fillCompare(dbkey, targetId, r) {
+    const host = $('#p-compare');
+    if (!host) return;
+    const db = DBMAP[dbkey];
+    const [concept, detail] = await Promise.all([conceptFor(dbkey, targetId), diseaseFor(r.iri)]);
+    if (!$('#p-compare') || !active || active.iri !== r.iri || active.dbkey !== dbkey) return;
+
+    const ariSyn = (r.synonyms || []).slice();
+    const ariDef = detail ? (detail.definition || '') : '';
+    const ariParents = detail ? (detail.parent_disease || []).map(p => p.name || p.label || '').filter(Boolean) : [];
+    const ariStrings = new Set([r.name, ...ariSyn, ...ariParents].map(normTxt).filter(Boolean));
+
+    let right;
+    if (!concept) {
+      right = `<div class="cmp-col"><div class="cmp-h">${esc(db.label)}</div>
+        <div class="cmp-note">Couldn't load this concept — <a href="${esc(db.search(r.name))}" target="_blank" rel="noopener">search ${esc(db.label)} ↗</a>.</div></div>`;
+    } else if (!concept.found) {
+      right = `<div class="cmp-col"><div class="cmp-h">${esc(db.label)}</div>
+        <div class="cmp-note">${esc(concept.note || 'Not in our indexes.')} <a href="${esc(db.search(r.name))}" target="_blank" rel="noopener">Open the source ↗</a></div></div>`;
+    } else {
+      // Honesty: when the id isn't the database's own term, label the column for the
+      // hub it actually came from ("via MONDO") and show the caveat, never as if the
+      // target database supplied it.
+      const via = concept.via && concept.via.length
+        ? 'via ' + concept.via.map(v => v.source.toUpperCase()).join(' / ') : '';
+      const title = concept.direct ? db.label : (via || db.label);
+      const cSyn = concept.synonyms || [], cParents = concept.parents || [];
+      const conStrings = new Set([concept.label, ...cSyn, ...cParents].map(normTxt).filter(Boolean));
+      // Recompute ARI hits against the concept's strings so both columns mark shared text.
+      const right2 = cmpColumn(title, concept.id, concept.label, cSyn, concept.definition,
+        cParents, ariStrings, concept.direct ? '' : (concept.note || ''));
+      host.innerHTML = `<div class="cmp">
+        ${cmpColumn('ARI', r.ari_id || '', r.name, ariSyn, ariDef, ariParents, conStrings, '')}
+        ${right2}</div>`;
+      return;
+    }
+    host.innerHTML = `<div class="cmp">
+      ${cmpColumn('ARI', r.ari_id || '', r.name, ariSyn, ariDef, ariParents, new Set(), '')}
+      ${right}</div>`;
+  }
+
   function idBlock(id, attrs = '', activeId = null, openLabel = '', extraCls = '') {
     const activeCls = activeId != null && String(id) === String(activeId) ? ' active' : '';
     return `<span class="xid-block${activeCls}${extraCls ? ' ' + extraCls : ''}"${attrs}><span class="xid-label">${esc(id)}</span>${openLabel ? `<span class="xid-open">${openLabel}</span>` : ''}</span>`;
@@ -327,9 +415,10 @@
     const predTarget = isPred ? (predId || preds[0].id) : null;
     const discKey = isPred ? idKey(iri, dbkey, predTarget) : null;
     active = { iri, dbkey, id, predId: predTarget };
-    let frameSrc = '', linksHtml, prefill = ids.join(', ');
+    let frameSrc = '', linksHtml, prefill = ids.join(', '), cmpTarget = null;
     if (ids.length) {
       const target = id || ids[0];
+      cmpTarget = target;
       frameSrc = db.link(target);
       linksHtml = `<div class="muted" style="margin-bottom:4px">Open / preview ${db.label} id(s):</div><div class="xid-list">` +
         ids.map(x => {
@@ -345,6 +434,7 @@
       // Predicted (issue #42): preview the candidate concept(s) and pre-fill the id
       // box so the curator only has to verify the source page and Save.
       const target = predTarget;
+      cmpTarget = target;
       prefill = target;
       frameSrc = db.link(target);
       linksHtml = `<div class="muted" style="margin-bottom:4px">Predicted by exact name/synonym match — verify against ${db.label}, then Save:</div><div class="xid-list">` +
@@ -370,6 +460,7 @@
         <input id="p-ids" value="${esc(prefill)}" placeholder="e.g. 12345, 67890">
         <button class="btn primary" id="p-save">Save</button>
       </div>
+      ${cmpTarget ? '<div class="p-cmp" id="p-compare"><div class="muted" style="padding:8px 12px">Loading concept…</div></div>' : ''}
       <div class="p-links">${linksHtml}</div>
       ${db.noframe
         ? `<div class="p-note muted" style="padding:16px">${db.label} can't be previewed here (it blocks embedding${dbkey === 'umls' ? ' and requires login' : ''}). Use the "↗" link${ids.length ? 's' : ''} above to open it in a new tab.</div>`
@@ -385,6 +476,9 @@
     }
     $('#p-save').addEventListener('click', () => save(iri, dbkey));
     $('#p-subtype').addEventListener('click', () => openSubtypeOverlay(iri));
+    // Fill the compare pane after wiring, so verdict buttons/hotkeys stay live while
+    // the concept lookup is in flight (issue: concept-detail).
+    if (cmpTarget) fillCompare(dbkey, cmpTarget, r);
   }
 
   function closePanel() { closeSubtypeOverlay(); $('#side').classList.remove('open'); $('#divider').classList.remove('show'); }

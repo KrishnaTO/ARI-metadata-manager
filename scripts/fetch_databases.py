@@ -122,6 +122,15 @@ def _parse_synonym(line: str) -> str | None:
     return text
 
 
+def _parse_def(line: str) -> str:
+    """Return the text of a ``def: "text" [refs]`` line (quotes + refs stripped)."""
+    body = line[len("def:"):].strip()
+    if not body.startswith('"'):
+        return ""
+    end = body.find('"', 1)
+    return body[1:end] if end > 1 else ""
+
+
 def _property_value(line: str) -> tuple[str, str]:
     """Parse ``property_value: PROP "value" type`` -> ``(PROP, value)`` (``("","")`` if not)."""
     body = line[len("property_value:"):].strip()
@@ -137,12 +146,18 @@ def _property_value(line: str) -> tuple[str, str]:
 def parse_obo(path: Path, id_prefix: str, disease_only: bool = False) -> list[dict]:
     """Distil one OBO file into index rows for terms of ``id_prefix``.
 
-    Each row: ``{"id", "label", "synonyms": [...], "<db>": [ids...]}``. The term's
-    own id also fills its owning-database column, so a MONDO term carries its MONDO
-    id plus every xref it declares. ``disease_only`` keeps only NCIt terms whose
-    semantic type (NCIT:P106) is a disease/disorder — the NCIt release is otherwise
-    ~180k mostly-non-disease concepts. NCIt's UMLS CUI (NCIT:P207) is harvested as a
-    umls cross-reference.
+    Each row: ``{"id", "label", "synonyms": [...], "definition", "parents": [ids],
+    "<db>": [ids...]}``. The term's own id also fills its owning-database column, so
+    a MONDO term carries its MONDO id plus every xref it declares. ``disease_only``
+    keeps only NCIt terms whose semantic type (NCIT:P106) is a disease/disorder —
+    the NCIt release is otherwise ~180k mostly-non-disease concepts. NCIt's UMLS CUI
+    (NCIT:P207) is harvested as a umls cross-reference.
+
+    ``definition`` is the ``def:`` text; ``parents`` starts as the ``is_a:`` target
+    ids and is resolved to the parents' **labels** by :func:`_resolve_parents` in a
+    second pass over the returned rows (a target dropped from a disease-only index
+    keeps its id — a curator reading "is_a NCIT:C2991" is better served by the id
+    than by nothing).
     """
     rows: list[dict] = []
     cur: dict | None = None
@@ -163,7 +178,7 @@ def parse_obo(path: Path, id_prefix: str, disease_only: bool = False) -> list[di
             line = raw.rstrip("\n")
             if line == "[Term]":
                 flush()
-                cur = {"synonyms": []}
+                cur = {"synonyms": [], "definition": "", "parents": []}
                 obsolete = False
                 sem_types = set()
                 continue
@@ -182,6 +197,15 @@ def parse_obo(path: Path, id_prefix: str, disease_only: bool = False) -> list[di
                 cur["label"] = line[6:].strip()
             elif line.startswith("is_obsolete: true"):
                 obsolete = True
+            elif line.startswith("def: "):
+                if not cur["definition"]:
+                    cur["definition"] = _parse_def(line)
+            elif line.startswith("is_a: "):
+                # ``is_a: TARGET ! label`` — keep the target id; the second pass
+                # turns it into the parent's label.
+                target = line[len("is_a:"):].split("!", 1)[0].strip()
+                if target:
+                    cur["parents"].append(target)
             elif line.startswith("synonym: "):
                 syn = _parse_synonym(line)
                 if syn:
@@ -201,7 +225,20 @@ def parse_obo(path: Path, id_prefix: str, disease_only: bool = False) -> list[di
                 if val:
                     cur.setdefault("umls", []).append(val)
     flush()
+    _resolve_parents(rows)
     return rows
+
+
+def _resolve_parents(rows: list[dict]) -> None:
+    """Rewrite each row's ``parents`` from ``is_a`` ids to the parents' labels.
+
+    A single pass over ``rows`` builds an id->label map, then every ``parents``
+    entry that names a kept term is replaced by that term's label. Targets absent
+    from the map (obsolete, or filtered out of a disease-only index) keep their id.
+    """
+    id_to_label = {r["id"]: r["label"] for r in rows if r.get("id") and r.get("label")}
+    for r in rows:
+        r["parents"] = [id_to_label.get(pid, pid) for pid in r.get("parents", [])]
 
 
 def _local_tag(elem) -> str:
@@ -214,8 +251,11 @@ def parse_mesh_xml(path: Path, keep_tree_prefixes: tuple[str, ...] = ("C", "F03"
     Keeps descriptors with a tree number under ``keep_tree_prefixes`` (C = Diseases,
     F03 = Mental Disorders). Label = DescriptorName; synonyms = the terms of the
     *preferred* concept only (non-preferred concepts are narrower and would make an
-    unsafe exact match). No cross-references (MeSH descriptors carry none to the
-    other target databases); only the ``mesh`` column is filled.
+    unsafe exact match); ``definition`` = the preferred concept's ScopeNote (MeSH's
+    definition equivalent). No cross-references (MeSH descriptors carry none to the
+    other target databases); only the ``mesh`` column is filled. ``parents`` is left
+    empty — MeSH hierarchy comes from tree numbers, a different mechanism that would
+    need the whole tree resolved to be a curator-readable label (noted in the README).
     """
     import xml.etree.ElementTree as ET
 
@@ -227,14 +267,16 @@ def parse_mesh_xml(path: Path, keep_tree_prefixes: tuple[str, ...] = ("C", "F03"
         name = elem.findtext("DescriptorName/String") or ""
         trees = [t.text or "" for t in elem.iterfind("TreeNumberList/TreeNumber")]
         if ui and name and any(t.startswith(keep_tree_prefixes) for t in trees):
-            synonyms = []
+            synonyms, definition = [], ""
             for concept in elem.iterfind("ConceptList/Concept"):
                 if concept.get("PreferredConceptYN") != "Y":
                     continue
+                definition = concept.findtext("ScopeNote") or ""
                 for term in concept.iterfind("TermList/Term/String"):
                     if term.text and term.text != name:
                         synonyms.append(term.text)
-            rows.append({"id": f"MESH:{ui}", "label": name, "synonyms": synonyms, "mesh": [ui]})
+            rows.append({"id": f"MESH:{ui}", "label": name, "synonyms": synonyms,
+                         "definition": definition, "parents": [], "mesh": [ui]})
         elem.clear()
     return rows
 
@@ -247,10 +289,14 @@ _ORPHA_SOURCE_DB = {"ICD-10": "icd10", "OMIM": "omim", "UMLS": "umls",
 def parse_orphanet_xml(path: Path) -> list[dict]:
     """Distil the Orphanet nomenclature XML (en_product1) into index rows.
 
-    Own id = OrphaCode; label = Name; synonyms = SynonymList. Only *exact* external
-    references (DisorderMappingRelation ``E``) become cross-references, mapped to
-    ICD-10 / OMIM / UMLS / MeSH / SNOMED so a broader/narrower Orphanet mapping is
-    never emitted as a skos:exactMatch prediction.
+    Own id = OrphaCode; label = Name; synonyms = SynonymList; ``definition`` = the
+    disorder's SummaryInformation text section (en_product1 carries the Orphanet
+    definition). Only *exact* external references (DisorderMappingRelation ``E``)
+    become cross-references, mapped to ICD-10 / OMIM / UMLS / MeSH / SNOMED so a
+    broader/narrower Orphanet mapping is never emitted as a skos:exactMatch
+    prediction. ``parents`` is left empty — the Orphanet classification hierarchy
+    lives in a different product file (en_product3) that this script does not
+    download (noted in the README).
     """
     import xml.etree.ElementTree as ET
 
@@ -261,7 +307,10 @@ def parse_orphanet_xml(path: Path) -> list[dict]:
         code = elem.findtext("OrphaCode") or ""
         name = elem.findtext("Name") or ""
         if code and name:
-            row = {"id": f"ORPHA:{code}", "label": name, "synonyms": [], "orphanet": [code]}
+            definition = elem.findtext(
+                "SummaryInformationList/SummaryInformation/TextSectionList/TextSection/Contents") or ""
+            row = {"id": f"ORPHA:{code}", "label": name, "synonyms": [],
+                   "definition": definition, "parents": [], "orphanet": [code]}
             for syn in elem.iterfind("SynonymList/Synonym"):
                 if syn.text:
                     row["synonyms"].append(syn.text)
@@ -274,6 +323,11 @@ def parse_orphanet_xml(path: Path) -> list[dict]:
             rows.append(row)
         elem.clear()
     return rows
+
+
+def _clean_cell(text: str) -> str:
+    """Collapse tabs/newlines so a free-text field stays inside one TSV cell."""
+    return " ".join((text or "").split())
 
 
 def write_index(db: str, rows: list[dict]) -> Path:
@@ -291,6 +345,9 @@ def write_index(db: str, rows: list[dict]) -> Path:
                         seen.add(v)
                         uniq.append(v)
                 cells.append(";".join(uniq))
+            # definition/parents close the row (see INDEX_COLS in predict_service).
+            cells.append(_clean_cell(r.get("definition", "")))
+            cells.append(" | ".join(_clean_cell(p) for p in r.get("parents", []) if p))
             f.write("\t".join(cells) + "\n")
     return out
 

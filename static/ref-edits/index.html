@@ -98,6 +98,20 @@
   .p-links { padding:8px 12px; font-size:12px; }
   .p-note { padding:0 12px 8px; }
   #p-frame { flex:1; width:100%; border:0; background:#fff; }
+  /* Compare pane: ARI disease (left) vs the target concept (right). */
+  .p-cmp { border-bottom:1px solid var(--border); }
+  .cmp { display:grid; grid-template-columns:1fr 1fr; gap:1px; background:var(--border); }
+  .cmp-col { background:var(--bg); padding:8px 12px; min-width:0; }
+  .cmp-h { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.04em; color:var(--muted); margin-bottom:4px; }
+  .cmp-h .cmp-sub { font-weight:400; text-transform:none; letter-spacing:0; color:var(--accent); }
+  .cmp-label { font-size:14px; font-weight:600; overflow-wrap:anywhere; }
+  .cmp-label.hit { color:var(--ok); }
+  .cmp-note { font-size:11px; color:var(--predict); margin:4px 0; }
+  .cmp-field { font-size:12px; margin-top:6px; overflow-wrap:anywhere; }
+  .cmp-field .cmp-k { display:block; font-size:10px; text-transform:uppercase; letter-spacing:.04em; color:var(--muted); margin-bottom:1px; }
+  .cmp-field span + span { margin-left:4px; }
+  .cmp-empty { color:var(--muted); }
+  .hit { background:rgba(5,150,105,.16); border-radius:3px; padding:0 3px; }
   .p-sub { padding:6px 12px 8px; display:flex; gap:8px; align-items:center; border-bottom:1px solid var(--border); }
   #subtype-overlay { display:none; position:absolute; top:0; left:0; bottom:0; background:var(--bg); z-index:10; overflow:hidden; border-right:3px solid var(--accent); flex-direction:column; }
   #subtype-overlay.open { display:flex; }

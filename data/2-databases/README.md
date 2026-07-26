@@ -28,11 +28,36 @@ xref view.
 Each `*.index.tsv` is one row per ontology term:
 
 ```
-id	label	synonyms	snomed	omop	doid	mondo	nci	icd10	orphanet	omim	umls	mesh
+id	label	synonyms	snomed	omop	doid	mondo	nci	icd10	orphanet	omim	umls	mesh	definition	parents
 ```
 
 `synonyms` is ` | `-joined (EXACT synonyms only); each database column holds the
 `;`-joined ids that term cross-references there (its own column holds its own id).
+`definition` is a single de-tabbed string; `parents` is ` | `-joined **term labels**
+(the `is_a`/hierarchy parents, resolved to labels where possible). These two close
+the row so an index written before they existed still parses — the reader
+(`predict_service.load_index`) reads them with `row.get(col, "") or ""` and records
+their absence as `has_details = False`, which the concept-detail endpoint reports as
+`details_available: false` rather than pretending the term has no definition.
+
+`definition`/`parents` back the reference-review **compare pane** (the concept-detail
+lookup, `GET /api/v2/concept/{db}/{id}`), not prediction — the prediction path is
+unchanged.
+
+| Source | `definition` from | `parents` from |
+| --- | --- | --- |
+| MONDO, DOID, NCIt | OBO `def:` | OBO `is_a:` targets, resolved to labels in a second pass (a target filtered out of a disease-only index keeps its id) |
+| MeSH | preferred concept `ScopeNote` | *(empty — MeSH hierarchy is tree numbers, a different mechanism)* |
+| Orphanet | `SummaryInformation` text (en_product1) | *(empty — the classification lives in en_product3, which this script does not download)* |
+
+> **Committed indexes lag this schema.** The `*.index.tsv` files checked in here were
+> built before the `definition`/`parents` columns and are **not** regenerated in the
+> branch that added them — regenerating requires the multi-MB `raw/` dumps, and
+> committing full definitions for MONDO (~5 MB) and NCIt (~4.7 MB) would grow the repo
+> substantially. Regenerate deliberately (see below) and, if the size delta is large,
+> split details into a sidecar `<db>.details.tsv` rather than bloating the index. Until
+> then the compare pane shows label + synonyms + cross-reference provenance (all of
+> which the current files carry) and reports `details_available: false` for definitions.
 
 ## Coverage of the ten target databases
 

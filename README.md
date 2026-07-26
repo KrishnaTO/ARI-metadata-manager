@@ -220,6 +220,7 @@ when its target actually changes.
 | GET | `/api/v2/xrefs` | Cross-reference matrix for the review page |
 | GET | `/api/v2/xref-databases` | Cross-reference database registry (labels, prefixes, link-outs) |
 | GET | `/api/v2/mappings` | Already-curated positive/negative cross-reference judgments |
+| GET | `/api/v2/concept/{db}/{id}` | Label, synonyms, definition & parents for one target-database id (compare pane); distinguishes a database's own term from a hub cross-reference |
 | GET / PUT | `/api/v2/ref-session` | Signed-in user's saved cross-reference review session (resume across reloads) |
 | GET | `/api/v2/queue` | Signed-in curator's assigned diseases with per-disease progress + coverage strip |
 | GET | `/api/v2/queue/{iri}` | One disease as the review panel renders it (one entry per review database) |
