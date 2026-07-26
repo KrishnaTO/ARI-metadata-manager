@@ -1,5 +1,12 @@
 # Changelog
 
+## feat-review-queue-api
+- Added a per-curator review-queue API backing the redesigned ref-edits page: each curator works their own assigned queue of diseases one at a time instead of the full 224×10 matrix. `GET /api/v2/queue` returns the curator's assigned diseases with per-disease progress and a per-database coverage strip; `GET /api/v2/queue/{iri}` returns one disease as the review panel renders it — one entry per review database, each carrying a `status` (decided / confirmed / flagged / predicted / unreviewed / missing) the UI colours off.
+- Added assignment management (`GET/POST/DELETE /api/v2/assignments`, `POST /api/v2/assignments/done`), gated by an optional `ASSIGN_ADMINS` allow-list (empty = anyone signed in).
+- Decisions now autosave: every curator click posts to `POST /api/v2/decisions` (keyed per disease/database/id, so re-clicking overwrites rather than duplicating), so a reload or browser crash never loses work. `DELETE /api/v2/decisions/{id}` undoes one; `GET /api/v2/decisions` and `GET /api/v2/review-summary` show the unpublished set and the exact payload publish will send.
+- Publishing falls back to the curator's autosaved decisions when the client sends none, renders them into the existing `{ari_id, iri, name, db, ids}` publish/SSSOM payload unchanged, and clears them only after the PR call succeeds — a failed publish leaves the work intact. The existing `GET /api/v2/mappings` body was lifted into a shared `_mapping_judgments()` helper with a byte-identical response.
+- Added `assignments/` to `.gitignore` (runtime server-side state, same pattern as `.user-data/`).
+
 ## feat-cross-ref-manager-persistence
 - The cross-reference manager (ref-edits matrix + ref-curate disease view) now saves a signed-in user's in-progress review to the server: their correct/needs-change verdicts, edited-id markers and the pull-request pointer persist per user, so a page reload resumes the work instead of losing it. State is saved automatically (debounced) on every verdict/edit and stored beside the user's working ontology copy; it is dropped when they switch source branch or their copy is swept.
 - Publishing now offers a choice once a PR exists: the primary button commits to the current PR, and a new "New PR" button opens a fresh pull request instead. The PR pointer is restored on reload so "Publish to PR #N" survives a refresh.

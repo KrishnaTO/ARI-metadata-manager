@@ -21,6 +21,7 @@ from . import export_service
 from . import diff_service
 from . import sssom_service
 from . import xref_registry
+from . import assignment_service
 
 log = logging.getLogger(__name__)
 
@@ -199,6 +200,66 @@ def service_for(request: Request, write=False):
     if login and login in USER_SVC:
         return USER_SVC[login]
     return BASE
+
+
+# ---- review queue: per-curator disease assignments + autosaved decisions
+ASSIGN_DIR = Path(__file__).resolve().parent.parent / "assignments"
+ASSIGNMENTS = assignment_service.AssignmentStore(ASSIGN_DIR)
+
+# Curators who may hand out assignments. Empty = anyone signed in (dev default).
+ASSIGN_ADMINS = [s.strip() for s in os.environ.get("ASSIGN_ADMINS", "").split(",") if s.strip()]
+
+
+def _require_login(request: Request) -> str:
+    login = _login(request)
+    if not login:
+        raise ValueError("Sign in with GitHub to use your review queue")
+    return login
+
+
+def _require_admin(request: Request) -> str:
+    login = _require_login(request)
+    if ASSIGN_ADMINS and login not in ASSIGN_ADMINS:
+        raise ValueError(f"@{login} is not allowed to change assignments")
+    return login
+
+
+async def _mapping_judgments(request: Request) -> list:
+    """Already-curated positive/negative judgments, from GitHub when signed in."""
+    sssom_text = equiv_text = ""
+    u = _user(request) if GH_ENABLED else None
+    if u:
+        async def _read(path):
+            try:
+                blob = await gh.get_file_at(u["token"], GH_OWNER, GH_REPO, path,
+                                            STATE["source_branch"])
+                return blob.decode("utf-8")
+            except Exception as e:
+                log.debug("Could not read %s@%s from GitHub, falling back to local: %s",
+                          path, STATE["source_branch"], e)
+                return ""
+        sssom_text = await _read(MAPPINGS_SSSOM_PATH)
+        equiv_text = await _read(MAPPINGS_EQUIV_PATH)
+    if not sssom_text and not equiv_text:
+        root = Path(__file__).resolve().parent.parent
+        for p, is_sssom in ((MAPPINGS_SSSOM_PATH, True), (MAPPINGS_EQUIV_PATH, False)):
+            try:
+                txt = (root / p).read_text(encoding="utf-8")
+            except OSError as e:
+                log.debug("Could not read local mapping file %s: %s", p, e)
+                txt = ""
+            if is_sssom:
+                sssom_text = txt
+            else:
+                equiv_text = txt
+    return sssom_service.load_judgments(sssom_text, equiv_text)
+
+
+async def _review_context(request: Request):
+    """(rows, databases, judgments, predictions) — everything the queue needs."""
+    svc = service_for(request)
+    return (svc.get_xref_rows(), xref_registry.public_list(),
+            await _mapping_judgments(request), svc.predict_xrefs())
 
 
 def _ref_session_path(login) -> Path:
@@ -424,30 +485,7 @@ async def mappings(request: Request):
     earlier session. When signed in, the files are read from the current source
     branch on GitHub; otherwise the local working-tree copy (if any) is used.
     """
-    sssom_text = equiv_text = ""
-    u = _user(request) if GH_ENABLED else None
-    if u:
-        async def _read(path):
-            try:
-                return (await gh.get_file_at(u["token"], GH_OWNER, GH_REPO, path, STATE["source_branch"])).decode("utf-8")
-            except Exception as e:
-                log.debug("Could not read %s@%s from GitHub, falling back to local: %s", path, STATE["source_branch"], e)
-                return ""
-        sssom_text = await _read(MAPPINGS_SSSOM_PATH)
-        equiv_text = await _read(MAPPINGS_EQUIV_PATH)
-    if not sssom_text and not equiv_text:
-        root = Path(__file__).resolve().parent.parent
-        for attr, p in (("sssom_text", MAPPINGS_SSSOM_PATH), ("equiv_text", MAPPINGS_EQUIV_PATH)):
-            try:
-                txt = (root / p).read_text(encoding="utf-8")
-            except OSError as e:
-                log.debug("Could not read local mapping file %s: %s", p, e)
-                txt = ""
-            if attr == "sssom_text":
-                sssom_text = txt
-            else:
-                equiv_text = txt
-    return sssom_service.load_judgments(sssom_text, equiv_text)
+    return await _mapping_judgments(request)
 
 
 @app.get("/api/v2/predictions")
@@ -592,8 +630,15 @@ async def publish(request: Request, payload: dict = Body(default={})):
 
     # Confirmed (positive) + flagged (negative) cross-references from a
     # reference-review session (also written to the mapping files further below).
-    confirmed = payload.get("confirmed") or []
-    flagged = payload.get("flagged") or []
+    # When the client sends neither, fall back to the curator's autosaved
+    # decisions so the redesigned ref-edits page can publish without resending them.
+    confirmed = payload.get("confirmed")
+    flagged = payload.get("flagged")
+    if confirmed is None and flagged is None:
+        stored = ASSIGNMENTS.to_publish_payload(_login(request))
+        confirmed, flagged = stored["confirmed"], stored["flagged"]
+    confirmed = confirmed or []
+    flagged = flagged or []
     author = payload.get("author") or f"github:{u['identity']['login']}"
 
     # Record the review in each affected disease's changelog before snapshotting
@@ -656,11 +701,15 @@ async def publish(request: Request, payload: dict = Body(default={})):
     parts.append("## Changes\n\n" + summary)
     pr_body = "\n\n".join(parts)
 
-    return await gh.publish_file(
+    result = await gh.publish_file(
         token=u["token"], owner=GH_OWNER, repo=GH_REPO, base_branch=STATE["pr_base"],
         path=GH_ONTOLOGY_PATH, content_bytes=content, disease_name=disease,
         message=message, identity=u["identity"], pr_body=pr_body, extra_files=extra_files,
         reuse_branch=reuse_branch, labels=(labels + ["sssom"] if ((confirmed or flagged) and "sssom" not in labels) else labels))
+    # Only after the PR call has come back: drop the autosaved decisions so a
+    # failed publish (which raises above) leaves the curator's work intact.
+    ASSIGNMENTS.clear(_login(request))
+    return result
 
 
 # ----------------------------------------------------------------- SETTINGS / FETCH / EXPORT
@@ -775,6 +824,107 @@ async def export_excel(request: Request):
         _io.BytesIO(xlsx),
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": 'attachment; filename="ARI_current_changes.xlsx"'})
+
+
+# ----------------------------------------------------------------- REVIEW QUEUE
+@app.get("/api/v2/queue")
+async def review_queue(request: Request):
+    """The signed-in curator's assigned diseases with per-disease progress.
+
+    Drives the left-hand queue column and the header progress bar on the
+    reference-review page. 401-equivalent (400) when not signed in.
+    """
+    login = _require_login(request)
+    rows, dbs, judgments, preds = await _review_context(request)
+    return assignment_service.queue_for(login, ASSIGNMENTS, rows, dbs, judgments, preds)
+
+
+@app.get("/api/v2/queue/{iri:path}")
+async def review_queue_disease(request: Request, iri: str):
+    """One disease as the review panel wants it: identity + one entry per database."""
+    login = _login(request)
+    rows, dbs, judgments, preds = await _review_context(request)
+    row = next((r for r in rows if r["iri"] == iri), None)
+    if row is None:
+        raise KeyError(iri)
+    panel = assignment_service.disease_panel(
+        row, dbs, judgments, preds, ASSIGNMENTS.decisions(login) if login else [])
+    panel["assigned_to"] = ASSIGNMENTS.owner_of(iri)
+    return panel
+
+
+# ----------------------------------------------------------------- ASSIGNMENTS
+@app.get("/api/v2/assignments")
+async def assignments_all(request: Request):
+    """Every curator's assignment record — the "Reassign…" / admin view."""
+    _require_login(request)
+    return ASSIGNMENTS.assignees()
+
+
+@app.post("/api/v2/assignments")
+async def assignments_set(request: Request, payload: dict = Body(...)):
+    """Assign diseases. Body: {login, iris: [...], note?, replace?}."""
+    _require_admin(request)
+    return ASSIGNMENTS.assign(
+        payload.get("login", ""), payload.get("iris", []),
+        note=payload.get("note", ""), replace=bool(payload.get("replace")))
+
+
+@app.delete("/api/v2/assignments")
+async def assignments_remove(request: Request, payload: dict = Body(...)):
+    """Unassign diseases. Body: {login, iris: [...]}."""
+    _require_admin(request)
+    return ASSIGNMENTS.unassign(payload.get("login", ""), payload.get("iris", []))
+
+
+@app.post("/api/v2/assignments/done")
+async def assignments_done(request: Request, payload: dict = Body(...)):
+    """Mark one of my diseases finished (or reopen it). Body: {iri, done?}."""
+    login = _require_login(request)
+    return ASSIGNMENTS.set_done(login, payload.get("iri", ""),
+                                done=payload.get("done", True))
+
+
+# ------------------------------------------------------------------- DECISIONS
+@app.get("/api/v2/decisions")
+async def decisions_list(request: Request, disease: str = ""):
+    """My autosaved, not-yet-published decisions (optionally for one disease)."""
+    login = _require_login(request)
+    return {"decisions": ASSIGNMENTS.decisions(login, disease or None),
+            "summary": ASSIGNMENTS.summary(login)}
+
+
+@app.post("/api/v2/decisions")
+async def decisions_add(request: Request, payload: dict = Body(...)):
+    """Record one decision — autosave, called on every click.
+
+    Body: {iri, db, id, verdict, name?, ari_id?, label?, predicted?, note?}
+    verdict: confirm | reject | no_value | skip
+    """
+    login = _require_login(request)
+    return ASSIGNMENTS.decide(
+        login, payload.get("iri", ""), payload.get("db", ""), payload.get("id", ""),
+        payload.get("verdict", ""), name=payload.get("name"),
+        ari_id=payload.get("ari_id"), label=payload.get("label"),
+        predicted=bool(payload.get("predicted")), note=payload.get("note", ""))
+
+
+@app.delete("/api/v2/decisions/{decision_id}")
+async def decisions_undo(request: Request, decision_id: str):
+    """Undo one decision."""
+    login = _require_login(request)
+    return ASSIGNMENTS.undo(login, decision_id)
+
+
+@app.get("/api/v2/review-summary")
+async def review_summary(request: Request):
+    """Pre-publish summary: counts plus the exact payload publish will send."""
+    login = _require_login(request)
+    payload = ASSIGNMENTS.to_publish_payload(login)
+    return {"summary": ASSIGNMENTS.summary(login),
+            "confirmed": payload["confirmed"],
+            "flagged": payload["flagged"],
+            "skipped": payload["skipped"]}
 
 
 def _render_html(rel_path: str) -> HTMLResponse:
