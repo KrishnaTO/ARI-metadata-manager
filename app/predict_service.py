@@ -40,19 +40,15 @@ from .xref_registry import PREFIX, XREF_DATABASES
 TARGET_DBS = [d["key"] for d in XREF_DATABASES if d.get("review")]
 
 # Columns of a per-database index TSV (``data/2-databases/<db>.index.tsv``). The
-# first three describe the ontology term; the middle block holds the ``;``-joined
-# ids that term cross-references in each target database (its own column holds its
-# own id); ``definition`` and ``parents`` (issue: concept-detail) close the row.
+# first three describe the ontology term; the rest hold the ``;``-joined ids that
+# term cross-references in each target database (its own column holds its own id).
 #
-# ``definition``/``parents`` are appended **after** the db columns on purpose: a
-# pre-change file (three descriptor columns + the ten db columns) still parses
-# cleanly through ``csv.DictReader`` — the new columns are simply absent and read
-# back as "" — so anyone who pulls this branch without regenerating the indexes
-# keeps a working (if detail-less) app. ``load_index`` records that absence as
-# ``has_details=False`` so the API never mistakes "predates definitions" for
-# "this term genuinely has none". ``parents`` is ` | `-joined term labels (like
-# ``synonyms``); ``definition`` is a single de-tabbed string.
-INDEX_COLS = ["id", "label", "synonyms"] + TARGET_DBS + ["definition", "parents"]
+# Definitions and parent terms are deliberately NOT in this file: they roughly
+# double the index size (see data/2-databases/README.md), and this file is loaded on
+# every prediction request while definitions are only needed by the on-demand
+# concept-detail lookup. They live in a sibling ``<db>.details.tsv`` sidecar that
+# ``concept_service`` loads lazily; the prediction hot path stays lean and unchanged.
+INDEX_COLS = ["id", "label", "synonyms"] + TARGET_DBS
 
 DEFAULT_INDEX_DIR = Path(__file__).resolve().parent.parent / "data" / "2-databases"
 # Curated list of ARI synonyms that actually name a *different* disease and must be
@@ -87,20 +83,19 @@ def _split_ids(cell: str) -> list[str]:
 class LexicalIndex:
     """Normalized name/synonym -> reference-ontology records, for one index file.
 
-    A *record* is ``{"id", "label", "synonyms", "definition", "parents",
-    "by_db": {db_key: [ids]}}``. One normalized name can map to several records
-    (rare homonyms across the ontology); callers decide how to treat ambiguity.
-    ``records`` is the flat, deduplicated term list (one entry per term) that
-    ``concept_service`` walks to build its reverse id->term index. ``has_details``
-    is False when the source file predated the ``definition``/``parents`` columns,
-    so a detail-less answer can be attributed to the stale file, not the term.
+    A *record* is ``{"id", "label", "synonyms", "by_db": {db_key: [ids]}}``. One
+    normalized name can map to several records (rare homonyms across the ontology);
+    callers decide how to treat ambiguity. ``records`` is the flat, deduplicated
+    term list (one entry per term) that ``concept_service`` walks to build its
+    reverse id->term index; ``path`` lets it find this index's sibling
+    ``<db>.details.tsv`` sidecar for definitions/parents.
     """
 
-    def __init__(self, source: str, has_details: bool = False):
+    def __init__(self, source: str, path: Path | None = None):
         self.source = source          # e.g. "mondo" — which index this came from
+        self.path = path
         self.by_name: dict[str, list[dict]] = {}
         self.records: list[dict] = []
-        self.has_details = has_details
         self.terms = 0
 
     def add(self, record: dict, names: list[str]) -> None:
@@ -121,17 +116,14 @@ class LexicalIndex:
 def load_index(path: str | Path, source: str | None = None) -> LexicalIndex:
     """Load one ``<db>.index.tsv`` into a :class:`LexicalIndex`.
 
-    Reads the ``definition``/``parents`` columns with ``row.get(col, "") or ""`` so
-    a file written before they existed loads cleanly; ``has_details`` is taken from
-    the header, not the values, so an index that has the columns but a term with no
-    definition is distinguishable from an index that predates them.
+    Synonyms are kept on the record (the concept-detail lookup returns them); the
+    heavier definition/parents live in a sibling sidecar loaded by ``concept_service``.
     """
     path = Path(path)
     src = source or path.stem.split(".")[0]
+    idx = LexicalIndex(src, path=path)
     with open(path, encoding="utf-8", newline="") as f:
         reader = csv.DictReader(f, delimiter="\t")
-        fields = set(reader.fieldnames or [])
-        idx = LexicalIndex(src, has_details=("definition" in fields and "parents" in fields))
         for row in reader:
             by_db: dict[str, list[str]] = {}
             for db in TARGET_DBS:
@@ -140,8 +132,7 @@ def load_index(path: str | Path, source: str | None = None) -> LexicalIndex:
                     by_db[db] = ids
             synonyms = _split_synonyms(row.get("synonyms", ""))
             record = {"id": row.get("id", ""), "label": row.get("label", ""),
-                      "synonyms": synonyms, "definition": row.get("definition", "") or "",
-                      "parents": _split_synonyms(row.get("parents", "")), "by_db": by_db}
+                      "synonyms": synonyms, "by_db": by_db}
             idx.add(record, [record["label"]] + synonyms)
     return idx
 

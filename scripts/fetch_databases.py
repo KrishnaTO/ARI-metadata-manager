@@ -3,10 +3,13 @@
 used by ``app/predict_service`` (issue #42).
 
 For each freely-redistributable source this downloads the raw release into
-``data/2-databases/raw/`` (git-ignored — large) and distils it into
-``data/2-databases/<db>.index.tsv``: one row per term with its label, exact
-synonyms, and the ids it cross-references in each target database. The index files
-are small and are committed for local version control; the raw dumps are not.
+``data/2-databases/raw/`` (git-ignored — large) and distils it into two committed
+files: ``data/2-databases/<db>.index.tsv`` (one lean row per term — label, exact
+synonyms, cross-reference ids — read on every prediction request) and a
+``<db>.details.tsv`` sidecar (id -> definition, parents) read on demand by the
+concept-detail lookup. Splitting details out keeps the prediction index ~half the
+size it would otherwise be; see ``data/2-databases/README.md``. The raw dumps are not
+committed.
 
 Sources and formats:
   mondo, doid  OBO ontologies. MONDO is the hub — one term xrefs SNOMED/DOID/NCI/
@@ -201,11 +204,12 @@ def parse_obo(path: Path, id_prefix: str, disease_only: bool = False) -> list[di
                 if not cur["definition"]:
                     cur["definition"] = _parse_def(line)
             elif line.startswith("is_a: "):
-                # ``is_a: TARGET ! label`` — keep the target id; the second pass
-                # turns it into the parent's label.
-                target = line[len("is_a:"):].split("!", 1)[0].strip()
-                if target:
-                    cur["parents"].append(target)
+                # ``is_a: TARGET {qualifiers} ! label`` — TARGET is the first token
+                # (drop any OBO trailing ``{...}`` qualifier and the ``! label``
+                # comment); the second pass turns the id into the parent's label.
+                rest = line[len("is_a:"):].split()
+                if rest:
+                    cur["parents"].append(rest[0])
             elif line.startswith("synonym: "):
                 syn = _parse_synonym(line)
                 if syn:
@@ -330,6 +334,13 @@ def _clean_cell(text: str) -> str:
     return " ".join((text or "").split())
 
 
+# Columns of a ``<db>.details.tsv`` sidecar: the term's own id, its definition, and
+# its ` | `-joined parent labels. Kept out of the prediction index because they
+# roughly double its size (see README) yet are only read by the concept-detail
+# lookup — see ``app/concept_service`` and ``predict_service.INDEX_COLS``.
+DETAILS_COLS = ["id", "definition", "parents"]
+
+
 def write_index(db: str, rows: list[dict]) -> Path:
     out = DATA_DIR / f"{db}.index.tsv"
     with open(out, "w", encoding="utf-8", newline="") as f:
@@ -345,10 +356,26 @@ def write_index(db: str, rows: list[dict]) -> Path:
                         seen.add(v)
                         uniq.append(v)
                 cells.append(";".join(uniq))
-            # definition/parents close the row (see INDEX_COLS in predict_service).
-            cells.append(_clean_cell(r.get("definition", "")))
-            cells.append(" | ".join(_clean_cell(p) for p in r.get("parents", []) if p))
             f.write("\t".join(cells) + "\n")
+    return out
+
+
+def write_details(db: str, rows: list[dict]) -> Path:
+    """Write the ``<db>.details.tsv`` sidecar (id -> definition, parents).
+
+    Rows with neither a definition nor parents are omitted so the sidecar stays as
+    small as the data allows; ``concept_service`` treats a missing id as "this term
+    has no details", and a missing whole file as "details not built for this db".
+    """
+    out = DATA_DIR / f"{db}.details.tsv"
+    with open(out, "w", encoding="utf-8", newline="") as f:
+        f.write("\t".join(DETAILS_COLS) + "\n")
+        for r in rows:
+            definition = _clean_cell(r.get("definition", ""))
+            parents = " | ".join(_clean_cell(p) for p in r.get("parents", []) if p)
+            if not definition and not parents:
+                continue
+            f.write("\t".join([r.get("id", ""), definition, parents]) + "\n")
     return out
 
 
@@ -372,8 +399,10 @@ def build(only: list[str] | None) -> None:
             print(f"[{db}] unknown format {fmt!r}; skipping", file=sys.stderr)
             continue
         out = write_index(db, rows)
-        rel = out.relative_to(DATA_DIR.parent.parent)
-        print(f"[{db}] wrote {rel} ({len(rows):,} terms, {out.stat().st_size:,} bytes)")
+        det = write_details(db, rows)
+        root = DATA_DIR.parent.parent
+        print(f"[{db}] wrote {out.relative_to(root)} ({len(rows):,} terms, {out.stat().st_size:,} bytes)"
+              f" + {det.relative_to(root)} ({det.stat().st_size:,} bytes)")
 
 
 def main(argv: list[str] | None = None) -> int:
