@@ -55,7 +55,10 @@ lazily — the prediction hot path never parses them.
 The split is deliberate: folding definitions into the index would roughly **double**
 its size (measured: 13.9 MB → 32.2 MB) while slowing every prediction load for data
 prediction never uses. As a sidecar the indexes stay ~13.9 MB and the ~18 MB of
-details load only when a curator opens the compare pane. `concept_service` treats a
+details load only when a curator opens the compare pane — and only the sidecar for
+the database being looked up (a DOID lookup costs ~8 MB resident, not the ~52 MB all
+five would). This matters on the small hosted instance; see `DEPLOY.md`.
+`concept_service` treats a
 **missing sidecar** as "details not built for this database" (`details_available:
 false`) and a **missing id within a present sidecar** as "this term genuinely has
 none" — so a checkout that never regenerated still answers, with label + synonyms +

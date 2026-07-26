@@ -207,6 +207,31 @@ def test_reverse_cache_invalidates_on_index_change(tmp_path):
     assert ("doid", "9744") in rev2 and ("doid", "9744") not in rev1
 
 
+def test_only_the_looked_up_databases_sidecar_is_read(tmp_path):
+    # Memory: a DOID lookup must not pull MONDO's (much larger) definitions into
+    # memory. Reading every sidecar eagerly cost ~52 MB resident instead of ~8 MB.
+    _write_index(tmp_path / "doid.index.tsv",
+                 _irow(id="DOID:2043", label="autoimmune hepatitis", doid="2043"))
+    _write_details(tmp_path / "doid.details.tsv", ("DOID:2043", "doid def", ""))
+    _write_index(tmp_path / "mondo.index.tsv",
+                 _irow(id="MONDO:0016264", label="autoimmune hepatitis", mondo="0016264"))
+    _write_details(tmp_path / "mondo.details.tsv", ("MONDO:0016264", "mondo def", ""))
+    read: list[str] = []
+    real = cs._load_details
+
+    def spy(path):
+        read.append(Path(path).name)
+        return real(path)
+
+    cs._DETAILS_CACHE.clear()
+    cs._load_details = spy
+    try:
+        assert cs.lookup("doid", "DOID:2043", _indexes(tmp_path))["definition"] == "doid def"
+    finally:
+        cs._load_details = real
+    assert read == ["doid.details.tsv"]        # mondo's sidecar never touched
+
+
 def test_details_cache_invalidates_on_sidecar_change(tmp_path):
     _write_index(tmp_path / "doid.index.tsv",
                  _irow(id="DOID:2043", label="autoimmune hepatitis", doid="2043"))

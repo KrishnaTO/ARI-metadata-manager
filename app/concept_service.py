@@ -12,7 +12,8 @@ Where the fields come from
 Label, synonyms and cross-references come from the prediction index (``<db>.index.tsv``)
 that ``predict_service`` already loads. Definitions and parent terms are heavier and are
 only needed here, so they live in a sibling ``<db>.details.tsv`` sidecar (id -> definition,
-parents) that this module loads lazily and caches — keeping the prediction hot path lean.
+parents) that this module loads lazily — and only for the database actually being looked
+up — keeping the prediction hot path lean and the resident cost proportional to use.
 A missing sidecar means "details were not built for this database" (``details_available:
 false``); a missing id *within* a present sidecar means "this term genuinely has none".
 
@@ -94,24 +95,25 @@ _REVERSE_CACHE: dict[int, tuple[list, dict]] = {}
 _DETAILS_CACHE: dict[str, tuple[tuple, dict]] = {}
 
 
-def _build_reverse(indexes: list[LexicalIndex]) -> dict[tuple[str, str], list[dict]]:
-    """``(db, normalized id) -> [entry, ...]`` over every term in ``indexes``.
+def _build_reverse(indexes: list[LexicalIndex]) -> dict[tuple[str, str], list[tuple]]:
+    """``(db, normalized id) -> [(source, record), ...]`` over every term in ``indexes``.
 
-    An *entry* is ``{"source", "rec"}``. A term is added once per ``(db, id)`` it
-    supplies — its own id (for own-index terms) and every xref it carries — so a
-    SNOMED id lands under every hub term that cross-references it.
+    A term is added once per ``(db, id)`` it supplies — its own id (for own-index
+    terms) and every xref it carries — so a SNOMED id lands under every hub term
+    that cross-references it. Entries are plain ``(source, record)`` tuples rather
+    than dicts: there are hundreds of thousands of them across the five indexes, and
+    a dict per entry costs ~27 MB more for the same two fields.
     """
-    rev: dict[tuple[str, str], list[dict]] = {}
+    rev: dict[tuple[str, str], list[tuple]] = {}
     for idx in indexes:
         for rec in idx.records:
             for db, ids in rec["by_db"].items():
                 for ident in ids:
-                    rev.setdefault((db, _norm_id(ident)), []).append(
-                        {"source": idx.source, "rec": rec})
+                    rev.setdefault((db, _norm_id(ident)), []).append((idx.source, rec))
     return rev
 
 
-def _reverse_for(indexes: list[LexicalIndex]) -> dict[tuple[str, str], list[dict]]:
+def _reverse_for(indexes: list[LexicalIndex]) -> dict[tuple[str, str], list[tuple]]:
     key = id(indexes)
     cached = _REVERSE_CACHE.get(key)
     if cached and cached[0] is indexes:
@@ -128,39 +130,52 @@ def _details_dir(indexes: list[LexicalIndex]) -> Path | None:
     return None
 
 
-def _load_details(index_dir: Path) -> dict[str, dict[str, dict]]:
-    """``source -> {term id -> {"definition", "parents"}}`` for each detail sidecar."""
-    out: dict[str, dict[str, dict]] = {}
-    for p in sorted(index_dir.glob("*.details.tsv")):
-        source = p.stem.split(".")[0]
-        rows: dict[str, dict] = {}
-        try:
-            with open(p, encoding="utf-8", newline="") as f:
-                for row in csv.DictReader(f, delimiter="\t"):
-                    ident = (row.get("id") or "").strip()
-                    if ident:
-                        rows[ident] = {"definition": row.get("definition", "") or "",
-                                       "parents": _split_parents(row.get("parents", ""))}
-        except OSError as e:
-            log.warning("Could not read detail sidecar %s: %s", p.name, e)
-            continue
-        out[source] = rows
-    return out
+def _load_details(path: Path) -> dict[str, dict] | None:
+    """``term id -> {"definition", "parents"}`` from one sidecar (None if unreadable)."""
+    rows: dict[str, dict] = {}
+    try:
+        with open(path, encoding="utf-8", newline="") as f:
+            for row in csv.DictReader(f, delimiter="\t"):
+                ident = (row.get("id") or "").strip()
+                if ident:
+                    rows[ident] = {"definition": row.get("definition", "") or "",
+                                   "parents": _split_parents(row.get("parents", ""))}
+    except OSError as e:
+        # Don't claim details are available when we could not read them.
+        log.warning("Could not read detail sidecar %s: %s", path.name, e)
+        return None
+    return rows
 
 
-def _details_for(indexes: list[LexicalIndex]) -> dict[str, dict[str, dict]]:
+def _details_for(indexes: list[LexicalIndex], source: str) -> dict[str, dict] | None:
+    """Detail rows for one index ``source``; ``None`` when it has no sidecar.
+
+    Only the sidecar of the database actually being looked up is read — a DOID
+    lookup has no reason to pull MONDO's and NCIt's definitions into memory, which
+    is the difference between ~8 MB and ~52 MB resident. Cached per file with the
+    same mtime/size invalidation ``get_indexes()`` uses, so a regenerated sidecar is
+    picked up without a restart.
+    """
     d = _details_dir(indexes)
     if d is None:
-        return {}
-    sig = tuple(sorted((p.name, p.stat().st_mtime, p.stat().st_size)
-                       for p in d.glob("*.details.tsv")))
-    key = str(d)
+        return None
+    path = d / f"{source}.details.tsv"
+    try:
+        st = path.stat()
+        sig = (st.st_mtime, st.st_size)
+    except OSError:
+        sig = None                       # absent -> "details not built for this db"
+    key = (str(d), source)
     cached = _DETAILS_CACHE.get(key)
     if cached and cached[0] == sig:
         return cached[1]
-    data = _load_details(d)
-    _DETAILS_CACHE[key] = (sig, data)
-    return data
+    rows = None
+    if sig is not None:
+        rows = _load_details(path)
+        if rows is None:
+            return None                  # transient IO failure — don't cache it
+    _DETAILS_CACHE[key] = (sig, rows)
+    return rows
 
 
 def _url(db: str, num: str, raw_id: str) -> str | None:
@@ -186,17 +201,15 @@ def lookup(db: str, obj_id: str, indexes: list[LexicalIndex]) -> dict:
     base = {"db": db, "id": canonical, "prefix": prefix, "url": _url(db, num, obj_id)}
 
     entries = _reverse_for(indexes).get((db, _norm_id(obj_id)), [])
-    direct = [e for e in entries if SOURCE_DB.get(e["source"]) == db]
+    direct = [(src, rec) for src, rec in entries if SOURCE_DB.get(src) == db]
 
     if direct:
-        e = direct[0]
-        rec = e["rec"]
-        sidecars = _details_for(indexes)
-        detail = sidecars.get(e["source"])          # None when no sidecar for this db
+        source, rec = direct[0]
+        detail = _details_for(indexes, source)      # None when no sidecar for this db
         info = detail.get(rec["id"], {}) if detail is not None else {}
         out = {**base, "found": True, "direct": True,
                "label": rec.get("label", ""), "synonyms": list(rec.get("synonyms", [])),
-               "definition": info.get("definition", ""), "parents": info.get("parents", []),
+               "definition": info.get("definition", ""), "parents": list(info.get("parents", [])),
                "details_available": detail is not None, "via": []}
         if detail is None:
             out["note"] = ("Definitions aren't built for this database — run "
@@ -205,8 +218,8 @@ def lookup(db: str, obj_id: str, indexes: list[LexicalIndex]) -> dict:
 
     if entries:
         # No own index for this db — the id is only known through hub cross-references.
-        via = [{"source": e["source"], "id": e["rec"]["id"], "label": e["rec"]["label"]}
-               for e in entries]
+        via = [{"source": src, "id": rec["id"], "label": rec["label"]}
+               for src, rec in entries]
         labels = {v["label"] for v in via if v["label"]}
         sources = sorted({v["source"] for v in via})
         note = (f"{meta['label']} has no index here; "
