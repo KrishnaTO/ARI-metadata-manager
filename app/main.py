@@ -201,9 +201,40 @@ def service_for(request: Request, write=False):
     return BASE
 
 
+def _ref_session_path(login) -> Path:
+    """Per-user cross-reference review session file (verdicts + PR pointer)."""
+    return USER_DIR / f"{login}.refsession.json"
+
+
+def _load_ref_session(login) -> dict:
+    p = _ref_session_path(login)
+    if not p.exists():
+        return {}
+    try:
+        return json.loads(p.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as e:
+        log.warning("Could not read cross-ref session for %s (%s); starting fresh", login, e)
+        return {}
+
+
+def _save_ref_session(login, data: dict):
+    USER_DIR.mkdir(parents=True, exist_ok=True)
+    _ref_session_path(login).write_text(json.dumps(data), encoding="utf-8")
+
+
+def _clear_ref_session(login):
+    try:
+        _ref_session_path(login).unlink()
+    except FileNotFoundError:
+        pass
+    except OSError as e:
+        log.warning("Could not delete cross-ref session for %s: %s", login, e)
+
+
 def _reset_user(login):
     USER_SVC.pop(login, None)
     USER_DIRTY.discard(login)
+    _clear_ref_session(login)                   # verdicts reference the old data — drop them
     try:
         (USER_DIR / f"{login}.owl").unlink()
     except FileNotFoundError:
@@ -236,6 +267,7 @@ def _sweep_user_data():
                 USER_SVC.pop(login, None)
                 USER_DIRTY.discard(login)
                 f.unlink()
+                _clear_ref_session(login)       # drop the review session with its working copy
         except OSError as e:
             log.warning("Could not sweep idle working copy %s: %s", f.name, e)
 
@@ -353,6 +385,26 @@ async def create_release(request: Request, payload: dict = Body(default={})):
 async def xrefs(request: Request):
     """All diseases with their database cross-references, for the reference-review page."""
     return service_for(request).get_xref_rows()
+
+
+@app.get("/api/v2/ref-session")
+async def get_ref_session(request: Request):
+    """The signed-in user's saved cross-reference review session (verdicts,
+    edited-id markers and the PR pointer), so work resumes across page reloads.
+    Empty for anonymous users — review state is only persisted when signed in."""
+    login = _login(request)
+    return _load_ref_session(login) if login else {}
+
+
+@app.put("/api/v2/ref-session")
+async def put_ref_session(request: Request, payload: dict = Body(...)):
+    """Persist the signed-in user's cross-reference review session. The body is
+    the frontend-owned state blob ({reviewed, edited, branch, pr})."""
+    login = _login(request)
+    if not login:
+        return JSONResponse(status_code=401, content={"detail": "Sign in with GitHub first"})
+    _save_ref_session(login, payload)
+    return {"ok": True}
 
 
 @app.get("/api/v2/xref-databases")

@@ -1,5 +1,10 @@
 # Changelog
 
+## feat-cross-ref-manager-persistence
+- The cross-reference manager (ref-edits matrix + ref-curate disease view) now saves a signed-in user's in-progress review to the server: their correct/needs-change verdicts, edited-id markers and the pull-request pointer persist per user, so a page reload resumes the work instead of losing it. State is saved automatically (debounced) on every verdict/edit and stored beside the user's working ontology copy; it is dropped when they switch source branch or their copy is swept.
+- Publishing now offers a choice once a PR exists: the primary button commits to the current PR, and a new "New PR" button opens a fresh pull request instead. The PR pointer is restored on reload so "Publish to PR #N" survives a refresh.
+- Added `.user-data/` and `.sessions.json` to `.gitignore` (runtime server-side state).
+
 ## feat-ref-edits-discard-prediction
 - Added a discard option for predicted cross-references on the review page (issue #52): a ✕ on each yellow predicted chip (and a "Discard prediction" button in the side panel) flags the prediction as wrong when there is no correct value in the target database.
 - Discards reuse the existing negative-mapping path — they publish as `Not` (negative) SSSOM/equivalency entries and are suppressed from future predictions. Reversible in-session (toggle ✕/↩) before publishing.

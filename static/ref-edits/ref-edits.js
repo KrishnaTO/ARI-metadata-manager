@@ -32,7 +32,7 @@
     PREFIX = Object.fromEntries((list || []).map(d => [d.key, d.prefix]));
   }
 
-  let ROWS = [], me = null, reviewed = {}, edited = {}, active = null, sessionBranch = null, _tissues = null;
+  let ROWS = [], me = null, reviewed = {}, edited = {}, active = null, sessionBranch = null, sessionPr = null, _tissues = null;
   // reviewed/edited keys: `${iri}|${db}|${id}` (per-ID, not per-cell)
   // Helper: build the per-ID key
   const idKey = (iri, db, id) => iri + '|' + db + '|' + id;
@@ -143,7 +143,42 @@
     const ed = Object.keys(edited).length;
     const conf = confirmedList().length, flag = flaggedList().length;
     $('#counts').textContent = `confirmed ${ok} · flagged ${bad} · edited ${ed}`;
-    $('#publish').disabled = !(me && me.authenticated && (ed > 0 || conf > 0 || flag > 0));
+    const canPublish = !!(me && me.authenticated && (ed > 0 || conf > 0 || flag > 0));
+    $('#publish').disabled = !canPublish;
+    $('#publish-new').disabled = !canPublish;
+  }
+
+  // Persist this signed-in user's review session (verdicts, edited-id markers and
+  // the PR pointer) to the server so a page reload resumes where they left off.
+  // Debounced; anonymous users keep review state in-memory only (no persistence).
+  let _saveTimer = null;
+  function saveSession(immediate) {
+    if (!(me && me.authenticated)) return;
+    clearTimeout(_saveTimer);
+    const put = () => {
+      const reviewedClean = {};
+      for (const [k, v] of Object.entries(reviewed)) if (v) reviewedClean[k] = v;
+      api('ref-session', { method: 'PUT', body: { reviewed: reviewedClean, edited, branch: sessionBranch, pr: sessionPr } })
+        .catch(e => console.warn('Could not save review session:', e.message));
+    };
+    if (immediate) put(); else _saveTimer = setTimeout(put, 500);
+  }
+
+  // Reflect the tracked PR in the header: link + button labels. With a PR on file
+  // the primary button appends to it and a secondary "New PR" button is offered;
+  // with none, the primary button opens the first PR.
+  function reflectPr() {
+    const pl = $('#prlink');
+    if (sessionPr) {
+      pl.textContent = 'PR #' + sessionPr.number + (sessionPr.fork ? ' (from your fork) ↗' : ' ↗');
+      pl.href = sessionPr.url; pl.style.display = '';
+      $('#publish').textContent = 'Publish to PR #' + sessionPr.number;
+      $('#publish-new').style.display = '';
+    } else {
+      pl.style.display = 'none';
+      $('#publish').textContent = 'Publish review (PR)';
+      $('#publish-new').style.display = 'none';
+    }
   }
 
   // Update the cell-level class based on its per-ID children.
@@ -245,7 +280,7 @@
     const el = document.querySelector(`.xid-block[data-iri="${CSS.escape(iri)}"][data-db="${db}"][data-id="${CSS.escape(String(id))}"]`);
     if (el) setIdBlockClass(el, iri, db, id);
     setCellClass(iri, db);
-    counts();
+    counts(); saveSession();
     // update panel buttons in place (no reload) — show state for the active id
     const ok = $('#p-ok'), bad = $('#p-bad');
     if (ok && bad) {
@@ -273,7 +308,7 @@
       const x = chip.querySelector('.xid-discard');
       if (x) { x.textContent = on ? '↩' : '✕'; x.title = on ? 'Restore this prediction' : 'Discard — mark this prediction wrong (no correct value)'; }
     }
-    counts();
+    counts(); saveSession();
     // Reflect state on the panel's discard button when it's showing this prediction.
     const dbtn = $('#p-discard');
     if (dbtn && active && active.iri === iri && active.dbkey === dbkey && String(active.predId) === String(predId)) {
@@ -478,28 +513,34 @@
           delete reviewed[idKey(iri, dbkey, id)];
         }
       }
-      renderTable($('#filter').value); counts(); openPanel(iri, dbkey, newIds.length ? newIds[0] : null);
+      renderTable($('#filter').value); counts(); saveSession(); openPanel(iri, dbkey, newIds.length ? newIds[0] : null);
     } catch (e) { alert('Save failed: ' + e.message); $('#p-save').disabled = false; $('#p-save').textContent = 'Save'; }
   }
 
-  async function publish() {
+  // Publish the review as a pull request. `newPr` true opens a fresh PR even when
+  // one is already tracked; otherwise changes are committed to the existing PR (or
+  // a first PR is opened when none exists yet).
+  async function publish(newPr) {
+    const reuse = newPr ? null : sessionBranch;
+    if (newPr && sessionPr &&
+        !confirm('Open a new pull request instead of adding to PR #' + sessionPr.number + '?')) return;
     const comment = window.prompt('Optional comment for the pull request (what you reviewed/changed):', 'Mappings review');
     if (comment === null) return;
     const orcid = (localStorage.getItem('ari_editor_orcid') || '').trim();
     const author = orcid ? ('orcid:' + orcid) : (me && me.login ? ('github:' + me.login) : 'curator');
     const message = reviewMessage();
-    $('#publish').disabled = true; $('#publish').textContent = 'Publishing…';
+    $('#publish').disabled = true; $('#publish-new').disabled = true; $('#publish').textContent = 'Publishing…';
     try {
       const r = await api('publish', { method: 'POST', body: {
         disease: 'mappings review', message, comment,
         confirmed: confirmedList(), flagged: flaggedList(), author,
-        branch: sessionBranch, labels: ['edit term', 'sssom'] } });
+        branch: reuse, labels: ['edit term', 'sssom'] } });
       sessionBranch = r.branch;                       // subsequent publishes append to the same PR
-      const pl = $('#prlink');
-      pl.textContent = 'PR #' + r.pr_number + (r.fork ? ' (from your fork) ↗' : ' ↗'); pl.href = r.pr_url; pl.style.display = '';
-      $('#publish').textContent = 'Publish more to PR #' + r.pr_number;
-      $('#publish').disabled = true;                  // re-enabled by counts() when new changes are made
-    } catch (e) { alert('Publish failed: ' + e.message); $('#publish').textContent = sessionBranch ? 'Publish more to PR' : 'Publish review (PR)'; counts(); }
+      sessionPr = { number: r.pr_number, url: r.pr_url, fork: r.fork };
+      reflectPr();
+      saveSession(true);                              // persist the PR pointer immediately
+      $('#publish').disabled = true; $('#publish-new').disabled = true;  // re-enabled by counts() on new changes
+    } catch (e) { alert('Publish failed: ' + e.message); reflectPr(); counts(); }
   }
 
   // Draggable splitter — adjust side-panel width on all screens (mouse + touch).
@@ -540,9 +581,22 @@
       for (const p of await api('predictions'))
         predicted[p.ari_id + '|' + p.prefix + '|' + p.id] = { label: p.object_label, match_field: p.match_field, confidence: p.confidence };
     } catch (e) { predicted = {}; }
+    // Restore this user's saved review session (verdicts + PR pointer) so a reload
+    // resumes their work. Anonymous users get {} — review state stays in-memory.
+    if (me && me.authenticated) {
+      try {
+        const s = await api('ref-session');
+        reviewed = s.reviewed || {};
+        edited = s.edited || {};
+        sessionBranch = s.branch || null;
+        sessionPr = s.pr || null;
+      } catch (e) { console.warn('Could not load review session:', e.message); }
+    }
+    reflectPr();
     renderTable(''); counts(); initDivider();
     $('#filter').addEventListener('input', e => renderTable(e.target.value));
-    $('#publish').addEventListener('click', publish);
+    $('#publish').addEventListener('click', () => publish(false));
+    $('#publish-new').addEventListener('click', () => publish(true));
   }
   document.addEventListener('DOMContentLoaded', init);
 })();

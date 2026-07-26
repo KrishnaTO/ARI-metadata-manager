@@ -227,3 +227,7 @@ __marimo__/
 run-local.sh
 app/node_modules/
 CLAUDE.md
+
+# Runtime server-side state (per-user working copies, review sessions, tokens)
+.user-data/
+.sessions.json
