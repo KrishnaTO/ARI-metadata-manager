@@ -42,6 +42,12 @@ TARGET_DBS = [d["key"] for d in XREF_DATABASES if d.get("review")]
 # Columns of a per-database index TSV (``data/2-databases/<db>.index.tsv``). The
 # first three describe the ontology term; the rest hold the ``;``-joined ids that
 # term cross-references in each target database (its own column holds its own id).
+#
+# Definitions and parent terms are deliberately NOT in this file: they roughly
+# double the index size (see data/2-databases/README.md), and this file is loaded on
+# every prediction request while definitions are only needed by the on-demand
+# concept-detail lookup. They live in a sibling ``<db>.details.tsv`` sidecar that
+# ``concept_service`` loads lazily; the prediction hot path stays lean and unchanged.
 INDEX_COLS = ["id", "label", "synonyms"] + TARGET_DBS
 
 DEFAULT_INDEX_DIR = Path(__file__).resolve().parent.parent / "data" / "2-databases"
@@ -77,18 +83,24 @@ def _split_ids(cell: str) -> list[str]:
 class LexicalIndex:
     """Normalized name/synonym -> reference-ontology records, for one index file.
 
-    A *record* is ``{"id", "label", "by_db": {db_key: [ids]}}``. One normalized
-    name can map to several records (rare homonyms across the ontology); callers
-    decide how to treat ambiguity.
+    A *record* is ``{"id", "label", "synonyms", "by_db": {db_key: [ids]}}``. One
+    normalized name can map to several records (rare homonyms across the ontology);
+    callers decide how to treat ambiguity. ``records`` is the flat, deduplicated
+    term list (one entry per term) that ``concept_service`` walks to build its
+    reverse id->term index; ``path`` lets it find this index's sibling
+    ``<db>.details.tsv`` sidecar for definitions/parents.
     """
 
-    def __init__(self, source: str):
+    def __init__(self, source: str, path: Path | None = None):
         self.source = source          # e.g. "mondo" — which index this came from
+        self.path = path
         self.by_name: dict[str, list[dict]] = {}
+        self.records: list[dict] = []
         self.terms = 0
 
     def add(self, record: dict, names: list[str]) -> None:
         self.terms += 1
+        self.records.append(record)
         seen = set()
         for n in names:
             key = normalize(n)
@@ -102,10 +114,14 @@ class LexicalIndex:
 
 
 def load_index(path: str | Path, source: str | None = None) -> LexicalIndex:
-    """Load one ``<db>.index.tsv`` into a :class:`LexicalIndex`."""
+    """Load one ``<db>.index.tsv`` into a :class:`LexicalIndex`.
+
+    Synonyms are kept on the record (the concept-detail lookup returns them); the
+    heavier definition/parents live in a sibling sidecar loaded by ``concept_service``.
+    """
     path = Path(path)
     src = source or path.stem.split(".")[0]
-    idx = LexicalIndex(src)
+    idx = LexicalIndex(src, path=path)
     with open(path, encoding="utf-8", newline="") as f:
         reader = csv.DictReader(f, delimiter="\t")
         for row in reader:
@@ -114,9 +130,10 @@ def load_index(path: str | Path, source: str | None = None) -> LexicalIndex:
                 ids = _split_ids(row.get(db, ""))
                 if ids:
                     by_db[db] = ids
-            record = {"id": row.get("id", ""), "label": row.get("label", ""), "by_db": by_db}
-            names = [row.get("label", "")] + _split_synonyms(row.get("synonyms", ""))
-            idx.add(record, names)
+            synonyms = _split_synonyms(row.get("synonyms", ""))
+            record = {"id": row.get("id", ""), "label": row.get("label", ""),
+                      "synonyms": synonyms, "by_db": by_db}
+            idx.add(record, [record["label"]] + synonyms)
     return idx
 
 

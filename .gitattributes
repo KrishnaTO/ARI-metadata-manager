@@ -1,0 +1,12 @@
+# The reference-database files under data/2-databases/ are build products of
+# scripts/fetch_databases.py, not hand-edited source: together they are ~100k rows
+# of TSV distilled from the MONDO/DOID/NCIt/MeSH/Orphanet releases. Marking them
+# generated collapses them by default in GitHub's diff view (still expandable) and
+# keeps them out of language statistics, so a PR that regenerates the data doesn't
+# bury its code changes — e.g. the concept-detail PR was 843 lines of code next to
+# 80,611 lines of sidecar data.
+#
+# Deliberately no `text`/`eol` rules here: this repo has files whose line endings
+# are sensitive to autocrlf, and adding them would renormalize tracked content.
+data/2-databases/*.index.tsv   linguist-generated=true
+data/2-databases/*.details.tsv linguist-generated=true

@@ -22,6 +22,8 @@ from . import diff_service
 from . import sssom_service
 from . import xref_registry
 from . import assignment_service
+from . import concept_service
+from . import predict_service
 
 log = logging.getLogger(__name__)
 
@@ -496,6 +498,20 @@ async def predictions(request: Request):
     (``data/2-databases``); the review page shows these as yellow "predicted" cells
     the curator can verify and confirm. Empty list when no indexes are present."""
     return service_for(request).predict_xrefs()
+
+
+@app.get("/api/v2/concept/{db}/{obj_id:path}")
+async def concept_detail_lookup(db: str, obj_id: str):
+    """Label, synonyms, definition and parents for one target-database id.
+
+    Backs the right-hand side of the reference-review compare pane: the curator sees
+    what a candidate concept actually is, next to the ARI disease. ``{obj_id:path}``
+    because ids carry colons (and dots, for ICD-10). Distinguishes a database's own
+    term (``direct: true``) from a hub cross-reference (``direct: false`` + ``via``);
+    a valid-but-unindexed id is a normal ``found: false`` 200, not a 404. Reads the
+    public index files only — no auth, same as ``/api/v2/predictions``. An unknown
+    ``db`` raises ``KeyError`` -> 404 via the existing handler."""
+    return concept_service.lookup(db, obj_id, predict_service.get_indexes())
 
 
 @app.get("/api/v2/tissues")

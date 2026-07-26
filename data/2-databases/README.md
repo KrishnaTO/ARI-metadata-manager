@@ -15,6 +15,7 @@ which a curator then verifies and confirms.
 | `ncit.index.tsv`  | [NCI Thesaurus](https://ncithesaurus.nci.nih.gov/) (public domain) | `raw/ncit.obo` | yes |
 | `mesh.index.tsv`  | [MeSH](https://www.nlm.nih.gov/mesh/) (NLM, public domain) | `raw/mesh_desc2026.xml` | yes |
 | `orphanet.index.tsv` | [Orphanet](https://www.orphadata.com/) (CC BY 4.0) | `raw/orphanet_product1.xml` | yes |
+| `<db>.details.tsv` | definitions + parents for each index above | same `raw/` dump | yes (sidecar, loaded on demand) |
 | `raw/` | downloaded release dumps | — | no (git-ignored, large) |
 
 `ncit`, `mesh` and `orphanet` are filtered to disease terms so the indexes stay
@@ -33,6 +34,49 @@ id	label	synonyms	snomed	omop	doid	mondo	nci	icd10	orphanet	omim	umls	mesh
 
 `synonyms` is ` | `-joined (EXACT synonyms only); each database column holds the
 `;`-joined ids that term cross-references there (its own column holds its own id).
+This file is loaded on **every** prediction request, so it is kept lean — labels,
+synonyms and cross-references only.
+
+### Detail sidecars — `<db>.details.tsv`
+
+Definitions and parent terms live in a **sidecar** next to each index, not in the
+index itself:
+
+```
+id	definition	parents
+```
+
+`definition` is a single de-tabbed string; `parents` is ` | `-joined **term labels**
+(the `is_a`/hierarchy parents, resolved to labels in a second pass). A row is written
+only when the term has a definition or parents. These back the reference-review
+**compare pane** (`GET /api/v2/concept/{db}/{id}`), which `app/concept_service` loads
+lazily — the prediction hot path never parses them.
+
+The split is deliberate: folding definitions into the index would roughly **double**
+its size (measured: 13.9 MB → 32.2 MB) while slowing every prediction load for data
+prediction never uses. As a sidecar the indexes stay ~13.9 MB and the ~18 MB of
+details load only when a curator opens the compare pane — and only the sidecar for
+the database being looked up (a DOID lookup costs ~8 MB resident, not the ~52 MB all
+five would). This matters on the small hosted instance; see `DEPLOY.md`.
+`concept_service` treats a
+**missing sidecar** as "details not built for this database" (`details_available:
+false`) and a **missing id within a present sidecar** as "this term genuinely has
+none" — so a checkout that never regenerated still answers, with label + synonyms +
+cross-reference provenance and `details_available: false`.
+
+| Source | `definition` from | `parents` from |
+| --- | --- | --- |
+| MONDO, DOID, NCIt | OBO `def:` | OBO `is_a:` targets, resolved to labels in a second pass (a target filtered out of a disease-only index keeps its id) |
+| MeSH | preferred concept `ScopeNote` | *(empty — MeSH hierarchy is tree numbers, a different mechanism)* |
+| Orphanet | `SummaryInformation` text (en_product1) | *(empty — the classification lives in en_product3, which this script does not download)* |
+
+| Detail sidecar | Size |
+| --- | --- |
+| `mondo.details.tsv` | ~5.9 MB |
+| `ncit.details.tsv` | ~5.8 MB |
+| `orphanet.details.tsv` | ~2.8 MB |
+| `doid.details.tsv` | ~2.4 MB |
+| `mesh.details.tsv` | ~1.3 MB |
 
 ## Coverage of the ten target databases
 
