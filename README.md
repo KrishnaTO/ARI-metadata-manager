@@ -128,6 +128,12 @@ and exact-match predictions per database — with a live source preview and a ne
 It reuses the same APIs and writes the same SSSOM + equivalency files, so the two pages are
 interchangeable. The main app's field editor deep-links into it (`ref-curate/#<disease-iri>`).
 
+For signed-in users, review progress is **saved to the server** as they work (verdicts,
+edited-id markers and the open-PR pointer, via `GET`/`PUT /api/v2/ref-session`), so a page
+reload resumes where they left off. The session is stored per user beside their working
+ontology copy and is dropped when they switch source branch. Once a pull request exists,
+**Publish** commits to that same PR, while a **New PR** button opens a fresh one instead.
+
 ### Report import
 `scripts/import_reports.py` folds the curated `data/4-reports/` catalogue (diseases, symptoms,
 age-of-onset, prevalence, clinical subtypes, authorship, and all cross-references) into
@@ -213,6 +219,7 @@ when its target actually changes.
 | GET | `/api/v2/xrefs` | Cross-reference matrix for the review page |
 | GET | `/api/v2/xref-databases` | Cross-reference database registry (labels, prefixes, link-outs) |
 | GET | `/api/v2/mappings` | Already-curated positive/negative cross-reference judgments |
+| GET / PUT | `/api/v2/ref-session` | Signed-in user's saved cross-reference review session (resume across reloads) |
 | GET | `/api/v2/search?q=` | Full-text search |
 | GET / POST / PUT / DELETE | `/api/v2/feedback[/{id}]` | Per-term feedback CRUD |
 | GET | `/api/v2/open-prs` | Open pull requests, matched to diseases by branch name |

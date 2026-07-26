@@ -35,7 +35,7 @@
     PREFIX = Object.fromEntries((list || []).map(d => [d.key, d.prefix]));
   }
 
-  let ROWS = [], me = null, reviewed = {}, edited = {}, sessionBranch = null;
+  let ROWS = [], me = null, reviewed = {}, edited = {}, sessionBranch = null, sessionPr = null;
   let currentIri = null, active = null;   // active = {db, id} currently previewed
   // reviewed/edited keys: `${iri}|${db}|${id}` (per-ID, matches ref-edits.js)
   const idKey = (iri, db, id) => iri + '|' + db + '|' + id;
@@ -98,7 +98,42 @@
     const bad = Object.values(reviewed).filter(v => v === 'bad').length;
     const ed = Object.keys(edited).length;
     $('#counts').textContent = `confirmed ${ok} · flagged ${bad} · edited ${ed}`;
-    $('#publish').disabled = !(me && me.authenticated && (ed > 0 || ok > 0 || bad > 0));
+    const canPublish = !!(me && me.authenticated && (ed > 0 || ok > 0 || bad > 0));
+    $('#publish').disabled = !canPublish;
+    $('#publish-new').disabled = !canPublish;
+  }
+
+  // Persist this signed-in user's review session (verdicts, edited-id markers and
+  // the PR pointer) to the server so a page reload resumes their work. Shared with
+  // the ref-edits matrix page — both read/write the same per-user session blob.
+  // Debounced; anonymous users keep review state in-memory only (no persistence).
+  let _saveTimer = null;
+  function saveSession(immediate) {
+    if (!(me && me.authenticated)) return;
+    clearTimeout(_saveTimer);
+    const put = () => {
+      const reviewedClean = {};
+      for (const [k, v] of Object.entries(reviewed)) if (v) reviewedClean[k] = v;
+      api('ref-session', { method: 'PUT', body: { reviewed: reviewedClean, edited, branch: sessionBranch, pr: sessionPr } })
+        .catch(e => console.warn('Could not save review session:', e.message));
+    };
+    if (immediate) put(); else _saveTimer = setTimeout(put, 500);
+  }
+
+  // Reflect the tracked PR in the header: link + button labels. With a PR on file
+  // the primary button appends to it and a secondary "New PR" button is offered.
+  function reflectPr() {
+    const pl = $('#prlink');
+    if (sessionPr) {
+      pl.textContent = 'PR #' + sessionPr.number + (sessionPr.fork ? ' (from your fork) ↗' : ' ↗');
+      pl.href = sessionPr.url; pl.style.display = '';
+      $('#publish').textContent = 'Publish to PR #' + sessionPr.number;
+      $('#publish-new').style.display = '';
+    } else {
+      pl.style.display = 'none';
+      $('#publish').textContent = 'Publish review (PR)';
+      $('#publish-new').style.display = 'none';
+    }
   }
 
   // Per-disease curation progress for the left-list dot: how many review DBs
@@ -377,7 +412,7 @@
   function setReview(iri, db, id, v) {
     const key = idKey(iri, db, id);
     reviewed[key] = reviewed[key] === v ? null : v;
-    renderWork(); renderPicker($('#filter').value); counts();
+    renderWork(); renderPicker($('#filter').value); counts(); saveSession();
   }
 
   // Accept a predicted id: pre-fill it as this cell's value and Save (a real
@@ -399,7 +434,7 @@
       r[dbkey] = newIds;
       for (const id of newIds) edited[idKey(iri, dbkey, id)] = true;
       for (const id of oldIds) if (!newIds.includes(id)) { delete edited[idKey(iri, dbkey, id)]; delete reviewed[idKey(iri, dbkey, id)]; }
-      renderWork(); renderPicker($('#filter').value); counts();
+      renderWork(); renderPicker($('#filter').value); counts(); saveSession();
     } catch (e) { if (!silent) alert('Save failed: ' + e.message); else throw e; }
   }
 
@@ -422,23 +457,28 @@
   }
 
   // -------------------------------------------------- PUBLISH
-  async function publish() {
+  // `newPr` true opens a fresh PR even when one is already tracked; otherwise
+  // changes are committed to the existing PR (or a first PR is opened).
+  async function publish(newPr) {
+    const reuse = newPr ? null : sessionBranch;
+    if (newPr && sessionPr &&
+        !confirm('Open a new pull request instead of adding to PR #' + sessionPr.number + '?')) return;
     const comment = window.prompt('Optional comment for the pull request (what you reviewed/changed):', 'Mappings review');
     if (comment === null) return;
     const orcid = (localStorage.getItem('ari_editor_orcid') || '').trim();
     const author = orcid ? ('orcid:' + orcid) : (me && me.login ? ('github:' + me.login) : 'curator');
-    $('#publish').disabled = true; $('#publish').textContent = 'Publishing…';
+    $('#publish').disabled = true; $('#publish-new').disabled = true; $('#publish').textContent = 'Publishing…';
     try {
       const r = await api('publish', { method: 'POST', body: {
         disease: 'mappings review', message: reviewMessage(), comment,
         confirmed: confirmedList(), flagged: flaggedList(), author,
-        branch: sessionBranch, labels: ['edit term', 'sssom'] } });
+        branch: reuse, labels: ['edit term', 'sssom'] } });
       sessionBranch = r.branch;
-      const pl = $('#prlink');
-      pl.textContent = 'PR #' + r.pr_number + (r.fork ? ' (from your fork) ↗' : ' ↗'); pl.href = r.pr_url; pl.style.display = '';
-      $('#publish').textContent = 'Publish more to PR #' + r.pr_number;
-      $('#publish').disabled = true;   // re-enabled by counts() on the next change
-    } catch (e) { alert('Publish failed: ' + e.message); $('#publish').textContent = sessionBranch ? 'Publish more to PR' : 'Publish review (PR)'; counts(); }
+      sessionPr = { number: r.pr_number, url: r.pr_url, fork: r.fork };
+      reflectPr();
+      saveSession(true);               // persist the PR pointer immediately
+      $('#publish').disabled = true; $('#publish-new').disabled = true;  // re-enabled by counts() on the next change
+    } catch (e) { alert('Publish failed: ' + e.message); reflectPr(); counts(); }
   }
 
   // Draggable splitter between the work area and the preview (mouse + touch).
@@ -470,9 +510,22 @@
     try { ROWS = await api('xrefs'); } catch (e) { $('#pick-list').innerHTML = '<p class="muted" style="padding:16px">Failed to load: ' + esc(e.message) + '</p>'; return; }
     try { mappings = {}; for (const m of await api('mappings')) mappings[m.ari_id + '|' + m.prefix + '|' + m.id] = m.judgment; } catch (e) { mappings = {}; }
     try { predicted = {}; for (const p of await api('predictions')) predicted[p.ari_id + '|' + p.prefix + '|' + p.id] = { label: p.object_label, match_field: p.match_field, confidence: p.confidence }; } catch (e) { predicted = {}; }
+    // Restore this user's saved review session (verdicts + PR pointer), shared with
+    // the ref-edits page, so a reload resumes their work. Anonymous users get {}.
+    if (me && me.authenticated) {
+      try {
+        const s = await api('ref-session');
+        reviewed = s.reviewed || {};
+        edited = s.edited || {};
+        sessionBranch = s.branch || null;
+        sessionPr = s.pr || null;
+      } catch (e) { console.warn('Could not load review session:', e.message); }
+    }
+    reflectPr();
     renderPicker(''); counts(); initDivider();
     $('#filter').addEventListener('input', e => renderPicker(e.target.value));
-    $('#publish').addEventListener('click', publish);
+    $('#publish').addEventListener('click', () => publish(false));
+    $('#publish-new').addEventListener('click', () => publish(true));
     // Deep-link: open the disease named in the URL hash (e.g. linked from the
     // main app's field editor), and follow later hash changes.
     const initial = diseaseFromHash();

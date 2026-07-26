@@ -1,5 +1,10 @@
 # Changelog
 
+## feat-cross-ref-manager-persistence
+- The cross-reference manager (ref-edits matrix + ref-curate disease view) now saves a signed-in user's in-progress review to the server: their correct/needs-change verdicts, edited-id markers and the pull-request pointer persist per user, so a page reload resumes the work instead of losing it. State is saved automatically (debounced) on every verdict/edit and stored beside the user's working ontology copy; it is dropped when they switch source branch or their copy is swept.
+- Publishing now offers a choice once a PR exists: the primary button commits to the current PR, and a new "New PR" button opens a fresh pull request instead. The PR pointer is restored on reload so "Publish to PR #N" survives a refresh.
+- Added `.user-data/` and `.sessions.json` to `.gitignore` (runtime server-side state).
+
 ## fix-ref-edits-sticky-column-overlay
 - Fixed the sticky "Disease" column on the cross-reference review page bleeding through / being overlaid by the semi-transparent predicted (yellow) data cells when scrolling horizontally (issue #54).
 - Gave the sticky column, sticky header row, and top-left corner cell an explicit z-index stacking order (corner > header > disease column > data cells); WebKit paints a `z-index:auto` sticky cell under later cells, so the explicit order is required.
