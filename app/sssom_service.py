@@ -93,8 +93,14 @@ def build(confirmed, author, existing_sssom="", existing_equiv="", flagged=None)
                                      (flagged or [], "Not", "manual-negative")):
         for c in items:
             subj = c.get("ari_id") or ""
-            name = c.get("name", "")
+            name = c.get("name") or ""
             for ident in c.get("ids", []):
+                # Guard the client-supplied id boundary: a stray null/placeholder
+                # id (e.g. a stale UI state predating a "no id yet" guard) must
+                # never turn into a literal "PREFIX:null" mapping row.
+                ident_s = str(ident).strip() if ident is not None else ""
+                if not ident_s or ident_s.lower() in ("null", "none", "undefined"):
+                    continue
                 obj = _object_curie(c["db"], ident)
                 sssom_rows.append([subj, name, "skos:exactMatch", modifier, obj,
                                    "semapv:ManualMappingCuration", author, today])
