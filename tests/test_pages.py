@@ -38,3 +38,6 @@ def test_ref_edits_page_still_renders():
     r = client.get("/ref-edits/")
     assert r.status_code == 200
     assert "__ASSETV__" not in r.text
+    # The queue-driven rewrite must keep the token-bearing script tag: without it
+    # a deploy would serve the new HTML against a cached copy of the old JS.
+    assert f"ref-edits.js?v={main.ASSET_VERSION}" in r.text

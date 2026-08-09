@@ -21,7 +21,13 @@ Verdicts
   confirm   the id is the same disease  -> published as a positive (skos:exactMatch)
   reject    the id is wrong             -> published as a negative ("Not") mapping
   no_value  no correct id exists in that database at all -> negative, no candidate
-  skip      deliberately deferred; never published, but keeps it out of "remaining"
+  skip      deliberately deferred; never published, but counts as judged so it does
+            not hold its database open
+
+A database frequently offers several ids and at most one of them is the disease, so
+a row is finished only when every candidate has been judged — see ``disease_panel``.
+Confirming an id supersedes any sibling this curator had already confirmed for the
+same (disease, database), which keeps that "at most one" true in the published rows.
 """
 import json
 import logging
@@ -185,10 +191,28 @@ class AssignmentStore:
             "created": prior.get("created") or _now(),
             "updated": _now(),
         }
+        # At most one id per (disease, database) can be the match, so confirming one
+        # downgrades a sibling this curator had already confirmed to a rejection.
+        # Done here rather than in the client so the invariant cannot be lost to a
+        # half-finished pair of requests: two exactMatch rows for the same cell would
+        # publish a mapping the curator never intended.
+        superseded = []
+        if verdict == "confirm":
+            for other_key, other in data.items():
+                if (other_key != k and other.get("iri") == iri and other.get("db") == db
+                        and other.get("verdict") == "confirm"):
+                    other["verdict"] = "reject"
+                    other["updated"] = _now()
+                    superseded.append(other.get("object_id"))
+
         data[k] = entry
         self._save_decisions(login, data)
         self._audit("DECIDE", login, f"{db} {obj_id or '(none)'} -> {verdict} ({iri})")
-        return entry
+        if superseded:
+            self._audit("SUPERSEDE", login,
+                        f"{db} {', '.join(superseded)} -> reject, replaced by {obj_id} ({iri})")
+        # ``superseded`` is for the caller's toast only; it is not part of the record.
+        return {**entry, "superseded": superseded}
 
     def undo(self, login: str, decision_id: str) -> dict:
         """Remove one decision — the Undo affordance next to a settled row."""
@@ -284,7 +308,9 @@ def disease_panel(row: dict, databases: list, judgments: list, predictions: list
     needs to show a status and offer a single decision — no second round-trip.
 
     status is one of:
-      decided     the curator settled it this session (verdict on the entry)
+      decided     every candidate has a verdict this session (or "no value" was
+                  recorded) — the row is finished and drops out of "remaining"
+      partial     some but not all candidates have a verdict; still needs work
       confirmed   a positive judgment already exists in the published mappings
       flagged     a negative judgment already exists
       predicted   the cell is blank but an exact name/synonym candidate exists
@@ -325,9 +351,19 @@ def disease_panel(row: dict, databases: list, judgments: list, predictions: list
             })
 
         no_value = dmap.get(_key(row["iri"], key, ""))
-        settled = no_value or any(c["decision"] for c in candidates)
+        # A database is finished only when *every* candidate has been judged, not
+        # when the first one has: several ids are often offered and only one of them
+        # is the disease. Settling on the first decision hid the rest, so a curator
+        # who confirmed the wrong id never saw the right one — reviewing multiple
+        # sclerosis, SNOMED offers five ids and the first resolves to "diffuse
+        # scleroderma". Rejecting all of them is a complete answer too ("none of
+        # these"), so it needs no extra click. ``no_value`` settles the row outright.
+        decided = [c for c in candidates if c["decision"]]
+        settled = bool(no_value) or (bool(candidates) and len(decided) == len(candidates))
         if settled:
             status = "decided"
+        elif decided:
+            status = "partial"
         elif not candidates:
             status = "missing"
         elif preds:
@@ -340,7 +376,7 @@ def disease_panel(row: dict, databases: list, judgments: list, predictions: list
             status = "unreviewed"
         # "Remaining" is what still needs a human decision: anything not settled
         # this session and not already carrying a published judgment.
-        if status in ("unreviewed", "predicted", "missing"):
+        if status in ("unreviewed", "predicted", "missing", "partial"):
             remaining += 1
 
         entries.append({
