@@ -450,9 +450,11 @@
       ${isPred
         ? `<div class="p-q">Wrong prediction, or no correct value in ${db.label}?
              <button class="btn bad ${reviewed[discKey] === 'bad' ? 'on' : ''}" id="p-discard">${reviewed[discKey] === 'bad' ? '↩ Restore prediction' : '✗ Discard prediction'}</button></div>`
-        : `<div class="p-q">Is this ${db.label} reference correct?
+        : ids.length
+        ? `<div class="p-q">Is this ${db.label} reference correct?
              <button class="btn ok ${reviewed[key] === 'ok' ? 'on' : ''}" id="p-ok">✓ Correct</button>
-             <button class="btn bad ${reviewed[key] === 'bad' ? 'on' : ''}" id="p-bad">✗ Needs change</button></div>`}
+             <button class="btn bad ${reviewed[key] === 'bad' ? 'on' : ''}" id="p-bad">✗ Needs change</button></div>`
+        : ''}
       <div class="p-sub"><span class="muted">Distinct variant of this disease?</span>
         <button class="btn" id="p-subtype">＋ New subtype</button></div>
       <div class="p-edit">
@@ -470,7 +472,7 @@
     $('#p-close').addEventListener('click', closePanel);
     if (isPred) {
       $('#p-discard').addEventListener('click', () => toggleDiscard(iri, dbkey, predTarget));
-    } else {
+    } else if (ids.length) {
       $('#p-ok').addEventListener('click', () => setReview(iri, dbkey, id, 'ok'));
       $('#p-bad').addEventListener('click', () => setReview(iri, dbkey, id, 'bad'));
     }

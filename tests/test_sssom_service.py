@@ -74,3 +74,25 @@ def test_load_judgments_prefers_sssom_over_equiv():
 
 def test_load_judgments_empty_input():
     assert ss.load_judgments("", "") == []
+
+
+def test_build_never_writes_literal_none_for_missing_name_or_ari_id():
+    # A row whose disease has no ari_id/name yet (explicit None, not a missing
+    # key) must render as an empty column, not the literal string "None".
+    out = ss.build([_confirmed(ari_id=None, name=None)], author="a")
+    data_line = next(ln for ln in out["sssom"].splitlines() if "SNOMEDCT:12345" in ln)
+    assert "None" not in data_line
+    assert data_line.split("\t")[0] == ""       # subject_id
+    assert data_line.split("\t")[1] == ""       # subject_label
+    equiv_line = next(ln for ln in out["equiv"].splitlines() if "SNOMEDCT" in ln)
+    assert "None" not in equiv_line
+
+
+def test_build_skips_null_placeholder_ids():
+    # A stray null/placeholder id (e.g. from a UI bug that records a verdict
+    # before an id is entered) must not turn into a "PREFIX:null" mapping row.
+    out = ss.build([_confirmed(ids=["12345", "null", None, "  ", "None"])], author="a")
+    assert out["added"] == 1
+    lines = [ln for ln in out["sssom"].splitlines() if ln.startswith("ARI:0001001\t")]
+    assert len(lines) == 1
+    assert lines[0].split("\t")[4] == "SNOMEDCT:12345"

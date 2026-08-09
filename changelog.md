@@ -1,5 +1,10 @@
 # Changelog
 
+## fix-sssom-null-mappings
+- Fixed a curator-facing bug on the cross-reference review page (`/ref-edits`) that let a truly blank cell (no existing id, no predicted candidate) render "✓ Correct / ✗ Needs change" verdict buttons wired to a `null` id. Clicking either recorded a review for id `null`, which then published as a literal `PREFIX:null` mapping row in `ari.sssom.tsv` / `ari.equivalencies.tsv` — the source of the "nulls in the sssom files" seen on some curation PRs. The panel now shows those buttons only when the cell actually has an id to judge; a blank cell offers just the id input + Save, same as before predictions existed.
+- Hardened `sssom_service.build()` (the publish-time SSSOM/equivalencies writer) at its client-input boundary: it no longer accumulates a mapping row for a blank/placeholder id (`null`/`none`/`undefined`/whitespace), and a missing disease name or ARI id now renders as an empty column instead of the literal string `"None"` (a `dict.get(key, default)` only falls back on a *missing* key, not one explicitly set to `None`).
+- Added regression tests (`tests/test_sssom_service.py`) pinning both fixes.
+
 ## fix-git-permanently-dirty-worktree
 - Fixed the repo permanently reporting `static/ref-edits/ref-edits.js` as modified with no edits made. The file was committed with CRLF line endings, but Git for Windows sets `core.autocrlf=true` (system gitconfig), so Git normalised the working copy back to LF on every index refresh and the result never matched the committed blob — `git checkout --` restored CRLF and the file went dirty again immediately.
 - Renormalised that one file to LF (`git add --renormalize`); content is byte-identical ignoring line endings, and it is now the same LF-in-index / CRLF-in-worktree shape as every other text file here, so `git status` stays clean. No `.gitattributes` `text`/`eol` rules were added, per the note in that file.
