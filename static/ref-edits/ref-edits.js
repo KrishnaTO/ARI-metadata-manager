@@ -341,15 +341,21 @@
         ${dec && dec.author ? `<span class="dim" style="font-size:11px">@${esc(dec.author)}</span>` : ''}
         <button class="link" data-undo-db="${esc(e.key)}">${n > 1 ? 'Undo all' : 'Undo'}</button>`;
     } else if (open.length) {
-      // Ask about the next unjudged id, not always the first: the row stays here
-      // until every candidate has been settled, so this walks through them.
-      const c = open[0];
+      // Confirm/Reject act on the id currently selected (open in the review pane on
+      // the right) — never on "whichever is first" — so a click here can never
+      // judge a different candidate than the one the curator is looking at. With
+      // nothing selected in this database there is nothing to target, so the
+      // buttons stay disabled until an id chip is clicked.
+      const selected = (active && active.db === e.key)
+        ? open.find(c => String(c.id) === String(active.id)) : null;
       const done = decidedIn(e).length;
+      const dis = selected ? '' : ' disabled';
+      const hint = selected ? '' : ' title="Select an id above to judge it"';
       acts = `${done ? `<span class="dim" style="font-size:11px">${done}/${e.candidates.length}</span>` : ''}
-        <button class="btn sm ok" data-verdict="confirm" data-db="${esc(e.key)}" data-id="${esc(c.id)}">✓ ${c.predicted ? 'Accept' : 'Confirm'}</button>
-        <button class="btn sm bad" data-verdict="reject" data-db="${esc(e.key)}" data-id="${esc(c.id)}">✗ ${c.predicted ? 'Discard' : 'Reject'}</button>`;
-      const lu = linkFor(e.key, c.id);
-      if (lu) acts += `<a class="link" href="${esc(lu)}" target="_blank" rel="noopener" title="Open ${esc(c.id)} in ${esc(e.label)}">${icon.external}</a>`;
+        <button class="btn sm ok" data-verdict="confirm" data-db="${esc(e.key)}" data-id="${selected ? esc(selected.id) : ''}"${dis}${hint}>✓ ${selected && selected.predicted ? 'Accept' : 'Confirm'}</button>
+        <button class="btn sm bad" data-verdict="reject" data-db="${esc(e.key)}" data-id="${selected ? esc(selected.id) : ''}"${dis}${hint}>✗ ${selected && selected.predicted ? 'Discard' : 'Reject'}</button>`;
+      const lu = selected ? linkFor(e.key, selected.id) : null;
+      if (lu) acts += `<a class="link" href="${esc(lu)}" target="_blank" rel="noopener" title="Open ${esc(selected.id)} in ${esc(e.label)}">${icon.external}</a>`;
     } else {
       acts = `<button class="btn sm" data-verdict="no_value" data-db="${esc(e.key)}" data-id="">No value exists</button>`;
     }
