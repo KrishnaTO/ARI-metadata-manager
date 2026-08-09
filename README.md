@@ -69,9 +69,9 @@ ARI-metadata-manager/
 │   │   ├── github.js           #     sign-in + publish control
 │   │   ├── settings.js         #     fetch-from-branch, switch source, PR target
 │   │   └── main.js             #     bootstrap
-│   ├── ref-edits/              #   Cross-reference review subpage (matrix)
+│   ├── ref-edits/              #   Cross-reference review subpage (assigned queue)
 │   │   ├── index.html
-│   │   └── ref-edits.js        #     diseases x databases grid, side-panel review, SSSOM publish
+│   │   └── ref-edits.js        #     queue -> disease panel -> review pane, autosaved decisions, SSSOM publish
 │   └── ref-curate/             #   Disease curator subpage (one disease at a time)
 │       ├── index.html
 │       └── ref-curate.js       #     per-disease DB cards, preview, subtype, same SSSOM publish
@@ -112,27 +112,31 @@ or into the shared baseline. A startup background task sweeps idle copies older 
 `USER_DATA_TTL_DAYS` (default 14) to bound disk use. Defined in `app/main.py`.
 
 ### Cross-reference review → SSSOM
-The `ref-edits` subpage lays out every disease against its database cross-references
-(SNOMED, OMOP, DOID, UMLS, MONDO, ICD-10, MeSH, NCI). A curator reviews each id in a
-resizable side panel and marks it correct or needs-change; empty cells link out to the target
-database's search. Confirmed matches become `skos:exactMatch` rows in an **SSSOM** TSV plus a
+The `ref-edits` subpage works a curator through *their own* assigned queue of diseases, one at
+a time: the queue on the left, the disease's ten review databases stacked as single-decision
+rows in the centre, and the reference under review on the right (ARI vs the target concept,
+plus the source page). Verdicts are confirm / reject / no value / skip, available as `y` `n`
+`x` `s`, and every one autosaves through `POST /api/v2/decisions` the moment it is made;
+empty databases offer a paste-an-id field and a link out to the target database's search.
+Confirmed matches become `skos:exactMatch` rows in an **SSSOM** TSV plus a
 simpler biomappings-style **equivalencies** TSV — both merged idempotently under `mappings/`
 and included in the PR. Built by `app/sssom_service.py` + `static/ref-edits/`. The set of
 databases (labels, CURIE prefixes, and link-out/search URL templates) lives in one place,
 `app/xref_registry.py`, which both frontend pages fetch via `GET /api/v2/xref-databases`, so a
 database is added or changed once instead of in four hand-synced spots.
 
-The `ref-curate` subpage is a disease-first companion to that matrix: pick one disease and
+The `ref-curate` subpage is a disease-first companion to that queue: pick one disease and
 curate all of its cross-references in a single stacked view — existing ids, prior judgments,
 and exact-match predictions per database — with a live source preview and a new-subtype form.
 It reuses the same APIs and writes the same SSSOM + equivalency files, so the two pages are
 interchangeable. The main app's field editor deep-links into it (`ref-curate/#<disease-iri>`).
 
-For signed-in users, review progress is **saved to the server** as they work (verdicts,
-edited-id markers and the open-PR pointer, via `GET`/`PUT /api/v2/ref-session`), so a page
-reload resumes where they left off. The session is stored per user beside their working
-ontology copy and is dropped when they switch source branch. Once a pull request exists,
-**Publish** commits to that same PR, while a **New PR** button opens a fresh one instead.
+For signed-in users, review progress on both pages is **saved to the server** as they work, so
+a page reload resumes where they left off — `ref-edits` through the per-decision store
+(`/api/v2/decisions`, described above), `ref-curate` through a whole-session snapshot
+(`GET`/`PUT /api/v2/ref-session`: verdicts, edited-id markers and the open-PR pointer). Both
+are stored per user beside their working ontology copy and dropped when they switch source
+branch. Once a pull request exists, **Publish** commits to that same PR.
 
 ### Report import
 `scripts/import_reports.py` folds the curated `data/4-reports/` catalogue (diseases, symptoms,
