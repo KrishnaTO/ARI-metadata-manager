@@ -263,7 +263,16 @@
             ? `<span class="tag grey">assigned to @${esc(panel.assigned_to)}</span>` : ''}
           <div class="spacer"></div>
           <span class="muted" style="font-size:11.5px">${panel.remaining} of ${panel.total} still to decide</span>
-          <button class="btn icon" id="d-menu" title="More actions">⋯</button>
+          <div class="menu-wrap">
+            <button class="btn icon" id="d-menu" title="More actions" aria-haspopup="true" aria-expanded="false">⋯</button>
+            <div class="menu" id="d-menu-list" role="menu">
+              <button type="button" role="menuitem" data-action="curate">${icon.external} Open in the disease curator</button>
+              <button type="button" role="menuitem" data-action="main-app">${icon.external} Open in the main app</button>
+              <button type="button" role="menuitem" data-action="subtype">＋ New subtype of this disease</button>
+              <hr>
+              <button type="button" role="menuitem" class="danger" data-action="unassign">Remove from my queue</button>
+            </div>
+          </div>
         </div>
         ${(panel.synonyms || []).length ? `<div class="syns"><span class="eyebrow" style="margin-right:3px">Synonyms</span>
           ${panel.synonyms.map(s => `<span class="syn">${esc(s)}</span>`).join('')}</div>` : ''}
@@ -363,8 +372,11 @@
       el.addEventListener('keydown', ev => { if (ev.key === 'Enter') saveIds(el.dataset.save, el.value); });
       el.addEventListener('focus', () => openRef(el.dataset.save, null));
     });
-    const menu = $('#d-menu');
-    if (menu) menu.addEventListener('click', diseaseMenu);
+    const menuBtn = $('#d-menu');
+    if (menuBtn) menuBtn.addEventListener('click', ev => { ev.stopPropagation(); toggleMenu(menuBtn, $('#d-menu-list')); });
+    const menuList = $('#d-menu-list');
+    if (menuList) menuList.querySelectorAll('[data-action]').forEach(el =>
+      el.addEventListener('click', () => { closeMenus(); diseaseMenuAction(el.dataset.action); }));
     $('#d-prev').addEventListener('click', () => stepDisease(-1));
     $('#d-next').addEventListener('click', () => stepDisease(1));
     $('#d-done').addEventListener('click', toggleDone);
@@ -372,16 +384,28 @@
     if (cf) cf.addEventListener('click', () => { statusFilter = 'all'; dbFilter = ''; renderHeader(); renderPanel(); });
   }
 
-  function diseaseMenu() {
-    const opts = [
-      ['Open in the disease curator', () => window.open('../ref-curate/#' + panel.iri, '_blank')],
-      ['Open in the main app', () => window.open('../#' + panel.iri, '_blank')],
-      ['＋ New subtype of this disease', () => openSubtype(panel.iri)],
-      ['Remove from my queue', unassignCurrent],
-    ];
-    const pick = window.prompt('Action:\n' + opts.map((o, i) => `${i + 1}. ${o[0]}`).join('\n'), '1');
-    const i = parseInt(pick, 10) - 1;
-    if (opts[i]) opts[i][1]();
+  // Anchored popover shared by every "⋯" trigger on the page (today just the
+  // disease-panel one). Only one is open at a time; outside click, Escape and the
+  // existing scrim-open guard in onKey() all close it, wired once in wireChrome().
+  function toggleMenu(btn, list) {
+    const willOpen = !list.classList.contains('open');
+    closeMenus();
+    if (willOpen) {
+      list.classList.add('open');
+      btn.setAttribute('aria-expanded', 'true');
+    }
+  }
+  function closeMenus() {
+    document.querySelectorAll('.menu.open').forEach(m => m.classList.remove('open'));
+    document.querySelectorAll('[aria-haspopup="true"][aria-expanded="true"]')
+      .forEach(b => b.setAttribute('aria-expanded', 'false'));
+  }
+
+  function diseaseMenuAction(action) {
+    if (action === 'curate') return window.open('../ref-curate/#' + panel.iri, '_blank');
+    if (action === 'main-app') return window.open('../#' + panel.iri, '_blank');
+    if (action === 'subtype') return openSubtype(panel.iri);
+    if (action === 'unassign') return unassignCurrent();
   }
 
   const diseaseIndex = () => queue.diseases.findIndex(d => d.iri === activeIri);
@@ -967,8 +991,9 @@
       if (ev.key === 'Escape') ev.target.blur();
       return;
     }
-    if (ev.key === 'Escape') { closeModals(); return; }
+    if (ev.key === 'Escape') { closeModals(); closeMenus(); return; }
     if (document.querySelector('.scrim.open')) return;
+    if (document.querySelector('.menu.open')) return;
     if (!panel) return;
     const e = active ? panel.databases.find(x => x.key === active.db) : null;
     // Gated on *this id's* verdict, not the database's: with several candidates the
@@ -1066,6 +1091,7 @@
     $('#publish').addEventListener('click', publish);
     document.querySelectorAll('.scrim').forEach(s =>
       s.addEventListener('click', ev => { if (ev.target === s) closeModals(); }));
+    document.addEventListener('click', ev => { if (!ev.target.closest('.menu-wrap')) closeMenus(); });
     document.addEventListener('keydown', onKey);
     window.addEventListener('hashchange', () => {
       const iri = decodeURIComponent((location.hash || '').replace(/^#/, ''));

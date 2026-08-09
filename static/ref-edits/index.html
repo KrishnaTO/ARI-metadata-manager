@@ -142,7 +142,21 @@
   #panel { flex:1; min-width:0; display:flex; flex-direction:column; min-height:0; }
   .d-head { background:var(--surface); border-bottom:1px solid var(--border);
     padding:11px 18px 12px; display:flex; flex-direction:column; gap:7px; flex-shrink:0; }
-  .d-title { display:flex; align-items:center; gap:9px; }
+  .d-title { display:flex; align-items:center; gap:9px; position:relative; }
+
+  /* "More actions" popover — anchored under its trigger, closed on outside click
+     or Escape (see closeMenus() / the document-level listeners in ref-edits.js). */
+  .menu-wrap { position:relative; }
+  .menu { position:absolute; top:calc(100% + 4px); right:0; min-width:210px; z-index:30;
+    background:var(--surface); border:1px solid var(--border-strong); border-radius:10px;
+    box-shadow:0 10px 30px rgba(15,23,42,.16); padding:5px; display:none; flex-direction:column; }
+  .menu.open { display:flex; }
+  .menu button { display:flex; align-items:center; gap:8px; width:100%; padding:7px 9px;
+    border:0; background:none; color:var(--text); font-size:12.5px; text-align:left;
+    border-radius:7px; cursor:pointer; }
+  .menu button:hover, .menu button:focus-visible { background:var(--surface-2); outline:none; }
+  .menu button.danger { color:var(--bad); }
+  .menu hr { border:0; border-top:1px solid var(--border); margin:4px 2px; }
   .d-accent { width:3px; height:23px; border-radius:2px; background:var(--primary); flex-shrink:0; }
   .d-title h2 { font-family:var(--font-display); font-size:21px; font-weight:600; letter-spacing:-.01em; }
   .code { font-family:var(--font-mono); font-size:11px; color:var(--text-2); background:var(--surface-2);
