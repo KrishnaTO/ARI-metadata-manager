@@ -1,5 +1,9 @@
 # Changelog
 
+## fix-git-permanently-dirty-worktree
+- Fixed the repo permanently reporting `static/ref-edits/ref-edits.js` as modified with no edits made. The file was committed with CRLF line endings, but Git for Windows sets `core.autocrlf=true` (system gitconfig), so Git normalised the working copy back to LF on every index refresh and the result never matched the committed blob — `git checkout --` restored CRLF and the file went dirty again immediately.
+- Renormalised that one file to LF (`git add --renormalize`); content is byte-identical ignoring line endings, and it is now the same LF-in-index / CRLF-in-worktree shape as every other text file here, so `git status` stays clean. No `.gitattributes` `text`/`eol` rules were added, per the note in that file.
+
 ## feat-concept-detail
 - Added `GET /api/v2/concept/{db}/{id}` — label, exact synonyms, definition and parent terms for one target-database id, so the reference-review compare pane can show the candidate concept next to the ARI disease instead of just its label. The pane (in the ref-edits side panel) mirrors the two as columns and highlights the strings they share, folded the same way `predict_service` folds names so the highlighting agrees with the matcher.
 - Every field is attributed to the index it came from. Only MONDO, DOID, NCIt, MeSH and Orphanet have an index of their own; SNOMED, OMOP, ICD-10, OMIM and UMLS appear only as cross-reference columns on those. So a lookup of a SNOMED/OMOP/… id returns `direct: false` with a `via` list of the hub term(s) that cross-reference it and a plain-language `note`; the pane labels that column "via MONDO" (etc.), never as the target database's own term. When several hubs claim one id their labels are all returned, and a disagreement is flagged for the curator. A valid-but-unindexed id is a normal `found: false` 200, not a 404.
