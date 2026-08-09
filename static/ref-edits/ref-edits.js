@@ -53,6 +53,7 @@
   let sessionBranch = null;
   let lastDecision = null;           // for the toast Undo
   let savedAt = null;
+  let conceptOpen = false;           // target-detail disclosure: collapsed until asked for
   let filter = '', statusFilter = 'todo', dbFilter = '', sortBy = 'work';
 
   const TODO = ['unreviewed', 'predicted', 'missing'];
@@ -451,6 +452,29 @@
     const ariStrings = [panel.name].concat(panel.synonyms || []).map(norm);
     const viaSources = (concept && concept.via) ? [...new Set(concept.via.map(v => v.source))] : [];
 
+    // Only the target's side is shown: the ARI disease is already named, with its
+    // synonyms and definition, in the panel this pane sits beside, so repeating it
+    // as a second column cost height the source page needs. `hit` still marks the
+    // strings that agree with the ARI term, which is what the comparison was for.
+    const viaHead = !!(concept && concept.found && !concept.direct);
+    const heading = viaHead
+      ? 'via ' + esc(viaSources.join(', ')) + (cand ? ' · ' + esc(cand.id) : '')
+      : esc(e.label) + (cand ? ' · ' + esc(cand.id) : '');
+    const headLabel = label
+      ? `<span class="t-label ${exact || synHit ? 'hit' : ''}">${esc(label)}</span>`
+      : concept === null && cand ? '<span class="t-label dim">Looking up…</span>'
+      : `<span class="t-label dim">${cand ? 'Not in our indexes — open the source' : 'No candidate id'}</span>`;
+    const detail = [
+      tSyns.length ? `<div><span class="dim" style="font-size:11px;font-weight:600">exact synonyms</span>
+        <div class="list">${tSyns.map(s => `<span class="${ariStrings.includes(norm(s)) ? 'hit' : ''}">${esc(s)}</span>`).join(' · ')}</div></div>` : '',
+      concept && concept.definition ? `<div class="list" style="font-size:11px">${esc(concept.definition)}</div>` : '',
+      concept && concept.parents && concept.parents.length
+        ? `<div class="list dim" style="font-size:11px">is_a · ${esc(concept.parents.join(' · '))}</div>` : '',
+      cand && cand.predicted
+        ? `<div class="list">Matched our <b>${esc(cand.match_field || 'label')}</b> — ${esc(cand.confidence || '')} confidence</div>` : '',
+      concept && concept.note ? `<div class="list dim" style="font-size:10.5px">${esc(concept.note)}</div>` : '',
+    ].filter(Boolean).join('');
+
     $('#review').innerHTML = `
       <div class="r-head">
         <span class="eyebrow">Reviewing</span>
@@ -461,33 +485,12 @@
         <button class="btn icon sm" id="r-close" title="Close">${icon.close}</button>
       </div>
       <div style="padding:12px 13px 0;flex-shrink:0">
-        <div class="cmp">
-          <div>
-            <div class="eyebrow" style="color:var(--primary)">ARI · ${esc(panel.ari_id || '')}</div>
-            <h4><span class="${exact || synHit ? 'hit' : ''}">${esc(panel.name)}</span></h4>
-            ${(panel.synonyms || []).length
-              ? `<div><span class="dim" style="font-size:11px;font-weight:600">synonyms</span>
-                   <div class="list">${panel.synonyms.map(s =>
-                     `<span class="${synHit && s.trim().toLowerCase() === label.trim().toLowerCase() ? 'hit' : ''}">${esc(s)}</span>`).join(' · ')}</div></div>`
-              : '<div class="list dim">no synonyms recorded</div>'}
-          </div>
-          <div>
-            <div class="eyebrow" style="color:var(--warn-deep)">${concept && concept.found && !concept.direct
-              ? 'via ' + esc(viaSources.join(', ')) + (cand ? ' · ' + esc(cand.id) : '')
-              : esc(e.label) + (cand ? ' · ' + esc(cand.id) : '')}</div>
-            ${label ? `<h4><span class="${exact || synHit ? 'hit' : ''}">${esc(label)}</span></h4>`
-              : concept === null && cand ? '<h4 class="dim" style="font-weight:400;font-size:12.5px">Looking up…</h4>'
-              : `<h4 class="dim" style="font-weight:400;font-size:12.5px">${cand ? 'Not in our indexes — open the source to read it' : 'No candidate id'}</h4>`}
-            ${tSyns.length ? `<div><span class="dim" style="font-size:11px;font-weight:600">exact synonyms</span>
-              <div class="list">${tSyns.map(s => `<span class="${ariStrings.includes(norm(s)) ? 'hit' : ''}">${esc(s)}</span>`).join(' · ')}</div></div>` : ''}
-            ${concept && concept.definition ? `<div class="list" style="font-size:11px">${esc(concept.definition)}</div>` : ''}
-            ${concept && concept.parents && concept.parents.length
-              ? `<div class="list dim" style="font-size:11px">is_a · ${esc(concept.parents.join(' · '))}</div>` : ''}
-            ${cand && cand.predicted
-              ? `<div class="list">Matched our <b>${esc(cand.match_field || 'label')}</b> — ${esc(cand.confidence || '')} confidence</div>` : ''}
-            ${concept && concept.note ? `<div class="list dim" style="font-size:10.5px">${esc(concept.note)}</div>` : ''}
-          </div>
-        </div>
+        ${detail
+          ? `<details class="tgt" id="r-detail"${conceptOpen ? ' open' : ''}>
+               <summary><span class="eyebrow${viaHead ? ' via' : ''}">${heading}</span>${headLabel}</summary>
+               <div class="tgt-body">${detail}</div>
+             </details>`
+          : `<div class="tgt flat"><span class="eyebrow${viaHead ? ' via' : ''}">${heading}</span>${headLabel}</div>`}
         <div style="display:flex;align-items:center;gap:7px;padding:8px 2px 0">
           ${exact ? '<span class="tag ok">Exact label match</span>'
             : synHit ? '<span class="tag ok">Exact synonym match</span>'
@@ -544,6 +547,11 @@
     bind('#r-none', () => decide(e.key, '', 'no_value'));
     bind('#r-skip', () => decide(e.key, cand && cand.id, 'skip'));
     bind('#r-undo', () => { const d = decisionOf(e); if (d) undo(d.id); });
+    // Remember the disclosure across re-renders — the concept lookup lands after
+    // the pane is first drawn, and re-collapsing it under the curator would undo
+    // the click they just made.
+    const det = r.querySelector('#r-detail');
+    if (det) det.addEventListener('toggle', () => { conceptOpen = det.open; });
     r.querySelectorAll('[data-ref2]').forEach(el =>
       el.addEventListener('click', () => openRef(el.dataset.ref2, el.dataset.id2)));
   }
@@ -892,8 +900,10 @@
   // -------------------------------------------------------------- hotkeys
   function onKey(ev) {
     if (ev.metaKey || ev.ctrlKey || ev.altKey) return;
+    // Elements that own Enter/Space themselves: a focused <summary> must be able to
+    // expand the target details without `Enter` marking the disease done instead.
     const tag = (ev.target.tagName || '').toLowerCase();
-    if (tag === 'input' || tag === 'textarea' || tag === 'select') {
+    if (tag === 'input' || tag === 'textarea' || tag === 'select' || tag === 'summary') {
       if (ev.key === 'Escape') ev.target.blur();
       return;
     }

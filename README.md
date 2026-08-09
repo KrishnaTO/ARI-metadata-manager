@@ -114,8 +114,9 @@ or into the shared baseline. A startup background task sweeps idle copies older 
 ### Cross-reference review → SSSOM
 The `ref-edits` subpage works a curator through *their own* assigned queue of diseases, one at
 a time: the queue on the left, the disease's ten review databases stacked as single-decision
-rows in the centre, and the reference under review on the right (ARI vs the target concept,
-plus the source page). Verdicts are confirm / reject / no value / skip, available as `y` `n`
+rows in the centre, and the reference under review on the right — what the free indexes hold
+for the candidate id (collapsed to a single line by default), then the source page itself.
+Verdicts are confirm / reject / no value / skip, available as `y` `n`
 `x` `s`, and every one autosaves through `POST /api/v2/decisions` the moment it is made;
 empty databases offer a paste-an-id field and a link out to the target database's search.
 Confirmed matches become `skos:exactMatch` rows in an **SSSOM** TSV plus a

@@ -199,12 +199,26 @@
     display:flex; flex-direction:column; min-height:0; }
   body.dragging iframe { pointer-events:none; }
   .r-head { display:flex; align-items:center; gap:8px; padding:9px 13px; border-bottom:1px solid var(--border); flex-shrink:0; }
-  .cmp { display:grid; grid-template-columns:1fr 1fr; gap:1px; background:var(--border);
-    border:1px solid var(--border); border-radius:10px; overflow:hidden; }
-  .cmp > div { background:var(--surface); padding:9px 11px; display:flex; flex-direction:column; gap:6px; min-width:0; }
-  .cmp h4 { font-family:var(--font-display); font-size:14.5px; font-weight:600; line-height:1.25; margin:0; }
-  .cmp .hit { background:var(--ok-soft); border-radius:3px; box-shadow:0 0 0 3px var(--ok-soft); }
-  .cmp .list { font-size:11.5px; color:var(--text-2); line-height:1.45; }
+  /* What the reference indexes hold for the candidate id. Collapsed by default:
+     the ARI disease is already spelled out in the panel beside this pane, so the
+     height belongs to the source page. Expanding gives synonyms, definition,
+     parents and the provenance note. */
+  .tgt { border:1px solid var(--border); border-radius:10px; background:var(--surface-2); }
+  .tgt.flat { display:flex; align-items:baseline; gap:8px; padding:8px 11px; min-width:0; }
+  .tgt > summary { list-style:none; cursor:pointer; padding:8px 11px; display:flex;
+    align-items:baseline; gap:8px; min-width:0; border-radius:9px; }
+  .tgt > summary::-webkit-details-marker { display:none; }
+  .tgt > summary::before { content:'▸'; color:var(--text-3); font-size:10px; flex-shrink:0; }
+  .tgt[open] > summary::before { content:'▾'; }
+  .tgt > summary:hover { background:var(--surface); }
+  .tgt > summary:focus-visible { outline:none; box-shadow:var(--focus); }
+  .eyebrow.via { color:var(--warn-deep); }
+  .t-label { font-family:var(--font-display); font-size:14.5px; font-weight:600; line-height:1.25;
+    min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .t-label.dim { font-family:var(--font-ui); font-size:12.5px; font-weight:400; }
+  .tgt-body { padding:0 11px 10px; display:flex; flex-direction:column; gap:6px; min-width:0; }
+  .hit { background:var(--ok-soft); border-radius:3px; box-shadow:0 0 0 3px var(--ok-soft); }
+  .list { font-size:11.5px; color:var(--text-2); line-height:1.45; }
   .r-verdict { display:flex; gap:7px; padding:0 13px 11px; flex-shrink:0; }
   .r-alt { display:flex; align-items:center; gap:10px; padding:0 13px 10px; flex-shrink:0; }
   .frame { flex:1; min-height:0; border-top:1px solid var(--border); background:var(--surface-2);
