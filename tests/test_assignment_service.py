@@ -115,8 +115,6 @@ def test_publish_payload_groups_by_cell_and_splits_verdicts(store):
                  name=ROW["name"], ari_id=ROW["ari_id"])
     store.decide("ktokey", iri, "snomed", "408335007", "confirm",
                  name=ROW["name"], ari_id=ROW["ari_id"])
-    store.decide("ktokey", iri, "snomed", "999", "confirm",
-                 name=ROW["name"], ari_id=ROW["ari_id"])
     store.decide("ktokey", iri, "umls", "C0019187", "reject",
                  name=ROW["name"], ari_id=ROW["ari_id"])
     store.decide("ktokey", iri, "orphanet", "", "no_value",
@@ -126,12 +124,41 @@ def test_publish_payload_groups_by_cell_and_splits_verdicts(store):
     p = store.to_publish_payload("ktokey")
     assert p["skipped"] == 1
     snomed = next(c for c in p["confirmed"] if c["db"] == "snomed")
-    assert sorted(snomed["ids"]) == ["408335007", "999"]
+    assert snomed["ids"] == ["408335007"]
     assert snomed["ari_id"] == "ARI:0031"
     assert {c["db"] for c in p["confirmed"]} == {"doid", "snomed"}
     assert {c["db"] for c in p["flagged"]} == {"umls", "orphanet"}
     # A "no correct value" decision publishes as a negative with no candidate id.
     assert next(c for c in p["flagged"] if c["db"] == "orphanet")["ids"] == []
+
+
+def test_confirming_supersedes_a_sibling_confirm_in_the_same_database(store):
+    """At most one id per cell may be the match, so the older confirm is rejected.
+
+    Several ids are usually offered for one database and only one of them is the
+    disease; publishing two ``skos:exactMatch`` rows for the same cell would assert
+    a mapping the curator never made.
+    """
+    iri = ROW["iri"]
+    first = store.decide("ktokey", iri, "snomed", "408335007", "confirm")
+    assert first["superseded"] == []
+    second = store.decide("ktokey", iri, "snomed", "999", "confirm")
+    assert second["superseded"] == ["408335007"]
+
+    by_id = {d["object_id"]: d["verdict"] for d in store.decisions("ktokey", iri)}
+    assert by_id == {"408335007": "reject", "999": "confirm"}
+
+    p = store.to_publish_payload("ktokey")
+    assert next(c for c in p["confirmed"] if c["db"] == "snomed")["ids"] == ["999"]
+    assert next(c for c in p["flagged"] if c["db"] == "snomed")["ids"] == ["408335007"]
+
+
+def test_confirming_leaves_other_databases_alone(store):
+    iri = ROW["iri"]
+    store.decide("ktokey", iri, "doid", "DOID:2043", "confirm")
+    entry = store.decide("ktokey", iri, "snomed", "408335007", "confirm")
+    assert entry["superseded"] == []
+    assert {c["db"] for c in store.to_publish_payload("ktokey")["confirmed"]} == {"doid", "snomed"}
 
 
 def test_summary_counts(store):
@@ -183,6 +210,56 @@ def test_panel_marks_decided_and_drops_it_from_remaining(store):
     assert doid["status"] == "decided"
     assert doid["candidates"][0]["decision"]["verdict"] == "confirm"
     assert panel["remaining"] == 1
+
+
+MULTI_ROW = {**ROW, "snomed": ["408335007", "999", "123"]}
+
+
+def test_panel_holds_a_multi_id_database_open_until_every_id_is_judged(store):
+    """One verdict must not settle a database that offers several ids.
+
+    At most one of them is the disease, so settling on the first decision hid the
+    rest — a curator who confirmed the wrong id never saw the right one.
+    """
+    iri = ROW["iri"]
+    store.decide("ktokey", iri, "snomed", "999", "confirm")
+    panel = asv.disease_panel(MULTI_ROW, DBS, [], [], store.decisions("ktokey"))
+    snomed = next(d for d in panel["databases"] if d["key"] == "snomed")
+    assert snomed["status"] == "partial"
+    assert panel["remaining"] == 3          # snomed still open, plus doid and mondo
+
+    store.decide("ktokey", iri, "snomed", "408335007", "reject")
+    store.decide("ktokey", iri, "snomed", "123", "reject")
+    panel = asv.disease_panel(MULTI_ROW, DBS, [], [], store.decisions("ktokey"))
+    snomed = next(d for d in panel["databases"] if d["key"] == "snomed")
+    assert snomed["status"] == "decided"
+    assert panel["remaining"] == 2
+
+
+def test_panel_settles_when_every_candidate_is_rejected(store):
+    """Rejecting them all is a complete answer: "none of these" needs no extra click."""
+    for oid in ("408335007", "999", "123"):
+        store.decide("ktokey", ROW["iri"], "snomed", oid, "reject")
+    panel = asv.disease_panel(MULTI_ROW, DBS, [], [], store.decisions("ktokey"))
+    assert next(d for d in panel["databases"] if d["key"] == "snomed")["status"] == "decided"
+
+
+def test_panel_counts_a_skip_as_judged(store):
+    """Skip defers one id without holding its whole database open."""
+    iri = ROW["iri"]
+    store.decide("ktokey", iri, "snomed", "408335007", "skip")
+    store.decide("ktokey", iri, "snomed", "999", "confirm")
+    store.decide("ktokey", iri, "snomed", "123", "reject")
+    panel = asv.disease_panel(MULTI_ROW, DBS, [], [], store.decisions("ktokey"))
+    assert next(d for d in panel["databases"] if d["key"] == "snomed")["status"] == "decided"
+
+
+def test_queue_coverage_reports_a_part_judged_database(store):
+    store.assign("ktokey", [ROW["iri"]])
+    store.decide("ktokey", ROW["iri"], "snomed", "999", "confirm")
+    q = asv.queue_for("ktokey", store, [MULTI_ROW], DBS, [], [])
+    assert q["diseases"][0]["coverage"] == ["partial", "unreviewed", "missing"]
+    assert q["diseases"][0]["remaining"] == 3
 
 
 def test_panel_hides_predictions_already_flagged_negative():

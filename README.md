@@ -119,6 +119,9 @@ for the candidate id (collapsed to a single line by default), then the source pa
 Verdicts are confirm / reject / no value / skip, available as `y` `n`
 `x` `s`, and every one autosaves through `POST /api/v2/decisions` the moment it is made;
 empty databases offer a paste-an-id field and a link out to the target database's search.
+A database usually proposes several ids and at most one of them is the disease, so its row
+stays in the queue until *every* id has a verdict — confirming one supersedes any sibling
+already confirmed, and rejecting them all settles the row as "none of these".
 Confirmed matches become `skos:exactMatch` rows in an **SSSOM** TSV plus a
 simpler biomappings-style **equivalencies** TSV — both merged idempotently under `mappings/`
 and included in the PR. Built by `app/sssom_service.py` + `static/ref-edits/`. The set of

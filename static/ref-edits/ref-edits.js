@@ -56,10 +56,11 @@
   let conceptOpen = false;           // target-detail disclosure: collapsed until asked for
   let filter = '', statusFilter = 'todo', dbFilter = '', sortBy = 'work';
 
-  const TODO = ['unreviewed', 'predicted', 'missing'];
+  const TODO = ['unreviewed', 'predicted', 'missing', 'partial'];
   const STATUS_LABEL = {
-    decided: 'Decided', confirmed: 'Previously confirmed', flagged: 'Previously flagged',
-    predicted: 'Predicted', unreviewed: 'Unreviewed', missing: 'No id',
+    decided: 'Decided', partial: 'Partly decided', confirmed: 'Previously confirmed',
+    flagged: 'Previously flagged', predicted: 'Predicted', unreviewed: 'Unreviewed',
+    missing: 'No id',
   };
   const CHIPS = [
     { key: 'todo', label: 'Needs decision' },
@@ -91,22 +92,30 @@
   const linkFor = (dbkey, id) => (DBMAP[dbkey] ? DBMAP[dbkey].link(id) : null);
   const searchFor = (dbkey, name) => (DBMAP[dbkey] ? DBMAP[dbkey].search(name) : null);
 
-  // A database entry's effective verdict this session, if any.
+  // Candidates in a database still waiting for a verdict. A database offers several
+  // ids more often than not and only one of them is the disease, so these drive both
+  // what the row asks next and when the row is finished (server: status 'decided').
+  const undecided = entry => (entry.candidates || []).filter(c => !c.decision);
+  const decidedIn = entry => (entry.candidates || []).filter(c => c.decision);
+
+  // A database entry's outcome, once every candidate has been judged — null while
+  // any is still open, so a half-reviewed row never renders as settled.
   function verdictOf(entry) {
     if (entry.no_value_decision) return entry.no_value_decision.verdict;
-    for (const c of entry.candidates || []) if (c.decision) return c.decision.verdict;
-    return null;
+    const cands = entry.candidates || [];
+    if (!cands.length || undecided(entry).length) return null;
+    if (cands.some(c => c.decision.verdict === 'confirm')) return 'confirm';
+    if (cands.every(c => c.decision.verdict === 'skip')) return 'skip';
+    return 'reject';
   }
+  // The decision backing that outcome: the confirmed candidate when there is one,
+  // otherwise the most recent, so "Undo" on a settled row lands somewhere sensible.
   function decisionOf(entry) {
     if (entry.no_value_decision) return entry.no_value_decision;
-    for (const c of entry.candidates || []) if (c.decision) return c.decision;
-    return null;
-  }
-  // The status used for filtering and colour: 'decided' resolves to its verdict.
-  function effStatus(entry) {
-    const v = verdictOf(entry);
-    if (!v) return entry.status;
-    return v === 'confirm' ? 'confirmed' : v === 'skip' ? 'unreviewed' : 'flagged';
+    const decided = decidedIn(entry);
+    if (!decided.length) return null;
+    const hit = decided.find(c => c.decision.verdict === 'confirm');
+    return (hit || decided[decided.length - 1]).decision;
   }
   function matchesStatus(entry) {
     if (statusFilter === 'all') return true;
@@ -234,9 +243,9 @@
     }
     renderPanel();
     renderProgress();
-    // Land on the first reference that still needs a decision.
+    // Land on the first id that still needs a decision.
     const first = visibleDbs().find(e => TODO.includes(e.status)) || visibleDbs()[0];
-    if (first) openRef(first.key, (first.candidates[0] || {}).id || null);
+    if (first) openRef(first.key, (undecided(first)[0] || first.candidates[0] || {}).id || null);
     else renderReview();
   }
 
@@ -283,6 +292,8 @@
 
     let body = '';
     if (e.candidates.length) {
+      const VERDICT_TITLE = { confirm: 'Confirmed — this is the disease', reject: 'Rejected',
+        skip: 'Skipped', no_value: 'No value' };
       body = e.candidates.map(c => {
         const cc = ['id'];
         if (c.decision) cc.push('v-' + c.decision.verdict);
@@ -290,7 +301,9 @@
         else if (c.prior === 'positive') cc.push('prior-pos');
         else if (c.prior === 'negative') cc.push('prior-neg');
         if (active && active.db === e.key && String(active.id) === String(c.id)) cc.push('on');
-        return `<span class="${cc.join(' ')}" data-ref="${esc(e.key)}" data-id="${esc(c.id)}" title="Review this id">${esc(c.id)}</span>`;
+        const title = c.decision ? VERDICT_TITLE[c.decision.verdict] || c.decision.verdict
+          : 'Not yet judged — click to review';
+        return `<span class="${cc.join(' ')}" data-ref="${esc(e.key)}" data-id="${esc(c.id)}" title="${esc(title)}">${esc(c.id)}</span>`;
       }).join('');
       const c0 = e.candidates[0];
       if (c0.label) body += `<span class="obj" title="${esc(c0.label)}">${esc(c0.label)}</span>`;
@@ -310,18 +323,24 @@
     }
 
     let acts;
+    const open = undecided(e);
     if (v) {
       const label = { confirm: 'Confirmed', reject: 'Rejected', no_value: 'No value in ' + e.label, skip: 'Skipped' }[v];
       const tone = v === 'confirm' ? 'ok' : v === 'skip' ? 'grey' : 'bad';
+      const n = decidedIn(e).length;
       acts = `<span class="tag ${tone}">${esc(label)}</span>
         ${dec && dec.author ? `<span class="dim" style="font-size:11px">@${esc(dec.author)}</span>` : ''}
-        <button class="link" data-undo="${esc(dec ? dec.id : '')}">Undo</button>`;
-    } else if (e.candidates.length) {
-      const first = e.candidates[0].id;
-      acts = `<button class="btn sm ok" data-verdict="confirm" data-db="${esc(e.key)}" data-id="${esc(first)}">✓ ${e.candidates[0].predicted ? 'Accept' : 'Confirm'}</button>
-        <button class="btn sm bad" data-verdict="reject" data-db="${esc(e.key)}" data-id="${esc(first)}">✗ ${e.candidates[0].predicted ? 'Discard' : 'Reject'}</button>`;
-      const lu = linkFor(e.key, first);
-      if (lu) acts += `<a class="link" href="${esc(lu)}" target="_blank" rel="noopener" title="Open in ${esc(e.label)}">${icon.external}</a>`;
+        <button class="link" data-undo-db="${esc(e.key)}">${n > 1 ? 'Undo all' : 'Undo'}</button>`;
+    } else if (open.length) {
+      // Ask about the next unjudged id, not always the first: the row stays here
+      // until every candidate has been settled, so this walks through them.
+      const c = open[0];
+      const done = decidedIn(e).length;
+      acts = `${done ? `<span class="dim" style="font-size:11px">${done}/${e.candidates.length}</span>` : ''}
+        <button class="btn sm ok" data-verdict="confirm" data-db="${esc(e.key)}" data-id="${esc(c.id)}">✓ ${c.predicted ? 'Accept' : 'Confirm'}</button>
+        <button class="btn sm bad" data-verdict="reject" data-db="${esc(e.key)}" data-id="${esc(c.id)}">✗ ${c.predicted ? 'Discard' : 'Reject'}</button>`;
+      const lu = linkFor(e.key, c.id);
+      if (lu) acts += `<a class="link" href="${esc(lu)}" target="_blank" rel="noopener" title="Open ${esc(c.id)} in ${esc(e.label)}">${icon.external}</a>`;
     } else {
       acts = `<button class="btn sm" data-verdict="no_value" data-db="${esc(e.key)}" data-id="">No value exists</button>`;
     }
@@ -338,8 +357,8 @@
       el.addEventListener('click', () => openRef(el.dataset.ref, el.dataset.id)));
     p.querySelectorAll('[data-verdict]').forEach(el =>
       el.addEventListener('click', () => decide(el.dataset.db, el.dataset.id, el.dataset.verdict)));
-    p.querySelectorAll('[data-undo]').forEach(el =>
-      el.addEventListener('click', () => undo(el.dataset.undo)));
+    p.querySelectorAll('[data-undo-db]').forEach(el =>
+      el.addEventListener('click', () => undoDatabase(el.dataset.undoDb)));
     p.querySelectorAll('[data-save]').forEach(el => {
       el.addEventListener('keydown', ev => { if (ev.key === 'Enter') saveIds(el.dataset.save, el.value); });
       el.addEventListener('focus', () => openRef(el.dataset.save, null));
@@ -433,10 +452,17 @@
     }
     const e = panel.databases.find(x => x.key === active.db);
     const cand = (e.candidates || []).find(c => String(c.id) === String(active.id)) || null;
-    const v = verdictOf(e);
     const idx = visibleDbs().findIndex(x => x.key === e.key);
     const url = cand ? linkFor(e.key, cand.id) : searchFor(e.key, panel.name);
-    const settled = decisionOf(e);
+    // The verdict shown here belongs to *this id*, not to the database: each
+    // candidate is judged on its own, and the row is finished only once they all are.
+    const settled = cand ? cand.decision : e.no_value_decision;
+    const v = settled ? settled.verdict : null;
+    const left = undecided(e).length;
+    // "No correct value in <db>" contradicts having already confirmed one of its
+    // ids, and publishing would emit the cell as both a positive and a negative,
+    // so it is offered only while nothing in the database is confirmed.
+    const hasConfirm = (e.candidates || []).some(c => c.decision && c.decision.verdict === 'confirm');
 
     // Evidence comes from GET /api/v2/concept: label, exact synonyms, definition
     // and parents when the database has its own index (direct), or the hub term(s)
@@ -498,7 +524,9 @@
             : '<span class="tag grey">No automatic match — judge from the source</span>'}
           ${cand && cand.prior ? `<span class="tag ${cand.prior === 'positive' ? 'ok' : 'bad'}">previously ${cand.prior === 'positive' ? 'confirmed' : 'flagged'}</span>` : ''}
           <div class="spacer"></div>
-          <span class="dim" style="font-size:11px">${panel.total - panel.remaining} of ${panel.total} databases settled</span>
+          <span class="dim" style="font-size:11px">${left
+            ? `${left} more id${left === 1 ? '' : 's'} to judge in ${esc(e.label)}`
+            : `${panel.total - panel.remaining} of ${panel.total} databases settled`}</span>
         </div>
         <div style="border-bottom:1px solid var(--border);margin:11px 0"></div>
       </div>
@@ -511,7 +539,7 @@
              <button class="btn big bad" id="r-bad"${cand ? '' : ' disabled'}>✗ Not a match <span class="hk">n</span></button>
            </div>
            <div class="r-alt">
-             <button class="link quiet" id="r-none">No correct value in ${esc(e.label)} <span class="hk">x</span></button>
+             ${hasConfirm ? '' : `<button class="link quiet" id="r-none">No correct value in ${esc(e.label)} <span class="hk">x</span></button>`}
              ${cand ? '<button class="link quiet" id="r-skip">Skip <span class="hk">s</span></button>' : ''}
              <div class="spacer"></div>
              ${url ? `<a class="link" href="${esc(url)}" target="_blank" rel="noopener">Open ${esc(e.label)} ${icon.external}</a>` : ''}
@@ -519,7 +547,10 @@
       ${(e.candidates || []).length > 1 ? `<div style="padding:0 13px 10px;display:flex;flex-wrap:wrap;gap:5px">
         <span class="eyebrow" style="align-self:center">Other ids</span>
         ${e.candidates.filter(c => String(c.id) !== String(active.id)).map(c =>
-          `<span class="id" data-ref2="${esc(e.key)}" data-id2="${esc(c.id)}">${esc(c.id)}</span>`).join('')}</div>` : ''}
+          `<span class="id ${c.decision ? 'v-' + c.decision.verdict : c.predicted ? 'pred' : ''}"
+             data-ref2="${esc(e.key)}" data-id2="${esc(c.id)}"
+             title="${c.decision ? esc(c.decision.verdict) : 'Not yet judged'}">${esc(c.id)}</span>`).join('')}
+        ${left ? `<span class="dim" style="align-self:center;font-size:11px">${left} still to judge</span>` : ''}</div>` : ''}
       ${e.noframe || !url
         ? `<div class="frame"><div class="frame-bar"><span class="dot"></span>
              <span class="url">${esc(e.label)} blocks embedding</span></div>
@@ -546,7 +577,7 @@
     bind('#r-bad', () => decide(e.key, cand && cand.id, 'reject'));
     bind('#r-none', () => decide(e.key, '', 'no_value'));
     bind('#r-skip', () => decide(e.key, cand && cand.id, 'skip'));
-    bind('#r-undo', () => { const d = decisionOf(e); if (d) undo(d.id); });
+    bind('#r-undo', () => { const d = cand ? cand.decision : e.no_value_decision; if (d) undo(d.id); });
     // Remember the disclosure across re-renders — the concept lookup lands after
     // the pane is first drawn, and re-collapsing it under the curator would undo
     // the click they just made.
@@ -577,8 +608,13 @@
       savedAt = Date.now();
       await reloadPanel();
       await refreshQueue();
-      toast({ confirm: 'Confirmed ' + (id || ''), reject: 'Rejected ' + (id || ''),
-        no_value: 'Recorded: no value in ' + e.label, skip: 'Skipped ' + e.label }[verdict], true);
+      // The server downgrades a previously confirmed sibling — say so, because it
+      // changed a decision the curator is not looking at.
+      const swapped = (d.superseded || []).length
+        ? ` — ${e.label} no longer confirms ${d.superseded.join(', ')}` : '';
+      toast(({ confirm: 'Confirmed ' + (id || ''), reject: 'Rejected ' + (id || ''),
+        no_value: 'Recorded: no value in ' + e.label,
+        skip: 'Skipped ' + (id || e.label) }[verdict]) + swapped, true);
       advance();
     } catch (err) { toast('Could not save: ' + err.message); }
   }
@@ -594,12 +630,36 @@
     } catch (e) { toast('Could not undo: ' + e.message); }
   }
 
-  // Move to the next reference that still needs a decision; when the disease is
-  // finished, say so rather than jumping away under the curator's cursor.
+  // Reopen a whole database: a settled row can hold several verdicts (one confirm,
+  // the rest rejected), and undoing only one would leave it half-judged with no
+  // obvious way back, so the row-level Undo clears them all.
+  async function undoDatabase(dbkey) {
+    const e = panel.databases.find(x => x.key === dbkey);
+    if (!e) return;
+    const ids = decidedIn(e).map(c => c.decision.id);
+    if (e.no_value_decision) ids.push(e.no_value_decision.id);
+    if (!ids.length) return;
+    try {
+      for (const id of ids) await api('decisions/' + enc(id), { method: 'DELETE' });
+      savedAt = Date.now();
+      await reloadPanel();
+      await refreshQueue();
+      toast(ids.length > 1 ? `${ids.length} ${e.label} decisions undone` : 'Decision undone');
+    } catch (err) { toast('Could not undo: ' + err.message); }
+  }
+
+  // Move to the next id that still needs a decision — the rest of the database in
+  // hand before the next database, so a row with five candidates is worked through
+  // rather than abandoned after the first. When the disease is finished, say so
+  // rather than jumping away under the curator's cursor.
   function advance() {
-    const rows = visibleDbs();
-    const next = rows.find(x => TODO.includes(x.status));
-    if (next) return openRef(next.key, (next.candidates[0] || {}).id || null);
+    const cur = active && panel.databases.find(x => x.key === active.db);
+    if (cur) {
+      const more = undecided(cur)[0];
+      if (more) return openRef(cur.key, more.id);
+    }
+    const next = visibleDbs().find(x => TODO.includes(x.status));
+    if (next) return openRef(next.key, (undecided(next)[0] || next.candidates[0] || {}).id || null);
     active = null;
     renderReview();
     $('#review').innerHTML = `<div class="r-empty">
@@ -911,7 +971,10 @@
     if (document.querySelector('.scrim.open')) return;
     if (!panel) return;
     const e = active ? panel.databases.find(x => x.key === active.db) : null;
-    const settled = e ? verdictOf(e) : null;
+    // Gated on *this id's* verdict, not the database's: with several candidates the
+    // others still need judging after one of them is settled.
+    const c = e ? (e.candidates || []).find(x => String(x.id) === String(active.id)) : null;
+    const settled = e ? (c ? c.decision : e.no_value_decision) : null;
     const k = ev.key.toLowerCase();
     if (k === 'j') { ev.preventDefault(); return stepDisease(1); }
     if (k === 'k') { ev.preventDefault(); return stepDisease(-1); }
@@ -920,7 +983,11 @@
     if (!e || settled) return;
     if (k === 'y') { ev.preventDefault(); return decide(e.key, active.id, 'confirm'); }
     if (k === 'n') { ev.preventDefault(); return decide(e.key, active.id, 'reject'); }
-    if (k === 'x') { ev.preventDefault(); return decide(e.key, '', 'no_value'); }
+    // "No correct value" contradicts an id already confirmed here — see renderReview.
+    if (k === 'x') {
+      if ((e.candidates || []).some(x => x.decision && x.decision.verdict === 'confirm')) return;
+      ev.preventDefault(); return decide(e.key, '', 'no_value');
+    }
     // Skip needs an id to hang the decision on (POST /api/v2/decisions rejects
     // every verdict but no_value without one), so it is offered only when the
     // database has a candidate. Use x — "no correct value" — for an empty one.

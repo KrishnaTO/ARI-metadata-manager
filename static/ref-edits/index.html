@@ -130,6 +130,8 @@
   .q-cov i.s-confirmed, .q-cov i.s-decided { background:var(--ok); }
   .q-cov i.s-flagged { background:var(--bad); }
   .q-cov i.s-predicted { background:var(--warn); }
+  /* Part-judged: some ids in the database still have no verdict, so it is not done. */
+  .q-cov i.s-partial { background:linear-gradient(90deg,var(--ok) 50%,var(--border-strong) 50%); }
   .q-cov i.s-missing { background:var(--border); border:1px dashed var(--border-strong); }
   .q-left { margin-left:auto; font-size:10.5px; font-weight:600; color:var(--text-2); flex-shrink:0; padding-left:6px; }
   .q-left.hot { color:var(--warn); font-weight:700; }
@@ -164,6 +166,7 @@
   .db.current .db-key { color:var(--primary); }
   .db.s-confirmed, .db.s-decided-ok { border-left-color:var(--ok); }
   .db.s-flagged, .db.s-decided-bad { border-left-color:var(--bad); }
+  .db.s-partial { border-left-color:var(--primary); }
   .db.s-predicted { background:color-mix(in srgb,var(--warn-soft) 22%,var(--surface));
     border-style:dashed; border-color:var(--warn); border-left-color:var(--warn); }
   .db.s-missing { background:var(--surface-2); border-style:dashed; }
