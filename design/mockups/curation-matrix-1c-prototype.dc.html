@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet data-dc-atomics>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>body{margin:0;font-family:"IBM Plex Sans",system-ui,sans-serif}a{color:#155160}a:hover{color:#0F2840}</style></helmet>
+
+<div style="{{ shellStyle }}">
+  <div style="{{ headStyle }}">
+    <div style="font:600 15px/1 'IBM Plex Sans',sans-serif">Cross-reference review</div>
+    <div style="{{ searchStyle }}"><span>⌕</span><input value="{{ filter }}" onInput="{{ onFilter }}" placeholder="Filter diseases or ids" style="{{ inputStyle }}"></div>
+    <div style="{{ segStyle }}">
+      <span onClick="{{ setComfortable }}" style="{{ segComfortable }}">Comfortable</span>
+      <span onClick="{{ setCompact }}" style="{{ segCompact }}">Compact</span>
+    </div>
+    <div style="{{ segStyle }}">
+      <span onClick="{{ setLight }}" style="{{ segLight }}">Light</span>
+      <span onClick="{{ setDark }}" style="{{ segDark }}">Dark</span>
+    </div>
+    <div style="flex:1"></div>
+    <div style="{{ progressWrapStyle }}"><span style="{{ progressNumStyle }}">{{ doneDiseases }}</span>/{{ totalDiseases }} diseases complete<span style="{{ progressTrackStyle }}"><span style="{{ progressBarStyle }}"></span></span></div>
+    <div onClick="{{ togglePending }}" style="{{ pendingChipStyle }}"><span style="{{ pendingDotStyle }}"></span>{{ pendingCount }} diseases pending</div>
+    <button onClick="{{ publish }}" style="{{ publishStyle }}">{{ publishLabel }}</button>
+  </div>
+
+  <sc-if value="{{ showPending }}" hint-placeholder-val="{{ false }}">
+    <div style="{{ pendingPanelStyle }}">
+      <div style="font:600 10px 'IBM Plex Sans',sans-serif;letter-spacing:.1em;text-transform:uppercase;opacity:.7">Pending in this session — one key per id, grouped by disease</div>
+      <sc-for list="{{ pendingRows }}" as="p" hint-placeholder-count="2">
+        <div style="{{ p.style }}"><span>{{ p.name }}</span><span style="font-family:'IBM Plex Mono',monospace;opacity:.7">{{ p.summary }}</span></div>
+      </sc-for>
+      <sc-if value="{{ pendingEmpty }}" hint-placeholder-val="{{ false }}"><div style="font-size:11.5px;opacity:.7;padding-top:4px">No verdicts yet. Open a disease and judge a mapping.</div></sc-if>
+    </div>
+  </sc-if>
+
+  <div style="flex:1;display:flex;min-height:0">
+    <div style="flex:1;min-width:0;overflow:auto">
+      <div style="{{ headerRowStyle }}">
+        <div style="{{ headerNameStyle }}">Disease</div>
+        <sc-for list="{{ dbHeads }}" as="d" hint-placeholder-count="10"><div style="{{ d.style }}">{{ d.label }}</div></sc-for>
+      </div>
+      <sc-for list="{{ rows }}" as="r" hint-placeholder-count="12">
+        <div>
+          <div onClick="{{ r.onToggle }}" style="{{ r.rowStyle }}">
+            <div style="{{ r.nameStyle }}">
+              <span style="{{ r.caretStyle }}">{{ r.caret }}</span>
+              <span style="{{ r.nameTextStyle }}">{{ r.name }}</span>
+              <span style="{{ r.countStyle }}">{{ r.done }}</span>
+            </div>
+            <sc-for list="{{ r.cells }}" as="c" hint-placeholder-count="10">
+              <div onClick="{{ c.onClick }}" title="{{ c.title }}" style="{{ c.style }}"><span>{{ c.glyph }}</span><span style="{{ c.badgeStyle }}">{{ c.badge }}</span></div>
+            </sc-for>
+          </div>
+          <sc-if value="{{ r.open }}" hint-placeholder-val="{{ false }}">
+            <div style="{{ r.stripStyle }}">
+              <div style="display:flex;align-items:center;gap:12px;padding:14px 16px 10px;flex-wrap:wrap">
+                <span style="{{ r.openCaretStyle }}">▾</span>
+                <span style="{{ r.stripTitleStyle }}">{{ r.name }}</span>
+                <span style="{{ r.stripIdStyle }}">{{ r.ari }}</span>
+                <span style="{{ r.stripSynStyle }}">{{ r.synText }}</span>
+                <div style="flex:1"></div>
+                <span style="{{ r.stripCountStyle }}">{{ r.summary }}</span>
+              </div>
+              <div style="{{ r.cardGridStyle }}">
+                <sc-for list="{{ r.cards }}" as="c" hint-placeholder-count="10">
+                  <div style="{{ c.cardStyle }}">
+                    <div style="display:flex;align-items:center;justify-content:space-between;gap:6px"><span style="{{ c.dbStyle }}">{{ c.db }}</span><span style="{{ c.tagStyle }}">{{ c.tag }}</span></div>
+                    <sc-for list="{{ c.ids }}" as="m" hint-placeholder-count="1">
+                      <div onClick="{{ m.onOpen }}" style="{{ m.rowStyle }}">
+                        <div style="{{ m.idStyle }}">{{ m.id }}</div>
+                        <div style="{{ m.labelStyle }}">{{ m.label }}</div>
+                        <div style="display:flex;gap:5px;margin-top:7px;font-size:11px;align-items:center">
+                          <span onClick="{{ m.onConfirm }}" style="{{ m.okStyle }}">✓</span>
+                          <span onClick="{{ m.onReject }}" style="{{ m.badStyle }}">✕</span>
+                          <span style="{{ m.openStyle }}">↗</span>
+                        </div>
+                      </div>
+                    </sc-for>
+                    <div style="{{ c.emptyStyle }}">no id yet</div>
+                    <div onClick="{{ c.onAdd }}" style="{{ c.addStyle }}">+ add another id</div>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+          </sc-if>
+        </div>
+      </sc-for>
+      <sc-if value="{{ noResults }}" hint-placeholder-val="{{ false }}"><div style="{{ emptyStyle }}">No disease or id matches that filter.</div></sc-if>
+    </div>
+
+    <sc-if value="{{ panelOpen }}" hint-placeholder-val="{{ false }}">
+      <div style="{{ panelStyle }}">
+        <div style="{{ panelHeadStyle }}">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+            <span style="{{ panelEyebrowStyle }}">{{ panel.eyebrow }}</span>
+            <span onClick="{{ closePanel }}" style="cursor:pointer;font-size:14px;opacity:.6">✕</span>
+          </div>
+          <div style="{{ panelTitleStyle }}">{{ panel.disease }}</div>
+          <div style="{{ panelSubStyle }}">{{ panel.sub }}</div>
+        </div>
+        <div style="{{ panelSwitchWrapStyle }}">
+          <div style="{{ panelSwitchHeadStyle }}">{{ panel.switchHead }}</div>
+          <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:7px">
+            <sc-for list="{{ panel.siblings }}" as="s" hint-placeholder-count="1">
+              <span onClick="{{ s.onClick }}" style="{{ s.style }}">{{ s.id }}</span>
+            </sc-for>
+          </div>
+        </div>
+        <div style="{{ panelIdBlockStyle }}">
+          <div style="{{ panelIdStyle }}">{{ panel.id }}</div>
+          <div style="{{ panelLabelStyle }}">{{ panel.label }}</div>
+          <div style="display:flex;gap:8px;margin-top:10px">
+            <span style="{{ panelOpenBtnStyle }}">{{ panel.openLabel }}</span>
+            <span style="{{ panelCopyBtnStyle }}">Copy id</span>
+          </div>
+          <div style="{{ panelNoteStyle }}">{{ panel.note }}</div>
+        </div>
+        <sc-if value="{{ panel.noframe }}" hint-placeholder-val="{{ false }}">
+          <div style="{{ panelCheckWrapStyle }}">
+            <div style="{{ panelCheckHeadStyle }}">Checked in the source</div>
+            <sc-for list="{{ panel.checks }}" as="ck" hint-placeholder-count="4">
+              <div onClick="{{ ck.onToggle }}" style="{{ ck.rowStyle }}"><span style="{{ ck.boxStyle }}">{{ ck.mark }}</span>{{ ck.label }}</div>
+            </sc-for>
+          </div>
+        </sc-if>
+        <sc-if value="{{ panel.framed }}" hint-placeholder-val="{{ false }}">
+          <div style="{{ panelFrameStyle }}">{{ panel.frameText }}</div>
+        </sc-if>
+        <div style="{{ panelActionsStyle }}">
+          <button onClick="{{ confirmActive }}" style="{{ panelConfirmStyle }}">✓ Confirm</button>
+          <button onClick="{{ rejectActive }}" style="{{ panelRejectStyle }}">✕ Not the same</button>
+          <button onClick="{{ nextItem }}" style="{{ panelSkipStyle }}">{{ panel.nextLabel }}</button>
+        </div>
+        <div style="{{ panelFootStyle }}">{{ panel.foot }}</div>
+      </div>
+    </sc-if>
+  </div>
+  <div style="{{ legendStyle }}">✓ confirmed · ● predicted · ○ predicted from a synonym only · ✕ flagged · blank no id. A superscript is the number of ids in that cell; a cell only reads ✓ once every id in it has a verdict.</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1440,&quot;height&quot;:900}}">
+const DBS=[
+ {key:"snomed",label:"SNOMED",frame:true},{key:"omop",label:"OMOP",frame:false},
+ {key:"doid",label:"DOID",frame:true},{key:"mondo",label:"MONDO",frame:true},
+ {key:"nci",label:"NCI",frame:true},{key:"icd10",label:"ICD-10",frame:true},
+ {key:"orphanet",label:"Orphanet",frame:false},{key:"omim",label:"OMIM",frame:false},
+ {key:"umls",label:"UMLS",frame:false},{key:"mesh",label:"MeSH",frame:false}
+];
+// Each cell is a LIST of mappings [state, id, label]; state: ok (curated exactMatch on
+// file), pred (lexical prediction), low (synonym-only prediction). Ids from
+// mappings/ari.sssom.tsv + ari.predicted.sssom.tsv, including the real multi-id cells.
+const D=(name,ari,syn,cells)=>({name,ari,syn,cells});
+const DISEASES=[
+ D("Acquired epidermolysis bullosa","ARI:0001001",["Epidermolysis bullosa acquisita","EBA"],{
+  snomed:[["ok","SNOMEDCT:2772003","on file"]],omop:[["ok","omop:4100661","on file"]],
+  doid:[["ok","DOID:4313","on file"]],mondo:[["pred","MONDO:0018747","acquired epidermolysis bullosa"]],
+  nci:[["ok","ncit:C84690","on file"]],icd10:[["ok","icd10cm:L12.3","on file"]],
+  orphanet:[["pred","ORPHA:46487","acquired epidermolysis bullosa"]],omim:[],
+  umls:[["ok","umls:C0079293","on file"]],mesh:[["ok","mesh:D016107","on file"]]}),
+ D("Acquired hemophilia","ARI:0001002",["Acquired factor VIII deficiency"],{
+  snomed:[["ok","SNOMEDCT:785308008","on file"]],omop:[["ok","omop:37203917","on file"]],doid:[],
+  mondo:[["pred","MONDO:0019139","acquired hemophilia"]],nci:[["pred","ncit:C197822","Acquired Hemophilia"]],
+  icd10:[["pred","icd10cm:D68.311","acquired hemophilia"]],orphanet:[["pred","ORPHA:73274","acquired hemophilia"]],
+  omim:[],umls:[["pred","umls:C1096116","acquired hemophilia"]],mesh:[]}),
+ D("Acute disseminated encephalomyelitis","ARI:0001003",["ADEM"],{
+  snomed:[["ok","SNOMEDCT:83942000","on file"]],omop:[["ok","omop:374021","on file"]],
+  doid:[["ok","DOID:639","on file"]],mondo:[["pred","MONDO:0019383","acute disseminated encephalomyelitis"]],
+  nci:[["ok","ncit:C34578","on file"]],icd10:[],orphanet:[["pred","ORPHA:83597","acute disseminated encephalomyelitis"]],
+  omim:[],umls:[["ok","umls:C0014059","on file"]],mesh:[["ok","mesh:D004673","on file"]]}),
+ D("Acute febrile mucocutaneous lymph node syndrome","ARI:0001004",["Kawasaki disease","Mucocutaneous lymph node syndrome"],{
+  snomed:[["ok","SNOMEDCT:75053002","on file"]],omop:[["ok","omop:314381","on file"]],
+  doid:[["ok","DOID:13378","on file"]],mondo:[["pred","MONDO:0012727","Kawasaki disease"]],
+  nci:[["ok","ncit:C34825","on file"]],
+  icd10:[["ok","icd10cm:M30.3","on file"],["ok","icd10cm:446.1","on file · legacy ICD-9 code"]],
+  orphanet:[["pred","ORPHA:2331","Kawasaki disease"]],omim:[["pred","OMIM:611775","Kawasaki disease"]],
+  umls:[["ok","umls:C0026691","on file"]],mesh:[["ok","mesh:D009080","on file"]]}),
+ D("Acute lichenoid pityriasis","ARI:0001005",["PLEVA"],{
+  snomed:[["ok","SNOMEDCT:86487001","on file"]],omop:[["ok","omop:4314705","on file"]],doid:[],
+  mondo:[["pred","MONDO:0024250","acute lichenoid pityriasis"]],nci:[],icd10:[],orphanet:[],omim:[],
+  umls:[["pred","umls:C0162852","acute lichenoid pityriasis"]],mesh:[]}),
+ D("Addison's disease","ARI:0001006",["Primary adrenal insufficiency"],{
+  snomed:[],omop:[],doid:[["ok","DOID:13774","on file"]],
+  mondo:[["pred","MONDO:0100480","autoimmune primary adrenal insufficiency"]],
+  nci:[["ok","ncit:C26689","on file"]],icd10:[["ok","icd10cm:E27.1","on file"]],
+  orphanet:[["pred","ORPHA:85138","autoimmune primary adrenal insufficiency"]],omim:[],
+  umls:[["ok","umls:C0001403","on file"]],mesh:[["ok","mesh:D000224","on file"]]}),
+ D("Adult onset Still's disease","ARI:0001008",["AOSD"],{
+  snomed:[["ok","SNOMEDCT:239920006","on file"]],omop:[["ok","omop:4344166","on file"]],
+  doid:[["ok","DOID:14256","on file"]],mondo:[["pred","MONDO:0019355","adult-onset Still disease"]],
+  nci:[["ok","ncit:C197832","on file"]],icd10:[["ok","icd10cm:M06.1","on file"]],
+  orphanet:[["pred","ORPHA:829","adult-onset Still disease"]],omim:[],
+  umls:[["ok","umls:C0085253","on file"]],mesh:[["ok","mesh:D016706","on file"]]}),
+ D("Age related macular degeneration","ARI:0001009",["AMD"],{
+  snomed:[["ok","SNOMEDCT:267718000","on file"]],omop:[["ok","omop:374028","on file"]],
+  doid:[["ok","DOID:10871","on file"]],mondo:[["pred","MONDO:0005150","age-related macular degeneration"]],
+  nci:[["ok","ncit:C84391","on file"]],icd10:[],orphanet:[["pred","ORPHA:279","age-related macular degeneration"]],
+  omim:[],umls:[["ok","umls:C0242383","on file"]],mesh:[["ok","mesh:D008268","on file"]]}),
+ D("Alopecia areata","ARI:0001010",[],{
+  snomed:[],omop:[],doid:[],mondo:[["pred","MONDO:0005340","alopecia areata"]],
+  nci:[["pred","ncit:C50575","Alopecia"]],icd10:[],orphanet:[],omim:[],umls:[],mesh:[]}),
+ D("Angiofollicular lymph node hyperplasia","ARI:0001011",["Castleman disease"],{
+  snomed:[],omop:[],doid:[],mondo:[["pred","MONDO:0015564","Castleman disease"]],nci:[],icd10:[],
+  orphanet:[["pred","ORPHA:160","Castleman disease"]],omim:[],umls:[],mesh:[]}),
+ D("Ankylosing spondylitis","ARI:0001012",["Bechterew disease"],{
+  snomed:[["ok","SNOMEDCT:9631008","on file"]],omop:[["ok","omop:80809","on file"]],
+  doid:[["ok","DOID:7147","on file"]],mondo:[["pred","MONDO:0005306","ankylosing spondylitis"]],
+  nci:[["ok","ncit:C26685","on file"]],icd10:[["ok","icd10cm:M45","on file"]],
+  orphanet:[["pred","ORPHA:825","ankylosing spondylitis"]],omim:[],
+  umls:[["ok","umls:C0038013","on file"]],mesh:[["ok","mesh:D013167","on file"]]}),
+ D("Anti-CASPR2 autoimmune encephalitis","ARI:0001013",["Morvan syndrome"],{
+  snomed:[],omop:[],doid:[],mondo:[["low","MONDO:0008718","Morvan syndrome"]],nci:[],icd10:[],
+  orphanet:[["low","ORPHA:83467","Morvan syndrome"]],omim:[],
+  umls:[["low","umls:C3854373","Morvan syndrome"]],mesh:[]}),
+ D("Anti-glomerular basement membrane disease","ARI:0001014",["Goodpasture syndrome"],{
+  snomed:[["ok","SNOMEDCT:44520000","on file"]],omop:[["ok","omop:196464","on file"]],doid:[],
+  mondo:[["pred","MONDO:0009303","anti-glomerular basement membrane disease"]],nci:[],
+  icd10:[["ok","icd10cm:M31.0","on file"]],
+  orphanet:[["pred","ORPHA:375","anti-glomerular basement membrane disease"]],
+  omim:[["pred","OMIM:233450","anti-glomerular basement membrane disease"]],
+  umls:[["ok","umls:C0403421","on file"]],mesh:[]}),
+ D("Anti-MAG neuropathy","ARI:0001015",[],{
+  snomed:[],omop:[],doid:[],mondo:[["pred","MONDO:0018977","polyneuropathy associated with IgM monoclonal gammapathy with anti-MAG"]],
+  nci:[],icd10:[],orphanet:[["pred","ORPHA:639","polyneuropathy associated with IgM monoclonal gammapathy with anti-MAG"]],
+  omim:[],umls:[["pred","umls:C1736154","polyneuropathy associated with IgM monoclonal gammapathy"]],mesh:[]}),
+ D("Antineutrophil cytoplasmic antibody positive vasculitis","ARI:0001017",["ANCA-associated vasculitis","Churg Strauss syndrome"],{
+  snomed:[],omop:[],doid:[["low","DOID:3049","Churg-Strauss syndrome"]],
+  mondo:[["low","MONDO:0015492","anti-neutrophil cytoplasmic antibody-associated vasculitis"],
+         ["low","MONDO:0015943","eosinophilic granulomatosis with polyangiitis"]],
+  nci:[["low","ncit:C215687","Antineutrophil Cytoplasmic Antibody-Associated Vasculitis"],
+       ["low","ncit:C3444","Granulomatosis with Polyangiitis"]],
+  icd10:[["low","icd10cm:M30.1","Churg-Strauss syndrome"]],orphanet:[],omim:[],
+  umls:[["ok","umls:C0343192","on file"]],
+  mesh:[["low","mesh:D014890","Granulomatosis with Polyangiitis"],
+        ["low","mesh:D015267","Churg-Strauss syndrome"],
+        ["low","mesh:D056648","Anti-Neutrophil Cytoplasmic Antibody-Associated Vasculitis"]]})
+];
+const CHECKS=["Label matches","Synonyms overlap","Definition read","Parents plausible"];
+const SUP={1:'',2:'²',3:'³',4:'⁴',5:'⁵'};
+const T={
+ light:{surface:'#fff',band:'#FAFBFC',head:'#EAEEF2',line:'#DDE3EA',lineStrong:'#C2CAD4',
+  text:'#0F2840',mute:'#5C6675',faint:'#8A93A2',accent:'#1F6B7A',accentFg:'#fff',
+  okBg:'#E2F1EB',okFg:'#2F8F6F',predBg:'#F8EFD6',predFg:'#B5841A',lowBg:'#FCF8EE',lowFg:'#C4A85E',
+  badBg:'#F4E1DF',badFg:'#B7382D',emptyFg:'#C2CAD4',rail:'#0F2840'},
+ dark:{surface:'#0F2840',band:'#0C2438',head:'#0C2438',line:'#1F3A58',lineStrong:'#1F3A58',
+  text:'#E3E8EE',mute:'#8A93A2',faint:'#8A93A2',accent:'#4D96A2',accentFg:'#081A2C',
+  okBg:'rgba(47,143,111,.24)',okFg:'#7FC9AB',predBg:'rgba(181,132,26,.26)',predFg:'#DCB865',
+  lowBg:'rgba(181,132,26,.13)',lowFg:'#B79A5C',badBg:'rgba(183,56,45,.24)',badFg:'#D98A80',
+  emptyFg:'#3A5170',rail:'#9DD3D6'}
+};
+class Component extends DCLogic{
+  state={theme:'light',density:'comfortable',filter:'',open:14,verdicts:{},committed:{},checks:{},active:null,showPending:false,published:0};
+  t(){return T[this.state.theme];}
+  // per-id key, mirroring the backend's `disease | database | id`
+  k(di,db,id){return di+'|'+db+'|'+id;}
+  idState(di,db,m){
+    const v=this.state.verdicts[this.k(di,db,m[1])]||this.state.committed[this.k(di,db,m[1])];
+    return v||m[0];
+  }
+  // A cell aggregates its ids: any still-unjudged prediction keeps the cell open;
+  // otherwise it reads confirmed if at least one id was confirmed, else flagged.
+  cellState(di,db){
+    const ms=DISEASES[di].cells[db]||[];
+    if(!ms.length) return null;
+    const sts=ms.map(m=>this.idState(di,db,m));
+    if(sts.some(x=>x==='pred')) return 'pred';
+    if(sts.some(x=>x==='low')) return 'low';
+    if(sts.some(x=>x==='ok')) return 'ok';
+    return 'bad';
+  }
+  setVerdict(di,db,id,v){
+    this.setState(s=>{
+      const nv={...s.verdicts}, k=di+'|'+db+'|'+id;
+      if(nv[k]===v) delete nv[k]; else nv[k]=v;
+      return {verdicts:nv};
+    });
+  }
+  toggleCheck(di,db,id,i){
+    this.setState(s=>{
+      const k=di+'|'+db+'|'+id+'|'+i, nc={...s.checks};
+      if(nc[k]) delete nc[k]; else nc[k]=true;
+      return {checks:nc};
+    });
+  }
+  openCell(di,db,id){
+    const ms=DISEASES[di].cells[db]||[];
+    if(!ms.length) return;
+    this.setState({active:{di,db,id:id||ms[0][1]},open:di});
+  }
+  nextOpen(){
+    const cur=this.state.active; if(!cur) return;
+    const flat=[];
+    DISEASES.forEach((d,di)=>DBS.forEach(db=>(d.cells[db.key]||[]).forEach(m=>flat.push({di,db:db.key,id:m[1],m}))));
+    const at=flat.findIndex(x=>x.di===cur.di&&x.db===cur.db&&x.id===cur.id);
+    for(let n=1;n<=flat.length;n++){
+      const c=flat[(at+n)%flat.length], st=this.idState(c.di,c.db,c.m);
+      if(st==='pred'||st==='low'){this.setState({active:{di:c.di,db:c.db,id:c.id},open:c.di});return;}
+    }
+  }
+  visible(){
+    const q=this.state.filter.trim().toLowerCase();
+    return DISEASES.map((d,i)=>({d,i})).filter(({d})=>!q||d.name.toLowerCase().includes(q)||
+      d.syn.some(s=>s.toLowerCase().includes(q))||
+      DBS.some(db=>(d.cells[db.key]||[]).some(m=>m[1].toLowerCase().includes(q))));
+  }
+  pending(){
+    const byD={};
+    for(const k of Object.keys(this.state.verdicts)){
+      const di=k.split('|')[0], v=this.state.verdicts[k];
+      byD[di]=byD[di]||{ok:0,bad:0};
+      if(v==='ok') byD[di].ok++; else byD[di].bad++;
+    }
+    return Object.entries(byD).map(([di,c])=>({name:DISEASES[di].name,
+      summary:[c.ok?c.ok+' confirmed':null,c.bad?c.bad+' flagged':null].filter(Boolean).join(' · ')}));
+  }
+  renderVals(){
+    const t=this.t(), s=this.state, compact=s.density==='compact';
+    const nameCol=compact?'250px':'330px';
+    const btn=on=>'padding:5px 11px;cursor:pointer;font-size:12px;'+(on?'background:'+(s.theme==='dark'?'#9DD3D6':'#0F2840')+';color:'+(s.theme==='dark'?'#081A2C':'#fff'):'color:'+t.mute);
+    const tint=st=>st==='ok'?'background:'+t.okBg+';color:'+t.okFg:st==='bad'?'background:'+t.badBg+';color:'+t.badFg
+      :st==='pred'?'background:'+t.predBg+';color:'+t.predFg:st==='low'?'background:'+t.lowBg+';color:'+t.lowFg:'color:'+t.emptyFg;
+    const glyph=st=>st==='ok'?'✓':st==='bad'?'✕':st==='pred'?'●':st==='low'?'○':'';
+    const vis=this.visible();
+    const resolved=(di,db)=>{const st=this.cellState(di,db);return st==='ok';};
+    const doneD=DISEASES.filter((d,i)=>DBS.every(db=>{const st=this.cellState(i,db.key);return st!=='pred'&&st!=='low';})).length;
+    const pend=this.pending();
+    const a=s.active, ad=a?DISEASES[a.di]:null, adb=a?DBS.find(x=>x.key===a.db):null;
+    const ams=a?(ad.cells[a.db]||[]):[], am=a?ams.find(m=>m[1]===a.id):null;
+    const ast=a&&am?this.idState(a.di,a.db,am):null;
+    const checksOn=a?CHECKS.filter((c,i)=>s.checks[a.di+'|'+a.db+'|'+a.id+'|'+i]).length:0;
+    const openInCell=a?ams.filter(m=>{const st=this.idState(a.di,a.db,m);return st==='pred'||st==='low';}).length:0;
+    const panel=a&&am?{
+      eyebrow:ast==='ok'?'Confirmed mapping':ast==='bad'?'Flagged mapping':ast==='low'?'Predicted · synonym match only':am[0]==='ok'?'Curated mapping on file':'Predicted · exact label match',
+      disease:ad.name, sub:ad.ari+' → '+adb.label+(ams.length>1?' · id '+(ams.findIndex(m=>m[1]===a.id)+1)+' of '+ams.length:''),
+      id:am[1], label:am[2]||adb.label+' concept',
+      switchHead:ams.length>1?ams.length+' ids mapped to this database — judge each one':'One id in this cell',
+      siblings:ams.map(m=>{
+        const st=this.idState(a.di,a.db,m), on=m[1]===a.id;
+        return {id:m[1],onClick:()=>this.setState({active:{di:a.di,db:a.db,id:m[1]}}),
+          style:"font:500 10.5px 'IBM Plex Mono',monospace;padding:3px 8px;border-radius:99px;cursor:pointer;"+
+            tint(st)+';'+(on?'outline:2px solid '+t.accent+';outline-offset:1px':'')};
+      }),
+      openLabel:'Open '+adb.label+' in a new tab ↗',
+      note:adb.frame?'Source page embeds below.':adb.label+' blocks embedding, so nothing is previewed here.',
+      noframe:!adb.frame, framed:adb.frame, frameText:'[ embedded '+adb.label+' page ]',
+      nextLabel:openInCell>1?'Next id in this cell':'Next open mapping',
+      foot:ams.length>1
+        ?'Each id publishes as its own SSSOM row; confirming one does not judge the others. '+openInCell+' of '+ams.length+' still open here.'
+        :(adb.frame?'Verdicts save to your review session as you work.'
+          :'Tick the label and synonym checks before confirming a source you cannot preview ('+checksOn+'/4 ticked).'),
+      checks:CHECKS.map((label,i)=>{
+        const on=!!s.checks[a.di+'|'+a.db+'|'+a.id+'|'+i];
+        return {label,mark:on?'✓':'',onToggle:()=>this.toggleCheck(a.di,a.db,a.id,i),
+          rowStyle:'display:flex;gap:8px;align-items:center;font-size:12px;margin-top:7px;cursor:pointer;color:'+(on?t.text:t.mute),
+          boxStyle:'width:15px;height:15px;border-radius:4px;display:inline-flex;align-items:center;justify-content:center;font-size:10px;'+
+            (on?'background:#2F8F6F;border:1px solid #2F8F6F;color:#fff':'border:1px solid '+t.lineStrong)};
+      })
+    }:{checks:[],siblings:[]};
+    const rows=vis.map(({d,i},vi)=>{
+      const states=DBS.map(db=>this.cellState(i,db.key));
+      const ok=DBS.filter(db=>resolved(i,db.key)).length;
+      const openN=DBS.reduce((n,db)=>n+(d.cells[db.key]||[]).filter(m=>{const st=this.idState(i,db.key,m);return st==='pred'||st==='low';}).length,0);
+      const none=states.filter(x=>!x).length;
+      const multi=DBS.filter(db=>(d.cells[db.key]||[]).length>1).length;
+      const isOpen=s.open===i;
+      return {
+        name:d.name, ari:d.ari, done:ok+'/10', open:isOpen, synText:d.syn.join(' · '), caret:isOpen?'▾':'▸',
+        summary:ok+' confirmed · '+openN+' ids awaiting review · '+none+' databases with no id'+(multi?' · '+multi+' with several ids':''),
+        onToggle:()=>this.setState({open:isOpen?-1:i}),
+        rowStyle:'display:grid;grid-template-columns:'+nameCol+' repeat(10,1fr);border-bottom:1px solid '+t.line+';cursor:pointer;background:'+(isOpen?t.head:(vi%2?t.band:t.surface)),
+        nameStyle:(compact?'padding:5px 12px;':'padding:9px 14px;')+'display:flex;align-items:center;gap:8px;min-width:0',
+        caretStyle:'color:'+t.faint+';font-size:10px;flex-shrink:0',
+        nameTextStyle:'font:'+(compact?'500 11px':'600 12.5px')+" 'IBM Plex Sans',sans-serif;color:"+t.text+';overflow:hidden;text-overflow:ellipsis;white-space:nowrap',
+        countStyle:'font:400 '+(compact?'9.5px':'10px')+" 'IBM Plex Mono',monospace;color:"+t.faint+';flex-shrink:0;margin-left:auto',
+        cells:DBS.map((db,j)=>{
+          const ms=d.cells[db.key]||[], st=states[j], sel=a&&a.di===i&&a.db===db.key;
+          return {glyph:glyph(st), badge:ms.length>1?SUP[ms.length]||('·'+ms.length):'',
+            title:ms.length?ms.map(m=>m[1]).join(', '):'No '+db.label+' id',
+            onClick:e=>{e.stopPropagation();this.openCell(i,db.key);},
+            badgeStyle:'font-size:'+(compact?'8px':'9px')+';margin-left:1px;opacity:.9',
+            style:'display:flex;align-items:center;justify-content:center;border-left:1px solid '+t.line+';font-size:'+(compact?'10px':'11px')+';cursor:pointer;'+
+              (sel?'outline:2px solid '+t.accent+';outline-offset:-2px;':'')+tint(st)};
+        }),
+        stripStyle:'border-top:2px solid '+t.rail+';border-bottom:2px solid '+t.rail+';background:'+t.band,
+        openCaretStyle:'color:'+t.accent+';font-size:12px',
+        stripTitleStyle:"font:600 16px 'IBM Plex Sans',sans-serif;color:"+t.text,
+        stripIdStyle:"font:400 11px 'IBM Plex Mono',monospace;color:"+t.faint,
+        stripSynStyle:'font-size:11px;color:'+t.mute,
+        stripCountStyle:'font-size:11.5px;color:'+t.mute,
+        cardGridStyle:'display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px;padding:4px 16px 18px;align-items:start',
+        cards:DBS.map((db,j)=>{
+          const ms=d.cells[db.key]||[], st=states[j];
+          const tag=!ms.length?'no id':st==='ok'?'confirmed':st==='bad'?'flagged':st==='low'?'synonym':'predicted';
+          return {db:db.label, tag,
+            onAdd:e=>{e.stopPropagation();this.openCell(i,db.key);},
+            cardStyle:'border:1px solid '+t.line+';border-radius:8px;padding:11px 12px;background:'+t.surface+';'+
+              (st==='ok'?'box-shadow:inset 3px 0 0 #2F8F6F;':st==='bad'?'box-shadow:inset 3px 0 0 #B7382D;':st==='pred'?'box-shadow:inset 3px 0 0 '+t.predFg+';':st==='low'?'box-shadow:inset 3px 0 0 '+t.lowFg+';':''),
+            dbStyle:"font:600 10.5px 'IBM Plex Sans',sans-serif;letter-spacing:.08em;text-transform:uppercase;color:"+t.mute,
+            tagStyle:'font-size:9.5px;letter-spacing:.05em;text-transform:uppercase;padding:2px 6px;border-radius:99px;'+tint(st),
+            emptyStyle:ms.length?'display:none':'margin-top:8px;font-size:11.5px;color:'+t.faint,
+            addStyle:'margin-top:9px;font-size:11px;cursor:pointer;color:'+t.accent,
+            ids:ms.map((m,mi)=>{
+              const ist=this.idState(i,db.key,m), sel=a&&a.di===i&&a.db===db.key&&a.id===m[1];
+              return {id:m[1], label:m[2]||'',
+                onOpen:()=>this.openCell(i,db.key,m[1]),
+                onConfirm:e=>{e.stopPropagation();this.setVerdict(i,db.key,m[1],'ok');},
+                onReject:e=>{e.stopPropagation();this.setVerdict(i,db.key,m[1],'bad');},
+                rowStyle:'margin-top:'+(mi?'10px':'8px')+';padding-top:'+(mi?'10px':'0')+';cursor:pointer;'+(mi?'border-top:1px dashed '+t.line+';':'')+(sel?'outline:2px solid '+t.accent+';outline-offset:4px;border-radius:4px;':''),
+                idStyle:"font:500 11.5px 'IBM Plex Mono',monospace;color:"+t.text+';overflow:hidden;text-overflow:ellipsis;white-space:nowrap',
+                labelStyle:'margin-top:3px;font-size:11.5px;color:'+t.mute+';line-height:1.4;max-height:32px;overflow:hidden',
+                okStyle:'flex:1;text-align:center;padding:4px 0;border-radius:5px;border:1px solid '+(ist==='ok'?'#2F8F6F':t.lineStrong)+';color:'+(ist==='ok'?'#fff':t.okFg)+';background:'+(ist==='ok'?'#2F8F6F':'transparent'),
+                badStyle:'flex:1;text-align:center;padding:4px 0;border-radius:5px;border:1px solid '+(ist==='bad'?'#B7382D':t.lineStrong)+';color:'+(ist==='bad'?'#fff':t.badFg)+';background:'+(ist==='bad'?'#B7382D':'transparent'),
+                openStyle:'padding:4px 8px;border:1px solid '+t.lineStrong+';color:'+t.accent+';border-radius:5px'};
+            })};
+        })
+      };
+    });
+    return {
+      rows, noResults:rows.length===0, doneDiseases:doneD, totalDiseases:DISEASES.length,
+      filter:s.filter, onFilter:e=>this.setState({filter:e.target.value}),
+      setCompact:()=>this.setState({density:'compact'}), setComfortable:()=>this.setState({density:'comfortable'}),
+      setLight:()=>this.setState({theme:'light'}), setDark:()=>this.setState({theme:'dark'}),
+      segComfortable:btn(!compact), segCompact:btn(compact),
+      segLight:btn(s.theme==='light'), segDark:btn(s.theme==='dark'),
+      shellStyle:'display:flex;flex-direction:column;height:100vh;background:'+t.surface+';color:'+t.text,
+      headStyle:'display:flex;align-items:center;gap:12px;padding:12px 16px;border-bottom:1px solid '+t.line+';background:'+(s.theme==='dark'?'#081A2C':'#fff')+';flex-wrap:wrap',
+      searchStyle:'display:flex;align-items:center;gap:7px;padding:5px 10px;border:1px solid '+t.line+';border-radius:6px;color:'+t.faint+';background:'+t.surface,
+      inputStyle:'border:0;outline:none;background:transparent;color:'+t.text+";font:400 12.5px 'IBM Plex Sans',sans-serif;width:170px",
+      segStyle:'display:flex;border:1px solid '+t.line+';border-radius:6px;overflow:hidden',
+      progressWrapStyle:'display:flex;align-items:center;gap:8px;font-size:12px;color:'+t.mute,
+      progressNumStyle:"font-family:'IBM Plex Mono',monospace;font-weight:600;color:"+t.text,
+      progressTrackStyle:'display:inline-block;width:110px;height:6px;border-radius:99px;overflow:hidden;background:'+(s.theme==='dark'?'#1F3A58':'#E3E8EE'),
+      progressBarStyle:'display:block;height:100%;background:'+t.okFg+';width:'+Math.round(doneD/DISEASES.length*100)+'%',
+      pendingChipStyle:'display:flex;align-items:center;gap:6px;padding:5px 10px;border:1px solid '+t.lineStrong+';border-radius:6px;font-size:12px;cursor:pointer;color:'+t.text,
+      pendingDotStyle:'width:7px;height:7px;border-radius:99px;display:inline-block;background:'+(pend.length?t.predFg:t.emptyFg),
+      pendingCount:pend.length, togglePending:()=>this.setState({showPending:!s.showPending}),
+      showPending:s.showPending, pendingEmpty:pend.length===0,
+      pendingRows:pend.map(p=>({...p,style:'display:flex;justify-content:space-between;gap:12px;font-size:11.5px;padding-top:6px'})),
+      pendingPanelStyle:'padding:12px 16px;border-bottom:1px solid '+t.line+';background:'+t.head+';color:'+t.text,
+      publishStyle:'background:'+t.accent+';color:'+t.accentFg+';border:1px solid '+t.accent+";border-radius:6px;padding:6px 12px;font:500 12.5px 'IBM Plex Sans',sans-serif;cursor:pointer;opacity:"+(pend.length?1:.5),
+      publishLabel:s.published?'Published '+s.published+' to PR #142':'Publish to PR #142',
+      publish:()=>{if(pend.length) this.setState(st=>({published:pend.length,committed:{...st.committed,...st.verdicts},verdicts:{},showPending:false}));},
+      headerRowStyle:'display:grid;grid-template-columns:'+nameCol+' repeat(10,1fr);position:sticky;top:0;z-index:2;background:'+t.head+';border-bottom:1px solid '+t.lineStrong,
+      headerNameStyle:"padding:8px 14px;font:600 10px 'IBM Plex Sans',sans-serif;letter-spacing:.09em;text-transform:uppercase;color:"+t.mute,
+      dbHeads:DBS.map(db=>({label:db.label,style:"padding:8px 4px;text-align:center;font:600 10px 'IBM Plex Sans',sans-serif;letter-spacing:.05em;text-transform:uppercase;color:"+t.mute+';border-left:1px solid '+t.line})),
+      emptyStyle:'padding:32px;text-align:center;font-size:12.5px;color:'+t.mute,
+      legendStyle:'padding:9px 16px;border-top:1px solid '+t.line+';font-size:11.5px;color:'+t.mute+';background:'+t.head,
+      panelOpen:!!(a&&am), panel, closePanel:()=>this.setState({active:null}),
+      confirmActive:()=>{if(a)this.setVerdict(a.di,a.db,a.id,'ok');},
+      rejectActive:()=>{if(a)this.setVerdict(a.di,a.db,a.id,'bad');},
+      nextItem:()=>this.nextOpen(),
+      panelStyle:'width:400px;flex-shrink:0;border-left:1px solid '+t.lineStrong+';background:'+t.band+';display:flex;flex-direction:column;overflow-y:auto',
+      panelHeadStyle:'padding:12px 16px;border-bottom:1px solid '+t.line+';background:'+t.surface,
+      panelEyebrowStyle:"font:600 10.5px 'IBM Plex Sans',sans-serif;letter-spacing:.1em;text-transform:uppercase;color:"+(ast==='ok'?t.okFg:ast==='bad'?t.badFg:t.predFg),
+      panelTitleStyle:"margin-top:6px;font:600 15px/1.3 'IBM Plex Sans',sans-serif;color:"+t.text,
+      panelSubStyle:"margin-top:3px;font:400 11px 'IBM Plex Mono',monospace;color:"+t.faint,
+      panelSwitchWrapStyle:'padding:11px 16px;border-bottom:1px solid '+t.line+';background:'+t.head,
+      panelSwitchHeadStyle:"font:600 10px 'IBM Plex Sans',sans-serif;letter-spacing:.09em;text-transform:uppercase;color:"+t.faint,
+      panelIdBlockStyle:'padding:14px 16px;border-bottom:1px solid '+t.line,
+      panelIdStyle:"font:500 13px 'IBM Plex Mono',monospace;color:"+t.text,
+      panelLabelStyle:'margin-top:3px;font-size:11.5px;color:'+t.mute+';line-height:1.5',
+      panelOpenBtnStyle:'flex:1;text-align:center;padding:9px 12px;border-radius:6px;background:'+t.accent+';color:'+t.accentFg+';font-size:12.5px;font-weight:500;cursor:pointer',
+      panelCopyBtnStyle:'padding:9px 12px;border-radius:6px;border:1px solid '+t.lineStrong+';color:'+t.text+';font-size:12.5px;cursor:pointer',
+      panelNoteStyle:'margin-top:8px;font-size:11px;color:'+t.mute,
+      panelCheckWrapStyle:'padding:14px 16px;border-bottom:1px solid '+t.line,
+      panelCheckHeadStyle:"font:600 10px 'IBM Plex Sans',sans-serif;letter-spacing:.09em;text-transform:uppercase;color:"+t.faint,
+      panelFrameStyle:'min-height:200px;display:flex;align-items:center;justify-content:center;color:'+t.faint+';font-size:11.5px;background:'+t.surface+';border-bottom:1px solid '+t.line,
+      panelActionsStyle:'padding:14px 16px;display:flex;gap:8px;align-items:center;flex-wrap:wrap',
+      panelConfirmStyle:'background:'+(ast==='ok'?'#2F8F6F':'transparent')+';color:'+(ast==='ok'?'#fff':t.okFg)+';border:1px solid '+(ast==='ok'?'#2F8F6F':t.lineStrong)+";border-radius:6px;padding:8px 14px;font:600 12.5px 'IBM Plex Sans',sans-serif;cursor:pointer",
+      panelRejectStyle:'background:'+(ast==='bad'?'#B7382D':'transparent')+';color:'+(ast==='bad'?'#fff':t.badFg)+';border:1px solid '+(ast==='bad'?'#B7382D':t.lineStrong)+";border-radius:6px;padding:8px 12px;font:500 12.5px 'IBM Plex Sans',sans-serif;cursor:pointer",
+      panelSkipStyle:'background:transparent;color:'+t.text+';border:1px solid '+t.lineStrong+";border-radius:6px;padding:8px 12px;font:500 12.5px 'IBM Plex Sans',sans-serif;cursor:pointer",
+      panelFootStyle:'padding:10px 16px;border-top:1px solid '+t.line+';font-size:11px;color:'+t.mute+';background:'+t.head
+    };
+  }
+}
+</script>
+</body>
+</html>

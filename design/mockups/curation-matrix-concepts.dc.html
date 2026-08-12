@@ -1,0 +1,535 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet data-dc-atomics><meta name="design_doc_mode" content="canvas">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>body{margin:0;background:#F4F6F8;font-family:"IBM Plex Sans",system-ui,sans-serif}a{color:#155160}a:hover{color:#0F2840}</style></helmet>
+
+<section style="padding:40px 44px 32px;border-bottom:1px solid rgba(15,40,64,.08)" id="t1">
+  <div style="display:flex;align-items:baseline;gap:10px;margin:0 0 8px">
+    <a href="#t1" style="font:600 10px 'IBM Plex Mono',monospace;padding:3px 7px;background:#0F2840;color:#fff;border-radius:4px;text-decoration:none">1</a>
+    <span style="font:600 13px/1.2 'IBM Plex Sans',sans-serif;color:#0F2840">Simplifying cross-reference curation in the matrix</span>
+  </div>
+  <p style="margin:0 0 24px;max-width:80ch;font:400 12.5px/1.6 'IBM Plex Sans',sans-serif;color:#5C6675">Real ARI data throughout (diseases and ids from <span style="font-family:'IBM Plex Mono',monospace">ari.sssom.tsv</span> and <span style="font-family:'IBM Plex Mono',monospace">ari.predicted.sssom.tsv</span>). Two directions, each in light and dark: <a href="#1a" style="text-decoration:none;font-family:'IBM Plex Mono',monospace">1a</a> keeps the familiar spreadsheet grid with ids on show; <a href="#1c" style="text-decoration:none;font-family:'IBM Plex Mono',monospace">1c</a> trades ids for state so all ten databases fit, and opens one disease at a time. No bulk verdicts anywhere — every judgment is made by a curator on a single mapping.</p>
+  <div style="display:flex;flex-wrap:wrap;gap:36px;align-items:flex-start">
+
+    <div id="1a" style="flex:none;display:flex;flex-direction:column;gap:9px;scroll-margin-top:16px">
+      <div style="display:flex;align-items:baseline;gap:8px;font:400 11px/1.3 'IBM Plex Sans',sans-serif;color:#5C6675"><a href="#1a" style="font:600 10.5px 'IBM Plex Mono',monospace;padding:3px 7px;background:rgba(15,40,64,.08);color:#0F2840;border-radius:5px;text-decoration:none">1a</a>Banded matrix — same grid, distinct rows, no horizontal scroll</div>
+      <div style="width:1280px;max-width:100%;background:#fff;border:1px solid #DDE3EA;border-radius:8px;box-shadow:0 1px 3px rgba(15,40,64,.06);overflow:hidden">
+
+        <div style="display:flex;align-items:center;gap:14px;padding:12px 16px;border-bottom:1px solid #DDE3EA;background:#fff">
+          <div style="font:600 15px/1 'IBM Plex Sans',sans-serif;color:#0F2840">Cross-reference review</div>
+          <div style="display:flex;align-items:center;gap:7px;padding:6px 10px;border:1px solid #DDE3EA;border-radius:6px;width:220px;color:#8A93A2;font-size:12.5px"><span>⌕</span><span>Filter diseases or ids</span></div>
+          <div style="display:flex;border:1px solid #DDE3EA;border-radius:6px;overflow:hidden;font-size:12px">
+            <span style="padding:5px 11px;background:#0F2840;color:#fff">Needs review</span>
+            <span style="padding:5px 11px;color:#5C6675">Predicted only</span>
+            <span style="padding:5px 11px;color:#5C6675">All 1,204</span>
+          </div>
+          <div style="flex:1"></div>
+          <div style="display:flex;align-items:center;gap:8px;font-size:12px;color:#5C6675"><span style="font-family:'IBM Plex Mono',monospace;color:#0F2840;font-weight:600">312</span>/1,204 diseases complete
+            <span style="display:inline-block;width:110px;height:6px;border-radius:99px;background:#E3E8EE;overflow:hidden"><span style="display:block;width:26%;height:100%;background:#2F8F6F"></span></span>
+          </div>
+          <div style="display:flex;align-items:center;gap:6px;padding:5px 10px;border:1px solid #C2CAD4;border-radius:6px;font-size:12px;color:#0F2840;background:#F4F6F8"><span style="width:7px;height:7px;border-radius:99px;background:#B5841A;display:inline-block"></span>9 diseases pending</div>
+          <button style="background:#1F6B7A;color:#fff;border:1px solid #1F6B7A;border-radius:6px;padding:6px 12px;font:500 12.5px 'IBM Plex Sans',sans-serif;cursor:pointer">Publish to PR #142</button>
+        </div>
+
+        <div style="display:flex;gap:16px;align-items:flex-start;padding:10px 16px;border-bottom:1px solid #DDE3EA;background:#EAEEF2">
+          <div style="width:300px;border:1px solid #C2CAD4;border-radius:8px;background:#fff;padding:11px 13px;box-shadow:0 1px 3px rgba(15,40,64,.06)">
+            <div style="font:600 10px 'IBM Plex Sans',sans-serif;letter-spacing:.1em;text-transform:uppercase;color:#5C6675">Pending list — how it is built</div>
+            <div style="margin-top:7px;font-size:11.5px;line-height:1.55;color:#0F2840">Every verdict you make is stored per id as <span style="font-family:'IBM Plex Mono',monospace;font-size:10.5px">disease | database | id</span> in your saved review session. The tray groups those keys by disease and counts the ones not yet in a published commit.</div>
+            <div style="margin-top:9px;display:flex;flex-direction:column;gap:5px;font-size:11.5px;color:#0F2840">
+              <span style="display:flex;justify-content:space-between"><span>Acquired hemophilia</span><span style="font-family:'IBM Plex Mono',monospace;color:#5C6675">3 confirmed · 1 flagged</span></span>
+              <span style="display:flex;justify-content:space-between"><span>Addison's disease</span><span style="font-family:'IBM Plex Mono',monospace;color:#5C6675">2 confirmed</span></span>
+              <span style="display:flex;justify-content:space-between"><span>Alopecia areata</span><span style="font-family:'IBM Plex Mono',monospace;color:#5C6675">1 edited id</span></span>
+              <span style="color:#5C6675">and 6 more</span>
+            </div>
+            <div style="margin-top:9px;padding-top:8px;border-top:1px solid #DDE3EA;font-size:11px;color:#5C6675">Publish sends all nine as one PR; nothing leaves the session until then.</div>
+          </div>
+          <div style="flex:1;display:flex;flex-direction:column;gap:8px">
+            <div style="display:flex;align-items:center;gap:10px;font-size:11.5px;color:#5C6675">
+              <span style="font-weight:600;color:#0F2840">Columns</span>
+              <span style="padding:3px 9px;border-radius:99px;background:#fff;border:1px solid #C2CAD4;color:#0F2840">MONDO</span>
+              <span style="padding:3px 9px;border-radius:99px;background:#fff;border:1px solid #C2CAD4;color:#0F2840">SNOMED</span>
+              <span style="padding:3px 9px;border-radius:99px;background:#fff;border:1px solid #C2CAD4;color:#0F2840">DOID</span>
+              <span style="padding:3px 9px;border-radius:99px;background:#fff;border:1px solid #C2CAD4;color:#0F2840">ICD-10</span>
+              <span style="padding:3px 9px;border-radius:99px;background:#ECF4F5;border:1px dashed #7AB4BD;color:#155160">+ 6 folded into “Other”</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:14px;font-size:11.5px;color:#5C6675">
+              <span style="display:flex;align-items:center;gap:5px"><span style="width:10px;height:10px;border-radius:2px;background:#E2F1EB;box-shadow:inset 3px 0 0 #2F8F6F;display:inline-block"></span>confirmed</span>
+              <span style="display:flex;align-items:center;gap:5px"><span style="width:10px;height:10px;border-radius:2px;background:#F8EFD6;box-shadow:inset 3px 0 0 #B5841A;display:inline-block"></span>predicted, awaiting a curator</span>
+              <span style="display:flex;align-items:center;gap:5px"><span style="width:10px;height:10px;border-radius:2px;background:#FCF8EE;box-shadow:inset 3px 0 0 #DFC98A;display:inline-block"></span>predicted from a synonym only</span>
+              <span style="display:flex;align-items:center;gap:5px"><span style="width:10px;height:10px;border-radius:2px;background:#F4F6F8;border:1px solid #DDE3EA;display:inline-block"></span>no id</span>
+            </div>
+          </div>
+        </div>
+
+        <div style="display:grid;grid-template-columns:352px repeat(4,1fr) 236px;font-size:12.5px">
+          <div style="padding:9px 14px;background:#EAEEF2;border-bottom:1px solid #C2CAD4;font:600 11px/1 'IBM Plex Sans',sans-serif;letter-spacing:.09em;text-transform:uppercase;color:#5C6675">Disease</div>
+          <div style="padding:9px 12px;background:#EAEEF2;border-bottom:1px solid #C2CAD4;border-left:1px solid #DDE3EA;font:600 11px/1 'IBM Plex Sans',sans-serif;letter-spacing:.09em;text-transform:uppercase;color:#5C6675">MONDO</div>
+          <div style="padding:9px 12px;background:#EAEEF2;border-bottom:1px solid #C2CAD4;border-left:1px solid #DDE3EA;font:600 11px/1 'IBM Plex Sans',sans-serif;letter-spacing:.09em;text-transform:uppercase;color:#5C6675">SNOMED</div>
+          <div style="padding:9px 12px;background:#EAEEF2;border-bottom:1px solid #C2CAD4;border-left:1px solid #DDE3EA;font:600 11px/1 'IBM Plex Sans',sans-serif;letter-spacing:.09em;text-transform:uppercase;color:#5C6675">DOID</div>
+          <div style="padding:9px 12px;background:#EAEEF2;border-bottom:1px solid #C2CAD4;border-left:1px solid #DDE3EA;font:600 11px/1 'IBM Plex Sans',sans-serif;letter-spacing:.09em;text-transform:uppercase;color:#5C6675">ICD-10</div>
+          <div style="padding:9px 12px;background:#EAEEF2;border-bottom:1px solid #C2CAD4;border-left:1px solid #DDE3EA;font:600 11px/1 'IBM Plex Sans',sans-serif;letter-spacing:.09em;text-transform:uppercase;color:#5C6675">Other 6</div>
+
+          <sc-for list="{{ rowsA }}" as="r" hint-placeholder-count="7">
+            <div style="{{ r.nameStyle }}">
+              <div style="display:flex;align-items:baseline;gap:8px">
+                <span style="font:600 13px/1.35 'IBM Plex Sans',sans-serif;color:#0F2840">{{ r.name }}</span>
+                <span style="font:400 10.5px 'IBM Plex Mono',monospace;color:#8A93A2">{{ r.ari }}</span>
+              </div>
+              <div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:5px">
+                <sc-for list="{{ r.synonyms }}" as="s" hint-placeholder-count="1"><span style="font-size:10.5px;color:#5C6675;background:#F4F6F8;border:1px solid #DDE3EA;border-radius:99px;padding:1px 8px">{{ s }}</span></sc-for>
+              </div>
+              <div style="display:flex;align-items:center;gap:9px;margin-top:8px">
+                <span style="display:inline-block;width:76px;height:5px;border-radius:99px;background:#E3E8EE;overflow:hidden"><span style="{{ r.barStyle }}"></span></span>
+                <span style="font:500 10.5px 'IBM Plex Mono',monospace;color:#5C6675">{{ r.done }} databases</span>
+              </div>
+            </div>
+            <sc-for list="{{ r.cells }}" as="c" hint-placeholder-count="5">
+              <div style="{{ c.style }}">
+                <sc-if value="{{ c.hasId }}" hint-placeholder-val="{{ true }}">
+                  <div style="display:flex;align-items:center;gap:6px"><span style="{{ c.dotStyle }}"></span><span style="font:500 11.5px 'IBM Plex Mono',monospace;color:#0F2840">{{ c.id }}</span></div>
+                  <div style="{{ c.labelStyle }}">{{ c.label }}</div>
+                  <div style="{{ c.actStyle }}"><span style="padding:2px 8px;border:1px solid #2F8F6F;color:#2F8F6F;border-radius:5px;background:#fff">✓ Confirm</span><span style="padding:2px 8px;border:1px solid #C2CAD4;color:#5C6675;border-radius:5px;background:#fff">✕</span></div>
+                </sc-if>
+                <sc-if value="{{ c.isOther }}" hint-placeholder-val="{{ true }}">
+                  <div style="display:flex;flex-wrap:wrap;gap:4px">
+                    <sc-for list="{{ c.others }}" as="o" hint-placeholder-count="3"><span style="{{ o.style }}">{{ o.text }}</span></sc-for>
+                  </div>
+                </sc-if>
+                <sc-if value="{{ c.empty }}" hint-placeholder-val="{{ true }}"><span style="color:#8A93A2;font-size:12px">+</span></sc-if>
+              </div>
+            </sc-for>
+          </sc-for>
+        </div>
+        <div style="padding:10px 16px;border-top:1px solid #DDE3EA;font-size:11.5px;color:#5C6675;background:#F4F6F8">Rows are banded and separated by a strong rule; the disease column carries its own progress so “what is left” reads down one edge. Verdict buttons appear on the hovered cell only, one mapping at a time.</div>
+      </div>
+    </div>
+
+    <div id="1d" style="flex:none;display:flex;flex-direction:column;gap:9px;scroll-margin-top:16px">
+      <div style="display:flex;align-items:baseline;gap:8px;font:400 11px/1.3 'IBM Plex Sans',sans-serif;color:#5C6675"><a href="#1d" style="font:600 10.5px 'IBM Plex Mono',monospace;padding:3px 7px;background:rgba(15,40,64,.08);color:#0F2840;border-radius:5px;text-decoration:none">1d</a><a href="#1a" style="font-family:'IBM Plex Mono',monospace;text-decoration:none">1a</a> in dark mode</div>
+      <div style="width:1280px;max-width:100%;background:#0F2840;border:1px solid #1F3A58;border-radius:8px;overflow:hidden">
+        <div style="display:flex;align-items:center;gap:14px;padding:12px 16px;border-bottom:1px solid #1F3A58;background:#081A2C">
+          <div style="font:600 15px/1 'IBM Plex Sans',sans-serif;color:#E3E8EE">Cross-reference review</div>
+          <div style="display:flex;align-items:center;gap:7px;padding:6px 10px;border:1px solid #1F3A58;border-radius:6px;width:220px;color:#8A93A2;font-size:12.5px;background:#0F2840"><span>⌕</span><span>Filter diseases or ids</span></div>
+          <div style="display:flex;border:1px solid #1F3A58;border-radius:6px;overflow:hidden;font-size:12px">
+            <span style="padding:5px 11px;background:#9DD3D6;color:#081A2C">Needs review</span>
+            <span style="padding:5px 11px;color:#8A93A2">Predicted only</span>
+            <span style="padding:5px 11px;color:#8A93A2">All 1,204</span>
+          </div>
+          <div style="flex:1"></div>
+          <div style="display:flex;align-items:center;gap:8px;font-size:12px;color:#8A93A2"><span style="font-family:'IBM Plex Mono',monospace;color:#E3E8EE;font-weight:600">312</span>/1,204 diseases complete
+            <span style="display:inline-block;width:110px;height:6px;border-radius:99px;background:#1F3A58;overflow:hidden"><span style="display:block;width:26%;height:100%;background:#7FC9AB"></span></span>
+          </div>
+          <div style="display:flex;align-items:center;gap:6px;padding:5px 10px;border:1px solid #1F3A58;border-radius:6px;font-size:12px;color:#E3E8EE"><span style="width:7px;height:7px;border-radius:99px;background:#DCB865;display:inline-block"></span>9 diseases pending</div>
+          <button style="background:#4D96A2;color:#081A2C;border:1px solid #4D96A2;border-radius:6px;padding:6px 12px;font:600 12.5px 'IBM Plex Sans',sans-serif;cursor:pointer">Publish to PR #142</button>
+        </div>
+        <div style="display:flex;align-items:center;gap:14px;padding:9px 16px;border-bottom:1px solid #1F3A58;background:#0C2438;font-size:11.5px;color:#8A93A2">
+          <span style="display:flex;align-items:center;gap:5px"><span style="width:10px;height:10px;border-radius:2px;background:rgba(47,143,111,.28);box-shadow:inset 3px 0 0 #2F8F6F;display:inline-block"></span>confirmed</span>
+          <span style="display:flex;align-items:center;gap:5px"><span style="width:10px;height:10px;border-radius:2px;background:rgba(181,132,26,.28);box-shadow:inset 3px 0 0 #B5841A;display:inline-block"></span>predicted, awaiting a curator</span>
+          <span style="display:flex;align-items:center;gap:5px"><span style="width:10px;height:10px;border-radius:2px;background:rgba(181,132,26,.14);box-shadow:inset 3px 0 0 #8A6412;display:inline-block"></span>predicted from a synonym only</span>
+          <span style="display:flex;align-items:center;gap:5px"><span style="width:10px;height:10px;border-radius:2px;background:#0F2840;border:1px solid #1F3A58;display:inline-block"></span>no id</span>
+        </div>
+        <div style="display:grid;grid-template-columns:352px repeat(4,1fr) 236px;font-size:12.5px">
+          <div style="padding:9px 14px;background:#0C2438;border-bottom:1px solid #1F3A58;font:600 11px/1 'IBM Plex Sans',sans-serif;letter-spacing:.09em;text-transform:uppercase;color:#8A93A2">Disease</div>
+          <sc-for list="{{ coreLabels }}" as="d" hint-placeholder-count="5"><div style="padding:9px 12px;background:#0C2438;border-bottom:1px solid #1F3A58;border-left:1px solid #1F3A58;font:600 11px/1 'IBM Plex Sans',sans-serif;letter-spacing:.09em;text-transform:uppercase;color:#8A93A2">{{ d }}</div></sc-for>
+          <sc-for list="{{ rowsADark }}" as="r" hint-placeholder-count="5">
+            <div style="{{ r.nameStyle }}">
+              <div style="display:flex;align-items:baseline;gap:8px">
+                <span style="font:600 13px/1.35 'IBM Plex Sans',sans-serif;color:#E3E8EE">{{ r.name }}</span>
+                <span style="font:400 10.5px 'IBM Plex Mono',monospace;color:#8A93A2">{{ r.ari }}</span>
+              </div>
+              <div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:5px">
+                <sc-for list="{{ r.synonyms }}" as="s" hint-placeholder-count="1"><span style="font-size:10.5px;color:#A9CFD5;background:#0C2438;border:1px solid #1F3A58;border-radius:99px;padding:1px 8px">{{ s }}</span></sc-for>
+              </div>
+              <div style="display:flex;align-items:center;gap:9px;margin-top:8px">
+                <span style="display:inline-block;width:76px;height:5px;border-radius:99px;background:#1F3A58;overflow:hidden"><span style="{{ r.barStyle }}"></span></span>
+                <span style="font:500 10.5px 'IBM Plex Mono',monospace;color:#8A93A2">{{ r.done }} databases</span>
+              </div>
+            </div>
+            <sc-for list="{{ r.cells }}" as="c" hint-placeholder-count="5">
+              <div style="{{ c.style }}">
+                <sc-if value="{{ c.hasId }}" hint-placeholder-val="{{ true }}">
+                  <div style="display:flex;align-items:center;gap:6px"><span style="{{ c.dotStyle }}"></span><span style="font:500 11.5px 'IBM Plex Mono',monospace;color:#E3E8EE">{{ c.id }}</span></div>
+                  <div style="{{ c.labelStyle }}">{{ c.label }}</div>
+                  <div style="{{ c.actStyle }}"><span style="padding:2px 8px;border:1px solid #7FC9AB;color:#7FC9AB;border-radius:5px">✓ Confirm</span><span style="padding:2px 8px;border:1px solid #1F3A58;color:#8A93A2;border-radius:5px">✕</span></div>
+                </sc-if>
+                <sc-if value="{{ c.isOther }}" hint-placeholder-val="{{ true }}">
+                  <div style="display:flex;flex-wrap:wrap;gap:4px">
+                    <sc-for list="{{ c.others }}" as="o" hint-placeholder-count="3"><span style="{{ o.style }}">{{ o.text }}</span></sc-for>
+                  </div>
+                </sc-if>
+                <sc-if value="{{ c.empty }}" hint-placeholder-val="{{ true }}"><span style="color:#5C6675;font-size:12px">+</span></sc-if>
+              </div>
+            </sc-for>
+          </sc-for>
+        </div>
+      </div>
+    </div>
+
+    <div id="1c" style="flex:none;display:flex;flex-direction:column;gap:9px;scroll-margin-top:16px">
+      <div style="display:flex;align-items:baseline;gap:8px;font:400 11px/1.3 'IBM Plex Sans',sans-serif;color:#5C6675"><a href="#1c" style="font:600 10.5px 'IBM Plex Mono',monospace;padding:3px 7px;background:rgba(15,40,64,.08);color:#0F2840;border-radius:5px;text-decoration:none">1c</a>Expanding matrix — all ten databases visible; one disease opens in place</div>
+      <div style="width:1280px;max-width:100%;background:#fff;border:1px solid #DDE3EA;border-radius:8px;box-shadow:0 1px 3px rgba(15,40,64,.06);overflow:hidden">
+        <div style="display:flex;align-items:center;gap:14px;padding:12px 16px;border-bottom:1px solid #DDE3EA">
+          <div style="font:600 15px/1 'IBM Plex Sans',sans-serif;color:#0F2840">Cross-reference review</div>
+          <div style="display:flex;align-items:center;gap:7px;padding:6px 10px;border:1px solid #DDE3EA;border-radius:6px;width:200px;color:#8A93A2;font-size:12.5px"><span>⌕</span><span>Filter</span></div>
+          <div style="flex:1"></div>
+          <span style="font-size:12px;color:#5C6675">Density</span>
+          <div style="display:flex;border:1px solid #DDE3EA;border-radius:6px;overflow:hidden;font-size:12px"><span style="padding:5px 11px;color:#5C6675">Compact</span><span style="padding:5px 11px;background:#0F2840;color:#fff">Comfortable</span></div>
+          <button style="background:#1F6B7A;color:#fff;border:1px solid #1F6B7A;border-radius:6px;padding:6px 12px;font:500 12.5px 'IBM Plex Sans',sans-serif;cursor:pointer">Publish to PR #142</button>
+        </div>
+
+        <div style="display:grid;grid-template-columns:320px repeat(10,1fr);font-size:11.5px;border-bottom:1px solid #C2CAD4;background:#EAEEF2">
+          <div style="padding:8px 14px;font:600 10px 'IBM Plex Sans',sans-serif;letter-spacing:.09em;text-transform:uppercase;color:#5C6675">Disease</div>
+          <sc-for list="{{ dbLabels }}" as="d" hint-placeholder-count="10"><div style="padding:8px 6px;text-align:center;font:600 10px 'IBM Plex Sans',sans-serif;letter-spacing:.06em;text-transform:uppercase;color:#5C6675;border-left:1px solid #DDE3EA">{{ d }}</div></sc-for>
+        </div>
+
+        <sc-for list="{{ rowsC }}" as="r" hint-placeholder-count="4">
+          <div style="{{ r.rowStyle }}">
+            <div style="{{ r.namePad }}">
+              <span style="color:#8A93A2;font-size:10px">▸</span>
+              <span style="font:600 12.5px 'IBM Plex Sans',sans-serif;color:#0F2840">{{ r.name }}</span>
+              <span style="font:400 10px 'IBM Plex Mono',monospace;color:#8A93A2">{{ r.done }}</span>
+            </div>
+            <sc-for list="{{ r.cells }}" as="c" hint-placeholder-count="10"><div style="{{ c.style }}">{{ c.glyph }}</div></sc-for>
+          </div>
+        </sc-for>
+
+        <div style="border-top:2px solid #0F2840;border-bottom:2px solid #0F2840;background:#FAFBFC">
+          <div style="display:flex;align-items:center;gap:12px;padding:14px 16px 10px">
+            <span style="color:#0F2840;font-size:12px">▾</span>
+            <span style="font:600 16px 'IBM Plex Sans',sans-serif;color:#0F2840">Antineutrophil cytoplasmic antibody positive vasculitis</span>
+            <span style="font:400 11px 'IBM Plex Mono',monospace;color:#8A93A2">ARI:0001017</span>
+            <span style="font-size:11px;color:#5C6675">ANCA-associated vasculitis · Churg Strauss syndrome</span>
+            <div style="flex:1"></div>
+            <span style="font-size:11.5px;color:#5C6675">1 confirmed · 6 predicted awaiting review · 3 with no id</span>
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:12px;padding:4px 16px 18px">
+            <sc-for list="{{ expandCards }}" as="c" hint-placeholder-count="10">
+              <div style="{{ c.cardStyle }}">
+                <div style="display:flex;align-items:center;justify-content:space-between"><span style="font:600 10.5px 'IBM Plex Sans',sans-serif;letter-spacing:.08em;text-transform:uppercase;color:#5C6675">{{ c.db }}</span><span style="{{ c.tagStyle }}">{{ c.tag }}</span></div>
+                <div style="margin-top:7px;font:500 11.5px 'IBM Plex Mono',monospace;color:#0F2840">{{ c.id }}</div>
+                <div style="margin-top:3px;font-size:11.5px;color:#5C6675;line-height:1.4">{{ c.label }}</div>
+                <div style="{{ c.actionsStyle }}"><span style="flex:1;text-align:center;padding:4px 0;border:1px solid #2F8F6F;color:#2F8F6F;border-radius:5px;background:#fff">✓</span><span style="flex:1;text-align:center;padding:4px 0;border:1px solid #C2CAD4;color:#B7382D;border-radius:5px;background:#fff">✕</span><span style="padding:4px 8px;border:1px solid #C2CAD4;color:#155160;border-radius:5px;background:#fff">↗</span></div>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+
+        <sc-for list="{{ rowsC2 }}" as="r" hint-placeholder-count="3">
+          <div style="{{ r.rowStyle }}">
+            <div style="{{ r.namePad }}">
+              <span style="color:#8A93A2;font-size:10px">▸</span>
+              <span style="font:600 12.5px 'IBM Plex Sans',sans-serif;color:#0F2840">{{ r.name }}</span>
+              <span style="font:400 10px 'IBM Plex Mono',monospace;color:#8A93A2">{{ r.done }}</span>
+            </div>
+            <sc-for list="{{ r.cells }}" as="c" hint-placeholder-count="10"><div style="{{ c.style }}">{{ c.glyph }}</div></sc-for>
+          </div>
+        </sc-for>
+
+        <div style="padding:10px 16px;border-top:1px solid #DDE3EA;font-size:11.5px;color:#5C6675;background:#F4F6F8">Collapsed rows show state, not ids, so all ten databases fit. ✓ confirmed · ● predicted · ○ predicted from a synonym only · blank no id. Each card carries its own verdict; there is no all-at-once action.</div>
+      </div>
+    </div>
+
+    <div id="1e" style="flex:none;display:flex;flex-direction:column;gap:9px;scroll-margin-top:16px">
+      <div style="display:flex;align-items:baseline;gap:8px;font:400 11px/1.3 'IBM Plex Sans',sans-serif;color:#5C6675"><a href="#1e" style="font:600 10.5px 'IBM Plex Mono',monospace;padding:3px 7px;background:rgba(15,40,64,.08);color:#0F2840;border-radius:5px;text-decoration:none">1e</a><a href="#1c" style="font-family:'IBM Plex Mono',monospace;text-decoration:none">1c</a> in dark mode</div>
+      <div style="width:1280px;max-width:100%;background:#0F2840;border:1px solid #1F3A58;border-radius:8px;overflow:hidden">
+        <div style="display:flex;align-items:center;gap:14px;padding:12px 16px;border-bottom:1px solid #1F3A58;background:#081A2C">
+          <div style="font:600 15px/1 'IBM Plex Sans',sans-serif;color:#E3E8EE">Cross-reference review</div>
+          <div style="display:flex;align-items:center;gap:7px;padding:6px 10px;border:1px solid #1F3A58;border-radius:6px;width:200px;color:#8A93A2;font-size:12.5px;background:#0F2840"><span>⌕</span><span>Filter</span></div>
+          <div style="flex:1"></div>
+          <span style="font-size:12px;color:#8A93A2">Density</span>
+          <div style="display:flex;border:1px solid #1F3A58;border-radius:6px;overflow:hidden;font-size:12px"><span style="padding:5px 11px;color:#8A93A2">Compact</span><span style="padding:5px 11px;background:#9DD3D6;color:#081A2C">Comfortable</span></div>
+          <button style="background:#4D96A2;color:#081A2C;border:1px solid #4D96A2;border-radius:6px;padding:6px 12px;font:600 12.5px 'IBM Plex Sans',sans-serif;cursor:pointer">Publish to PR #142</button>
+        </div>
+        <div style="display:grid;grid-template-columns:320px repeat(10,1fr);font-size:11.5px;border-bottom:1px solid #1F3A58;background:#0C2438">
+          <div style="padding:8px 14px;font:600 10px 'IBM Plex Sans',sans-serif;letter-spacing:.09em;text-transform:uppercase;color:#8A93A2">Disease</div>
+          <sc-for list="{{ dbLabels }}" as="d" hint-placeholder-count="10"><div style="padding:8px 6px;text-align:center;font:600 10px 'IBM Plex Sans',sans-serif;letter-spacing:.06em;text-transform:uppercase;color:#8A93A2;border-left:1px solid #1F3A58">{{ d }}</div></sc-for>
+        </div>
+        <sc-for list="{{ rowsCDark }}" as="r" hint-placeholder-count="4">
+          <div style="{{ r.rowStyle }}">
+            <div style="{{ r.namePad }}">
+              <span style="color:#5C6675;font-size:10px">▸</span>
+              <span style="font:600 12.5px 'IBM Plex Sans',sans-serif;color:#E3E8EE">{{ r.name }}</span>
+              <span style="font:400 10px 'IBM Plex Mono',monospace;color:#8A93A2">{{ r.done }}</span>
+            </div>
+            <sc-for list="{{ r.cells }}" as="c" hint-placeholder-count="10"><div style="{{ c.style }}">{{ c.glyph }}</div></sc-for>
+          </div>
+        </sc-for>
+        <div style="border-top:2px solid #9DD3D6;border-bottom:2px solid #9DD3D6;background:#0C2438">
+          <div style="display:flex;align-items:center;gap:12px;padding:14px 16px 10px">
+            <span style="color:#9DD3D6;font-size:12px">▾</span>
+            <span style="font:600 16px 'IBM Plex Sans',sans-serif;color:#E3E8EE">Antineutrophil cytoplasmic antibody positive vasculitis</span>
+            <span style="font:400 11px 'IBM Plex Mono',monospace;color:#8A93A2">ARI:0001017</span>
+            <div style="flex:1"></div>
+            <span style="font-size:11.5px;color:#8A93A2">1 confirmed · 6 predicted awaiting review · 3 with no id</span>
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:12px;padding:4px 16px 18px">
+            <sc-for list="{{ expandCardsDark }}" as="c" hint-placeholder-count="10">
+              <div style="{{ c.cardStyle }}">
+                <div style="display:flex;align-items:center;justify-content:space-between"><span style="font:600 10.5px 'IBM Plex Sans',sans-serif;letter-spacing:.08em;text-transform:uppercase;color:#8A93A2">{{ c.db }}</span><span style="{{ c.tagStyle }}">{{ c.tag }}</span></div>
+                <div style="margin-top:7px;font:500 11.5px 'IBM Plex Mono',monospace;color:#E3E8EE">{{ c.id }}</div>
+                <div style="margin-top:3px;font-size:11.5px;color:#8A93A2;line-height:1.4">{{ c.label }}</div>
+                <div style="{{ c.actionsStyle }}"><span style="flex:1;text-align:center;padding:4px 0;border:1px solid #7FC9AB;color:#7FC9AB;border-radius:5px">✓</span><span style="flex:1;text-align:center;padding:4px 0;border:1px solid #1F3A58;color:#D98A80;border-radius:5px">✕</span><span style="padding:4px 8px;border:1px solid #1F3A58;color:#A9CFD5;border-radius:5px">↗</span></div>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="1f" style="flex:none;display:flex;flex-direction:column;gap:9px;scroll-margin-top:16px">
+      <div style="display:flex;align-items:baseline;gap:8px;font:400 11px/1.3 'IBM Plex Sans',sans-serif;color:#5C6675"><a href="#1f" style="font:600 10.5px 'IBM Plex Mono',monospace;padding:3px 7px;background:rgba(15,40,64,.08);color:#0F2840;border-radius:5px;text-decoration:none">1f</a><a href="#1c" style="font-family:'IBM Plex Mono',monospace;text-decoration:none">1c</a> at compact density — 24 diseases per screen instead of 9</div>
+      <div style="width:1000px;max-width:100%;background:#fff;border:1px solid #DDE3EA;border-radius:8px;box-shadow:0 1px 3px rgba(15,40,64,.06);overflow:hidden">
+        <div style="display:flex;align-items:center;gap:12px;padding:9px 14px;border-bottom:1px solid #DDE3EA">
+          <div style="font:600 13.5px/1 'IBM Plex Sans',sans-serif;color:#0F2840">Cross-reference review</div>
+          <div style="flex:1"></div>
+          <span style="font-size:11.5px;color:#5C6675">Density</span>
+          <div style="display:flex;border:1px solid #DDE3EA;border-radius:6px;overflow:hidden;font-size:11.5px"><span style="padding:4px 10px;background:#0F2840;color:#fff">Compact</span><span style="padding:4px 10px;color:#5C6675">Comfortable</span></div>
+        </div>
+        <div style="display:grid;grid-template-columns:250px repeat(10,1fr);font-size:10.5px;border-bottom:1px solid #C2CAD4;background:#EAEEF2">
+          <div style="padding:5px 12px;font:600 9.5px 'IBM Plex Sans',sans-serif;letter-spacing:.09em;text-transform:uppercase;color:#5C6675">Disease</div>
+          <sc-for list="{{ dbLabels }}" as="d" hint-placeholder-count="10"><div style="padding:5px 4px;text-align:center;font:600 9.5px 'IBM Plex Sans',sans-serif;letter-spacing:.05em;text-transform:uppercase;color:#5C6675;border-left:1px solid #DDE3EA">{{ d }}</div></sc-for>
+        </div>
+        <sc-for list="{{ rowsCompact }}" as="r" hint-placeholder-count="14">
+          <div style="{{ r.rowStyle }}">
+            <div style="{{ r.namePad }}">
+              <span style="font:500 11px 'IBM Plex Sans',sans-serif;color:#0F2840;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ r.name }}</span>
+              <span style="font:400 9.5px 'IBM Plex Mono',monospace;color:#8A93A2;flex-shrink:0">{{ r.done }}</span>
+            </div>
+            <sc-for list="{{ r.cells }}" as="c" hint-placeholder-count="10"><div style="{{ c.style }}">{{ c.glyph }}</div></sc-for>
+          </div>
+        </sc-for>
+        <div style="padding:8px 14px;border-top:1px solid #DDE3EA;font-size:11px;color:#5C6675;background:#F4F6F8">Compact drops synonyms and the progress bar, keeps the state glyphs and the x/10 count. Clicking a row still opens the same review strip.</div>
+      </div>
+    </div>
+
+    <div id="1g" style="flex:none;display:flex;flex-direction:column;gap:9px;scroll-margin-top:16px">
+      <div style="display:flex;align-items:baseline;gap:8px;font:400 11px/1.3 'IBM Plex Sans',sans-serif;color:#5C6675"><a href="#1g" style="font:600 10.5px 'IBM Plex Mono',monospace;padding:3px 7px;background:rgba(15,40,64,.08);color:#0F2840;border-radius:5px;text-decoration:none">1g</a>Side panel — one database cell selected, for both previewable and non-previewable sources</div>
+      <div style="display:flex;gap:24px;flex-wrap:wrap;align-items:flex-start">
+        <div style="width:1000px;max-width:100%;background:#fff;border:1px solid #DDE3EA;border-radius:8px;box-shadow:0 1px 3px rgba(15,40,64,.06);overflow:hidden;display:flex;height:660px">
+          <div style="flex:1;min-width:0;display:flex;flex-direction:column;border-right:1px solid #C2CAD4">
+            <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid #DDE3EA;font:600 13.5px 'IBM Plex Sans',sans-serif;color:#0F2840">Cross-reference review<span style="font-weight:400;font-size:11.5px;color:#5C6675">MONDO cell selected</span></div>
+            <div style="display:grid;grid-template-columns:200px repeat(10,1fr);font-size:10.5px;border-bottom:1px solid #C2CAD4;background:#EAEEF2">
+              <div style="padding:6px 12px;font:600 9.5px 'IBM Plex Sans',sans-serif;letter-spacing:.09em;text-transform:uppercase;color:#5C6675">Disease</div>
+              <sc-for list="{{ dbLabels }}" as="d" hint-placeholder-count="10"><div style="padding:6px 3px;text-align:center;font:600 9px 'IBM Plex Sans',sans-serif;letter-spacing:.04em;text-transform:uppercase;color:#5C6675;border-left:1px solid #DDE3EA">{{ d }}</div></sc-for>
+            </div>
+            <sc-for list="{{ rowsPanel }}" as="r" hint-placeholder-count="12">
+              <div style="{{ r.rowStyle }}">
+                <div style="{{ r.namePad }}">
+                  <span style="font:500 11px 'IBM Plex Sans',sans-serif;color:#0F2840;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ r.name }}</span>
+                  <span style="font:400 9.5px 'IBM Plex Mono',monospace;color:#8A93A2;flex-shrink:0">{{ r.done }}</span>
+                </div>
+                <sc-for list="{{ r.cells }}" as="c" hint-placeholder-count="10"><div style="{{ c.style }}">{{ c.glyph }}</div></sc-for>
+              </div>
+            </sc-for>
+          </div>
+          <div style="width:420px;flex-shrink:0;display:flex;flex-direction:column;background:#FAFBFC">
+            <div style="padding:12px 16px;border-bottom:1px solid #DDE3EA;background:#fff">
+              <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+                <span style="font:600 10.5px 'IBM Plex Sans',sans-serif;letter-spacing:.1em;text-transform:uppercase;color:#B5841A">Predicted · exact label match</span>
+                <span style="font-size:14px;color:#8A93A2">✕</span>
+              </div>
+              <div style="margin-top:6px;font:600 15px/1.3 'IBM Plex Sans',sans-serif;color:#0F2840">Acute febrile mucocutaneous lymph node syndrome</div>
+              <div style="margin-top:3px;font:400 11px 'IBM Plex Mono',monospace;color:#8A93A2">ARI:0001004 → MONDO</div>
+            </div>
+            <div style="padding:12px 16px;border-bottom:1px solid #DDE3EA;display:flex;gap:8px;align-items:center;background:#fff">
+              <button style="background:#2F8F6F;color:#fff;border:1px solid #2F8F6F;border-radius:6px;padding:8px 14px;font:600 12.5px 'IBM Plex Sans',sans-serif;cursor:pointer">✓ Confirm exact match</button>
+              <button style="background:#fff;color:#B7382D;border:1px solid #C2CAD4;border-radius:6px;padding:8px 12px;font:500 12.5px 'IBM Plex Sans',sans-serif;cursor:pointer">✕ Not the same</button>
+              <button style="background:#fff;color:#0F2840;border:1px solid #C2CAD4;border-radius:6px;padding:8px 12px;font:500 12.5px 'IBM Plex Sans',sans-serif;cursor:pointer">Skip</button>
+            </div>
+            <div style="padding:12px 16px;border-bottom:1px solid #DDE3EA;background:#fff">
+              <label style="font-size:11px;color:#5C6675">MONDO id — comma separated</label>
+              <div style="display:flex;gap:8px;margin-top:5px"><span style="flex:1;padding:7px 10px;border:1px solid #C2CAD4;border-radius:6px;font:500 12px 'IBM Plex Mono',monospace;color:#0F2840;background:#fff">MONDO:0012727</span><button style="background:#1F6B7A;color:#fff;border:1px solid #1F6B7A;border-radius:6px;padding:7px 14px;font:500 12.5px 'IBM Plex Sans',sans-serif;cursor:pointer">Save</button></div>
+            </div>
+            <div style="padding:10px 16px;display:flex;align-items:center;gap:8px;border-bottom:1px solid #DDE3EA;background:#fff;font-size:11.5px;color:#5C6675">Source page embeds below<div style="flex:1"></div><span style="padding:4px 9px;border:1px solid #C2CAD4;border-radius:6px;color:#0F2840;background:#fff">Open MONDO ↗</span><span style="padding:4px 9px;border:1px solid #C2CAD4;border-radius:6px;color:#0F2840;background:#fff">Copy id</span></div>
+            <div style="flex:1;display:flex;align-items:center;justify-content:center;color:#8A93A2;font-size:11.5px;background:#fff">[ embedded ebi.ac.uk/ols4 page ]</div>
+          </div>
+        </div>
+
+        <div style="width:420px;background:#fff;border:1px solid #DDE3EA;border-radius:8px;box-shadow:0 1px 3px rgba(15,40,64,.06);overflow:hidden">
+          <div style="padding:12px 16px;border-bottom:1px solid #DDE3EA">
+            <div style="font:600 10.5px 'IBM Plex Sans',sans-serif;letter-spacing:.1em;text-transform:uppercase;color:#B5841A">Predicted · no preview available</div>
+            <div style="margin-top:6px;font:600 15px/1.3 'IBM Plex Sans',sans-serif;color:#0F2840">Acquired hemophilia</div>
+            <div style="margin-top:3px;font:400 11px 'IBM Plex Mono',monospace;color:#8A93A2">ARI:0001002 → UMLS</div>
+          </div>
+          <div style="padding:14px 16px;border-bottom:1px solid #DDE3EA;background:#F4F6F8">
+            <div style="font:500 13px 'IBM Plex Mono',monospace;color:#0F2840">umls:C1096116</div>
+            <div style="margin-top:3px;font-size:11.5px;color:#5C6675">acquired hemophilia · predicted from an exact label match</div>
+            <div style="display:flex;gap:8px;margin-top:10px"><span style="flex:1;text-align:center;padding:10px 12px;border-radius:6px;background:#1F6B7A;color:#fff;font-size:12.5px;font-weight:500">Open UMLS in a new tab ↗</span><span style="padding:10px 12px;border-radius:6px;border:1px solid #C2CAD4;color:#0F2840;font-size:12.5px;background:#fff">Copy id</span></div>
+            <div style="margin-top:8px;font-size:11px;color:#5C6675">UMLS blocks embedding and requires a login, so nothing is previewed here.</div>
+          </div>
+          <div style="padding:14px 16px;border-bottom:1px solid #DDE3EA">
+            <div style="font:600 10px 'IBM Plex Sans',sans-serif;letter-spacing:.09em;text-transform:uppercase;color:#8A93A2">Checked in the source</div>
+            <div style="margin-top:8px;display:flex;flex-direction:column;gap:7px;font-size:12px;color:#0F2840">
+              <span style="display:flex;gap:8px;align-items:center"><span style="width:15px;height:15px;border-radius:4px;border:1px solid #2F8F6F;background:#2F8F6F;color:#fff;font-size:10px;display:inline-flex;align-items:center;justify-content:center">✓</span>Label matches</span>
+              <span style="display:flex;gap:8px;align-items:center"><span style="width:15px;height:15px;border-radius:4px;border:1px solid #2F8F6F;background:#2F8F6F;color:#fff;font-size:10px;display:inline-flex;align-items:center;justify-content:center">✓</span>Synonyms overlap</span>
+              <span style="display:flex;gap:8px;align-items:center;color:#5C6675"><span style="width:15px;height:15px;border-radius:4px;border:1px solid #C2CAD4;display:inline-block"></span>Definition read</span>
+              <span style="display:flex;gap:8px;align-items:center;color:#5C6675"><span style="width:15px;height:15px;border-radius:4px;border:1px solid #C2CAD4;display:inline-block"></span>Parents plausible</span>
+            </div>
+          </div>
+          <div style="padding:14px 16px;display:flex;gap:8px;align-items:center">
+            <button style="background:#2F8F6F;color:#fff;border:1px solid #2F8F6F;border-radius:6px;padding:8px 14px;font:600 12.5px 'IBM Plex Sans',sans-serif;cursor:pointer">✓ Confirm</button>
+            <button style="background:#fff;color:#B7382D;border:1px solid #C2CAD4;border-radius:6px;padding:8px 12px;font:500 12.5px 'IBM Plex Sans',sans-serif;cursor:pointer">✕ Not the same</button>
+            <button style="background:#fff;color:#0F2840;border:1px solid #C2CAD4;border-radius:6px;padding:8px 12px;font:500 12.5px 'IBM Plex Sans',sans-serif;cursor:pointer">Skip</button>
+          </div>
+          <div style="padding:10px 16px;border-top:1px solid #DDE3EA;background:#F4F6F8;font-size:11px;color:#5C6675">Confirm stays disabled until at least the label and synonyms are ticked, so a non-previewable source is never confirmed blind.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <p style="margin:26px 0 0;font:12px/1.5 'IBM Plex Sans',sans-serif;color:#5C6675">Try next: “make <a href="#1c" style="font-family:'IBM Plex Mono',monospace;text-decoration:none">1c</a> clickable” · “merge <a href="#1g" style="font-family:'IBM Plex Mono',monospace;text-decoration:none">1g</a>’s panel into <a href="#1a" style="font-family:'IBM Plex Mono',monospace;text-decoration:none">1a</a>” · “show the narrow-screen layout”</p>
+</section>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1400,&quot;height&quot;:900}}">
+const CELL='padding:10px 12px;border-left:1px solid #DDE3EA;border-bottom:1px solid #C2CAD4;vertical-align:top;';
+const CELLD='padding:10px 12px;border-left:1px solid #1F3A58;border-bottom:1px solid #1F3A58;vertical-align:top;';
+const ROWA=[
+ ["Acquired epidermolysis bullosa","ARI:0001001",["Epidermolysis bullosa acquisita"],
+  [["pred","MONDO:0018747","acquired epidermolysis bullosa"],["ok","SNOMEDCT:2772003","confirmed 2026-06-21"],["ok","DOID:4313","confirmed 2026-06-21"],["ok","icd10cm:L12.3","confirmed 2026-06-21"]],
+  [["ok","NCI"],["ok","UMLS"],["ok","MeSH"],["ok","OMOP"],["pred","Orphanet"],["none","OMIM"]]],
+ ["Acquired hemophilia","ARI:0001002",["Acquired factor VIII deficiency"],
+  [["pred","MONDO:0019139","acquired hemophilia"],["ok","SNOMEDCT:785308008","confirmed 2026-06-21"],["none","",""],["pred","icd10cm:D68.311","acquired hemophilia"]],
+  [["pred","NCI"],["pred","UMLS"],["none","MeSH"],["ok","OMOP"],["pred","Orphanet"],["none","OMIM"]]],
+ ["Acute disseminated encephalomyelitis","ARI:0001003",["ADEM"],
+  [["pred","MONDO:0019383","acute disseminated encephalomyelitis"],["ok","SNOMEDCT:83942000","confirmed 2026-06-21"],["ok","DOID:639","confirmed 2026-06-21"],["none","",""]],
+  [["ok","NCI"],["ok","UMLS"],["ok","MeSH"],["ok","OMOP"],["pred","Orphanet"],["none","OMIM"]]],
+ ["Acute febrile mucocutaneous lymph node syndrome","ARI:0001004",["Kawasaki disease","Mucocutaneous lymph node syndrome"],
+  [["pred","MONDO:0012727","Kawasaki disease"],["ok","SNOMEDCT:75053002","confirmed 2026-06-21"],["ok","DOID:13378","confirmed 2026-06-21"],["ok","icd10cm:M30.3","+ 446.1"]],
+  [["ok","NCI"],["ok","UMLS"],["ok","MeSH"],["ok","OMOP"],["pred","Orphanet"],["pred","OMIM"]]],
+ ["Addison's disease","ARI:0001006",["Primary adrenal insufficiency"],
+  [["pred","MONDO:0100480","autoimmune primary adrenal insufficiency"],["none","",""],["ok","DOID:13774","confirmed 2026-06-21"],["ok","icd10cm:E27.1","confirmed 2026-06-21"]],
+  [["ok","NCI"],["ok","UMLS"],["ok","MeSH"],["none","OMOP"],["pred","Orphanet"],["none","OMIM"]]],
+ ["Alopecia areata","ARI:0001010",[],
+  [["pred","MONDO:0005340","alopecia areata"],["none","",""],["none","",""],["none","",""]],
+  [["pred","NCI"],["none","UMLS"],["none","MeSH"],["none","OMOP"],["none","Orphanet"],["none","OMIM"]]],
+ ["Anti-CASPR2 autoimmune encephalitis","ARI:0001013",["Morvan syndrome"],
+  [["low","MONDO:0008718","Morvan syndrome · synonym only"],["none","",""],["none","",""],["none","",""]],
+  [["none","NCI"],["low","UMLS"],["none","MeSH"],["none","OMOP"],["low","Orphanet"],["none","OMIM"]]]
+];
+const DBL=["SNOMED","OMOP","DOID","MONDO","NCI","ICD-10","Orphanet","OMIM","UMLS","MeSH"];
+// 10-char state strings in DBL order: o confirmed, p predicted, l synonym-only prediction, . none
+const ROWSC=[
+ ["Acquired epidermolysis bullosa","ooopoopooo"],
+ ["Acquired hemophilia","oo.pppp.p."],
+ ["Acute disseminated encephalomyelitis","ooopo.p.oo"],
+ ["Acute febrile mucocutaneous lymph node syndrome","ooopooppoo"]
+];
+const ROWSC2=[
+ ["Anti-MAG neuropathy","...p..p.p."],
+ ["Antiphospholipid syndrome","oo.poop.oo"],
+ ["Aplastic anemia","oo.po.p..o"]
+];
+const MORE=[
+ ["Autoimmune hemolytic anemia","ooopoo..oo"],
+ ["Autoimmune hepatitis","ooopoop.oo"],
+ ["Behcet's disease","ooopoopooo"],
+ ["Bullous pemphigoid","oo.poo..oo"],
+ ["Celiac disease","ooopooppoo"],
+ ["Chronic inflammatory demyelinating polyneuropathy","oo.po.p.o."],
+ ["Churg-Strauss syndrome","ll.ll.l..l"],
+ ["Cogan syndrome","...p..p..."],
+ ["Cold agglutinin disease","oo.p..p..o"],
+ ["Crohn's disease","ooopoop.oo"],
+ ["Dermatomyositis","ooopoopooo"],
+ ["Discoid lupus erythematosus","oo.poo...o"],
+ ["Eosinophilic esophagitis","ooopo.p.oo"],
+ ["Evans syndrome","...p..p..."]
+];
+const EXPAND=[
+ ["SNOMED","—","no id yet","none",""],
+ ["OMOP","—","no id yet","none",""],
+ ["DOID","DOID:3049","Churg-Strauss syndrome","low","synonym"],
+ ["MONDO","MONDO:0015492","anti-neutrophil cytoplasmic antibody-associated vasculitis","low","synonym"],
+ ["NCI","ncit:C215687","Antineutrophil Cytoplasmic Antibody-Associated Vasculitis","low","synonym"],
+ ["ICD-10","icd10cm:M30.1","Churg-Strauss syndrome","low","synonym"],
+ ["Orphanet","—","no id yet","none",""],
+ ["OMIM","—","no id yet","none",""],
+ ["UMLS","umls:C0343192","ANCA-associated vasculitis","ok","confirmed"],
+ ["MeSH","mesh:D056648","Anti-Neutrophil Cytoplasmic Antibody-Associated Vasculitis","low","synonym"]
+];
+const TINT={ok:'background:#E2F1EB;box-shadow:inset 3px 0 0 #2F8F6F;',pred:'background:#F8EFD6;box-shadow:inset 3px 0 0 #B5841A;',low:'background:#FCF8EE;box-shadow:inset 3px 0 0 #DFC98A;',none:'background:#fff;'};
+const TINTD={ok:'background:rgba(47,143,111,.24);box-shadow:inset 3px 0 0 #2F8F6F;',pred:'background:rgba(181,132,26,.26);box-shadow:inset 3px 0 0 #B5841A;',low:'background:rgba(181,132,26,.13);box-shadow:inset 3px 0 0 #8A6412;',none:''};
+class Component extends DCLogic{
+  mkA(dark){
+    return ROWA.map((r,i)=>{
+      const band=dark?(i%2?'background:#0C2438;':'background:#0F2840;'):(i%2?'background:#FAFBFC;':'background:#fff;');
+      const base=dark?CELLD:CELL, tint=dark?TINTD:TINT;
+      const ok=r[3].filter(c=>c[0]==='ok').length+r[4].filter(c=>c[0]==='ok').length;
+      const pct=Math.round(ok/10*100);
+      return {
+        name:r[0], ari:r[1], synonyms:r[2], done:ok+'/10',
+        nameStyle:(dark?'padding:12px 14px;border-bottom:1px solid #1F3A58;border-right:1px solid #1F3A58;':'padding:12px 14px;border-bottom:1px solid #C2CAD4;border-right:1px solid #C2CAD4;')+band,
+        barStyle:'display:block;height:100%;width:'+pct+'%;background:'+(pct>70?(dark?'#7FC9AB':'#2F8F6F'):pct>0?(dark?'#DCB865':'#B5841A'):'#C2CAD4'),
+        cells:[
+          ...r[3].map(([st,id,label])=>({
+            hasId:st!=='none', empty:st==='none', isOther:false, others:[], id, label,
+            style:base+band+(st==='none'?'':tint[st]),
+            dotStyle:'width:7px;height:7px;border-radius:99px;display:inline-block;background:'+(st==='ok'?(dark?'#7FC9AB':'#2F8F6F'):st==='low'?'#DFC98A':(dark?'#DCB865':'#B5841A')),
+            labelStyle:'margin-top:3px;font-size:10.5px;color:'+(dark?'#8A93A2':'#5C6675')+';line-height:1.35',
+            actStyle:st==='ok'?'display:none':'display:flex;gap:5px;margin-top:7px;font-size:10.5px;cursor:pointer'
+          })),
+          {hasId:false,empty:false,isOther:true,style:base+band,others:r[4].map(([st,lab])=>({
+            text:lab,
+            style:'font-size:10.5px;padding:2px 7px;border-radius:99px;'+(dark
+              ?(st==='ok'?'background:rgba(47,143,111,.24);color:#7FC9AB':st==='pred'?'background:rgba(181,132,26,.26);color:#DCB865':st==='low'?'background:rgba(181,132,26,.13);color:#B79A5C':'background:#0C2438;color:#5C6675;border:1px solid #1F3A58')
+              :(st==='ok'?'background:#E2F1EB;color:#1F5E4B':st==='pred'?'background:#F8EFD6;color:#8A6412':st==='low'?'background:#FCF8EE;color:#8A6412;opacity:.75':'background:#F4F6F8;color:#8A93A2;border:1px solid #DDE3EA'))
+          }))}
+        ]
+      };
+    });
+  }
+  mkC(src,opts){
+    const {dark=false,density='comfortable',nameCol='320px',selectedDb=-1,selectedRow=-1}=opts||{};
+    const compact=density==='compact';
+    return src.map((r,i)=>{
+      const ok=(r[1].match(/o/g)||[]).length;
+      const band=dark?(i%2?'#0C2438':'#0F2840'):(i%2?'#FAFBFC':'#fff');
+      return {
+        name:r[0], done:ok+'/10',
+        rowStyle:'display:grid;grid-template-columns:'+nameCol+' repeat(10,1fr);border-bottom:1px solid '+(dark?'#1F3A58':'#DDE3EA')+';background:'+band+';'+(compact?'min-height:26px;':''),
+        namePad:(compact?'padding:4px 12px;':'padding:9px 14px;')+'display:flex;align-items:center;gap:8px;min-width:0',
+        cells:r[1].split('').slice(0,10).map((ch,j)=>({
+          glyph:ch==='o'?'✓':ch==='p'?'●':ch==='l'?'○':'',
+          style:'display:flex;align-items:center;justify-content:center;border-left:1px solid '+(dark?'#1F3A58':'#DDE3EA')+';font-size:'+(compact?'10px':'11px')+';'+
+            (j===selectedDb&&i===selectedRow?'outline:2px solid #1F6B7A;outline-offset:-2px;':'')+
+            (dark
+              ?(ch==='o'?'background:rgba(47,143,111,.24);color:#7FC9AB':ch==='p'?'background:rgba(181,132,26,.26);color:#DCB865':ch==='l'?'background:rgba(181,132,26,.13);color:#B79A5C':'color:#3A5170')
+              :(ch==='o'?'background:#E2F1EB;color:#2F8F6F':ch==='p'?'background:#F8EFD6;color:#B5841A':ch==='l'?'background:#FCF8EE;color:#C4A85E':'color:#C2CAD4'))
+        }))
+      };
+    });
+  }
+  mkCards(dark){
+    return EXPAND.map(([db,id,label,st,tag])=>({
+      db,id,label,tag:tag||'—',
+      cardStyle:'border:1px solid '+(dark?'#1F3A58':'#DDE3EA')+';border-radius:8px;padding:11px 12px;background:'+(dark?'#0F2840':'#fff')+';'+(st==='low'?'box-shadow:inset 3px 0 0 '+(dark?'#8A6412':'#DFC98A')+';':st==='ok'?'box-shadow:inset 3px 0 0 #2F8F6F;':''),
+      tagStyle:'font-size:9.5px;letter-spacing:.05em;text-transform:uppercase;padding:2px 6px;border-radius:99px;'+(dark
+        ?(st==='ok'?'background:rgba(47,143,111,.24);color:#7FC9AB':st==='low'?'background:rgba(181,132,26,.16);color:#DCB865':'background:#0C2438;color:#5C6675')
+        :(st==='ok'?'background:#E2F1EB;color:#1F5E4B':st==='low'?'background:#FCF8EE;color:#8A6412':'background:#F4F6F8;color:#8A93A2')),
+      actionsStyle:st==='none'?'display:none':'display:flex;gap:5px;margin-top:10px;font-size:11px;align-items:center'
+    }));
+  }
+  renderVals(){
+    return {
+      rowsA:this.mkA(false), rowsADark:this.mkA(true).slice(0,5),
+      coreLabels:["MONDO","SNOMED","DOID","ICD-10","Other 6"],
+      dbLabels:DBL,
+      rowsC:this.mkC(ROWSC,{}), rowsC2:this.mkC(ROWSC2,{}),
+      rowsCDark:this.mkC(ROWSC,{dark:true}),
+      rowsCompact:this.mkC(ROWSC.concat(ROWSC2,MORE),{density:'compact',nameCol:'250px'}),
+      rowsPanel:this.mkC(ROWSC.concat(ROWSC2,MORE).slice(0,14),{density:'compact',nameCol:'200px',selectedDb:3,selectedRow:3}),
+      expandCards:this.mkCards(false), expandCardsDark:this.mkCards(true)
+    };
+  }
+}
+</script>
+</body>
+</html>

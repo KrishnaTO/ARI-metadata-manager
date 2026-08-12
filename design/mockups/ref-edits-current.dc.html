@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet data-dc-atomics><meta name="design_doc_mode" content="canvas"><style>body{margin:0;background:#fff}a{color:#2563eb}a:hover{color:#1d4ed8}</style></helmet>
+<div style="zoom:1.25;font:14px/1.5 system-ui,-apple-system,sans-serif;color:#0f172a;background:#fff;height:864px;display:flex;flex-direction:column">
+  <header style="display:flex;align-items:center;gap:12px;padding:10px 16px;border-bottom:1px solid #e2e8f0;flex-shrink:0;flex-wrap:wrap">
+    <h1 style="font-size:16px;margin:0">ARI <span style="color:#2563eb">Cross-reference review</span></h1>
+    <input value="" placeholder="Filter diseases or ids..." style="padding:6px 10px;border:1px solid #e2e8f0;border-radius:6px;background:#fff;color:#0f172a;width:240px;font:inherit;font-size:14px">
+    <span style="color:#64748b;font-size:12px">confirmed 0 · flagged 0 · edited 0</span>
+    <span style="display:flex;align-items:center;gap:10px;font-size:11px;color:#64748b">
+      <span><span style="display:inline-block;width:11px;height:11px;border-radius:2px;vertical-align:-1px;margin-right:3px;box-shadow:inset 3px 0 0 #059669;background:rgba(5,150,105,.05)"></span>prev. confirmed</span>
+      <span><span style="display:inline-block;width:11px;height:11px;border-radius:2px;vertical-align:-1px;margin-right:3px;box-shadow:inset 3px 0 0 #dc2626;background:rgba(220,38,38,.05)"></span>prev. flagged</span>
+      <span><span style="display:inline-block;width:11px;height:11px;border-radius:2px;vertical-align:-1px;margin-right:3px;box-shadow:inset 3px 0 0 #d97706;background:rgba(217,119,6,.06)"></span>predicted</span>
+    </span>
+    <span style="flex:1"></span>
+    <span style="color:#64748b;font-size:12px">KrishnaTO</span>
+    <button style="background:#fff;color:#0f172a;border:1px solid #e2e8f0;border-radius:6px;padding:5px 10px;cursor:pointer;font-size:13px">New PR</button>
+    <button style="background:#2563eb;color:#fff;border:1px solid #2563eb;border-radius:6px;padding:5px 10px;cursor:pointer;font-size:13px">Publish review (PR)</button>
+    <a href="#" style="background:#fff;color:#0f172a;border:1px solid #e2e8f0;border-radius:6px;padding:5px 10px;font-size:13px;text-decoration:none">◱ Disease curator</a>
+    <a href="#" style="background:#fff;color:#0f172a;border:1px solid #e2e8f0;border-radius:6px;padding:5px 10px;font-size:13px;text-decoration:none">← Back to app</a>
+  </header>
+  <div style="flex:1;display:flex;min-height:0;position:relative">
+    <div style="flex:1;overflow:auto;padding:8px;min-width:120px">
+      <table style="border-collapse:collapse;width:100%;font-size:12px">
+        <thead><tr>
+          <th style="border:1px solid #e2e8f0;padding:5px 7px;text-align:left;vertical-align:top;position:sticky;top:0;left:0;background:#f8fafc;z-index:3">Disease</th>
+          <sc-for list="{{ dbs }}" as="db" hint-placeholder-count="10"><th style="border:1px solid #e2e8f0;padding:5px 7px;text-align:left;vertical-align:top;position:sticky;top:0;background:#f8fafc;z-index:2">{{ db.label }}</th></sc-for>
+        </tr></thead>
+        <tbody>
+          <sc-for list="{{ rows }}" as="r" hint-placeholder-count="11">
+            <tr>
+              <td style="border:1px solid #e2e8f0;padding:5px 7px;text-align:left;vertical-align:top;position:sticky;left:0;background:#fff;z-index:1">
+                <div style="font-weight:600;white-space:nowrap">{{ r.name }}</div>
+                <sc-if value="{{ r.hasSyns }}" hint-placeholder-val="{{ true }}">
+                  <div style="display:flex;flex-wrap:wrap;gap:3px;margin-top:4px;max-width:260px">
+                    <sc-for list="{{ r.synonyms }}" as="s" hint-placeholder-count="2"><span style="font-size:10px;font-weight:400;color:#64748b;background:#f8fafc;border:1px solid #e2e8f0;border-radius:99px;padding:1px 7px;white-space:nowrap">{{ s }}</span></sc-for>
+                  </div>
+                </sc-if>
+              </td>
+              <sc-for list="{{ r.cells }}" as="c" hint-placeholder-count="10">
+                <td style="{{ c.tdStyle }}">
+                  <sc-if value="{{ c.hasChips }}" hint-placeholder-val="{{ true }}">
+                    <div style="display:flex;flex-direction:column;gap:4px;align-items:flex-start">
+                      <sc-for list="{{ c.chips }}" as="chip" hint-placeholder-count="1">
+                        <span style="{{ chip.style }}" title="{{ chip.title }}"><span style="overflow:hidden;text-overflow:ellipsis">{{ chip.id }}</span><span style="{{ chip.nameStyle }}">{{ chip.label }}</span><span style="{{ chip.xStyle }}">✕</span></span>
+                      </sc-for>
+                      <sc-if value="{{ c.showAdd }}" hint-placeholder-val="{{ true }}"><span style="color:#64748b;cursor:pointer">+ add</span></sc-if>
+                    </div>
+                  </sc-if>
+                  <sc-if value="{{ c.empty }}" hint-placeholder-val="{{ true }}"><span style="color:#64748b;cursor:pointer">+ add</span></sc-if>
+                </td>
+              </sc-for>
+            </tr>
+          </sc-for>
+        </tbody>
+      </table>
+    </div>
+    <div style="width:6px;flex-shrink:0;cursor:col-resize;background:#e2e8f0"></div>
+    <div style="width:46%;min-width:300px;flex-shrink:0;border-left:1px solid #e2e8f0;overflow:hidden">
+      <div style="display:flex;flex-direction:column;height:100%;overflow-y:auto;overflow-x:hidden">
+        <div style="padding:10px 12px;border-bottom:1px solid #e2e8f0;background:#fff;flex-shrink:0"><strong>Acquired epidermolysis bullosa</strong> · DOID<button style="float:right;background:#fff;color:#0f172a;border:1px solid #e2e8f0;border-radius:6px;padding:5px 10px;cursor:pointer;font-size:13px">✕</button></div>
+        <div style="padding:10px 12px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;border-bottom:1px solid #e2e8f0;flex-shrink:0">Is this DOID reference correct?
+          <button style="background:#059669;color:#fff;border:1px solid #059669;border-radius:6px;padding:5px 10px;cursor:pointer;font-size:13px">✓ Correct</button>
+          <button style="background:#fff;color:#0f172a;border:1px solid #e2e8f0;border-radius:6px;padding:5px 10px;cursor:pointer;font-size:13px">✗ Needs change</button>
+        </div>
+        <div style="padding:6px 12px 8px;display:flex;gap:8px;align-items:center;border-bottom:1px solid #e2e8f0;flex-shrink:0"><span style="color:#64748b;font-size:12px">Distinct variant of this disease?</span><button style="background:#fff;color:#0f172a;border:1px solid #e2e8f0;border-radius:6px;padding:5px 10px;cursor:pointer;font-size:13px">＋ New subtype</button></div>
+        <div style="padding:10px 12px;display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;border-bottom:1px solid #e2e8f0;flex-shrink:0">
+          <label style="font-size:12px;color:#64748b;display:block;width:100%">DOID id(s) — comma separated (add an alternate id here)</label>
+          <input value="DOID:4313" style="flex:1;min-width:160px;padding:6px 9px;border:1px solid #e2e8f0;border-radius:6px;background:#fff;color:#0f172a;font:inherit;font-size:14px">
+          <button style="background:#2563eb;color:#fff;border:1px solid #2563eb;border-radius:6px;padding:5px 10px;cursor:pointer;font-size:13px">Save</button>
+        </div>
+        <div style="border-bottom:1px solid #e2e8f0;flex-shrink:0">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:1px;background:#e2e8f0">
+            <div style="background:#fff;padding:8px 12px;min-width:0">
+              <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:#64748b;margin-bottom:4px">ARI <span style="font-weight:400;text-transform:none;letter-spacing:0;color:#2563eb">ARI:0001001</span></div>
+              <div style="font-size:14px;font-weight:600;overflow-wrap:anywhere"><span style="background:rgba(5,150,105,.16);border-radius:3px;padding:0 3px">Acquired epidermolysis bullosa</span></div>
+              <div style="font-size:12px;margin-top:6px;overflow-wrap:anywhere"><span style="display:block;font-size:10px;text-transform:uppercase;letter-spacing:.04em;color:#64748b;margin-bottom:1px">Synonyms</span><span>Epidermolysis bullosa acquisita</span><span style="margin-left:4px">EBA</span></div>
+              <div style="font-size:12px;margin-top:6px;overflow-wrap:anywhere"><span style="display:block;font-size:10px;text-transform:uppercase;letter-spacing:.04em;color:#64748b;margin-bottom:1px">Definition</span>A chronic subepidermal blistering disease caused by autoantibodies to type VII collagen.</div>
+              <div style="font-size:12px;margin-top:6px;overflow-wrap:anywhere"><span style="display:block;font-size:10px;text-transform:uppercase;letter-spacing:.04em;color:#64748b;margin-bottom:1px">Parents</span><span>Autoimmune skin disease</span></div>
+            </div>
+            <div style="background:#fff;padding:8px 12px;min-width:0">
+              <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:#64748b;margin-bottom:4px">DOID <span style="font-weight:400;text-transform:none;letter-spacing:0;color:#2563eb">DOID:4313</span></div>
+              <div style="font-size:14px;font-weight:600;overflow-wrap:anywhere;color:#059669">epidermolysis bullosa acquisita</div>
+              <div style="font-size:12px;margin-top:6px;overflow-wrap:anywhere"><span style="display:block;font-size:10px;text-transform:uppercase;letter-spacing:.04em;color:#64748b;margin-bottom:1px">Synonyms</span><span style="background:rgba(5,150,105,.16);border-radius:3px;padding:0 3px">Epidermolysis bullosa acquisita</span><span style="margin-left:4px">EBA</span></div>
+              <div style="font-size:12px;margin-top:6px;overflow-wrap:anywhere"><span style="display:block;font-size:10px;text-transform:uppercase;letter-spacing:.04em;color:#64748b;margin-bottom:1px">Definition</span>An autoimmune bullous skin disease that is characterized by blistering of the skin.</div>
+              <div style="font-size:12px;margin-top:6px;overflow-wrap:anywhere"><span style="display:block;font-size:10px;text-transform:uppercase;letter-spacing:.04em;color:#64748b;margin-bottom:1px">Parents</span><span>autoimmune disease of skin and connective tissue</span></div>
+            </div>
+          </div>
+        </div>
+        <div style="padding:8px 12px;font-size:12px;flex-shrink:0">
+          <div style="color:#64748b;font-size:12px;margin-bottom:4px">Open / preview DOID id(s):</div>
+          <div style="display:flex;flex-direction:column;gap:4px;align-items:flex-start;padding:2px 0">
+            <a href="#" style="display:inline-flex;align-items:flex-start;justify-content:space-between;gap:6px;width:100%;padding:3px 7px;border:1px solid #2563eb;border-radius:6px;background:#eff6ff;box-shadow:inset 3px 0 0 #2563eb;color:#0f172a;text-decoration:none"><span style="color:#2563eb;font-weight:600">DOID:4313</span><span style="color:#64748b;flex-shrink:0">↗</span></a>
+          </div>
+        </div>
+        <div style="padding:0 12px 8px;color:#64748b;font-size:12px;flex-shrink:0">If the page below is blank, the source site blocks embedding — use the "↗" link to open it in a new tab.</div>
+        <div style="flex:1 0 auto;width:100%;min-height:320px;border:0;background:#fff;display:flex;align-items:center;justify-content:center;color:#94a3b8;font-size:12px;border-top:1px solid #e2e8f0">[ embedded disease-ontology.org page ]</div>
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+const DBS=[["snomed","SNOMED"],["omop","OMOP"],["doid","DOID"],["mondo","MONDO"],["nci","NCI"],["icd10","ICD-10"],["orphanet","Orphanet"],["omim","OMIM"],["umls","UMLS"],["mesh","MeSH"]];
+// Rows lifted from mappings/ari.sssom.tsv + ari.predicted.sssom.tsv.
+// cell value: array of confirmed ids, or {p:[{id,label,low}]} predictions, or null
+const DATA=[
+ ["Acquired epidermolysis bullosa",["Epidermolysis bullosa acquisita","EBA"],{snomed:["2772003"],omop:["4100661"],doid:["DOID:4313"],mondo:{p:[["MONDO:0018747","acquired epidermolysis bullosa"]]},nci:["C84690"],icd10:["L12.3"],orphanet:{p:[["ORPHA:46487","acquired epidermolysis bullosa"]]},umls:["C0079293"],mesh:["D016107"]}],
+ ["Acquired hemophilia",["Acquired factor VIII deficiency"],{snomed:["785308008"],omop:["37203917"],mondo:{p:[["MONDO:0019139","acquired hemophilia"]]},nci:{p:[["ncit:C197822","Acquired Hemophilia"]]},icd10:{p:[["icd10cm:D68.311","acquired hemophilia"]]},orphanet:{p:[["ORPHA:73274","acquired hemophilia"]]},umls:{p:[["umls:C1096116","acquired hemophilia"]]}}],
+ ["Acute disseminated encephalomyelitis",["ADEM"],{snomed:["83942000"],omop:["374021"],doid:["DOID:639"],mondo:{p:[["MONDO:0019383","acute disseminated encephalomyelitis"]]},nci:["C34578"],orphanet:{p:[["ORPHA:83597","acute disseminated encephalomyelitis"]]},umls:["C0014059"],mesh:["D004673"]}],
+ ["Acute febrile mucocutaneous lymph node syndrome",["Kawasaki disease","Mucocutaneous lymph node syndrome"],{snomed:["75053002"],omop:["314381"],doid:["DOID:13378"],mondo:{p:[["MONDO:0012727","Kawasaki disease"]]},nci:["C34825"],icd10:["M30.3","446.1"],orphanet:{p:[["ORPHA:2331","Kawasaki disease"]]},omim:{p:[["OMIM:611775","Kawasaki disease"]]},umls:["C0026691"],mesh:["D009080"]}],
+ ["Acute lichenoid pityriasis",["PLEVA"],{snomed:["86487001"],omop:["4314705"],mondo:{p:[["MONDO:0024250","acute lichenoid pityriasis"]]},umls:{p:[["umls:C0162852","acute lichenoid pityriasis"]]}}],
+ ["Addison's disease",["Primary adrenal insufficiency"],{doid:["DOID:13774"],mondo:{p:[["MONDO:0100480","autoimmune primary adrenal insufficiency"]]},nci:["C26689"],icd10:["E27.1"],orphanet:{p:[["ORPHA:85138","autoimmune primary adrenal insufficiency"]]},umls:["C0001403"],mesh:["D000224"]}],
+ ["Adult onset Still's disease",["AOSD"],{snomed:["239920006"],omop:["4344166"],doid:["DOID:14256"],mondo:{p:[["MONDO:0019355","adult-onset Still disease"]]},nci:["C197832"],icd10:["M06.1"],orphanet:{p:[["ORPHA:829","adult-onset Still disease"]]},umls:["C0085253"],mesh:["D016706"]}],
+ ["Age related macular degeneration",["AMD"],{snomed:["267718000"],omop:["374028"],doid:["DOID:10871"],mondo:{p:[["MONDO:0005150","age-related macular degeneration"]]},nci:["C84391"],orphanet:{p:[["ORPHA:279","age-related macular degeneration"]]},umls:["C0242383"],mesh:["D008268"]}],
+ ["Alopecia areata",[],{mondo:{p:[["MONDO:0005340","alopecia areata"]]},nci:{p:[["ncit:C50575","Alopecia"]]}}],
+ ["Anti-CASPR2 autoimmune encephalitis",["Morvan syndrome"],{mondo:{p:[["MONDO:0008718","Morvan syndrome",1]]},orphanet:{p:[["ORPHA:83467","Morvan syndrome",1]]},umls:{p:[["umls:C3854373","Morvan syndrome",1]]}}],
+ ["Antineutrophil cytoplasmic antibody positive vasculitis",["ANCA-associated vasculitis","Churg Strauss syndrome"],{doid:{p:[["DOID:3049","Churg-Strauss syndrome",1]]},mondo:{p:[["MONDO:0015492","anti-neutrophil cytoplasmic antibody-associated vasculitis",1],["MONDO:0015943","eosinophilic granulomatosis with polyangiitis",1]]},nci:{p:[["ncit:C215687","Antineutrophil Cytoplasmic Antibody-Associated Vasculitis",1],["ncit:C3444","Granulomatosis with Polyangiitis",1]]},icd10:{p:[["icd10cm:M30.1","Churg-Strauss syndrome",1]]},mesh:{p:[["mesh:D014890","Granulomatosis with Polyangiitis",1],["mesh:D015267","Churg-Strauss syndrome",1]]}}]
+];
+const TD='border:1px solid #e2e8f0;padding:5px 7px;text-align:left;vertical-align:top;';
+const CHIP='display:inline-flex;align-items:center;gap:6px;max-width:100%;padding:3px 7px;border:1px solid #e2e8f0;border-radius:6px;background:#f8fafc;color:#2563eb;cursor:pointer;text-decoration:none;white-space:nowrap;';
+const PCHIP='display:inline-flex;align-items:center;gap:6px;max-width:100%;padding:3px 7px;border:1px dashed #d97706;border-radius:6px;background:rgba(217,119,6,.10);color:#d97706;cursor:pointer;white-space:nowrap;';
+class Component extends DCLogic{
+  renderVals(){
+    const rows=DATA.map(([name,syns,cells])=>({
+      name, synonyms:syns, hasSyns:syns.length>0,
+      cells: DBS.map(([k])=>{
+        const v=cells[k];
+        if(!v) return {empty:true,hasChips:false,showAdd:false,chips:[],tdStyle:TD};
+        if(Array.isArray(v)) return {empty:false,hasChips:true,showAdd:false,tdStyle:TD+'background:rgba(5,150,105,.05);box-shadow:inset 3px 0 0 #059669;',
+          chips:v.map(id=>({id,label:'',title:'Previously confirmed in the curated mappings',style:CHIP+'background:rgba(5,150,105,.05);box-shadow:inset 3px 0 0 #059669;',nameStyle:'display:none',xStyle:'display:none'}))};
+        return {empty:false,hasChips:true,showAdd:true,tdStyle:TD+'background:rgba(217,119,6,.06);box-shadow:inset 3px 0 0 #d97706;',
+          chips:v.p.map(([id,label,low])=>({id,label,title:low?('Predicted from a synonym only (label matched nothing): '+label+' — verify'):('Predicted by exact label match: '+label+' — click to verify'),
+            style:PCHIP+(low?'opacity:.6;':''),
+            nameStyle:'color:#64748b;font-weight:400;overflow:hidden;text-overflow:ellipsis;max-width:16ch',
+            xStyle:'color:#64748b;cursor:pointer;font-weight:700;flex-shrink:0;line-height:1;padding:0 3px;border-radius:4px'}))};
+      })
+    }));
+    return {dbs:DBS.map(([key,label])=>({key,label})),rows};
+  }
+}
+</script>
+</body>
+</html>
