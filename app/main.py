@@ -462,7 +462,7 @@ async def get_ref_session(request: Request):
 @app.put("/api/v2/ref-session")
 async def put_ref_session(request: Request, payload: dict = Body(...)):
     """Persist the signed-in user's cross-reference review session. The body is
-    the frontend-owned state blob ({reviewed, edited, branch, pr})."""
+    the frontend-owned state blob ({reviewed, edited, published, branch, pr})."""
     login = _login(request)
     if not login:
         return JSONResponse(status_code=401, content={"detail": "Sign in with GitHub first"})
