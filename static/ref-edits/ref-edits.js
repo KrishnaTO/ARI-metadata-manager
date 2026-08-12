@@ -1,10 +1,10 @@
-// Reference-review page: table of all diseases x database cross-references.
-// Click an id to review it in a resizable side panel; mark correct/needs-change,
-// add an alternate id and Save; for empty cells, link out to the target repo's
-// search page. Confirmed (correct) cross-references are written to SSSOM +
-// equivalency files in the published pull request.
+// Reference-review page — curation matrix (design 1c). Every review database is a
+// column and every disease a row of state glyphs; clicking a disease opens its review
+// strip in place, and clicking a cell opens that mapping in the side panel. Verdicts
+// are per-id; confirmed cross-references are written to SSSOM + equivalency files in
+// the published pull request.
 (function () {
-  const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&', '<': '<', '>': '>', '"': '"', "'": '&#39;' }[c]));
+  const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const num = id => String(id).replace(/^[A-Za-z]+:/, '');
   const enc = encodeURIComponent;
   const apiUrl = p => new URL('../api/v2/' + p, location.href).href;
@@ -32,12 +32,10 @@
     PREFIX = Object.fromEntries((list || []).map(d => [d.key, d.prefix]));
   }
 
-  let ROWS = [], me = null, reviewed = {}, edited = {}, active = null, sessionBranch = null, sessionPr = null, _tissues = null;
+  let ROWS = [], me = null, reviewed = {}, edited = {}, active = null,
+      sessionBranch = null, sessionPr = null, _tissues = null, openRow = null;
   // reviewed/edited keys: `${iri}|${db}|${id}` (per-ID, not per-cell)
-  // Helper: build the per-ID key
   const idKey = (iri, db, id) => iri + '|' + db + '|' + id;
-  // Helper: build the per-cell key (for cell-level aggregation)
-  const cellKey = (iri, db) => iri + '|' + db;
   // Pre-existing curated judgments keyed `${ari_id}|${prefix}|${id}` -> 'positive'|'negative'.
   let mappings = {};
   // Predicted matches (issue #42) keyed `${ari_id}|${prefix}|${id}` ->
@@ -60,22 +58,7 @@
     return out;
   }
 
-  // Has this (disease, db) cell been judged positive/negative in an earlier
-  // session (per the stored mappings)? Returns 'pos' | 'neg' | null. A positive
-  // on any id in the cell wins over a negative.
-  function preJudgment(r, dbkey) {
-    const ari = r.ari_id, prefix = PREFIX[dbkey];
-    if (!ari || !prefix) return null;
-    let neg = false;
-    for (const id of (r[dbkey] || [])) {
-      const j = mappings[ari + '|' + prefix + '|' + id];
-      if (j === 'positive') return 'pos';
-      if (j === 'negative') neg = true;
-    }
-    return neg ? 'neg' : null;
-  }
-
-  // Per-ID pre-judgment: returns 'pos' | 'neg' | null for a specific id.
+  // Per-ID pre-judgment from the curated mappings: 'pos' | 'neg' | null.
   function preJudgmentId(r, dbkey, id) {
     const ari = r.ari_id, prefix = PREFIX[dbkey];
     if (!ari || !prefix) return null;
@@ -86,17 +69,75 @@
   }
 
   const $ = s => document.querySelector(s);
-  const cellEl = (iri, db) => document.querySelector(`[data-cell="${CSS.escape(iri + '|' + db)}"]`);
 
-  // Fold a string the way app/predict_service.normalize() does (NFKD, drop combining
-  // marks, casefold, collapse non-alphanumerics), so the compare pane's string-match
-  // highlighting agrees with what the matcher actually treats as the same name.
-  const normTxt = s => (s == null ? '' : String(s)).normalize('NFKD')
-    .replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^0-9a-z]+/g, ' ').trim();
+  // ------------------------------------------------------------- STATE MODEL
+  // Per-id state, the single thing the glyphs, tints and counts are derived from:
+  //   ok    confirmed this session, or positive in the curated mappings
+  //   bad   flagged this session, or negative in the curated mappings
+  //   pred  lexical prediction for a blank cell (the disease label matched a concept)
+  //   low   lexical prediction from a synonym only
+  //   have  an id on file that nobody has judged yet
+  function idState(r, dbkey, id, pred) {
+    const k = idKey(r.iri, dbkey, id);
+    if (reviewed[k] === 'ok') return 'ok';
+    if (reviewed[k] === 'bad') return 'bad';
+    const pre = preJudgmentId(r, dbkey, id);
+    if (pre === 'pos') return 'ok';
+    if (pre === 'neg') return 'bad';
+    return pred ? (pred.confidence === 'low' ? 'low' : 'pred') : 'have';
+  }
 
-  // Session caches for the compare pane, keyed `${db}|${id}` (concept lookups) and by
-  // iri (ARI disease detail). The pane never blocks the verdict buttons on these.
-  const conceptCache = {}, diseaseCache = {};
+  // Everything in one cell: the ids on file, or — for a blank cell — its predictions.
+  function cellEntries(r, dbkey) {
+    const ids = r[dbkey] || [];
+    if (ids.length) return ids.map(id => ({ id, pred: null }));
+    return predFor(r, dbkey).map(p => ({ id: p.id, pred: p }));
+  }
+
+  // A cell only reads ✓ once every id in it has a verdict, so any unjudged entry wins.
+  function cellState(r, dbkey) {
+    const sts = cellEntries(r, dbkey).map(e => idState(r, dbkey, e.id, e.pred));
+    if (!sts.length) return null;
+    if (sts.includes('pred')) return 'pred';
+    if (sts.includes('low')) return 'low';
+    if (sts.includes('have')) return 'have';
+    if (sts.includes('ok')) return 'ok';
+    return 'bad';
+  }
+
+  const isOpenState = st => st === 'pred' || st === 'low' || st === 'have';
+  // A disease is complete when nothing in its row is still awaiting a verdict.
+  const isComplete = r => DBS.every(db => !isOpenState(cellState(r, db.key)));
+
+  const GLYPH = { ok: '✓', bad: '✕', pred: '●', low: '○', have: '•' };
+  const SUP = { 2: '²', 3: '³', 4: '⁴', 5: '⁵' };
+  const TAG = { ok: 'confirmed', bad: 'flagged', pred: 'predicted', low: 'synonym', have: 'on file' };
+
+  // Concept labels for ids on file (predictions already carry theirs). Filled lazily
+  // for the open row only, then painted in place so a re-render never blocks on them.
+  const idLabels = {};
+  function labelKey(db, id) { return db + '|' + id; }
+  function paintLabel(k) {
+    const v = idLabels[k];
+    if (!v) return;
+    document.querySelectorAll(`.clabel[data-lk="${CSS.escape(k)}"]`).forEach(el => { el.textContent = v; });
+  }
+  function ensureLabel(db, id) {
+    const k = labelKey(db, id);
+    if (k in idLabels) { paintLabel(k); return; }
+    idLabels[k] = '';                           // in flight — don't look it up twice
+    conceptFor(db, id).then(c => {
+      idLabels[k] = (c && c.found && c.label) ? c.label : '';
+      paintLabel(k);
+    });
+  }
+  function fillCardLabels(r) {
+    for (const db of DBS) for (const id of (r[db.key] || [])) ensureLabel(db.key, id);
+  }
+
+  // Session cache of concept lookups, keyed `${db}|${id}`. Labels are decoration —
+  // nothing waits on them, and a failed lookup just leaves the id unlabelled.
+  const conceptCache = {};
 
   async function conceptFor(db, id) {
     const key = db + '|' + id;
@@ -104,94 +145,6 @@
       conceptCache[key] = api('concept/' + enc(db) + '/' + enc(id)).catch(() => null);
     }
     return conceptCache[key];
-  }
-  async function diseaseFor(iri) {
-    if (!(iri in diseaseCache)) diseaseCache[iri] = api('disease/' + enc(iri)).catch(() => null);
-    return diseaseCache[iri];
-  }
-
-  // Render a value list, wrapping any entry whose normalized form is in `hits`
-  // (the other column's strings) in `.hit` so the shared strings line up visually.
-  function cmpList(values, hits) {
-    if (!values || !values.length) return '<span class="cmp-empty">—</span>';
-    return values.map(v => {
-      const cls = hits.has(normTxt(v)) ? ' class="hit"' : '';
-      return `<span${cls}>${esc(v)}</span>`;
-    }).join('');
-  }
-
-  function cmpColumn(title, sub, label, synonyms, definition, parents, hits, note) {
-    const labelCls = label && hits.has(normTxt(label)) ? ' hit' : '';
-    return `<div class="cmp-col">
-      <div class="cmp-h">${esc(title)}${sub ? ` <span class="cmp-sub">${esc(sub)}</span>` : ''}</div>
-      <div class="cmp-label${labelCls}">${label ? esc(label) : '<span class="cmp-empty">—</span>'}</div>
-      ${note ? `<div class="cmp-note">${esc(note)}</div>` : ''}
-      <div class="cmp-field"><span class="cmp-k">Synonyms</span>${cmpList(synonyms, hits)}</div>
-      <div class="cmp-field"><span class="cmp-k">Definition</span>${definition ? esc(definition) : '<span class="cmp-empty">—</span>'}</div>
-      <div class="cmp-field"><span class="cmp-k">Parents</span>${cmpList(parents, hits)}</div>
-    </div>`;
-  }
-
-  // Fill the panel's compare pane: ARI disease (left) vs the target concept (right),
-  // mirrored so the two read as a side-by-side "same disease?" judgement. Runs after
-  // the panel is wired, so the verdict buttons and hotkeys stay live while it loads.
-  async function fillCompare(dbkey, targetId, r) {
-    const host = $('#p-compare');
-    if (!host) return;
-    const db = DBMAP[dbkey];
-    const [concept, detail] = await Promise.all([conceptFor(dbkey, targetId), diseaseFor(r.iri)]);
-    if (!$('#p-compare') || !active || active.iri !== r.iri || active.dbkey !== dbkey) return;
-
-    const ariSyn = (r.synonyms || []).slice();
-    const ariDef = detail ? (detail.definition || '') : '';
-    const ariParents = detail ? (detail.parent_disease || []).map(p => p.name || p.label || '').filter(Boolean) : [];
-    const ariStrings = new Set([r.name, ...ariSyn, ...ariParents].map(normTxt).filter(Boolean));
-
-    let right;
-    if (!concept) {
-      right = `<div class="cmp-col"><div class="cmp-h">${esc(db.label)}</div>
-        <div class="cmp-note">Couldn't load this concept — <a href="${esc(db.search(r.name))}" target="_blank" rel="noopener">search ${esc(db.label)} ↗</a>.</div></div>`;
-    } else if (!concept.found) {
-      right = `<div class="cmp-col"><div class="cmp-h">${esc(db.label)}</div>
-        <div class="cmp-note">${esc(concept.note || 'Not in our indexes.')} <a href="${esc(db.search(r.name))}" target="_blank" rel="noopener">Open the source ↗</a></div></div>`;
-    } else {
-      // Honesty: when the id isn't the database's own term, label the column for the
-      // hub it actually came from ("via MONDO") and show the caveat, never as if the
-      // target database supplied it.
-      const via = concept.via && concept.via.length
-        ? 'via ' + concept.via.map(v => v.source.toUpperCase()).join(' / ') : '';
-      const title = concept.direct ? db.label : (via || db.label);
-      const cSyn = concept.synonyms || [], cParents = concept.parents || [];
-      const conStrings = new Set([concept.label, ...cSyn, ...cParents].map(normTxt).filter(Boolean));
-      // Recompute ARI hits against the concept's strings so both columns mark shared text.
-      const right2 = cmpColumn(title, concept.id, concept.label, cSyn, concept.definition,
-        cParents, ariStrings, concept.direct ? '' : (concept.note || ''));
-      host.innerHTML = `<div class="cmp">
-        ${cmpColumn('ARI', r.ari_id || '', r.name, ariSyn, ariDef, ariParents, conStrings, '')}
-        ${right2}</div>`;
-      return;
-    }
-    host.innerHTML = `<div class="cmp">
-      ${cmpColumn('ARI', r.ari_id || '', r.name, ariSyn, ariDef, ariParents, new Set(), '')}
-      ${right}</div>`;
-  }
-
-  function idBlock(id, attrs = '', activeId = null, openLabel = '', extraCls = '') {
-    const activeCls = activeId != null && String(id) === String(activeId) ? ' active' : '';
-    return `<span class="xid-block${activeCls}${extraCls ? ' ' + extraCls : ''}"${attrs}><span class="xid-label">${esc(id)}</span>${openLabel ? `<span class="xid-open">${openLabel}</span>` : ''}</span>`;
-  }
-
-  // Apply per-ID highlighting classes to an individual .xid-block element.
-  function setIdBlockClass(el, iri, db, id) {
-    if (!el) return;
-    const r = ROWS.find(x => x.iri === iri);
-    const key = idKey(iri, db, id);
-    const pre = r ? preJudgmentId(r, db, id) : null;
-    el.classList.toggle('ok', reviewed[key] === 'ok');
-    el.classList.toggle('bad', reviewed[key] === 'bad');
-    el.classList.toggle('edited', !!edited[key]);
-    el.classList.toggle('prepos', !reviewed[key] && pre === 'pos');
-    el.classList.toggle('preneg', !reviewed[key] && pre === 'neg');
   }
 
   function reviewMessage() {
@@ -206,7 +159,6 @@
 
   // Collect this session's reviewed cells of a given verdict ('ok' positives /
   // 'bad' negatives) into the {ari_id, iri, name, db, ids} shape publish wants.
-  // Aggregates per-ID reviews into per-cell groups.
   function reviewedCells(verdict) {
     const cellMap = {};
     for (const [k, v] of Object.entries(reviewed)) {
@@ -225,12 +177,38 @@
   const confirmedList = () => reviewedCells('ok');
   const flaggedList = () => reviewedCells('bad');
 
+  // This session's unpublished work, grouped by disease, for the pending drawer.
+  function pendingByDisease() {
+    const by = {};
+    const bump = (iri, f) => { (by[iri] = by[iri] || { ok: 0, bad: 0, ed: 0 })[f]++; };
+    for (const [k, v] of Object.entries(reviewed)) if (v === 'ok' || v === 'bad') bump(k.split('|')[0], v);
+    for (const k of Object.keys(edited)) bump(k.split('|')[0], 'ed');
+    return Object.entries(by).map(([iri, c]) => {
+      const r = ROWS.find(x => x.iri === iri);
+      return {
+        name: r ? r.name : iri,
+        summary: [c.ok ? c.ok + ' confirmed' : null, c.bad ? c.bad + ' flagged' : null,
+                  c.ed ? c.ed + ' edited' : null].filter(Boolean).join(' · '),
+      };
+    });
+  }
+
   function counts() {
     const ok = Object.values(reviewed).filter(v => v === 'ok').length;
     const bad = Object.values(reviewed).filter(v => v === 'bad').length;
     const ed = Object.keys(edited).length;
     const conf = confirmedList().length, flag = flaggedList().length;
-    $('#counts').textContent = `confirmed ${ok} · flagged ${bad} · edited ${ed}`;
+    const done = ROWS.filter(isComplete).length;
+    $('#done-n').textContent = done;
+    $('#total-n').textContent = ROWS.length;
+    $('#progress-bar').style.width = ROWS.length ? Math.round(done / ROWS.length * 100) + '%' : '0%';
+    const pend = pendingByDisease();
+    $('#pending-count').textContent = pend.length;
+    $('#pending-dot').classList.toggle('live', pend.length > 0);
+    $('#pending-chip').title = `confirmed ${ok} · flagged ${bad} · edited ${ed}`;
+    $('#pending-list').innerHTML = pend.length
+      ? pend.map(p => `<div class="pending-row"><span>${esc(p.name)}</span><span>${esc(p.summary)}</span></div>`).join('')
+      : '<div class="pending-row"><span class="muted">No verdicts yet. Open a disease and judge a mapping.</span></div>';
     const canPublish = !!(me && me.authenticated && (ed > 0 || conf > 0 || flag > 0));
     $('#publish').disabled = !canPublish;
     $('#publish-new').disabled = !canPublish;
@@ -269,224 +247,272 @@
     }
   }
 
-  // Update the cell-level class based on its per-ID children.
-  function setCellClass(iri, db) {
-    const el = cellEl(iri, db); if (!el) return;
-    const r = ROWS.find(x => x.iri === iri);
-    const ids = (r && r[db]) || [];
-    // Cell is 'ok' if ALL ids are reviewed 'ok'; 'bad' if ANY id is reviewed 'bad';
-    // 'edited' if any id is edited.
-    let anyOk = false, anyBad = false, anyEdited = false;
-    for (const id of ids) {
-      const key = idKey(iri, db, id);
-      if (reviewed[key] === 'ok') anyOk = true;
-      if (reviewed[key] === 'bad') anyBad = true;
-      if (edited[key]) anyEdited = true;
-    }
-    const pre = r ? preJudgment(r, db) : null;
-    el.classList.toggle('ok', anyOk && !anyBad);
-    el.classList.toggle('bad', anyBad);
-    el.classList.toggle('edited', anyEdited);
-    el.classList.toggle('prepos', !anyOk && !anyBad && pre === 'pos');
-    el.classList.toggle('preneg', !anyOk && !anyBad && pre === 'neg');
+  // ----------------------------------------------------------------- MATRIX
+  // Column tracks: a fixed disease column plus one equal track per database. The 44px
+  // floor is what makes the matrix scroll instead of collapse when the panel opens.
+  function applyGrid() {
+    const compact = document.documentElement.dataset.density === 'compact';
+    document.documentElement.style.setProperty('--grid-cols',
+      (compact ? '250px' : '330px') + ' repeat(' + DBS.length + ', minmax(44px,1fr))');
   }
 
-  function renderTable(filter) {
-    const q = (filter || '').trim().toLowerCase();
-    const rows = ROWS.filter(r => !q || (r.name || '').toLowerCase().includes(q) ||
+  function renderHead() {
+    $('#mhead').innerHTML = '<div>Disease</div>' + DBS.map(d => `<div>${esc(d.label)}</div>`).join('');
+  }
+
+  function visibleRows() {
+    const q = ($('#filter').value || '').trim().toLowerCase();
+    if (!q) return ROWS;
+    return ROWS.filter(r => (r.name || '').toLowerCase().includes(q) ||
       (r.synonyms || []).some(s => String(s).toLowerCase().includes(q)) ||
-      DBS.some(db => (r[db.key] || []).some(id => String(id).toLowerCase().includes(q))));
-    let h = '<table><thead><tr><th>Disease</th>' + DBS.map(d => `<th>${d.label}</th>`).join('') + '</tr></thead><tbody>';
+      DBS.some(db => cellEntries(r, db.key).some(e => String(e.id).toLowerCase().includes(q))));
+  }
+
+  // One database card in the open row's review strip: the state tag, each id with its
+  // ✓/✕ verdict and a link out, and an "add another id" affordance.
+  function cardHtml(r, db) {
+    const entries = cellEntries(r, db.key);
+    const st = cellState(r, db.key);
+    const tag = st ? TAG[st] : 'no id';
+    const ids = entries.map(e => {
+      const ist = idState(r, db.key, e.id, e.pred);
+      const k = idKey(r.iri, db.key, e.id);
+      const sel = active && active.iri === r.iri && active.dbkey === db.key && String(active.id) === String(e.id);
+      const label = e.pred ? (e.pred.label || '') : (idLabels[labelKey(db.key, e.id)] || '');
+      const at = ` data-iri="${esc(r.iri)}" data-db="${db.key}" data-id="${esc(e.id)}"`;
+      return `<div class="card-id${sel ? ' sel' : ''}${edited[k] ? ' edited' : ''}"${at}${e.pred ? ' data-pred="1"' : ''}>
+        <div class="cid">${esc(e.id)}</div>
+        <div class="clabel" data-lk="${esc(labelKey(db.key, e.id))}">${esc(label)}</div>
+        <div class="cacts">
+          <button class="cbtn ok${ist === 'ok' ? ' on' : ''}" data-v="ok"${at} title="Confirm this mapping">✓</button>
+          <button class="cbtn bad${ist === 'bad' ? ' on' : ''}" data-v="bad"${at} title="Flag this mapping as wrong">✕</button>
+          <a class="copen" href="${esc(db.link(e.id))}" target="_blank" rel="noopener" title="Open in ${esc(db.label)}">↗</a>
+        </div></div>`;
+    }).join('');
+    return `<div class="card${st ? ' ' + st : ''}">
+      <div class="card-h"><span class="card-db">${esc(db.label)}</span><span class="card-tag${st ? ' ' + st : ''}">${esc(tag)}</span></div>
+      ${ids}${entries.length ? '' : '<div class="card-empty">no id yet</div>'}
+      <div class="card-add" data-iri="${esc(r.iri)}" data-db="${db.key}">+ add another id</div>
+    </div>`;
+  }
+
+  function renderMatrix() {
+    const rows = visibleRows();
+    let h = '';
     for (const r of rows) {
-      const syns = (r.synonyms || []).filter(Boolean);
-      const synHtml = syns.length
-        ? `<div class="dz-syns">${syns.map(s => `<span class="dz-syn">${esc(s)}</span>`).join('')}</div>`
-        : '';
-      h += `<tr><td class="dz"><div class="dz-name">${esc(r.name)}</div>${synHtml}</td>`;
-      for (const db of DBS) {
-        const ids = r[db.key] || [];
-        const ck = cellKey(r.iri, db.key);
-        const pre = preJudgment(r, db.key);
-        // Determine cell-level class from per-ID states
-        let anyOk = false, anyBad = false, anyEdited = false;
-        for (const id of ids) {
-          const ik = idKey(r.iri, db.key, id);
-          if (reviewed[ik] === 'ok') anyOk = true;
-          if (reviewed[ik] === 'bad') anyBad = true;
-          if (edited[ik]) anyEdited = true;
-        }
-        const preds = ids.length ? [] : predFor(r, db.key);
-        const cellCls = (anyOk && !anyBad ? ' ok' : anyBad ? ' bad'
-                        : pre === 'pos' ? ' prepos' : pre === 'neg' ? ' preneg'
-                        : preds.length ? ' predicted' : '')
-                        + (anyEdited ? ' edited' : '');
-        let chips;
-        if (ids.length) {
-          chips = `<div class="xid-list">${ids.map(id => {
-              const ik = idKey(r.iri, db.key, id);
-              const preId = preJudgmentId(r, db.key, id);
-              const idCls = (reviewed[ik] === 'ok' ? 'ok' : reviewed[ik] === 'bad' ? 'bad'
-                            : preId === 'pos' ? 'prepos' : preId === 'neg' ? 'preneg' : '')
-                            + (edited[ik] ? ' edited' : '');
-              return idBlock(id, ` data-iri="${esc(r.iri)}" data-db="${db.key}" data-id="${esc(id)}"`, null, '', idCls);
-            }).join('')}</div>`;
-        } else if (preds.length) {
-          // Yellow predicted candidates: click to verify + confirm in the panel, or
-          // click the ✕ to discard (issue #52) — a wrong prediction with no correct
-          // value in this db. Low-confidence (synonym-only) chips are dimmed/labelled.
-          chips = `<div class="xid-list">${preds.map(p => {
-              const lc = p.confidence === 'low' ? ' low' : '';
-              const disc = reviewed[idKey(r.iri, db.key, p.id)] === 'bad' ? ' discarded' : '';
-              const tip = p.confidence === 'low'
-                ? `Predicted from a synonym only (label matched nothing): ${esc(p.label)} — verify`
-                : `Predicted by exact ${p.match_field} match: ${esc(p.label)} — click to verify`;
-              const dtip = disc ? 'Restore this prediction' : 'Discard — mark this prediction wrong (no correct value)';
-              return `<span class="xid-block predicted${lc}${disc}" data-iri="${esc(r.iri)}" data-db="${db.key}" data-pred-id="${esc(p.id)}" title="${tip}"><span class="xid-label">${esc(p.id)}</span>${p.label ? `<span class="xid-name">${esc(p.label)}</span>` : ''}<span class="xid-discard" data-iri="${esc(r.iri)}" data-db="${db.key}" data-pred-id="${esc(p.id)}" title="${dtip}">${disc ? '↩' : '✕'}</span></span>`;
-            }).join('')}<span class="add" data-iri="${esc(r.iri)}" data-db="${db.key}">+ add</span></div>`;
-        } else {
-          chips = `<span class="add" data-iri="${esc(r.iri)}" data-db="${db.key}">+ add</span>`;
-        }
-        const title = !anyOk && !anyBad && pre ? ` title="Previously ${pre === 'pos' ? 'confirmed' : 'flagged'} in the curated mappings"`
-                    : preds.length ? ` title="${preds.length} predicted exact-match candidate${preds.length > 1 ? 's' : ''} to verify"` : '';
-        h += `<td class="cell${cellCls}" data-cell="${esc(ck)}"${title}>${chips}</td>`;
+      const open = openRow === r.iri;
+      const states = DBS.map(db => cellState(r, db.key));
+      const okN = states.filter(s => s === 'ok').length;
+      const cells = DBS.map((db, j) => {
+        const st = states[j];
+        const entries = cellEntries(r, db.key);
+        const sel = active && active.iri === r.iri && active.dbkey === db.key;
+        const anyEdited = entries.some(e => edited[idKey(r.iri, db.key, e.id)]);
+        const sup = entries.length > 1 ? (SUP[entries.length] || '·' + entries.length) : '';
+        const title = entries.length ? entries.map(e => e.id).join(', ') : 'No ' + db.label + ' id';
+        return `<div class="mcell${st ? ' ' + st : ''}${sel ? ' sel' : ''}${anyEdited ? ' edited' : ''}"
+          data-iri="${esc(r.iri)}" data-db="${db.key}" title="${esc(title)}"><span>${st ? GLYPH[st] : ''}</span><span class="sup">${sup}</span></div>`;
+      }).join('');
+      let strip = '';
+      if (open) {
+        const openN = DBS.reduce((n, db) => n + cellEntries(r, db.key)
+          .filter(e => isOpenState(idState(r, db.key, e.id, e.pred))).length, 0);
+        const none = states.filter(s => !s).length;
+        const multi = DBS.filter(db => cellEntries(r, db.key).length > 1).length;
+        const summary = `${okN} confirmed · ${openN} ids awaiting review · ${none} databases with no id` +
+          (multi ? ` · ${multi} with several ids` : '');
+        strip = `<div class="strip">
+          <div class="strip-head">
+            <span class="strip-title">${esc(r.name)}</span>
+            <span class="strip-id">${esc(r.ari_id || '')}</span>
+            <span class="strip-syn">${esc((r.synonyms || []).join(' · '))}</span>
+            <span style="flex:1"></span>
+            <button class="btn" data-subtype="${esc(r.iri)}">＋ New subtype</button>
+            <span class="strip-sum">${esc(summary)}</span>
+          </div>
+          <div class="cards">${DBS.map(db => cardHtml(r, db)).join('')}</div>
+        </div>`;
       }
-      h += '</tr>';
+      h += `<div class="mgroup${open ? ' open' : ''}">
+        <div class="mrow" data-iri="${esc(r.iri)}">
+          <div class="mname"><span class="mcaret">${open ? '▾' : '▸'}</span>
+            <span class="mname-text">${esc(r.name)}</span>
+            <span class="mcount">${okN}/${DBS.length}</span></div>
+          ${cells}
+        </div>${strip}</div>`;
     }
-    h += '</tbody></table>';
-    $('#table-wrap').innerHTML = h;
-    $('#table-wrap').querySelectorAll('.xid-block[data-id]').forEach(c => c.addEventListener('click', () => openPanel(c.dataset.iri, c.dataset.db, c.dataset.id)));
-    $('#table-wrap').querySelectorAll('.xid-block[data-pred-id]').forEach(c => c.addEventListener('click', () => openPanel(c.dataset.iri, c.dataset.db, null, c.dataset.predId)));
-    // Discard ✕ inside a predicted chip: toggle without opening the panel.
-    $('#table-wrap').querySelectorAll('.xid-discard').forEach(c => c.addEventListener('click', e => { e.stopPropagation(); toggleDiscard(c.dataset.iri, c.dataset.db, c.dataset.predId); }));
-    $('#table-wrap').querySelectorAll('.add').forEach(c => c.addEventListener('click', () => openPanel(c.dataset.iri, c.dataset.db, null)));
+    $('#matrix').innerHTML = h || '<div class="empty-note">No disease or id matches that filter.</div>';
+    if (openRow) {
+      const r = ROWS.find(x => x.iri === openRow);
+      if (r) fillCardLabels(r);
+    }
+  }
+
+  function toggleRow(iri) { openRow = openRow === iri ? null : iri; renderMatrix(); }
+
+  // Open one mapping in the side panel, expanding its disease so the strip agrees
+  // with what the panel is showing.
+  function openEntry(iri, dbkey, id) {
+    openRow = iri;
+    openPanel(iri, dbkey, id);
+    renderMatrix();
+  }
+
+  // Step to the next mapping anywhere in the matrix that still needs a verdict.
+  function nextOpen() {
+    const flat = [];
+    for (const r of ROWS) for (const db of DBS)
+      for (const e of cellEntries(r, db.key)) flat.push({ r, db: db.key, id: e.id, pred: e.pred });
+    if (!flat.length) return;
+    const at = active ? flat.findIndex(x => x.r.iri === active.iri && x.db === active.dbkey &&
+                                             String(x.id) === String(active.id)) : -1;
+    for (let n = 1; n <= flat.length; n++) {
+      const c = flat[(at + n) % flat.length];
+      if (isOpenState(idState(c.r, c.db, c.id, c.pred))) { openEntry(c.r.iri, c.db, c.id); return; }
+    }
   }
 
   function setReview(iri, db, id, v) {
     const key = idKey(iri, db, id);
-    reviewed[key] = reviewed[key] === v ? null : v;
-    // Update the individual .xid-block element
-    const el = document.querySelector(`.xid-block[data-iri="${CSS.escape(iri)}"][data-db="${db}"][data-id="${CSS.escape(String(id))}"]`);
-    if (el) setIdBlockClass(el, iri, db, id);
-    setCellClass(iri, db);
-    counts(); saveSession();
-    // update panel buttons in place (no reload) — show state for the active id
+    if (reviewed[key] === v) delete reviewed[key]; else reviewed[key] = v;
+    counts(); saveSession(); renderMatrix();
+    // Keep the panel's own verdict buttons in step without rebuilding it (which
+    // would reload the preview iframe underneath the curator).
     const ok = $('#p-ok'), bad = $('#p-bad');
-    if (ok && bad) {
-      const activeId = active && active.id;
-      if (String(id) === String(activeId)) {
-        ok.classList.toggle('on', reviewed[key] === 'ok');
-        bad.classList.toggle('on', reviewed[key] === 'bad');
-      }
+    if (ok && bad && active && active.iri === iri && active.dbkey === db && String(active.id) === String(id)) {
+      ok.classList.toggle('on', reviewed[key] === 'ok');
+      bad.classList.toggle('on', reviewed[key] === 'bad');
     }
   }
 
-  // Discard (issue #52): flag a predicted candidate as a negative mapping so it
-  // publishes as a "Not" cross-reference and is not predicted again. Reversible
-  // in-session (toggles like the review buttons); the chip stays visible, struck
-  // through, until published. Reuses the same per-ID 'bad' review state and the
-  // flagged publish path as "Needs change".
-  function toggleDiscard(iri, dbkey, predId) {
-    const key = idKey(iri, dbkey, predId);
-    const on = reviewed[key] !== 'bad';
-    reviewed[key] = on ? 'bad' : null;
-    // Update the grid chip in place (no re-render — keeps any open iframe alive).
-    const chip = document.querySelector(`.xid-block[data-pred-id="${CSS.escape(String(predId))}"][data-iri="${CSS.escape(iri)}"][data-db="${dbkey}"]`);
-    if (chip) {
-      chip.classList.toggle('discarded', on);
-      const x = chip.querySelector('.xid-discard');
-      if (x) { x.textContent = on ? '↩' : '✕'; x.title = on ? 'Restore this prediction' : 'Discard — mark this prediction wrong (no correct value)'; }
-    }
-    counts(); saveSession();
-    // Reflect state on the panel's discard button when it's showing this prediction.
-    const dbtn = $('#p-discard');
-    if (dbtn && active && active.iri === iri && active.dbkey === dbkey && String(active.predId) === String(predId)) {
-      dbtn.classList.toggle('on', on);
-      dbtn.textContent = on ? '↩ Restore prediction' : '✗ Discard prediction';
-    }
-  }
-
-  function openPanel(iri, dbkey, id, predId) {
+  // ------------------------------------------------------------- SIDE PANEL
+  function openPanel(iri, dbkey, id) {
     const r = ROWS.find(x => x.iri === iri);
     const db = DBMAP[dbkey];
-    const ids = r[dbkey] || [];
-    const key = idKey(iri, dbkey, id);
-    const preds = ids.length ? [] : predFor(r, dbkey);
-    const isPred = !ids.length && preds.length > 0;
-    const predTarget = isPred ? (predId || preds[0].id) : null;
-    const discKey = isPred ? idKey(iri, dbkey, predTarget) : null;
-    active = { iri, dbkey, id, predId: predTarget };
-    let frameSrc = '', linksHtml, prefill = ids.join(', '), cmpTarget = null;
-    if (ids.length) {
-      const target = id || ids[0];
-      cmpTarget = target;
-      frameSrc = db.link(target);
-      linksHtml = `<div class="muted" style="margin-bottom:4px">Open / preview ${db.label} id(s):</div><div class="xid-list">` +
-        ids.map(x => {
-          const ik = idKey(iri, dbkey, x);
-          const preId = preJudgmentId(r, dbkey, x);
-          const idCls = (reviewed[ik] === 'ok' ? 'ok' : reviewed[ik] === 'bad' ? 'bad'
-                        : preId === 'pos' ? 'prepos' : preId === 'neg' ? 'preneg' : '')
-                        + (edited[ik] ? ' edited' : '');
-          return `<a class="xid-block${String(x) === String(target) ? ' active' : ''} ${idCls}" href="${esc(db.link(x))}" target="_blank" rel="noopener" data-panel-id="${esc(x)}"><span class="xid-label">${esc(x)}</span><span class="xid-open">↗</span></a>`;
-        }).join('') +
-        '</div>';
-    } else if (preds.length) {
-      // Predicted (issue #42): preview the candidate concept(s) and pre-fill the id
-      // box so the curator only has to verify the source page and Save.
-      const target = predTarget;
-      cmpTarget = target;
-      prefill = target;
-      frameSrc = db.link(target);
-      linksHtml = `<div class="muted" style="margin-bottom:4px">Predicted by exact name/synonym match — verify against ${db.label}, then Save:</div><div class="xid-list">` +
-        preds.map(p => `<a class="xid-block predicted${String(p.id) === String(target) ? ' active' : ''}" href="${esc(db.link(p.id))}" target="_blank" rel="noopener" data-panel-id="${esc(p.id)}"><span class="xid-label">${esc(p.id)}</span>${p.label ? `<span class="xid-name">${esc(p.label)}</span>` : ''}<span class="xid-open">↗</span></a>`).join('') +
-        `</div><div class="muted" style="margin-top:6px">Not right? <a href="${esc(db.search(r.name))}" target="_blank" rel="noopener">search ${db.label} for "${esc(r.name)}" ↗</a></div>`;
-    } else {
-      frameSrc = db.search(r.name);
-      linksHtml = `No ${db.label} id yet — <a href="${esc(db.search(r.name))}" target="_blank" rel="noopener">search ${db.label} for "${esc(r.name)}" ↗</a>, then paste the id below.`;
-    }
-    $('#panel').innerHTML = `
-      <div class="p-head"><strong>${esc(r.name)}</strong> · ${db.label}
-        <button class="btn" id="p-close" style="float:right">✕</button></div>
-      ${isPred
-        ? `<div class="p-q">Wrong prediction, or no correct value in ${db.label}?
-             <button class="btn bad ${reviewed[discKey] === 'bad' ? 'on' : ''}" id="p-discard">${reviewed[discKey] === 'bad' ? '↩ Restore prediction' : '✗ Discard prediction'}</button></div>`
-        : ids.length
-        ? `<div class="p-q">Is this ${db.label} reference correct?
-             <button class="btn ok ${reviewed[key] === 'ok' ? 'on' : ''}" id="p-ok">✓ Correct</button>
-             <button class="btn bad ${reviewed[key] === 'bad' ? 'on' : ''}" id="p-bad">✗ Needs change</button></div>`
-        : ''}
-      <div class="p-sub"><span class="muted">Distinct variant of this disease?</span>
-        <button class="btn" id="p-subtype">＋ New subtype</button></div>
-      <div class="p-edit">
-        <label>${db.label} id(s) — comma separated${preds.length ? ' (predicted id pre-filled — verify, then Save)' : ' (add an alternate id here)'}</label>
-        <input id="p-ids" value="${esc(prefill)}" placeholder="e.g. 12345, 67890">
-        <button class="btn primary" id="p-save">Save</button>
+    if (!r || !db) return;
+    const entries = cellEntries(r, dbkey);
+    const ent = entries.find(e => String(e.id) === String(id)) || entries[0] || null;
+    const target = ent ? ent.id : null;
+    active = { iri, dbkey, id: target };
+    const st = ent ? idState(r, dbkey, ent.id, ent.pred) : null;
+
+    const eyebrow = !ent ? 'No id yet'
+      : st === 'ok' ? 'Confirmed mapping' : st === 'bad' ? 'Flagged mapping'
+      : st === 'low' ? 'Predicted · synonym match only'
+      : st === 'pred' ? 'Predicted · exact ' + (ent.pred.match_field || 'label') + ' match'
+      : 'On file · not yet reviewed';
+    const pos = ent ? entries.findIndex(e => String(e.id) === String(ent.id)) + 1 : 0;
+    const sub = (r.ari_id || '') + ' → ' + db.label + (entries.length > 1 ? ` · id ${pos} of ${entries.length}` : '');
+
+    const sibs = entries.length > 1 ? `<div class="p-switch">
+      <div class="p-switch-h">${entries.length} ids mapped to this database — judge each one</div>
+      <div class="p-sibs">${entries.map(e => {
+        const s = idState(r, dbkey, e.id, e.pred);
+        return `<span class="p-sib ${s}${String(e.id) === String(target) ? ' active' : ''}" data-sib="${esc(e.id)}">${esc(e.id)}</span>`;
+      }).join('')}</div></div>` : '';
+
+    // The target id and its editor are one control: ✎ swaps the id for an input over
+    // the same box, so there is a single place the id is read and written.
+    const lk = ent && !ent.pred ? labelKey(dbkey, ent.id) : '';
+    const entLabel = ent ? (ent.pred ? (ent.pred.label || '') : (idLabels[lk] || '')) : '';
+    const searchLink = `<a href="${esc(db.search(r.name))}" target="_blank" rel="noopener">search ${esc(db.label)} for "${esc(r.name)}" ↗</a>`;
+    const idBlock = `<div class="p-idblock" id="p-idblock">
+      <div class="p-idview">
+        ${ent ? `<div class="p-idrow">
+            <span class="p-id">${esc(ent.id)}</span>
+            <button class="p-icon" id="p-edit" title="Edit this ${esc(db.label)} id">✎</button>
+          </div>
+          <div class="p-label clabel"${lk ? ` data-lk="${esc(lk)}"` : ''}>${esc(entLabel)}</div>
+          <div class="p-idacts">
+            <a class="p-open" href="${esc(db.link(ent.id))}" target="_blank" rel="noopener">Open ${esc(db.label)} in a new tab ↗</a>
+            <button class="btn" id="p-copy">Copy id</button>
+          </div>
+          <div class="p-note">${db.noframe
+            ? esc(db.label) + ' blocks embedding' + (dbkey === 'umls' ? ' and requires login' : '') + ', so nothing is previewed here. '
+            : 'Source page embeds below. '}Not the right concept? ${searchLink}</div>`
+        : `<div class="p-label">No ${esc(db.label)} id yet — ${searchLink}, then add it here.</div>
+           <div class="p-idacts"><button class="p-icon" id="p-edit">＋ Add a ${esc(db.label)} id</button></div>`}
       </div>
-      ${cmpTarget ? '<div class="p-cmp" id="p-compare"><div class="muted" style="padding:8px 12px">Loading concept…</div></div>' : ''}
-      <div class="p-links">${linksHtml}</div>
-      ${db.noframe
-        ? `<div class="p-note muted" style="padding:16px">${db.label} can't be previewed here (it blocks embedding${dbkey === 'umls' ? ' and requires login' : ''}). Use the "↗" link${ids.length ? 's' : ''} above to open it in a new tab.</div>`
-        : `<div class="p-note muted">If the page below is blank, the source site blocks embedding — use the "↗" link to open it in a new tab.</div><iframe id="p-frame" src="${esc(frameSrc)}"></iframe>`}`;
+      <div class="p-idform">
+        <label>${ent ? esc(db.label) + ' id' : 'New ' + esc(db.label) + ' id'}</label>
+        <input id="p-ids" value="${esc(ent ? ent.id : '')}" placeholder="e.g. 12345">
+        <div class="p-formacts">
+          <button class="btn primary" id="p-save">Save</button>
+          <button class="btn" id="p-cancel">Cancel</button>
+        </div>
+        <div class="p-hint">${ent
+          ? 'Saving rewrites this one id and leaves the rest of the cell alone; clear it to remove the id.'
+          : 'Adds this id to the cell.'} Separate several ids with commas.</div>
+      </div>
+    </div>`;
+
+    const foot = entries.length > 1
+      ? 'Each id publishes as its own SSSOM row; confirming one does not judge the others.'
+      : 'Verdicts save to your review session as you work.';
+
+    $('#panel').innerHTML = `
+      <div class="p-head">
+        <button class="p-close" id="p-close">✕</button>
+        <div class="p-eyebrow ${st === 'ok' ? 'ok' : st === 'bad' ? 'bad' : ''}">${esc(eyebrow)}</div>
+        <div class="p-title">${esc(r.name)}</div>
+        <div class="p-sub">${esc(sub)}</div>
+      </div>
+      ${sibs}
+      ${idBlock}
+      ${ent ? `<div class="p-actions">
+        <button class="btn ok ${st === 'ok' ? 'on' : ''}" id="p-ok">✓ Confirm</button>
+        <button class="btn bad ${st === 'bad' ? 'on' : ''}" id="p-bad">✕ Not the same</button>
+        <button class="btn" id="p-next">Next open mapping</button>
+      </div>` : ''}
+      ${db.noframe || !ent
+        ? ''
+        : `<iframe id="p-frame" src="${esc(db.link(ent.id))}"></iframe>`}
+      <div class="p-foot">${esc(foot)}</div>`;
+
     $('#side').classList.add('open');
     $('#divider').classList.add('show');
     $('#p-close').addEventListener('click', closePanel);
-    if (isPred) {
-      $('#p-discard').addEventListener('click', () => toggleDiscard(iri, dbkey, predTarget));
-    } else if (ids.length) {
-      $('#p-ok').addEventListener('click', () => setReview(iri, dbkey, id, 'ok'));
-      $('#p-bad').addEventListener('click', () => setReview(iri, dbkey, id, 'bad'));
+    // ✎ / ＋ swaps the id box into its edit form; Save writes just this id.
+    const blk = $('#p-idblock');
+    const commit = () => saveId(iri, dbkey, ent ? ent.id : null);
+    $('#p-edit').addEventListener('click', () => {
+      blk.classList.add('editing');
+      const inp = $('#p-ids'); inp.focus(); inp.select();
+    });
+    $('#p-cancel').addEventListener('click', () => {
+      blk.classList.remove('editing');
+      $('#p-ids').value = ent ? ent.id : '';
+    });
+    $('#p-save').addEventListener('click', commit);
+    $('#p-ids').addEventListener('keydown', e => {
+      if (e.key === 'Enter') commit();
+      else if (e.key === 'Escape') $('#p-cancel').click();
+    });
+    if (ent) {
+      $('#p-ok').addEventListener('click', () => setReview(iri, dbkey, target, 'ok'));
+      $('#p-bad').addEventListener('click', () => setReview(iri, dbkey, target, 'bad'));
+      $('#p-next').addEventListener('click', nextOpen);
+      $('#p-copy').addEventListener('click', e => {
+        navigator.clipboard.writeText(String(target)).then(() => { e.target.textContent = 'Copied'; })
+          .catch(() => { e.target.textContent = 'Copy failed'; });
+      });
+      $('#panel').querySelectorAll('.p-sib').forEach(s =>
+        s.addEventListener('click', () => openEntry(iri, dbkey, s.dataset.sib)));
+      // Look the concept label up after wiring, so nothing waits on it.
+      if (!ent.pred) ensureLabel(dbkey, ent.id);
     }
-    $('#p-save').addEventListener('click', () => save(iri, dbkey));
-    $('#p-subtype').addEventListener('click', () => openSubtypeOverlay(iri));
-    // Fill the compare pane after wiring, so verdict buttons/hotkeys stay live while
-    // the concept lookup is in flight (issue: concept-detail).
-    if (cmpTarget) fillCompare(dbkey, cmpTarget, r);
   }
 
-  function closePanel() { closeSubtypeOverlay(); $('#side').classList.remove('open'); $('#divider').classList.remove('show'); }
+  function closePanel() {
+    closeSubtypeOverlay();
+    active = null;
+    $('#side').classList.remove('open');
+    $('#divider').classList.remove('show');
+    renderMatrix();
+  }
 
   // -------------------------------------------------- NEW-SUBTYPE OVERLAY
-  // Covers only the table (left) area so the reference info in the right panel
+  // Covers only the matrix (left) area so the reference info in the right panel
   // stays visible while a curator fills in a new child disease.
   async function loadTissues() {
     if (!_tissues) _tissues = await api('tissues');
@@ -499,7 +525,7 @@
     const r = ROWS.find(x => x.iri === parentIri);
     if (!r) return;
     const ov = $('#subtype-overlay');
-    ov.style.width = $('#table-wrap').getBoundingClientRect().width + 'px';
+    ov.style.width = $('#matrix-wrap').getBoundingClientRect().width + 'px';
     ov.innerHTML = `
       <div class="so-head"><strong>＋ New subtype</strong><span style="flex:1"></span>
         <button class="btn" id="so-close">✕</button></div>
@@ -575,9 +601,9 @@
     btn.disabled = true; btn.textContent = 'Creating…';
     try {
       const created = await api('disease', { method: 'POST', body: { data, editor } });
-      ROWS = await api('xrefs');           // refresh so the new subtype appears in the table
+      ROWS = await api('xrefs');           // refresh so the new subtype appears in the matrix
       closeSubtypeOverlay();
-      renderTable($('#filter').value); counts();
+      renderMatrix(); counts();
       alert('Created subtype: ' + created.name);
     } catch (e) {
       alert('Create failed: ' + e.message);
@@ -585,31 +611,42 @@
     }
   }
 
-  async function save(iri, dbkey) {
+  // Save an edit to the panel's target id. The rest of the cell is left alone: the new
+  // value replaces just this id, an empty value removes it, and an id that is not on
+  // file yet (a prediction, or a first id for a blank cell) is added.
+  async function saveId(iri, dbkey, targetId) {
     if (!me || !me.authenticated) { alert('Sign in with GitHub first.'); return; }
+    const r = ROWS.find(x => x.iri === iri);
+    if (!r) return;
     const val = $('#p-ids').value.trim();
+    const onFile = (r[dbkey] || []).map(String);
+    const list = (targetId != null && onFile.includes(String(targetId))
+      ? onFile.map(x => (x === String(targetId) ? val : x))
+      : onFile.concat(val)).filter(Boolean);
     $('#p-save').disabled = true; $('#p-save').textContent = 'Saving…';
     try {
-      const updated = await api('disease/' + encodeURIComponent(iri), { method: 'PUT', body: { changes: { [dbkey]: val } } });
-      const r = ROWS.find(x => x.iri === iri);
+      const updated = await api('disease/' + enc(iri), { method: 'PUT', body: { changes: { [dbkey]: list.join(', ') } } });
       const oldIds = r[dbkey] || [];
       const newIds = updated[dbkey] || [];
       r[dbkey] = newIds;
-      // Mark all new ids as edited (per-ID). Clear any prior 'bad' review on the
-      // same id (e.g. a discarded prediction the curator then decided to keep) so
-      // a saved id is never also published as a negative mapping.
+      // Only ids that actually changed are touched, so a sibling id in the same cell
+      // keeps the verdict the curator already gave it. Clearing a new id's review
+      // stops a just-saved id also publishing as a negative mapping.
       for (const id of newIds) {
+        if (oldIds.includes(id)) continue;
         edited[idKey(iri, dbkey, id)] = true;
         delete reviewed[idKey(iri, dbkey, id)];
       }
-      // Clear edited for ids that were removed
       for (const id of oldIds) {
-        if (!newIds.includes(id)) {
-          delete edited[idKey(iri, dbkey, id)];
-          delete reviewed[idKey(iri, dbkey, id)];
-        }
+        if (newIds.includes(id)) continue;
+        delete edited[idKey(iri, dbkey, id)];
+        delete reviewed[idKey(iri, dbkey, id)];
       }
-      renderTable($('#filter').value); counts(); saveSession(); openPanel(iri, dbkey, newIds.length ? newIds[0] : null);
+      counts(); saveSession();
+      // Stay on the id just saved when it survived, so editing the third id in a
+      // cell doesn't bounce the curator back to the first.
+      openPanel(iri, dbkey, newIds.includes(val) ? val : (newIds[0] || null));
+      renderMatrix();
     } catch (e) { alert('Save failed: ' + e.message); $('#p-save').disabled = false; $('#p-save').textContent = 'Save'; }
   }
 
@@ -648,7 +685,7 @@
       const x = (e.touches ? e.touches[0].clientX : e.clientX);
       const rect = body.getBoundingClientRect();
       let w = rect.right - x;
-      w = Math.max(260, Math.min(rect.width - 160, w));
+      w = Math.max(300, Math.min(rect.width - 200, w));
       side.style.width = w + 'px';
     };
     const start = e => { dragging = true; document.body.classList.add('dragging'); e.preventDefault(); };
@@ -658,14 +695,55 @@
     window.addEventListener('mouseup', end); window.addEventListener('touchend', end);
   }
 
+  // ------------------------------------------------------- HEADER CONTROLS
+  function syncSegs() {
+    const th = document.documentElement.dataset.theme || 'light';
+    const de = document.documentElement.dataset.density || 'comfortable';
+    document.querySelectorAll('#theme button').forEach(b => b.classList.toggle('on', b.dataset.theme === th));
+    document.querySelectorAll('#density button').forEach(b => b.classList.toggle('on', b.dataset.density === de));
+  }
+
+  function initControls() {
+    $('#theme').addEventListener('click', e => {
+      const b = e.target.closest('button'); if (!b) return;
+      document.documentElement.dataset.theme = b.dataset.theme;
+      try { localStorage.setItem('theme', b.dataset.theme); } catch (err) {}
+      syncSegs();
+    });
+    $('#density').addEventListener('click', e => {
+      const b = e.target.closest('button'); if (!b) return;
+      document.documentElement.dataset.density = b.dataset.density;
+      try { localStorage.setItem('refDensity', b.dataset.density); } catch (err) {}
+      applyGrid(); syncSegs();
+    });
+    $('#pending-chip').addEventListener('click', () => $('#pending-panel').classList.toggle('open'));
+    // One delegated handler for the whole matrix — 200+ rows x 10 cells is far too
+    // many nodes to bind individually, and the matrix re-renders on every verdict.
+    $('#matrix').addEventListener('click', e => {
+      if (e.target.closest('.copen')) return;                 // let the link open normally
+      const btn = e.target.closest('.cbtn');
+      if (btn) { setReview(btn.dataset.iri, btn.dataset.db, btn.dataset.id, btn.dataset.v); return; }
+      const sub = e.target.closest('[data-subtype]');
+      if (sub) { openSubtypeOverlay(sub.dataset.subtype); return; }
+      const add = e.target.closest('.card-add');
+      if (add) { openEntry(add.dataset.iri, add.dataset.db, null); return; }
+      const cid = e.target.closest('.card-id');
+      if (cid) { openEntry(cid.dataset.iri, cid.dataset.db, cid.dataset.id); return; }
+      const cell = e.target.closest('.mcell');
+      if (cell) { openEntry(cell.dataset.iri, cell.dataset.db, null); return; }
+      const row = e.target.closest('.mrow');
+      if (row) toggleRow(row.dataset.iri);
+    });
+  }
+
   async function init() {
     try { me = await api('me'); } catch (e) { me = { github_enabled: false, authenticated: false }; }
     $('#auth').innerHTML = !me.authenticated
       ? (me.github_enabled ? `<a class="btn" href="${new URL('../auth/github?next=' + encodeURIComponent(location.pathname + location.search), location.href).href}">Sign in with GitHub</a>` : '<span class="muted">GitHub off — review only</span>')
       : `<span class="muted">@${esc(me.login)}</span>`;
     try { buildDatabases(await api('xref-databases')); }
-    catch (e) { $('#table-wrap').innerHTML = '<p class="muted" style="padding:16px">Failed to load the database registry: ' + esc(e.message) + '</p>'; return; }
-    try { ROWS = await api('xrefs'); } catch (e) { $('#table-wrap').innerHTML = '<p class="muted" style="padding:16px">Failed to load: ' + esc(e.message) + '</p>'; return; }
+    catch (e) { $('#matrix').innerHTML = '<p class="muted" style="padding:16px">Failed to load the database registry: ' + esc(e.message) + '</p>'; return; }
+    try { ROWS = await api('xrefs'); } catch (e) { $('#matrix').innerHTML = '<p class="muted" style="padding:16px">Failed to load: ' + esc(e.message) + '</p>'; return; }
     // Pre-existing curated judgments pre-highlight cells; failure is non-fatal.
     try {
       mappings = {};
@@ -689,8 +767,9 @@
       } catch (e) { console.warn('Could not load review session:', e.message); }
     }
     reflectPr();
-    renderTable(''); counts(); initDivider();
-    $('#filter').addEventListener('input', e => renderTable(e.target.value));
+    applyGrid(); syncSegs(); renderHead(); renderMatrix(); counts();
+    initDivider(); initControls();
+    $('#filter').addEventListener('input', renderMatrix);
     $('#publish').addEventListener('click', () => publish(false));
     $('#publish-new').addEventListener('click', () => publish(true));
   }
