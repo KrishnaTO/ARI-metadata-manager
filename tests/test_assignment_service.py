@@ -54,6 +54,24 @@ def test_unassign_removes_and_unknown_login_raises(store):
         store.unassign("nobody", ["a"])
 
 
+def test_assign_refuses_a_disease_another_curator_holds(store):
+    store.assign("ktokey", ["a", "b"])
+    with pytest.raises(ValueError, match="another curator"):
+        store.assign("someone", ["b", "c"])
+    assert store.assigned_to("ktokey")["iris"] == ["a", "b"]
+    assert store.owner_of("c") is None       # the whole call is refused, not part of it
+
+
+def test_reassign_moves_the_disease_and_drops_the_old_done_flag(store):
+    store.assign("ktokey", ["a", "b"])
+    store.set_done("ktokey", "b")
+    rec = store.assign("someone", ["b"], reassign=True)
+    assert rec["iris"] == ["b"]
+    assert store.owner_of("b") == "someone"
+    assert store.assigned_to("ktokey")["iris"] == ["a"]
+    assert store.assigned_to("ktokey")["done"] == []
+
+
 def test_owner_of(store):
     store.assign("ktokey", ["a"])
     assert store.owner_of("a") == "ktokey"

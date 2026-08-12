@@ -79,6 +79,18 @@
   .btn:disabled { opacity:.5; cursor:not-allowed; }
   .muted { color:var(--mute); font-size:12px; }
 
+  /* Selection bar — appears only while diseases are ticked for the review queue. */
+  #selbar { display:none; align-items:center; gap:10px; flex-wrap:wrap; padding:9px 16px;
+            border-bottom:1px solid var(--line); background:var(--head); flex-shrink:0; }
+  #selbar.open { display:flex; }
+  #sel-count { font:600 12px var(--sans); }
+  #selbar input { padding:5px 9px; border:1px solid var(--line-strong); border-radius:6px;
+                  background:var(--surface); color:var(--text); font:400 12px var(--sans); }
+  #sel-login { width:130px; font-family:var(--mono); }
+  #sel-note { width:180px; }
+  #sel-others { display:none; align-items:center; gap:6px; padding-left:10px; border-left:1px solid var(--line-strong); }
+  #sel-others.on { display:flex; }
+
   /* Pending drawer — this session's unpublished verdicts, grouped by disease. */
   #pending-panel { display:none; padding:12px 16px; border-bottom:1px solid var(--line);
                    background:var(--head); color:var(--text); flex-shrink:0; max-height:22vh; overflow:auto; }
@@ -104,6 +116,13 @@
   .mgroup.open .mrow { background:var(--head); }
   .mname { padding:9px 14px; display:flex; align-items:center; gap:8px; min-width:0; }
   .mcaret { color:var(--faint); font-size:10px; flex-shrink:0; }
+  /* Queue controls in the disease cell: a select box, and who holds the disease. */
+  .mselect { flex-shrink:0; width:13px; height:13px; margin:0; cursor:pointer; accent-color:var(--accent); }
+  .mowner { flex-shrink:0; margin-left:auto; font:500 10px var(--mono); padding:2px 7px; border-radius:99px;
+            background:var(--have-bg); color:var(--have-fg); }
+  .mowner.mine { background:var(--ok-bg); color:var(--ok-fg); }
+  .mowner.done { opacity:.55; }
+  .mowner + .mcount { margin-left:8px; }
   .mgroup.open .mcaret { color:var(--accent); }
   .mname-text { font:600 12.5px var(--sans); color:var(--text); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .mcount { font:400 10px var(--mono); color:var(--faint); flex-shrink:0; margin-left:auto; }
@@ -260,6 +279,9 @@
   <div class="seg" id="theme">
     <button data-theme="light">Light</button><button data-theme="dark">Dark</button>
   </div>
+  <div class="seg" id="queue-filter" style="display:none">
+    <button data-queue="all">All</button><button data-queue="mine">My queue</button><button data-queue="unassigned">Unassigned</button>
+  </div>
   <span class="spacer"></span>
   <div class="progress"><b id="done-n">0</b>/<span id="total-n">0</span> diseases complete
     <span class="track"><span id="progress-bar"></span></span></div>
@@ -271,6 +293,19 @@
   <a class="btn" href="../ref-curate/" title="Curate one disease at a time, across all databases">◱ Disease curator</a>
   <a class="btn" href="../">← Back to app</a>
 </header>
+<div id="selbar">
+  <span id="sel-count">0 diseases selected</span>
+  <button class="btn primary" id="sel-mine">＋ Add to my queue</button>
+  <span id="sel-others">
+    <input id="sel-login" list="curator-logins" placeholder="curator login" autocomplete="off">
+    <datalist id="curator-logins"></datalist>
+    <input id="sel-note" placeholder="note (optional)">
+    <button class="btn" id="sel-assign">Assign to curator</button>
+  </span>
+  <span class="spacer"></span>
+  <span class="muted" id="sel-owned"></span>
+  <button class="btn" id="sel-clear">Clear selection</button>
+</div>
 <div id="pending-panel">
   <div class="pending-h">Pending in this session — one entry per id, grouped by disease</div>
   <div id="pending-list"></div>

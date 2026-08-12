@@ -208,7 +208,8 @@ def service_for(request: Request, write=False):
 ASSIGN_DIR = Path(__file__).resolve().parent.parent / "assignments"
 ASSIGNMENTS = assignment_service.AssignmentStore(ASSIGN_DIR)
 
-# Curators who may hand out assignments. Empty = anyone signed in (dev default).
+# Curators who may hand work to *other* curators. Empty = anyone signed in (dev
+# default). Filling your own queue is never gated — every curator self-assigns.
 ASSIGN_ADMINS = [s.strip() for s in os.environ.get("ASSIGN_ADMINS", "").split(",") if s.strip()]
 
 
@@ -219,11 +220,21 @@ def _require_login(request: Request) -> str:
     return login
 
 
-def _require_admin(request: Request) -> str:
+def _can_assign_others(login: str) -> bool:
+    return not ASSIGN_ADMINS or login in ASSIGN_ADMINS
+
+
+def _queue_target(request: Request, target: str) -> str:
+    """The curator whose queue a write applies to, defaulting to the caller.
+
+    A curator always manages their own queue; touching someone else's is what
+    the ``ASSIGN_ADMINS`` allow-list gates.
+    """
     login = _require_login(request)
-    if ASSIGN_ADMINS and login not in ASSIGN_ADMINS:
-        raise ValueError(f"@{login} is not allowed to change assignments")
-    return login
+    target = (target or "").strip() or login
+    if target != login and not _can_assign_others(login):
+        raise ValueError(f"@{login} may only change their own review queue")
+    return target
 
 
 async def _mapping_judgments(request: Request) -> list:
@@ -589,7 +600,10 @@ async def me(request: Request):
     i = u["identity"]
     return {"github_enabled": True, "authenticated": True,
             "login": i["login"], "name": i["name"], "avatar": i["avatar"],
-            "repo": f"{GH_OWNER}/{GH_REPO}", "base_branch": GH_BASE_BRANCH}
+            "repo": f"{GH_OWNER}/{GH_REPO}", "base_branch": GH_BASE_BRANCH,
+            # Whether this curator may queue work for *other* curators; every
+            # signed-in curator can fill their own queue regardless.
+            "can_assign_others": _can_assign_others(i["login"])}
 
 
 def _safe_next(nxt: str) -> str:
@@ -879,18 +893,23 @@ async def assignments_all(request: Request):
 
 @app.post("/api/v2/assignments")
 async def assignments_set(request: Request, payload: dict = Body(...)):
-    """Assign diseases. Body: {login, iris: [...], note?, replace?}."""
-    _require_admin(request)
+    """Assign diseases. Body: {login?, iris: [...], note?, replace?, reassign?}.
+
+    ``login`` defaults to the caller — self-assignment needs no privilege. A
+    disease another curator already holds is refused unless ``reassign``.
+    """
+    target = _queue_target(request, payload.get("login", ""))
     return ASSIGNMENTS.assign(
-        payload.get("login", ""), payload.get("iris", []),
-        note=payload.get("note", ""), replace=bool(payload.get("replace")))
+        target, payload.get("iris", []),
+        note=payload.get("note", ""), replace=bool(payload.get("replace")),
+        reassign=bool(payload.get("reassign")))
 
 
 @app.delete("/api/v2/assignments")
 async def assignments_remove(request: Request, payload: dict = Body(...)):
-    """Unassign diseases. Body: {login, iris: [...]}."""
-    _require_admin(request)
-    return ASSIGNMENTS.unassign(payload.get("login", ""), payload.get("iris", []))
+    """Unassign diseases. Body: {login?, iris: [...]}."""
+    target = _queue_target(request, payload.get("login", ""))
+    return ASSIGNMENTS.unassign(target, payload.get("iris", []))
 
 
 @app.post("/api/v2/assignments/done")

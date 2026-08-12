@@ -162,7 +162,7 @@ never sent to the browser.
 | `APP_REPO_BRANCH` | Branch of this app repo that `deploy/update.sh` tracks |
 | `SESSION_SECRET` | Signs the session cookie (`openssl rand -hex 32`) |
 | `ALLOWED_LOGINS` | Optional allow-list of GitHub logins (empty = any user with repo access) |
-| `ASSIGN_ADMINS` | Optional allow-list of logins who may change review-queue assignments (empty = anyone signed in) |
+| `ASSIGN_ADMINS` | Optional allow-list of logins who may queue work for *other* curators (empty = anyone signed in); filling your own queue is never gated |
 | `PORT` | Default `8001` |
 | `USER_DATA_TTL_DAYS` | Idle per-user copy retention in days (`0` = never sweep) |
 
@@ -224,7 +224,7 @@ when its target actually changes.
 | GET / PUT | `/api/v2/ref-session` | Signed-in user's saved cross-reference review session (resume across reloads) |
 | GET | `/api/v2/queue` | Signed-in curator's assigned diseases with per-disease progress + coverage strip |
 | GET | `/api/v2/queue/{iri}` | One disease as the review panel renders it (one entry per review database) |
-| GET / POST / DELETE | `/api/v2/assignments` | List / assign / unassign curator disease queues (`ASSIGN_ADMINS`-gated) |
+| GET / POST / DELETE | `/api/v2/assignments` | List / assign / unassign curator disease queues; `login` defaults to the caller (self-assignment is ungated), and a disease another curator holds needs `reassign` |
 | POST | `/api/v2/assignments/done` | Mark one assigned disease finished (or reopen it) |
 | GET / POST | `/api/v2/decisions` | List / autosave a curator's unpublished review decisions |
 | DELETE | `/api/v2/decisions/{id}` | Undo one autosaved decision |
