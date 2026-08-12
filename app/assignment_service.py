@@ -99,18 +99,40 @@ class AssignmentStore:
         return self._load_all().get(login, {"iris": [], "done": [], "note": "", "updated": None})
 
     def owner_of(self, iri: str) -> str | None:
-        """Which curator holds this disease (first match; assignments are exclusive)."""
+        """Which curator holds this disease; ``None`` when it is unassigned."""
         for login, rec in self._load_all().items():
             if iri in rec.get("iris", []):
                 return login
         return None
 
-    def assign(self, login: str, iris: list, note: str = "", replace: bool = False) -> dict:
-        """Give ``login`` these diseases. Additive unless ``replace``."""
+    def assign(self, login: str, iris: list, note: str = "", replace: bool = False,
+               reassign: bool = False) -> dict:
+        """Give ``login`` these diseases. Additive unless ``replace``.
+
+        A disease belongs to exactly one curator, so a disease another curator
+        already holds is refused unless ``reassign`` — which moves it out of
+        their queue (dropping their "done" flag for it) and into this one.
+        """
         if not login:
             raise ValueError("A GitHub login is required to assign diseases")
         iris = [str(i) for i in (iris or []) if str(i).strip()]
         data = self._load_all()
+        taken = {}
+        for other, orec in data.items():
+            if other == login:
+                continue
+            held = [i for i in iris if i in orec.get("iris", [])]
+            if held:
+                taken[other] = held
+        if taken and not reassign:
+            who = "; ".join(f"@{o} holds {len(v)}" for o, v in sorted(taken.items()))
+            raise ValueError(f"Already assigned to another curator ({who})")
+        for other, held in taken.items():
+            orec = data[other]
+            orec["iris"] = [i for i in orec["iris"] if i not in held]
+            orec["done"] = [i for i in orec.get("done", []) if i not in held]
+            orec["updated"] = _now()
+            self._audit("REASSIGN", other, f"{len(held)} disease(s) moved to @{login}")
         rec = data.setdefault(login, {"iris": [], "done": [], "note": "", "updated": None})
         rec["iris"] = list(iris) if replace else list(dict.fromkeys(rec["iris"] + iris))
         if replace:

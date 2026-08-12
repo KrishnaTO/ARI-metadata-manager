@@ -34,6 +34,9 @@
 
   let ROWS = [], me = null, reviewed = {}, edited = {}, active = null,
       sessionBranch = null, sessionPr = null, _tissues = null, openRow = null;
+  // Review queue: which curator holds each disease (iri -> {login, done}), the
+  // logins known to have a queue, and this page's tick-box selection.
+  let owners = {}, curators = [], selected = new Set(), lastSel = null, queueFilter = 'all';
   // reviewed/edited keys: `${iri}|${db}|${id}` (per-ID, not per-cell)
   const idKey = (iri, db, id) => iri + '|' + db + '|' + id;
   // Pre-existing curated judgments keyed `${ari_id}|${prefix}|${id}` -> 'positive'|'negative'.
@@ -247,6 +250,106 @@
     }
   }
 
+  // ------------------------------------------------------------ REVIEW QUEUE
+  // A disease belongs to exactly one curator's queue. The whole assignment table
+  // is small (one record per curator), so it is fetched once and flattened into
+  // the per-disease owner map the rows and the queue filter read.
+  const canQueue = () => !!(me && me.authenticated);
+  const mine = iri => { const o = owners[iri]; return !!(o && me && o.login === me.login); };
+
+  async function loadOwners() {
+    owners = {}; curators = [];
+    if (!canQueue()) return;
+    try {
+      const all = await api('assignments');
+      curators = Object.keys(all || {}).sort();
+      for (const [login, rec] of Object.entries(all || {})) {
+        const done = new Set(rec.done || []);
+        for (const iri of rec.iris || []) owners[iri] = { login, done: done.has(iri) };
+      }
+    } catch (e) { console.warn('Could not load the review queues:', e.message); }
+    $('#curator-logins').innerHTML = curators.map(l => `<option value="${esc(l)}">`).join('');
+  }
+
+  // Tick one disease; with Shift, everything between it and the last tick — over
+  // the rows currently visible, so a range never reaches past the filter.
+  function toggleSelect(iri, range) {
+    const rows = visibleRows().map(r => r.iri);
+    if (range && lastSel && rows.includes(lastSel) && rows.includes(iri)) {
+      const a = rows.indexOf(lastSel), b = rows.indexOf(iri);
+      const on = !selected.has(iri);
+      for (let i = Math.min(a, b); i <= Math.max(a, b); i++) {
+        if (on) selected.add(rows[i]); else selected.delete(rows[i]);
+      }
+    } else if (selected.has(iri)) selected.delete(iri);
+    else selected.add(iri);
+    lastSel = iri;
+    reflectSelection(); renderMatrix();
+  }
+
+  function clearSelection() {
+    selected.clear(); lastSel = null;
+    reflectSelection(); renderMatrix();
+  }
+
+  function reflectSelection() {
+    const n = selected.size;
+    $('#selbar').classList.toggle('open', n > 0);
+    $('#sel-count').textContent = n + (n === 1 ? ' disease selected' : ' diseases selected');
+    const held = [...selected].filter(i => owners[i] && !mine(i)).length;
+    $('#sel-owned').textContent = held ? held + " already on another curator's queue" : '';
+  }
+
+  // Queue the selection for `login`. Diseases another curator holds are only moved
+  // after the curator says so; declining queues the rest and leaves those alone.
+  async function addToQueue(login, note) {
+    const iris = [...selected];
+    if (!iris.length || !login) return;
+    const clash = {};
+    for (const i of iris) {
+      const o = owners[i];
+      if (o && o.login !== login) (clash[o.login] = clash[o.login] || []).push(i);
+    }
+    const clashN = Object.values(clash).reduce((n, v) => n + v.length, 0);
+    let send = iris, reassign = false;
+    if (clashN) {
+      const who = Object.entries(clash).map(([l, v]) => `${v.length} on @${l}`).join(', ');
+      reassign = confirm(`${who}. Move them to @${login}'s queue?\n\n` +
+        `Cancel queues only the ${iris.length - clashN} nobody else holds.`);
+      if (!reassign) send = iris.filter(i => !(owners[i] && owners[i].login !== login));
+    }
+    if (!send.length) return;
+    const btns = [$('#sel-mine'), $('#sel-assign')];
+    btns.forEach(b => { b.disabled = true; });
+    try {
+      await api('assignments', { method: 'POST', body: { login, iris: send, note: note || '', reassign } });
+      selected.clear(); lastSel = null;
+      $('#sel-note').value = '';
+      await loadOwners();
+      reflectSelection(); renderMatrix();
+    } catch (e) {
+      alert('Could not update the review queue: ' + e.message);
+    } finally { btns.forEach(b => { b.disabled = false; }); }
+  }
+
+  function initQueue() {
+    if (!canQueue()) return;
+    $('#queue-filter').style.display = '';
+    $('#sel-others').classList.toggle('on', !!me.can_assign_others);
+    $('#sel-clear').addEventListener('click', clearSelection);
+    $('#sel-mine').addEventListener('click', () => addToQueue(me.login, ''));
+    $('#sel-assign').addEventListener('click', () => {
+      const login = $('#sel-login').value.trim();
+      if (!login) { alert('Enter the curator’s GitHub login.'); return; }
+      addToQueue(login, $('#sel-note').value.trim());
+    });
+    $('#queue-filter').addEventListener('click', e => {
+      const b = e.target.closest('button'); if (!b) return;
+      queueFilter = b.dataset.queue;
+      syncSegs(); renderMatrix();
+    });
+  }
+
   // ----------------------------------------------------------------- MATRIX
   // Column tracks: a fixed disease column plus one equal track per database. The 44px
   // floor is what makes the matrix scroll instead of collapse when the panel opens.
@@ -260,10 +363,14 @@
     $('#mhead').innerHTML = '<div>Disease</div>' + DBS.map(d => `<div>${esc(d.label)}</div>`).join('');
   }
 
+  const inQueueFilter = r => queueFilter === 'all' ? true
+    : queueFilter === 'mine' ? mine(r.iri) : !owners[r.iri];
+
   function visibleRows() {
     const q = ($('#filter').value || '').trim().toLowerCase();
-    if (!q) return ROWS;
-    return ROWS.filter(r => (r.name || '').toLowerCase().includes(q) ||
+    const rows = queueFilter === 'all' ? ROWS : ROWS.filter(inQueueFilter);
+    if (!q) return rows;
+    return rows.filter(r => (r.name || '').toLowerCase().includes(q) ||
       (r.synonyms || []).some(s => String(s).toLowerCase().includes(q)) ||
       DBS.some(db => cellEntries(r, db.key).some(e => String(e.id).toLowerCase().includes(q))));
   }
@@ -294,6 +401,14 @@
       ${ids}${entries.length ? '' : '<div class="card-empty">no id yet</div>'}
       <div class="card-add" data-iri="${esc(r.iri)}" data-db="${db.key}">+ add another id</div>
     </div>`;
+  }
+
+  function emptyNote() {
+    if (queueFilter === 'mine' && !$('#filter').value.trim())
+      return 'Nothing in your review queue yet — tick some diseases under “All” and add them.';
+    if (queueFilter === 'unassigned' && !$('#filter').value.trim())
+      return 'Every disease is on a curator’s queue.';
+    return 'No disease or id matches that filter.';
   }
 
   function renderMatrix() {
@@ -333,15 +448,24 @@
           <div class="cards">${DBS.map(db => cardHtml(r, db)).join('')}</div>
         </div>`;
       }
+      const own = owners[r.iri];
+      const badge = own
+        ? `<span class="mowner${mine(r.iri) ? ' mine' : ''}${own.done ? ' done' : ''}" title="${
+            own.done ? 'Marked done by' : 'In the review queue of'} @${esc(own.login)}">@${esc(own.login)}${own.done ? ' ✓' : ''}</span>`
+        : '';
+      const box = canQueue()
+        ? `<input type="checkbox" class="mselect" data-sel="${esc(r.iri)}"${selected.has(r.iri) ? ' checked' : ''}
+             title="Select for a review queue (Shift-click for a range)">`
+        : '';
       h += `<div class="mgroup${open ? ' open' : ''}">
         <div class="mrow" data-iri="${esc(r.iri)}">
-          <div class="mname"><span class="mcaret">${open ? '▾' : '▸'}</span>
+          <div class="mname">${box}<span class="mcaret">${open ? '▾' : '▸'}</span>
             <span class="mname-text">${esc(r.name)}</span>
-            <span class="mcount">${okN}/${DBS.length}</span></div>
+            ${badge}<span class="mcount">${okN}/${DBS.length}</span></div>
           ${cells}
         </div>${strip}</div>`;
     }
-    $('#matrix').innerHTML = h || '<div class="empty-note">No disease or id matches that filter.</div>';
+    $('#matrix').innerHTML = h || `<div class="empty-note">${esc(emptyNote())}</div>`;
     if (openRow) {
       const r = ROWS.find(x => x.iri === openRow);
       if (r) fillCardLabels(r);
@@ -701,6 +825,7 @@
     const de = document.documentElement.dataset.density || 'comfortable';
     document.querySelectorAll('#theme button').forEach(b => b.classList.toggle('on', b.dataset.theme === th));
     document.querySelectorAll('#density button').forEach(b => b.classList.toggle('on', b.dataset.density === de));
+    document.querySelectorAll('#queue-filter button').forEach(b => b.classList.toggle('on', b.dataset.queue === queueFilter));
   }
 
   function initControls() {
@@ -721,6 +846,8 @@
     // many nodes to bind individually, and the matrix re-renders on every verdict.
     $('#matrix').addEventListener('click', e => {
       if (e.target.closest('.copen')) return;                 // let the link open normally
+      const sel = e.target.closest('.mselect');
+      if (sel) { toggleSelect(sel.dataset.sel, e.shiftKey); return; }   // never expands the row
       const btn = e.target.closest('.cbtn');
       if (btn) { setReview(btn.dataset.iri, btn.dataset.db, btn.dataset.id, btn.dataset.v); return; }
       const sub = e.target.closest('[data-subtype]');
@@ -766,9 +893,11 @@
         sessionPr = s.pr || null;
       } catch (e) { console.warn('Could not load review session:', e.message); }
     }
+    // Who holds which disease — drives the owner badges and the queue filter.
+    await loadOwners();
     reflectPr();
     applyGrid(); syncSegs(); renderHead(); renderMatrix(); counts();
-    initDivider(); initControls();
+    initDivider(); initControls(); initQueue();
     $('#filter').addEventListener('input', renderMatrix);
     $('#publish').addEventListener('click', () => publish(false));
     $('#publish-new').addEventListener('click', () => publish(true));
