@@ -197,8 +197,22 @@
   .p-sib.low { background:var(--low-bg); color:var(--low-fg); }
   .p-sib.have { background:var(--have-bg); color:var(--have-fg); }
   .p-sib.active { outline:2px solid var(--accent); outline-offset:1px; }
+  /* The target id and its editor share one box — ✎ swaps the view for the form. */
   .p-idblock { padding:14px 16px; border-bottom:1px solid var(--line); }
-  .p-id { font:500 13px var(--mono); color:var(--text); overflow-wrap:anywhere; }
+  .p-idrow { display:flex; align-items:center; gap:8px; }
+  .p-id { flex:1; min-width:0; font:500 13px var(--mono); color:var(--text); overflow-wrap:anywhere; }
+  .p-icon { flex-shrink:0; background:transparent; border:1px solid var(--line-strong); border-radius:6px;
+            color:var(--mute); cursor:pointer; font:400 12px var(--sans); padding:5px 9px; line-height:1; }
+  .p-icon:hover { border-color:var(--accent); color:var(--accent); }
+  .p-idform { display:none; }
+  .p-idblock.editing .p-idview { display:none; }
+  .p-idblock.editing .p-idform { display:block; }
+  .p-idform label { display:block; font:600 10px var(--sans); letter-spacing:.09em; text-transform:uppercase;
+                    color:var(--faint); margin-bottom:5px; }
+  .p-idform input { width:100%; padding:7px 9px; border:1px solid var(--accent); border-radius:6px;
+                    background:var(--surface); color:var(--text); font:400 12.5px var(--mono); }
+  .p-formacts { display:flex; gap:8px; margin-top:9px; }
+  .p-hint { margin-top:8px; font-size:11px; color:var(--mute); line-height:1.5; }
   .p-label { margin-top:3px; font-size:11.5px; color:var(--mute); line-height:1.5; }
   .p-idacts { display:flex; gap:8px; margin-top:10px; }
   .p-open { flex:1; text-align:center; padding:9px 12px; border-radius:6px; background:var(--accent);
@@ -206,27 +220,8 @@
   .p-note { margin-top:8px; font-size:11px; color:var(--mute); }
   .p-actions { padding:14px 16px; display:flex; gap:8px; align-items:center; flex-wrap:wrap;
                border-bottom:1px solid var(--line); }
-  .p-edit { padding:12px 16px; border-bottom:1px solid var(--line); display:flex; gap:8px; align-items:flex-end; flex-wrap:wrap; }
-  .p-edit label { font-size:11px; color:var(--mute); display:block; width:100%; margin-bottom:4px; }
-  .p-edit input { flex:1; min-width:150px; padding:6px 9px; border:1px solid var(--line-strong); border-radius:6px;
-                  background:var(--surface); color:var(--text); font:400 12px var(--mono); }
-  .p-links { padding:10px 16px; font-size:12px; border-bottom:1px solid var(--line); }
   .p-foot { padding:10px 16px; border-top:1px solid var(--line); font-size:11px; color:var(--mute); background:var(--head); }
   #p-frame { flex:1 0 auto; width:100%; min-height:300px; border:0; background:#fff; }
-
-  /* Compare pane: ARI disease (left) vs the target concept (right). */
-  .p-cmp { border-bottom:1px solid var(--line); }
-  .cmp { display:grid; grid-template-columns:1fr 1fr; gap:1px; background:var(--line); }
-  .cmp-col { background:var(--surface); padding:9px 12px; min-width:0; }
-  .cmp-h { font:600 10px var(--sans); letter-spacing:.09em; text-transform:uppercase; color:var(--faint); margin-bottom:4px; }
-  .cmp-h .cmp-sub { font-weight:400; text-transform:none; letter-spacing:0; color:var(--accent); font-family:var(--mono); }
-  .cmp-label { font:600 13px var(--sans); overflow-wrap:anywhere; }
-  .cmp-note { font-size:11px; color:var(--pred-fg); margin:4px 0; }
-  .cmp-field { font-size:11.5px; margin-top:6px; overflow-wrap:anywhere; }
-  .cmp-field .cmp-k { display:block; font-size:9.5px; text-transform:uppercase; letter-spacing:.05em; color:var(--faint); margin-bottom:1px; }
-  .cmp-field span + span { margin-left:4px; }
-  .cmp-empty { color:var(--faint); }
-  .hit { background:var(--ok-bg); color:var(--ok-fg); border-radius:3px; padding:0 3px; }
 
   /* -------------------------------------------------- new-subtype overlay */
   #subtype-overlay { display:none; position:absolute; top:0; left:0; bottom:0; background:var(--surface); z-index:10;

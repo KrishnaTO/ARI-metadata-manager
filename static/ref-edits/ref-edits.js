@@ -120,31 +120,24 @@
   function paintLabel(k) {
     const v = idLabels[k];
     if (!v) return;
-    document.querySelectorAll(`.card-id[data-lk="${CSS.escape(k)}"] .clabel`).forEach(el => { el.textContent = v; });
+    document.querySelectorAll(`.clabel[data-lk="${CSS.escape(k)}"]`).forEach(el => { el.textContent = v; });
+  }
+  function ensureLabel(db, id) {
+    const k = labelKey(db, id);
+    if (k in idLabels) { paintLabel(k); return; }
+    idLabels[k] = '';                           // in flight — don't look it up twice
+    conceptFor(db, id).then(c => {
+      idLabels[k] = (c && c.found && c.label) ? c.label : '';
+      paintLabel(k);
+    });
   }
   function fillCardLabels(r) {
-    for (const db of DBS) {
-      for (const id of (r[db.key] || [])) {
-        const k = labelKey(db.key, id);
-        if (k in idLabels) { paintLabel(k); continue; }
-        idLabels[k] = '';                       // in flight — don't look it up twice
-        conceptFor(db.key, id).then(c => {
-          idLabels[k] = (c && c.found && c.label) ? c.label : '';
-          paintLabel(k);
-        });
-      }
-    }
+    for (const db of DBS) for (const id of (r[db.key] || [])) ensureLabel(db.key, id);
   }
 
-  // Fold a string the way app/predict_service.normalize() does (NFKD, drop combining
-  // marks, casefold, collapse non-alphanumerics), so the compare pane's string-match
-  // highlighting agrees with what the matcher actually treats as the same name.
-  const normTxt = s => (s == null ? '' : String(s)).normalize('NFKD')
-    .replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^0-9a-z]+/g, ' ').trim();
-
-  // Session caches for the compare pane, keyed `${db}|${id}` (concept lookups) and by
-  // iri (ARI disease detail). The pane never blocks the verdict buttons on these.
-  const conceptCache = {}, diseaseCache = {};
+  // Session cache of concept lookups, keyed `${db}|${id}`. Labels are decoration —
+  // nothing waits on them, and a failed lookup just leaves the id unlabelled.
+  const conceptCache = {};
 
   async function conceptFor(db, id) {
     const key = db + '|' + id;
@@ -152,75 +145,6 @@
       conceptCache[key] = api('concept/' + enc(db) + '/' + enc(id)).catch(() => null);
     }
     return conceptCache[key];
-  }
-  async function diseaseFor(iri) {
-    if (!(iri in diseaseCache)) diseaseCache[iri] = api('disease/' + enc(iri)).catch(() => null);
-    return diseaseCache[iri];
-  }
-
-  // Render a value list, wrapping any entry whose normalized form is in `hits`
-  // (the other column's strings) in `.hit` so the shared strings line up visually.
-  function cmpList(values, hits) {
-    if (!values || !values.length) return '<span class="cmp-empty">—</span>';
-    return values.map(v => {
-      const cls = hits.has(normTxt(v)) ? ' class="hit"' : '';
-      return `<span${cls}>${esc(v)}</span>`;
-    }).join('');
-  }
-
-  function cmpColumn(title, sub, label, synonyms, definition, parents, hits, note) {
-    const labelCls = label && hits.has(normTxt(label)) ? ' hit' : '';
-    return `<div class="cmp-col">
-      <div class="cmp-h">${esc(title)}${sub ? ` <span class="cmp-sub">${esc(sub)}</span>` : ''}</div>
-      <div class="cmp-label"><span class="${labelCls.trim()}">${label ? esc(label) : '<span class="cmp-empty">—</span>'}</span></div>
-      ${note ? `<div class="cmp-note">${esc(note)}</div>` : ''}
-      <div class="cmp-field"><span class="cmp-k">Synonyms</span>${cmpList(synonyms, hits)}</div>
-      <div class="cmp-field"><span class="cmp-k">Definition</span>${definition ? esc(definition) : '<span class="cmp-empty">—</span>'}</div>
-      <div class="cmp-field"><span class="cmp-k">Parents</span>${cmpList(parents, hits)}</div>
-    </div>`;
-  }
-
-  // Fill the panel's compare pane: ARI disease (left) vs the target concept (right),
-  // mirrored so the two read as a side-by-side "same disease?" judgement. Runs after
-  // the panel is wired, so the verdict buttons stay live while it loads.
-  async function fillCompare(dbkey, targetId, r) {
-    const host = $('#p-compare');
-    if (!host) return;
-    const db = DBMAP[dbkey];
-    const [concept, detail] = await Promise.all([conceptFor(dbkey, targetId), diseaseFor(r.iri)]);
-    if (!$('#p-compare') || !active || active.iri !== r.iri || active.dbkey !== dbkey) return;
-
-    const ariSyn = (r.synonyms || []).slice();
-    const ariDef = detail ? (detail.definition || '') : '';
-    const ariParents = detail ? (detail.parent_disease || []).map(p => p.name || p.label || '').filter(Boolean) : [];
-    const ariStrings = new Set([r.name, ...ariSyn, ...ariParents].map(normTxt).filter(Boolean));
-
-    let right;
-    if (!concept) {
-      right = `<div class="cmp-col"><div class="cmp-h">${esc(db.label)}</div>
-        <div class="cmp-note">Couldn't load this concept — <a href="${esc(db.search(r.name))}" target="_blank" rel="noopener">search ${esc(db.label)} ↗</a>.</div></div>`;
-    } else if (!concept.found) {
-      right = `<div class="cmp-col"><div class="cmp-h">${esc(db.label)}</div>
-        <div class="cmp-note">${esc(concept.note || 'Not in our indexes.')} <a href="${esc(db.search(r.name))}" target="_blank" rel="noopener">Open the source ↗</a></div></div>`;
-    } else {
-      // Honesty: when the id isn't the database's own term, label the column for the
-      // hub it actually came from ("via MONDO") and show the caveat, never as if the
-      // target database supplied it.
-      const via = concept.via && concept.via.length
-        ? 'via ' + concept.via.map(v => v.source.toUpperCase()).join(' / ') : '';
-      const title = concept.direct ? db.label : (via || db.label);
-      const cSyn = concept.synonyms || [], cParents = concept.parents || [];
-      const conStrings = new Set([concept.label, ...cSyn, ...cParents].map(normTxt).filter(Boolean));
-      const right2 = cmpColumn(title, concept.id, concept.label, cSyn, concept.definition,
-        cParents, ariStrings, concept.direct ? '' : (concept.note || ''));
-      host.innerHTML = `<div class="cmp">
-        ${cmpColumn('ARI', r.ari_id || '', r.name, ariSyn, ariDef, ariParents, conStrings, '')}
-        ${right2}</div>`;
-      return;
-    }
-    host.innerHTML = `<div class="cmp">
-      ${cmpColumn('ARI', r.ari_id || '', r.name, ariSyn, ariDef, ariParents, new Set(), '')}
-      ${right}</div>`;
   }
 
   function reviewMessage() {
@@ -356,9 +280,9 @@
       const sel = active && active.iri === r.iri && active.dbkey === db.key && String(active.id) === String(e.id);
       const label = e.pred ? (e.pred.label || '') : (idLabels[labelKey(db.key, e.id)] || '');
       const at = ` data-iri="${esc(r.iri)}" data-db="${db.key}" data-id="${esc(e.id)}"`;
-      return `<div class="card-id${sel ? ' sel' : ''}${edited[k] ? ' edited' : ''}" data-lk="${esc(labelKey(db.key, e.id))}"${at}${e.pred ? ' data-pred="1"' : ''}>
+      return `<div class="card-id${sel ? ' sel' : ''}${edited[k] ? ' edited' : ''}"${at}${e.pred ? ' data-pred="1"' : ''}>
         <div class="cid">${esc(e.id)}</div>
-        <div class="clabel">${esc(label)}</div>
+        <div class="clabel" data-lk="${esc(labelKey(db.key, e.id))}">${esc(label)}</div>
         <div class="cacts">
           <button class="cbtn ok${ist === 'ok' ? ' on' : ''}" data-v="ok"${at} title="Confirm this mapping">✓</button>
           <button class="cbtn bad${ist === 'bad' ? ' on' : ''}" data-v="bad"${at} title="Flag this mapping as wrong">✕</button>
@@ -471,8 +395,6 @@
     const target = ent ? ent.id : null;
     active = { iri, dbkey, id: target };
     const st = ent ? idState(r, dbkey, ent.id, ent.pred) : null;
-    const onFile = (r[dbkey] || []).length > 0;
-    const key = target != null ? idKey(iri, dbkey, target) : null;
 
     const eyebrow = !ent ? 'No id yet'
       : st === 'ok' ? 'Confirmed mapping' : st === 'bad' ? 'Flagged mapping'
@@ -489,18 +411,39 @@
         return `<span class="p-sib ${s}${String(e.id) === String(target) ? ' active' : ''}" data-sib="${esc(e.id)}">${esc(e.id)}</span>`;
       }).join('')}</div></div>` : '';
 
-    const idBlock = ent ? `<div class="p-idblock">
-      <div class="p-id">${esc(ent.id)}</div>
-      <div class="p-label">${esc(ent.pred ? (ent.pred.label || '') : (idLabels[labelKey(dbkey, ent.id)] || ''))}</div>
-      <div class="p-idacts">
-        <a class="p-open" href="${esc(db.link(ent.id))}" target="_blank" rel="noopener">Open ${esc(db.label)} in a new tab ↗</a>
-        <button class="btn" id="p-copy">Copy id</button>
+    // The target id and its editor are one control: ✎ swaps the id for an input over
+    // the same box, so there is a single place the id is read and written.
+    const lk = ent && !ent.pred ? labelKey(dbkey, ent.id) : '';
+    const entLabel = ent ? (ent.pred ? (ent.pred.label || '') : (idLabels[lk] || '')) : '';
+    const searchLink = `<a href="${esc(db.search(r.name))}" target="_blank" rel="noopener">search ${esc(db.label)} for "${esc(r.name)}" ↗</a>`;
+    const idBlock = `<div class="p-idblock" id="p-idblock">
+      <div class="p-idview">
+        ${ent ? `<div class="p-idrow">
+            <span class="p-id">${esc(ent.id)}</span>
+            <button class="p-icon" id="p-edit" title="Edit this ${esc(db.label)} id">✎</button>
+          </div>
+          <div class="p-label clabel"${lk ? ` data-lk="${esc(lk)}"` : ''}>${esc(entLabel)}</div>
+          <div class="p-idacts">
+            <a class="p-open" href="${esc(db.link(ent.id))}" target="_blank" rel="noopener">Open ${esc(db.label)} in a new tab ↗</a>
+            <button class="btn" id="p-copy">Copy id</button>
+          </div>
+          <div class="p-note">${db.noframe
+            ? esc(db.label) + ' blocks embedding' + (dbkey === 'umls' ? ' and requires login' : '') + ', so nothing is previewed here. '
+            : 'Source page embeds below. '}Not the right concept? ${searchLink}</div>`
+        : `<div class="p-label">No ${esc(db.label)} id yet — ${searchLink}, then add it here.</div>
+           <div class="p-idacts"><button class="p-icon" id="p-edit">＋ Add a ${esc(db.label)} id</button></div>`}
       </div>
-      <div class="p-note">${db.noframe
-        ? esc(db.label) + ' blocks embedding' + (dbkey === 'umls' ? ' and requires login' : '') + ', so nothing is previewed here.'
-        : 'Source page embeds below.'}</div>
-    </div>` : `<div class="p-idblock">
-      <div class="p-label">No ${esc(db.label)} id yet — <a href="${esc(db.search(r.name))}" target="_blank" rel="noopener">search ${esc(db.label)} for "${esc(r.name)}" ↗</a>, then paste the id below.</div>
+      <div class="p-idform">
+        <label>${ent ? esc(db.label) + ' id' : 'New ' + esc(db.label) + ' id'}</label>
+        <input id="p-ids" value="${esc(ent ? ent.id : '')}" placeholder="e.g. 12345">
+        <div class="p-formacts">
+          <button class="btn primary" id="p-save">Save</button>
+          <button class="btn" id="p-cancel">Cancel</button>
+        </div>
+        <div class="p-hint">${ent
+          ? 'Saving rewrites this one id and leaves the rest of the cell alone; clear it to remove the id.'
+          : 'Adds this id to the cell.'} Separate several ids with commas.</div>
+      </div>
     </div>`;
 
     const foot = entries.length > 1
@@ -521,12 +464,6 @@
         <button class="btn bad ${st === 'bad' ? 'on' : ''}" id="p-bad">✕ Not the same</button>
         <button class="btn" id="p-next">Next open mapping</button>
       </div>` : ''}
-      <div class="p-edit">
-        <label>${esc(db.label)} id(s) — comma separated${!onFile && ent ? ' (predicted id pre-filled — verify, then Save)' : ''}</label>
-        <input id="p-ids" value="${esc(onFile ? (r[dbkey] || []).join(', ') : (ent ? ent.id : ''))}" placeholder="e.g. 12345, 67890">
-        <button class="btn primary" id="p-save">Save</button>
-      </div>
-      ${ent ? '<div class="p-cmp" id="p-compare"><div class="muted" style="padding:9px 12px">Loading concept…</div></div>' : ''}
       ${db.noframe || !ent
         ? ''
         : `<iframe id="p-frame" src="${esc(db.link(ent.id))}"></iframe>`}
@@ -535,7 +472,22 @@
     $('#side').classList.add('open');
     $('#divider').classList.add('show');
     $('#p-close').addEventListener('click', closePanel);
-    $('#p-save').addEventListener('click', () => save(iri, dbkey));
+    // ✎ / ＋ swaps the id box into its edit form; Save writes just this id.
+    const blk = $('#p-idblock');
+    const commit = () => saveId(iri, dbkey, ent ? ent.id : null);
+    $('#p-edit').addEventListener('click', () => {
+      blk.classList.add('editing');
+      const inp = $('#p-ids'); inp.focus(); inp.select();
+    });
+    $('#p-cancel').addEventListener('click', () => {
+      blk.classList.remove('editing');
+      $('#p-ids').value = ent ? ent.id : '';
+    });
+    $('#p-save').addEventListener('click', commit);
+    $('#p-ids').addEventListener('keydown', e => {
+      if (e.key === 'Enter') commit();
+      else if (e.key === 'Escape') $('#p-cancel').click();
+    });
     if (ent) {
       $('#p-ok').addEventListener('click', () => setReview(iri, dbkey, target, 'ok'));
       $('#p-bad').addEventListener('click', () => setReview(iri, dbkey, target, 'bad'));
@@ -546,9 +498,8 @@
       });
       $('#panel').querySelectorAll('.p-sib').forEach(s =>
         s.addEventListener('click', () => openEntry(iri, dbkey, s.dataset.sib)));
-      // Fill the compare pane after wiring, so the verdict buttons stay live while
-      // the concept lookup is in flight.
-      fillCompare(dbkey, target, r);
+      // Look the concept label up after wiring, so nothing waits on it.
+      if (!ent.pred) ensureLabel(dbkey, ent.id);
     }
   }
 
@@ -660,32 +611,41 @@
     }
   }
 
-  async function save(iri, dbkey) {
+  // Save an edit to the panel's target id. The rest of the cell is left alone: the new
+  // value replaces just this id, an empty value removes it, and an id that is not on
+  // file yet (a prediction, or a first id for a blank cell) is added.
+  async function saveId(iri, dbkey, targetId) {
     if (!me || !me.authenticated) { alert('Sign in with GitHub first.'); return; }
+    const r = ROWS.find(x => x.iri === iri);
+    if (!r) return;
     const val = $('#p-ids').value.trim();
+    const onFile = (r[dbkey] || []).map(String);
+    const list = (targetId != null && onFile.includes(String(targetId))
+      ? onFile.map(x => (x === String(targetId) ? val : x))
+      : onFile.concat(val)).filter(Boolean);
     $('#p-save').disabled = true; $('#p-save').textContent = 'Saving…';
     try {
-      const updated = await api('disease/' + encodeURIComponent(iri), { method: 'PUT', body: { changes: { [dbkey]: val } } });
-      const r = ROWS.find(x => x.iri === iri);
+      const updated = await api('disease/' + enc(iri), { method: 'PUT', body: { changes: { [dbkey]: list.join(', ') } } });
       const oldIds = r[dbkey] || [];
       const newIds = updated[dbkey] || [];
       r[dbkey] = newIds;
-      // Mark all new ids as edited (per-ID). Clear any prior 'bad' review on the
-      // same id (e.g. a rejected prediction the curator then decided to keep) so
-      // a saved id is never also published as a negative mapping.
+      // Only ids that actually changed are touched, so a sibling id in the same cell
+      // keeps the verdict the curator already gave it. Clearing a new id's review
+      // stops a just-saved id also publishing as a negative mapping.
       for (const id of newIds) {
+        if (oldIds.includes(id)) continue;
         edited[idKey(iri, dbkey, id)] = true;
         delete reviewed[idKey(iri, dbkey, id)];
       }
-      // Clear edited for ids that were removed
       for (const id of oldIds) {
-        if (!newIds.includes(id)) {
-          delete edited[idKey(iri, dbkey, id)];
-          delete reviewed[idKey(iri, dbkey, id)];
-        }
+        if (newIds.includes(id)) continue;
+        delete edited[idKey(iri, dbkey, id)];
+        delete reviewed[idKey(iri, dbkey, id)];
       }
       counts(); saveSession();
-      openPanel(iri, dbkey, newIds.length ? newIds[0] : null);
+      // Stay on the id just saved when it survived, so editing the third id in a
+      // cell doesn't bounce the curator back to the first.
+      openPanel(iri, dbkey, newIds.includes(val) ? val : (newIds[0] || null));
       renderMatrix();
     } catch (e) { alert('Save failed: ' + e.message); $('#p-save').disabled = false; $('#p-save').textContent = 'Save'; }
   }
