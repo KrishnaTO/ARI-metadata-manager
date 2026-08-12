@@ -3,7 +3,7 @@
 // other js/*.js modules at runtime.
 
 const $ = s => document.querySelector(s);
-const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&','<':'<','>':'>','"':'"',"'":'&#39;'}[c]));
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const first = a => (Array.isArray(a) ? a[0] : a) ?? '';
 
 // Base path for when the app is served under a subpath (e.g. /ari-editor).
