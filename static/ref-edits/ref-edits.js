@@ -36,6 +36,14 @@
       sessionBranch = null, sessionPr = null, _tissues = null, openRow = null;
   // reviewed/edited keys: `${iri}|${db}|${id}` (per-ID, not per-cell)
   const idKey = (iri, db, id) => iri + '|' + db + '|' + id;
+  // What a key already sits in a pull request as: `key -> {pr, state}`. Keeps
+  // published work out of the next publish, so a fresh PR is titled and filled
+  // with new verdicts only instead of everything reviewed this session.
+  let published = {};
+  // A key's publishable state — the verdict, plus a marker when its id was edited.
+  // Empty means there is nothing to publish for it.
+  const keyState = k => (reviewed[k] || '') + (edited[k] ? '+e' : '');
+  const isPending = k => !!keyState(k) && (published[k] || {}).state !== keyState(k);
   // Pre-existing curated judgments keyed `${ari_id}|${prefix}|${id}` -> 'positive'|'negative'.
   let mappings = {};
   // Predicted matches (issue #42) keyed `${ari_id}|${prefix}|${id}` ->
@@ -147,22 +155,33 @@
     return conceptCache[key];
   }
 
-  function reviewMessage() {
+  // Keys a publish covers. A new PR carries this session's pending work only;
+  // appending to the tracked PR also re-sends the keys already on it, because the
+  // mapping files are rebuilt from the base branch on every publish.
+  function publishKeys(newPr) {
+    const keys = new Set();
+    for (const k of [...Object.keys(reviewed), ...Object.keys(edited)]) if (isPending(k)) keys.add(k);
+    if (!newPr && sessionPr)
+      for (const [k, p] of Object.entries(published))
+        if (p.pr === sessionPr.number && keyState(k)) keys.add(k);
+    return keys;
+  }
+
+  function reviewMessage(keys) {
     const iris = new Set();
-    Object.keys(edited).forEach(k => iris.add(k.split('|')[0]));
-    for (const [k, v] of Object.entries(reviewed)) if (v === 'ok') iris.add(k.split('|')[0]);
+    for (const k of keys) if (edited[k] || reviewed[k] === 'ok') iris.add(k.split('|')[0]);
     const ari = [...iris].map(i => (ROWS.find(x => x.iri === i) || {}).ari_id).filter(Boolean).sort();
     let lab = ari.slice(0, 6).join(', ');
     if (ari.length > 6) lab += ', +' + (ari.length - 6) + ' more';
     return '[' + (lab || 'cross-references') + '] - mappings review';
   }
 
-  // Collect this session's reviewed cells of a given verdict ('ok' positives /
-  // 'bad' negatives) into the {ari_id, iri, name, db, ids} shape publish wants.
-  function reviewedCells(verdict) {
+  // Collect the given keys of a verdict ('ok' positives / 'bad' negatives) into
+  // the {ari_id, iri, name, db, ids} shape publish wants.
+  function reviewedCells(verdict, keys) {
     const cellMap = {};
-    for (const [k, v] of Object.entries(reviewed)) {
-      if (v !== verdict) continue;
+    for (const k of keys) {
+      if (reviewed[k] !== verdict) continue;
       const parts = k.split('|');
       const iri = parts[0], db = parts[1];
       const ck = iri + '|' + db;
@@ -174,15 +193,17 @@
     }
     return Object.values(cellMap).filter(c => c.ids.length > 0);
   }
-  const confirmedList = () => reviewedCells('ok');
-  const flaggedList = () => reviewedCells('bad');
+  const confirmedList = keys => reviewedCells('ok', keys);
+  const flaggedList = keys => reviewedCells('bad', keys);
 
-  // This session's unpublished work, grouped by disease, for the pending drawer.
-  function pendingByDisease() {
+  // The given (unpublished) keys grouped by disease, for the pending drawer.
+  function pendingByDisease(keys) {
     const by = {};
     const bump = (iri, f) => { (by[iri] = by[iri] || { ok: 0, bad: 0, ed: 0 })[f]++; };
-    for (const [k, v] of Object.entries(reviewed)) if (v === 'ok' || v === 'bad') bump(k.split('|')[0], v);
-    for (const k of Object.keys(edited)) bump(k.split('|')[0], 'ed');
+    for (const k of keys) {
+      if (reviewed[k] === 'ok' || reviewed[k] === 'bad') bump(k.split('|')[0], reviewed[k]);
+      if (edited[k]) bump(k.split('|')[0], 'ed');
+    }
     return Object.entries(by).map(([iri, c]) => {
       const r = ROWS.find(x => x.iri === iri);
       return {
@@ -194,22 +215,22 @@
   }
 
   function counts() {
-    const ok = Object.values(reviewed).filter(v => v === 'ok').length;
-    const bad = Object.values(reviewed).filter(v => v === 'bad').length;
-    const ed = Object.keys(edited).length;
-    const conf = confirmedList().length, flag = flaggedList().length;
+    const pending = [...publishKeys(true)];        // work not yet in any pull request
+    const ok = pending.filter(k => reviewed[k] === 'ok').length;
+    const bad = pending.filter(k => reviewed[k] === 'bad').length;
+    const ed = pending.filter(k => edited[k]).length;
     const done = ROWS.filter(isComplete).length;
     $('#done-n').textContent = done;
     $('#total-n').textContent = ROWS.length;
     $('#progress-bar').style.width = ROWS.length ? Math.round(done / ROWS.length * 100) + '%' : '0%';
-    const pend = pendingByDisease();
+    const pend = pendingByDisease(pending);
     $('#pending-count').textContent = pend.length;
     $('#pending-dot').classList.toggle('live', pend.length > 0);
     $('#pending-chip').title = `confirmed ${ok} · flagged ${bad} · edited ${ed}`;
     $('#pending-list').innerHTML = pend.length
       ? pend.map(p => `<div class="pending-row"><span>${esc(p.name)}</span><span>${esc(p.summary)}</span></div>`).join('')
-      : '<div class="pending-row"><span class="muted">No verdicts yet. Open a disease and judge a mapping.</span></div>';
-    const canPublish = !!(me && me.authenticated && (ed > 0 || conf > 0 || flag > 0));
+      : '<div class="pending-row"><span class="muted">Nothing waiting to publish. Open a disease and judge a mapping.</span></div>';
+    const canPublish = !!(me && me.authenticated && pending.length);
     $('#publish').disabled = !canPublish;
     $('#publish-new').disabled = !canPublish;
   }
@@ -224,7 +245,7 @@
     const put = () => {
       const reviewedClean = {};
       for (const [k, v] of Object.entries(reviewed)) if (v) reviewedClean[k] = v;
-      api('ref-session', { method: 'PUT', body: { reviewed: reviewedClean, edited, branch: sessionBranch, pr: sessionPr } })
+      api('ref-session', { method: 'PUT', body: { reviewed: reviewedClean, edited, published, branch: sessionBranch, pr: sessionPr } })
         .catch(e => console.warn('Could not save review session:', e.message));
     };
     if (immediate) put(); else _saveTimer = setTimeout(put, 500);
@@ -650,10 +671,13 @@
     } catch (e) { alert('Save failed: ' + e.message); $('#p-save').disabled = false; $('#p-save').textContent = 'Save'; }
   }
 
-  // Publish the review as a pull request. `newPr` true opens a fresh PR even when
-  // one is already tracked; otherwise changes are committed to the existing PR (or
-  // a first PR is opened when none exists yet).
+  // Publish the review as a pull request. `newPr` true opens a fresh PR carrying
+  // only the verdicts published nowhere yet; otherwise the changes are committed
+  // to the tracked PR (or a first PR is opened when none exists yet), whose title
+  // then names every disease on that PR.
   async function publish(newPr) {
+    const keys = publishKeys(newPr);
+    if (!keys.size) return;
     const reuse = newPr ? null : sessionBranch;
     if (newPr && sessionPr &&
         !confirm('Open a new pull request instead of adding to PR #' + sessionPr.number + '?')) return;
@@ -661,18 +685,19 @@
     if (comment === null) return;
     const orcid = (localStorage.getItem('ari_editor_orcid') || '').trim();
     const author = orcid ? ('orcid:' + orcid) : (me && me.login ? ('github:' + me.login) : 'curator');
-    const message = reviewMessage();
+    const message = reviewMessage(keys);
     $('#publish').disabled = true; $('#publish-new').disabled = true; $('#publish').textContent = 'Publishing…';
     try {
       const r = await api('publish', { method: 'POST', body: {
         disease: 'mappings review', message, comment,
-        confirmed: confirmedList(), flagged: flaggedList(), author,
+        confirmed: confirmedList(keys), flagged: flaggedList(keys), author,
         branch: reuse, labels: ['edit term', 'sssom'] } });
       sessionBranch = r.branch;                       // subsequent publishes append to the same PR
       sessionPr = { number: r.pr_number, url: r.pr_url, fork: r.fork };
+      for (const k of keys) published[k] = { pr: r.pr_number, state: keyState(k) };
       reflectPr();
+      counts();                                       // published work leaves the pending set
       saveSession(true);                              // persist the PR pointer immediately
-      $('#publish').disabled = true; $('#publish-new').disabled = true;  // re-enabled by counts() on new changes
     } catch (e) { alert('Publish failed: ' + e.message); reflectPr(); counts(); }
   }
 
@@ -762,6 +787,7 @@
         const s = await api('ref-session');
         reviewed = s.reviewed || {};
         edited = s.edited || {};
+        published = s.published || {};
         sessionBranch = s.branch || null;
         sessionPr = s.pr || null;
       } catch (e) { console.warn('Could not load review session:', e.message); }
