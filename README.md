@@ -125,6 +125,11 @@ simpler biomappings-style **equivalencies** TSV — both merged idempotently und
 and included in the PR; an absence is recorded against SSSOM's `NoTermFound` object with the
 database named in `object_source`. Built by `app/sssom_service.py` + `static/ref-edits/`.
 
+The page's toolbar carries only what a review turn needs — the filter, the queue scope, review
+progress, the pending and ⚗ enrichment drawers, and **Publish** (its ▾ opens the tracked PR or
+starts a fresh one). Set-and-forget options live behind **⚙**: theme, row density, and whether
+the glyph legend shows. All three persist in `localStorage` per browser.
+
 Review is **two-person**: whoever adds a cross-reference id may not also confirm the mapping
 it stands for, so a second curator always vouches for every match. Every edit that introduces
 an id credits its author in a ledger (`app/id_provenance.py`, served by `GET

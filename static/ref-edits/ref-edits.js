@@ -243,12 +243,20 @@
     $('#enrich-dot').classList.toggle('live', applyEnrichment);
   }
 
+  // Open or close a drawer from its toolbar toggle, keeping the toggle's pressed
+  // look and aria-expanded in step. Returns the resulting open state.
+  function reflectDrawer(btn, panel, force) {
+    const open = force === undefined ? !$(panel).classList.contains('open') : force;
+    $(panel).classList.toggle('open', open);
+    $(btn).classList.toggle('on', open);
+    $(btn).setAttribute('aria-expanded', String(open));
+    return open;
+  }
+
   async function openEnrich() {
-    const panel = $('#enrich-panel');
-    if (panel.classList.contains('open')) { panel.classList.remove('open'); return; }
+    if (!reflectDrawer('#enrich-chip', '#enrich-panel')) return;
     const confirmed = confirmedList(publishKeys(false));
-    if (!confirmed.length) return;
-    panel.classList.add('open');
+    if (!confirmed.length) { reflectDrawer('#enrich-chip', '#enrich-panel', false); return; }
     $('#enrich-list').innerHTML = '<div class="pending-row"><span class="muted">Computing…</span></div>';
     try {
       renderEnrich(await api('enrichment-preview', { method: 'POST', body: { confirmed } }));
@@ -335,7 +343,7 @@
     if (!anyConfirmed) {
       applyEnrichment = false;
       $('#en-apply').checked = false;
-      $('#enrich-panel').classList.remove('open');
+      reflectDrawer('#enrich-chip', '#enrich-panel', false);
     }
     $('#enrich-dot').classList.toggle('live', applyEnrichment);
   }
@@ -356,20 +364,20 @@
     if (immediate) put(); else _saveTimer = setTimeout(put, 500);
   }
 
-  // Reflect the tracked PR in the header: link + button labels. With a PR on file
-  // the primary button appends to it and a secondary "New PR" button is offered;
-  // with none, the primary button opens the first PR.
+  // Reflect the tracked PR in the header. With a PR on file the primary button
+  // appends to it and the split caret opens the alternatives (visit the PR, or
+  // start a fresh one); with none, the primary button opens the first PR alone.
   function reflectPr() {
-    const pl = $('#prlink');
     if (sessionPr) {
-      pl.textContent = 'PR #' + sessionPr.number + (sessionPr.fork ? ' (from your fork) ↗' : ' ↗');
-      pl.href = sessionPr.url; pl.style.display = '';
+      const pl = $('#prlink');
+      pl.textContent = 'Open PR #' + sessionPr.number + (sessionPr.fork ? ' (from your fork) ↗' : ' ↗');
+      pl.href = sessionPr.url;
       $('#publish').textContent = 'Publish to PR #' + sessionPr.number;
-      $('#publish-new').style.display = '';
+      $('#publish-split').classList.add('has-pr');
     } else {
-      pl.style.display = 'none';
-      $('#publish').textContent = 'Publish review (PR)';
-      $('#publish-new').style.display = 'none';
+      $('#publish').textContent = 'Publish review';
+      $('#publish-split').classList.remove('has-pr');
+      closeMenus();
     }
   }
 
@@ -1004,15 +1012,51 @@
   }
 
   // ------------------------------------------------------- HEADER CONTROLS
+  // Toolbar popovers (preferences, publish options). One is open at a time, and a
+  // click outside or Escape closes it — the button keeps aria-expanded in step.
+  const MENUS = [['#prefs-btn', '#prefs-menu'], ['#publish-more', '#publish-menu']];
+
+  function closeMenus(except) {
+    for (const [btn, menu] of MENUS) {
+      if (menu === except) continue;
+      $(menu).classList.remove('open');
+      $(btn).setAttribute('aria-expanded', 'false');
+    }
+  }
+
+  function initMenus() {
+    for (const [btn, menu] of MENUS) {
+      $(btn).addEventListener('click', e => {
+        e.stopPropagation();
+        const open = !$(menu).classList.contains('open');
+        closeMenus(open ? menu : null);
+        $(menu).classList.toggle('open', open);
+        $(btn).setAttribute('aria-expanded', String(open));
+      });
+      // A click inside the panel adjusts a preference; only the publish menu's
+      // items are one-shot actions, and those close it through their own handlers.
+      $(menu).addEventListener('click', e => e.stopPropagation());
+    }
+    document.addEventListener('click', () => closeMenus());
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') closeMenus(); });
+  }
+
   function syncSegs() {
     const th = document.documentElement.dataset.theme || 'light';
     const de = document.documentElement.dataset.density || 'comfortable';
     document.querySelectorAll('#theme button').forEach(b => b.classList.toggle('on', b.dataset.theme === th));
     document.querySelectorAll('#density button').forEach(b => b.classList.toggle('on', b.dataset.density === de));
     document.querySelectorAll('#queue-filter button').forEach(b => b.classList.toggle('on', b.dataset.queue === queueFilter));
+    $('#pref-legend').checked = document.documentElement.dataset.legend !== 'off';
   }
 
   function initControls() {
+    initMenus();
+    $('#pref-legend').addEventListener('change', e => {
+      const v = e.target.checked ? 'on' : 'off';
+      document.documentElement.dataset.legend = v;
+      try { localStorage.setItem('refLegend', v); } catch (err) {}
+    });
     $('#theme').addEventListener('click', e => {
       const b = e.target.closest('button'); if (!b) return;
       document.documentElement.dataset.theme = b.dataset.theme;
@@ -1025,7 +1069,7 @@
       try { localStorage.setItem('refDensity', b.dataset.density); } catch (err) {}
       applyGrid(); syncSegs();
     });
-    $('#pending-chip').addEventListener('click', () => $('#pending-panel').classList.toggle('open'));
+    $('#pending-chip').addEventListener('click', () => reflectDrawer('#pending-chip', '#pending-panel'));
     $('#enrich-chip').addEventListener('click', openEnrich);
     $('#en-apply').addEventListener('change', e => {
       applyEnrichment = e.target.checked;
@@ -1100,7 +1144,8 @@
     initDivider(); initControls(); initQueue();
     $('#filter').addEventListener('input', renderMatrix);
     $('#publish').addEventListener('click', () => publish(false));
-    $('#publish-new').addEventListener('click', () => publish(true));
+    $('#publish-new').addEventListener('click', () => { closeMenus(); publish(true); });
+    $('#prlink').addEventListener('click', () => closeMenus());
   }
   document.addEventListener('DOMContentLoaded', init);
 })();

@@ -50,28 +50,51 @@
          zoom:var(--ui-zoom); height:calc(100vh / var(--ui-zoom)); display:flex; flex-direction:column; }
   a { color:var(--accent); }
 
-  /* ------------------------------------------------------------------ header */
-  header { display:flex; align-items:center; gap:10px; padding:10px 16px; flex-wrap:wrap;
-           border-bottom:1px solid var(--line); background:var(--header-bg); flex-shrink:0; }
-  header h1 { font:600 15px/1 var(--sans); margin:0; }
-  .spacer { flex:1; }
-  .search { display:flex; align-items:center; gap:7px; padding:5px 10px; border:1px solid var(--line);
-            border-radius:6px; color:var(--faint); background:var(--surface); }
+  /* ------------------------------------------------------------------ header
+     One row, three zones: identity (back + title) · scope (what the matrix shows)
+     · status and the publish action. Set-and-forget options — theme, row density,
+     the legend — live in the ⚙ preferences popover rather than the toolbar. */
+  /* Deliberately one line: the toolbar never wraps into a second row. Pressure is
+     absorbed by the filter shrinking, then by the title and progress meter
+     stepping out on narrow screens (see the media queries below). */
+  header { display:flex; align-items:center; gap:8px; padding:0 14px; height:48px; flex-shrink:0;
+           flex-wrap:nowrap; border-bottom:1px solid var(--line); background:var(--header-bg); }
+  header h1 { font:600 13.5px/1 var(--sans); margin:0; white-space:nowrap; }
+  #auth { white-space:nowrap; }
+  .spacer { flex:1; min-width:8px; }
+  /* Hairline between the toolbar's zones — cheaper than a gap for the same grouping. */
+  .tsep { width:1px; height:20px; background:var(--line); flex-shrink:0; }
+  /* The filter is the one elastic control: it gives up width first when the
+     signed-in toolbar (queue filter, PR-aware publish button) needs the room. */
+  .search { display:flex; align-items:center; gap:6px; padding:4px 9px; border:1px solid var(--line-strong);
+            border-radius:6px; color:var(--faint); background:var(--surface);
+            flex:0 1 auto; min-width:118px; overflow:hidden; }
+  .search:focus-within { border-color:var(--accent); }
   .search input { border:0; outline:none; background:transparent; color:var(--text);
-                  font:400 12.5px var(--sans); width:170px; }
-  .seg { display:flex; border:1px solid var(--line); border-radius:6px; overflow:hidden; }
-  .seg button { border:0; background:transparent; color:var(--mute); padding:5px 11px; cursor:pointer;
-                font:400 12px var(--sans); }
+                  font:400 12.5px var(--sans); width:150px; min-width:0; }
+  .seg { display:flex; border:1px solid var(--line-strong); border-radius:6px; overflow:hidden; flex-shrink:0; }
+  .seg button { border:0; background:transparent; color:var(--mute); padding:4px 10px; cursor:pointer;
+                font:400 12px var(--sans); white-space:nowrap; }
+  .seg button:hover { color:var(--text); }
   .seg button.on { background:var(--rail); color:var(--surface); }
   html[data-theme="dark"] .seg button.on { background:var(--rail); color:#081A2C; }
-  .progress { display:flex; align-items:center; gap:8px; font-size:12px; color:var(--mute); }
+  .progress { display:flex; align-items:center; gap:5px; font-size:11.5px; color:var(--mute); flex-shrink:0; }
   .progress b { font:600 12px var(--mono); color:var(--text); }
-  .track { display:inline-block; width:110px; height:6px; border-radius:99px; overflow:hidden; background:var(--track); }
+  .progress .plabel { margin-right:2px; }
+  .track { display:inline-block; width:64px; height:5px; border-radius:99px; overflow:hidden; background:var(--track); }
   .track span { display:block; height:100%; background:var(--ok-fg); width:0; transition:width .2s; }
-  .chip { display:flex; align-items:center; gap:6px; padding:5px 10px; border:1px solid var(--line-strong);
-          border-radius:6px; font-size:12px; cursor:pointer; color:var(--text); background:transparent; }
-  .chip .dot { width:7px; height:7px; border-radius:99px; display:inline-block; background:var(--empty-fg); }
-  .chip .dot.live { background:var(--pred-fg); }
+  /* Toolbar buttons: text chips and 28px icon squares share one shape and hover. */
+  .chip { display:inline-flex; align-items:center; justify-content:center; gap:6px; height:28px; padding:0 10px;
+          border:1px solid var(--line-strong); border-radius:6px; font:400 12px var(--sans); cursor:pointer;
+          color:var(--text); background:transparent; flex-shrink:0; text-decoration:none; position:relative; }
+  .chip:hover:not(:disabled) { border-color:var(--accent); color:var(--accent); }
+  .chip.on { border-color:var(--accent); color:var(--accent); background:var(--have-bg); }
+  .chip:disabled { opacity:.45; cursor:not-allowed; }
+  .chip.icon { width:28px; padding:0; font-size:13px; }
+  /* Unread-style marker: shown only when there is something to signal. */
+  .chip .dot { display:none; position:absolute; top:-3px; right:-3px; width:7px; height:7px; border-radius:99px;
+               background:var(--pred-fg); border:1.5px solid var(--header-bg); }
+  .chip .dot.live { display:block; }
   .btn { background:transparent; color:var(--text); border:1px solid var(--line-strong); border-radius:6px;
          padding:6px 12px; cursor:pointer; font:500 12.5px var(--sans); text-decoration:none; display:inline-block; }
   .btn:hover { border-color:var(--accent); }
@@ -80,6 +103,46 @@
   .btn.bad.on { background:var(--bad-solid); color:#fff; border-color:var(--bad-solid); }
   .btn:disabled { opacity:.5; cursor:not-allowed; }
   .muted { color:var(--mute); font-size:12px; }
+  header .btn { height:28px; padding:0 12px; line-height:26px; white-space:nowrap; }
+  /* Keyboard users get a visible ring everywhere in the toolbar and its popovers. */
+  header :focus-visible, .menu :focus-visible { outline:2px solid var(--accent); outline-offset:1px; }
+  /* Narrow viewports drop the toolbar's least load-bearing pieces, in order: the
+     progress caption, the page title, then the progress meter itself. No control
+     is ever dropped. Thresholds are device pixels — the body's 1.25 zoom does not
+     apply to media queries, so they sit 25% above the layout widths they guard. */
+  @media (max-width:1500px) { .progress .plabel { display:none; } }
+  @media (max-width:1320px) { header h1, header h1 + .tsep { display:none; } }
+  @media (max-width:1180px) { .progress, .progress + .tsep { display:none; } }
+
+  /* -------------------------------------------------------- toolbar popovers */
+  .menuwrap { position:relative; display:flex; flex-shrink:0; }
+  .menu { display:none; position:absolute; top:calc(100% + 6px); right:0; z-index:30; min-width:236px;
+          padding:8px; border:1px solid var(--line-strong); border-radius:8px; background:var(--surface);
+          box-shadow:0 12px 30px rgba(15,40,64,.18); }
+  .menu.open { display:block; }
+  .menu-h { font:600 10px var(--sans); letter-spacing:.09em; text-transform:uppercase; color:var(--faint);
+            padding:4px 6px 6px; }
+  .menu-row { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:5px 6px;
+              font-size:12px; color:var(--text); }
+  .menu-row .seg button { padding:3px 9px; font-size:11.5px; }
+  .menu-row.check { cursor:pointer; user-select:none; }
+  .menu-row.check input { accent-color:var(--accent); margin:0; }
+  .menu-sep { height:1px; background:var(--line); margin:6px 2px; }
+  /* Action items in the publish menu. */
+  .menu-item { display:block; width:100%; text-align:left; padding:7px 8px; border:0; border-radius:6px;
+               background:transparent; color:var(--text); font:400 12.5px var(--sans); cursor:pointer;
+               text-decoration:none; }
+  .menu-item:hover:not(:disabled) { background:var(--head); color:var(--accent); }
+  .menu-item:disabled { opacity:.45; cursor:not-allowed; }
+  /* Publish is a split control: the button publishes, the caret offers the PR
+     alternatives. The caret only exists once a pull request is on file. */
+  .split .btn { border-radius:6px; }
+  .split.has-pr #publish { border-radius:6px 0 0 6px; }
+  /* The divider takes the page surface so it reads in both themes: a light hairline
+     on the light-theme teal, a dark one on the lighter dark-theme teal. */
+  .split .caret { display:none; border-radius:0 6px 6px 0; margin-left:-1px; padding:0 7px;
+                  border-left-color:var(--surface); font-size:10px; }
+  .split.has-pr .caret { display:inline-block; }
 
   /* Selection bar — appears only while diseases are ticked for the review queue. */
   #selbar { display:none; align-items:center; gap:10px; flex-wrap:wrap; padding:9px 16px;
@@ -313,31 +376,51 @@
   .legend { padding:9px 16px; border-top:1px solid var(--line); font-size:11.5px; color:var(--mute);
             background:var(--head); flex-shrink:0; }
   .legend .g { font-family:var(--mono); }
+  /* Reference material, not a control — hideable once the glyphs are learned. */
+  html[data-legend="off"] .legend { display:none; }
 </style>
 </head>
 <body>
 <header>
+  <a class="chip icon" href="../" title="Back to the editor" aria-label="Back to the editor">←</a>
   <h1>Cross-reference review</h1>
+  <span class="tsep"></span>
   <div class="search"><span>⌕</span><input id="filter" placeholder="Filter diseases or ids"></div>
-  <div class="seg" id="density">
-    <button data-density="comfortable">Comfortable</button><button data-density="compact">Compact</button>
-  </div>
-  <div class="seg" id="theme">
-    <button data-theme="light">Light</button><button data-theme="dark">Dark</button>
-  </div>
   <div class="seg" id="queue-filter" style="display:none">
-    <button data-queue="all">All</button><button data-queue="mine">My queue</button><button data-queue="unassigned">Unassigned</button>
+    <button data-queue="all">All</button><button data-queue="mine">Mine</button><button data-queue="unassigned">Unassigned</button>
   </div>
   <span class="spacer"></span>
-  <div class="progress"><b id="done-n">0</b>/<span id="total-n">0</span> diseases complete
+  <div class="progress" title="Diseases where every cross-reference has a verdict">
+    <b id="done-n">0</b>/<span id="total-n">0</span><span class="plabel">reviewed</span>
     <span class="track"><span id="progress-bar"></span></span></div>
-  <button class="chip" id="pending-chip"><span class="dot" id="pending-dot"></span><span id="pending-count">0</span> pending</button>
-  <button class="chip" id="enrich-chip" title="Preview the synonyms and clinical subtypes your confirmed cross-references would add to the diseases themselves" disabled><span class="dot" id="enrich-dot"></span>⚗ enrichment</button>
+  <span class="tsep"></span>
+  <button class="chip" id="pending-chip" aria-expanded="false"><span class="dot" id="pending-dot"></span><span id="pending-count">0</span> pending</button>
+  <button class="chip icon" id="enrich-chip" aria-expanded="false" aria-label="Enrichment preview" title="Preview the synonyms and clinical subtypes your confirmed cross-references would add to the diseases themselves" disabled><span class="dot" id="enrich-dot"></span>⚗</button>
+  <div class="menuwrap">
+    <button class="chip icon" id="prefs-btn" aria-expanded="false" aria-label="Preferences" title="Preferences">⚙</button>
+    <div class="menu" id="prefs-menu" role="dialog" aria-label="Preferences">
+      <div class="menu-h">Appearance</div>
+      <div class="menu-row"><span>Theme</span>
+        <div class="seg" id="theme"><button data-theme="light">Light</button><button data-theme="dark">Dark</button></div>
+      </div>
+      <div class="menu-row"><span>Row density</span>
+        <div class="seg" id="density"><button data-density="comfortable">Comfortable</button><button data-density="compact">Compact</button></div>
+      </div>
+      <div class="menu-sep"></div>
+      <div class="menu-h">Matrix</div>
+      <label class="menu-row check"><span>Show glyph legend</span><input type="checkbox" id="pref-legend"></label>
+    </div>
+  </div>
+  <span class="tsep"></span>
   <span id="auth"></span>
-  <a class="btn" id="prlink" target="_blank" rel="noopener" style="display:none"></a>
-  <button class="btn" id="publish-new" style="display:none" title="Open a fresh pull request with the verdicts you have not published yet" disabled>New PR</button>
-  <button class="btn primary" id="publish" disabled>Publish review (PR)</button>
-  <a class="btn" href="../">← Back to app</a>
+  <div class="menuwrap split" id="publish-split">
+    <button class="btn primary" id="publish" title="Open a pull request with the verdicts you have not published yet" disabled>Publish review</button>
+    <button class="btn primary caret" id="publish-more" aria-expanded="false" aria-label="More publishing options">▾</button>
+    <div class="menu" id="publish-menu" role="menu">
+      <a class="menu-item" id="prlink" role="menuitem" target="_blank" rel="noopener"></a>
+      <button class="menu-item" id="publish-new" role="menuitem" title="Open a fresh pull request with the verdicts you have not published yet" disabled>Publish to a new PR</button>
+    </div>
+  </div>
 </header>
 <div id="selbar">
   <span id="sel-count">0 diseases selected</span>
@@ -387,7 +470,8 @@
 <script>
   try { var t = localStorage.getItem('theme'); if (t) document.documentElement.dataset.theme = t;
     else if (matchMedia('(prefers-color-scheme: dark)').matches) document.documentElement.dataset.theme = 'dark';
-    document.documentElement.dataset.density = localStorage.getItem('refDensity') || 'comfortable'; } catch(e){}
+    document.documentElement.dataset.density = localStorage.getItem('refDensity') || 'comfortable';
+    document.documentElement.dataset.legend = localStorage.getItem('refLegend') || 'on'; } catch(e){}
 </script>
 <script src="ref-edits.js?v=__ASSETV__"></script>
 </body>
