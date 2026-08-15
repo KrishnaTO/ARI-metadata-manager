@@ -53,3 +53,32 @@ def test_publish_refuses_confirming_your_own_id(ledger, monkeypatch):
         "confirmed": [{"ari_id": "ARI:1", "iri": "iri:1", "name": "D", "db": "snomed", "ids": ["1"]}]})
     assert r.status_code == 400
     assert "another curator must confirm it" in r.json()["detail"]
+
+
+def test_backfill_reads_authors_out_of_the_sssom_file(tmp_path, base_owl, ledger):
+    """The curated SSSOM names who entered each mapping, which is what seeds the
+    ledger for ids that predate it (scripts/backfill_id_authors.py)."""
+    from scripts.backfill_id_authors import backfill
+
+    sssom = tmp_path / "ari.sssom.tsv"
+    sssom.write_text(
+        "subject_id\tsubject_label\tpredicate_id\tpredicate_modifier\tobject_id\t"
+        "mapping_justification\tauthor_id\tmapping_date\n"
+        # Adult onset Still's disease, an id the curated ontology really carries.
+        "ARI:0001008\tD\tskos:exactMatch\t\tumls:C0085253\tsemapv:ManualMappingCuration\t"
+        "github:KrishnaTO\t2026-06-21\n"
+        # A negative names who flagged it, not who added it — skipped.
+        "ARI:0001008\tD\tskos:exactMatch\tNot\tDOID:99999\tsemapv:ManualMappingCuration\t"
+        "github:someone\t2026-06-21\n"
+        # An ORCID cannot be matched against a GitHub login — skipped.
+        "ARI:0001008\tD\tskos:exactMatch\t\tDOID:14256\tsemapv:ManualMappingCuration\t"
+        "orcid:0000-0000-0000-0000\t2026-06-21\n", encoding="utf-8")
+
+    out = backfill(sssom, base_owl, ledger)
+    assert out["recorded"] == 1
+    assert out["skipped"]["negative"] == 1 and out["skipped"]["author"] == 1
+    assert list(ledger.authors().values()) == ["KrishnaTO"]
+    assert list(ledger.authors())[0].endswith("|umls|C0085253")
+
+    # Re-running keeps the first author rather than rewriting the ledger.
+    assert backfill(sssom, base_owl, ledger)["recorded"] == 0
