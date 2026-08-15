@@ -72,3 +72,373 @@ ARI	1010	Alopecia areata	skos:exactMatch	SNOMEDCT	19754005	manual-negative	githu
 ARI	1010	Alopecia areata	skos:exactMatch	SNOMEDCT	86166000	manual-negative	github:KrishnaTO
 ARI	1011	Angiofollicular lymph node hyperplasia	skos:exactMatch	mesh	C536362	manual-negative	github:KrishnaTO
 ARI	1010	Alopecia areata	skos:exactMatch	ncit	null	manual-negative	github:KrishnaTO
+ARI	0001006	Addison's disease	skos:exactMatch	omop	443394	manual	github:AnjaliRH
+ARI	0001006	Addison's disease	skos:exactMatch	MONDO	0100480	manual	github:AnjaliRH
+ARI	0001008	Adult onset Still's disease	skos:exactMatch	MONDO	0019355	manual	github:AnjaliRH
+ARI	0001005	Acute lichenoid pityriasis	skos:exactMatch	MONDO	0024250	manual	github:AnjaliRH
+ARI	0001005	Acute lichenoid pityriasis	skos:exactMatch	ncit	C37871	manual	github:AnjaliRH
+ARI	0001005	Acute lichenoid pityriasis	skos:exactMatch	icd10cm	L41.0	manual	github:AnjaliRH
+ARI	0001010	Alopecia areata	skos:exactMatch	omop	141933	manual	github:AnjaliRH
+ARI	0001012	Ankylosing spondylitis	skos:exactMatch	omop	437082	manual	github:AnjaliRH
+ARI	0001012	Ankylosing spondylitis	skos:exactMatch	MONDO	0005306	manual	github:AnjaliRH
+ARI	0001011	Angiofollicular lymph node hyperplasia	skos:exactMatch	omop	4118225	manual	github:KrishnaTO
+ARI	0001010	Alopecia areata	skos:exactMatch	omop	4056343	manual-negative	github:KrishnaTO
+ARI	0001010	Alopecia areata	skos:exactMatch	omop	4312756	manual-negative	github:KrishnaTO
+ARI	0001003	Acute disseminated encephalomyelitis	skos:exactMatch	omop	4249574	manual-negative	github:KrishnaTO
+ARI	0001076	Cutaneous lupus erythematosus	skos:exactMatch	SNOMEDCT	7119001	manual	github:KrishnaTO
+ARI	0001076	Cutaneous lupus erythematosus	skos:exactMatch	omop	4324123	manual	github:KrishnaTO
+ARI	0001094	Female infertility due to antisperm antibodies	skos:exactMatch	SNOMEDCT	414238007	manual	github:KrishnaTO
+ARI	0001094	Female infertility due to antisperm antibodies	skos:exactMatch	omop	4188008	manual	github:KrishnaTO
+ARI	0001096	Graves' disease	skos:exactMatch	SNOMEDCT	353295004	manual	github:KrishnaTO
+ARI	0001096	Graves' disease	skos:exactMatch	omop	4232076	manual	github:KrishnaTO
+ARI	0001097	Guillain-Barré syndrome	skos:exactMatch	SNOMEDCT	40956001	manual	github:KrishnaTO
+ARI	0001097	Guillain-Barré syndrome	skos:exactMatch	omop	4164770	manual	github:KrishnaTO
+ARI	0001107	Immune thrombocytopenia	skos:exactMatch	SNOMEDCT	2897005	manual	github:KrishnaTO
+ARI	0001107	Immune thrombocytopenia	skos:exactMatch	omop	4103532	manual	github:KrishnaTO
+ARI	0001109	Immunoglobulin G4 related disease	skos:exactMatch	SNOMEDCT	10743271000119103	manual	github:KrishnaTO
+ARI	0001109	Immunoglobulin G4 related disease	skos:exactMatch	omop	36717255	manual	github:KrishnaTO
+ARI	0001115	Intermediate uveitis	skos:exactMatch	SNOMEDCT	314429009	manual	github:KrishnaTO
+ARI	0001115	Intermediate uveitis	skos:exactMatch	omop	4197155	manual	github:KrishnaTO
+ARI	0001076	Cutaneous lupus erythematosus	skos:exactMatch	SNOMEDCT	239891002	manual-negative	github:KrishnaTO
+ARI	0001076	Cutaneous lupus erythematosus	skos:exactMatch	SNOMEDCT	200941006	manual-negative	github:KrishnaTO
+ARI	0001076	Cutaneous lupus erythematosus	skos:exactMatch	SNOMEDCT	200938002	manual-negative	github:KrishnaTO
+ARI	0001076	Cutaneous lupus erythematosus	skos:exactMatch	SNOMEDCT	403495008	manual-negative	github:KrishnaTO
+ARI	0001076	Cutaneous lupus erythematosus	skos:exactMatch	SNOMEDCT	238927000	manual-negative	github:KrishnaTO
+ARI	0001076	Cutaneous lupus erythematosus	skos:exactMatch	omop	4081248	manual-negative	github:KrishnaTO
+ARI	0001076	Cutaneous lupus erythematosus	skos:exactMatch	omop	4066824	manual-negative	github:KrishnaTO
+ARI	0001076	Cutaneous lupus erythematosus	skos:exactMatch	omop	4295301	manual-negative	github:KrishnaTO
+ARI	0001076	Cutaneous lupus erythematosus	skos:exactMatch	omop	4066481	manual-negative	github:KrishnaTO
+ARI	0001076	Cutaneous lupus erythematosus	skos:exactMatch	omop	4343923	manual-negative	github:KrishnaTO
+ARI	0001094	Female infertility due to antisperm antibodies	skos:exactMatch	SNOMEDCT	236816007	manual-negative	github:KrishnaTO
+ARI	0001094	Female infertility due to antisperm antibodies	skos:exactMatch	omop	4127869	manual-negative	github:KrishnaTO
+ARI	0001096	Graves' disease	skos:exactMatch	SNOMEDCT	237499004	manual-negative	github:KrishnaTO
+ARI	0001096	Graves' disease	skos:exactMatch	SNOMEDCT	90739004	manual-negative	github:KrishnaTO
+ARI	0001096	Graves' disease	skos:exactMatch	omop	138387	manual-negative	github:KrishnaTO
+ARI	0001096	Graves' disease	skos:exactMatch	omop	4034811	manual-negative	github:KrishnaTO
+ARI	0001097	Guillain-Barré syndrome	skos:exactMatch	SNOMEDCT	715770009	manual-negative	github:KrishnaTO
+ARI	0001097	Guillain-Barré syndrome	skos:exactMatch	SNOMEDCT	716723000	manual-negative	github:KrishnaTO
+ARI	0001097	Guillain-Barré syndrome	skos:exactMatch	SNOMEDCT	1767005	manual-negative	github:KrishnaTO
+ARI	0001097	Guillain-Barré syndrome	skos:exactMatch	omop	37396086	manual-negative	github:KrishnaTO
+ARI	0001097	Guillain-Barré syndrome	skos:exactMatch	omop	4070552	manual-negative	github:KrishnaTO
+ARI	0001097	Guillain-Barré syndrome	skos:exactMatch	omop	37396786	manual-negative	github:KrishnaTO
+ARI	0001107	Immune thrombocytopenia	skos:exactMatch	SNOMEDCT	438476003	manual-negative	github:KrishnaTO
+ARI	0001107	Immune thrombocytopenia	skos:exactMatch	SNOMEDCT	13172003	manual-negative	github:KrishnaTO
+ARI	0001107	Immune thrombocytopenia	skos:exactMatch	SNOMEDCT	32273002	manual-negative	github:KrishnaTO
+ARI	0001107	Immune thrombocytopenia	skos:exactMatch	SNOMEDCT	128091003	manual-negative	github:KrishnaTO
+ARI	0001107	Immune thrombocytopenia	skos:exactMatch	SNOMEDCT	128092005	manual-negative	github:KrishnaTO
+ARI	0001107	Immune thrombocytopenia	skos:exactMatch	omop	4028065	manual-negative	github:KrishnaTO
+ARI	0001107	Immune thrombocytopenia	skos:exactMatch	omop	4137430	manual-negative	github:KrishnaTO
+ARI	0001107	Immune thrombocytopenia	skos:exactMatch	omop	318397	manual-negative	github:KrishnaTO
+ARI	0001107	Immune thrombocytopenia	skos:exactMatch	omop	4230266	manual-negative	github:KrishnaTO
+ARI	0001107	Immune thrombocytopenia	skos:exactMatch	omop	4133983	manual-negative	github:KrishnaTO
+ARI	0001109	Immunoglobulin G4 related disease	skos:exactMatch	SNOMEDCT	722870008	manual-negative	github:KrishnaTO
+ARI	0001109	Immunoglobulin G4 related disease	skos:exactMatch	SNOMEDCT	234549008	manual-negative	github:KrishnaTO
+ARI	0001109	Immunoglobulin G4 related disease	skos:exactMatch	omop	4121282	manual-negative	github:KrishnaTO
+ARI	0001109	Immunoglobulin G4 related disease	skos:exactMatch	omop	36716713	manual-negative	github:KrishnaTO
+ARI	0001115	Intermediate uveitis	skos:exactMatch	SNOMEDCT	45688009	manual-negative	github:KrishnaTO
+ARI	0001115	Intermediate uveitis	skos:exactMatch	SNOMEDCT	1231232007	manual-negative	github:KrishnaTO
+ARI	0001115	Intermediate uveitis	skos:exactMatch	omop	37164507	manual-negative	github:KrishnaTO
+ARI	0001115	Intermediate uveitis	skos:exactMatch	omop	434026	manual-negative	github:KrishnaTO
+ARI	0001014	Anti-glomerular basement membrane disease	skos:exactMatch	SNOMEDCT	788613004	manual	github:KrishnaTO
+ARI	0001014	Anti-glomerular basement membrane disease	skos:exactMatch	omop	37312293	manual	github:KrishnaTO
+ARI	0001017	Antineutrophil cytoplasmic antibody positive vasculitis	skos:exactMatch	SNOMEDCT	195353004	manual	github:KrishnaTO
+ARI	0001014	Anti-glomerular basement membrane disease	skos:exactMatch	DOID	9808	manual	github:KrishnaTO
+ARI	0001014	Anti-glomerular basement membrane disease	skos:exactMatch	ncit	C84566	manual	github:KrishnaTO
+ARI	0001018	Antiphospholipid syndrome	skos:exactMatch	icd10cm	D68.61	manual	github:KrishnaTO
+ARI	0001014	Anti-glomerular basement membrane disease	skos:exactMatch	umls	C0403529	manual	github:KrishnaTO
+ARI	0001014	Anti-glomerular basement membrane disease	skos:exactMatch	mesh	D019867	manual	github:KrishnaTO
+ARI	0001014	Anti-glomerular basement membrane disease	skos:exactMatch	SNOMEDCT	236506009	manual-negative	github:KrishnaTO
+ARI	0001014	Anti-glomerular basement membrane disease	skos:exactMatch	SNOMEDCT	62853008	manual-negative	github:KrishnaTO
+ARI	0001014	Anti-glomerular basement membrane disease	skos:exactMatch	SNOMEDCT	50581000	manual-negative	github:KrishnaTO
+ARI	0001014	Anti-glomerular basement membrane disease	skos:exactMatch	omop	4126115	manual-negative	github:KrishnaTO
+ARI	0001014	Anti-glomerular basement membrane disease	skos:exactMatch	omop	4267717	manual-negative	github:KrishnaTO
+ARI	0001014	Anti-glomerular basement membrane disease	skos:exactMatch	omop	195289	manual-negative	github:KrishnaTO
+ARI	0001012	Ankylosing spondylitis	skos:exactMatch	icd10cm	720.0	manual-negative	github:KrishnaTO
+ARI	0001014	Anti-glomerular basement membrane disease	skos:exactMatch	icd10cm	446.21	manual-negative	github:KrishnaTO
+ARI	0001014	Anti-glomerular basement membrane disease	skos:exactMatch	icd10cm	M31.0	manual-negative	github:KrishnaTO
+ARI	0001017	Antineutrophil cytoplasmic antibody positive vasculitis	skos:exactMatch	DOID	null	manual-negative	github:KrishnaTO
+ARI	0001208	Uveitis	skos:exactMatch	SNOMEDCT	128473001	manual	github:KrishnaTO
+ARI	0001208	Uveitis	skos:exactMatch	omop	4028363	manual	github:KrishnaTO
+ARI	0001208	Uveitis	skos:exactMatch	DOID	0040088	manual	github:KrishnaTO
+ARI	0001199	Systemic sclerosis with limited cutaneous involvement	skos:exactMatch	SNOMEDCT	298285004	manual	github:KrishnaTO
+ARI	0001199	Systemic sclerosis with limited cutaneous involvement	skos:exactMatch	omop	4185187	manual	github:KrishnaTO
+ARI	0001199	Systemic sclerosis with limited cutaneous involvement	skos:exactMatch	icd10cm	M34.1	manual	github:KrishnaTO
+ARI	0001208	Uveitis	skos:exactMatch	SNOMEDCT	231947004	manual-negative	github:KrishnaTO
+ARI	0001208	Uveitis	skos:exactMatch	omop	4335981	manual-negative	github:KrishnaTO
+ARI	0001199	Systemic sclerosis with limited cutaneous involvement	skos:exactMatch	SNOMEDCT	128461001	manual-negative	github:KrishnaTO
+ARI	0001199	Systemic sclerosis with limited cutaneous involvement	skos:exactMatch	SNOMEDCT	31848007	manual-negative	github:KrishnaTO
+ARI	0001199	Systemic sclerosis with limited cutaneous involvement	skos:exactMatch	omop	4135937	manual-negative	github:KrishnaTO
+ARI	0001199	Systemic sclerosis with limited cutaneous involvement	skos:exactMatch	omop	4027230	manual-negative	github:KrishnaTO
+ARI	0001199	Systemic sclerosis with limited cutaneous involvement	skos:exactMatch	ncit	C70646	manual-negative	github:KrishnaTO
+ARI	0001199	Systemic sclerosis with limited cutaneous involvement	skos:exactMatch	umls	C1527226	manual-negative	github:KrishnaTO
+ARI	0001199	Systemic sclerosis with limited cutaneous involvement	skos:exactMatch	umls	C0206138	manual-negative	github:KrishnaTO
+ARI	0001199	Systemic sclerosis with limited cutaneous involvement	skos:exactMatch	mesh	D017675	manual-negative	github:KrishnaTO
+ARI	0001047	Autoimmune retinopathy	skos:exactMatch	SNOMEDCT	724809006	manual	github:KrishnaTO
+ARI	0001047	Autoimmune retinopathy	skos:exactMatch	omop	37110540	manual	github:KrishnaTO
+ARI	0001048	Autoimmune thyroiditis	skos:exactMatch	SNOMEDCT	66944004	manual	github:KrishnaTO
+ARI	0001048	Autoimmune thyroiditis	skos:exactMatch	omop	4281109	manual	github:KrishnaTO
+ARI	0001048	Autoimmune thyroiditis	skos:exactMatch	DOID	7188	manual	github:KrishnaTO
+ARI	0001048	Autoimmune thyroiditis	skos:exactMatch	ncit	C38766	manual	github:KrishnaTO
+ARI	0001048	Autoimmune thyroiditis	skos:exactMatch	icd10cm	E06.3	manual	github:KrishnaTO
+ARI	0001048	Autoimmune thyroiditis	skos:exactMatch	umls	C0920350	manual	github:KrishnaTO
+ARI	0001048	Autoimmune thyroiditis	skos:exactMatch	mesh	D013967	manual	github:KrishnaTO
+ARI	0001049	Autoimmune urticaria	skos:exactMatch	SNOMEDCT	402397006	manual	github:KrishnaTO
+ARI	0001049	Autoimmune urticaria	skos:exactMatch	omop	4224623	manual	github:KrishnaTO
+ARI	0001050	Autoimmune urticaria and/or angioedema	skos:exactMatch	SNOMEDCT	402402005	manual	github:KrishnaTO
+ARI	0001050	Autoimmune urticaria and/or angioedema	skos:exactMatch	omop	4221673	manual	github:KrishnaTO
+ARI	0001051	Autoimmune vasculitis	skos:exactMatch	SNOMEDCT	427213005	manual	github:KrishnaTO
+ARI	0001051	Autoimmune vasculitis	skos:exactMatch	omop	4146124	manual	github:KrishnaTO
+ARI	0001051	Autoimmune vasculitis	skos:exactMatch	DOID	0040097	manual	github:KrishnaTO
+ARI	0001051	Autoimmune vasculitis	skos:exactMatch	umls	C1328843	manual	github:KrishnaTO
+ARI	0001036	Autoimmune-Inflammatory Syndrome Induced by Adjuvants	skos:exactMatch	omop	1331726	manual	github:KrishnaTO
+ARI	0001052	Balo concentric sclerosis	skos:exactMatch	SNOMEDCT	230380005	manual	github:KrishnaTO
+ARI	0001052	Balo concentric sclerosis	skos:exactMatch	omop	4046110	manual	github:KrishnaTO
+ARI	0001052	Balo concentric sclerosis	skos:exactMatch	DOID	0060215	manual	github:KrishnaTO
+ARI	0001052	Balo concentric sclerosis	skos:exactMatch	mesh	D002549	manual	github:KrishnaTO
+ARI	0001048	Autoimmune thyroiditis	skos:exactMatch	SNOMEDCT	21983002	manual-negative	github:KrishnaTO
+ARI	0001048	Autoimmune thyroiditis	skos:exactMatch	omop	4130018	manual-negative	github:KrishnaTO
+ARI	0001048	Autoimmune thyroiditis	skos:exactMatch	omop	4034815	manual-negative	github:KrishnaTO
+ARI	0001048	Autoimmune thyroiditis	skos:exactMatch	omop	135215	manual-negative	github:KrishnaTO
+ARI	0001049	Autoimmune urticaria	skos:exactMatch	DOID	0080747	manual-negative	github:KrishnaTO
+ARI	0001049	Autoimmune urticaria	skos:exactMatch	mesh	D000080223	manual-negative	github:KrishnaTO
+ARI	0001053	Behçet's syndrome	skos:exactMatch	SNOMEDCT	310701003	manual	github:KrishnaTO
+ARI	0001053	Behçet's syndrome	skos:exactMatch	omop	436642	manual	github:KrishnaTO
+ARI	0001053	Behçet's syndrome	skos:exactMatch	DOID	13241	manual	github:KrishnaTO
+ARI	0001053	Behçet's syndrome	skos:exactMatch	ncit	C34416	manual	github:KrishnaTO
+ARI	0001053	Behçet's syndrome	skos:exactMatch	icd10cm	M35.2	manual	github:KrishnaTO
+ARI	0001053	Behçet's syndrome	skos:exactMatch	umls	C0004943	manual	github:KrishnaTO
+ARI	0001053	Behçet's syndrome	skos:exactMatch	mesh	D001528	manual	github:KrishnaTO
+ARI	0001054	Benign mucous membrane pemphigoid	skos:exactMatch	SNOMEDCT	34250006	manual	github:KrishnaTO
+ARI	0001054	Benign mucous membrane pemphigoid	skos:exactMatch	omop	4142060	manual	github:KrishnaTO
+ARI	0001054	Benign mucous membrane pemphigoid	skos:exactMatch	DOID	11656	manual	github:KrishnaTO
+ARI	0001054	Benign mucous membrane pemphigoid	skos:exactMatch	ncit	C34907	manual	github:KrishnaTO
+ARI	0001054	Benign mucous membrane pemphigoid	skos:exactMatch	icd10cm	L12.1	manual	github:KrishnaTO
+ARI	0001054	Benign mucous membrane pemphigoid	skos:exactMatch	umls	C0030804	manual	github:KrishnaTO
+ARI	0001054	Benign mucous membrane pemphigoid	skos:exactMatch	mesh	D010390	manual	github:KrishnaTO
+ARI	0001055	Bickerstaff's brainstem encephalitis	skos:exactMatch	SNOMEDCT	427086003	manual	github:KrishnaTO
+ARI	0001055	Bickerstaff's brainstem encephalitis	skos:exactMatch	omop	4141686	manual	github:KrishnaTO
+ARI	0001053	Behçet's syndrome	skos:exactMatch	SNOMEDCT	721226005	manual-negative	github:KrishnaTO
+ARI	0001053	Behçet's syndrome	skos:exactMatch	omop	36715522	manual-negative	github:KrishnaTO
+ARI	0001054	Benign mucous membrane pemphigoid	skos:exactMatch	SNOMEDCT	314757003	manual-negative	github:KrishnaTO
+ARI	0001054	Benign mucous membrane pemphigoid	skos:exactMatch	omop	4152707	manual-negative	github:KrishnaTO
+ARI	0001064	Chronic interstitial cystitis	skos:exactMatch	DOID	1678	manual	github:KrishnaTO
+ARI	0001064	Chronic interstitial cystitis	skos:exactMatch	icd10cm	N30.1	manual	github:KrishnaTO
+ARI	0001064	Chronic interstitial cystitis	skos:exactMatch	umls	C0600040	manual	github:KrishnaTO
+ARI	0001064	Chronic interstitial cystitis	skos:exactMatch	mesh	D018856	manual	github:KrishnaTO
+ARI	0001066	Chronic multifocal osteomyelitis	skos:exactMatch	DOID	0060645	manual	github:KrishnaTO
+ARI	0001066	Chronic multifocal osteomyelitis	skos:exactMatch	icd10cm	M86.3	manual	github:KrishnaTO
+ARI	0001066	Chronic multifocal osteomyelitis	skos:exactMatch	mesh	C535456	manual	github:KrishnaTO
+ARI	0001002	Acquired hemophilia	skos:exactMatch	ORPHA	73274	manual-negative	github:KrishnaTO
+ARI	0001004	Acute febrile mucocutaneous lymph node syndrome	skos:exactMatch	ORPHA	2331	manual-negative	github:KrishnaTO
+ARI	0001010	Alopecia areata	skos:exactMatch	ncit	C50575	manual-negative	github:KrishnaTO
+ARI	0001004	Acute febrile mucocutaneous lymph node syndrome	skos:exactMatch	OMIM	611775	manual-negative	github:KrishnaTO
+ARI	0001017	Antineutrophil cytoplasmic antibody positive vasculitis	skos:exactMatch	DOID	3049	manual-negative	github:KrishnaTO
+ARI	0001092	Fasciitis with eosinophilia syndrome	skos:exactMatch	icd10cm	M35.4	manual	github:Jennyzeng25
+ARI	0001092	Fasciitis with eosinophilia syndrome	skos:exactMatch	SNOMEDCT	24129002	manual	github:Jennyzeng25
+ARI	0001092	Fasciitis with eosinophilia syndrome	skos:exactMatch	omop	4083100	manual	github:Jennyzeng25
+ARI	0001092	Fasciitis with eosinophilia syndrome	skos:exactMatch	MONDO	0009175	manual	github:Jennyzeng25
+ARI	0001092	Fasciitis with eosinophilia syndrome	skos:exactMatch	ncit	C112116	manual	github:Jennyzeng25
+ARI	0001092	Fasciitis with eosinophilia syndrome	skos:exactMatch	ORPHA	3165	manual	github:Jennyzeng25
+ARI	0001092	Fasciitis with eosinophilia syndrome	skos:exactMatch	OMIM	226350	manual	github:Jennyzeng25
+ARI	0001092	Fasciitis with eosinophilia syndrome	skos:exactMatch	umls	C0264005	manual	github:Jennyzeng25
+ARI	0001092	Fasciitis with eosinophilia syndrome	skos:exactMatch	mesh	C562487	manual	github:Jennyzeng25
+ARI	0001102	Idiopathic membranous glomerulonephritis	skos:exactMatch	SNOMEDCT	722119002	manual	github:AnjaliRH
+ARI	0001102	Idiopathic membranous glomerulonephritis	skos:exactMatch	omop	36716199	manual	github:AnjaliRH
+ARI	0001102	Idiopathic membranous glomerulonephritis	skos:exactMatch	MONDO	0013860	manual	github:AnjaliRH
+ARI	0001102	Idiopathic membranous glomerulonephritis	skos:exactMatch	ncit	C123060	manual	github:AnjaliRH
+ARI	0001102	Idiopathic membranous glomerulonephritis	skos:exactMatch	ORPHA	97560	manual	github:AnjaliRH
+ARI	0001102	Idiopathic membranous glomerulonephritis	skos:exactMatch	mesh	D015433	manual	github:AnjaliRH
+ARI	0001103	Idiopathic pulmonary fibrosis	skos:exactMatch	mesh	D054990	manual	github:AnjaliRH
+ARI	0001103	Idiopathic pulmonary fibrosis	skos:exactMatch	ORPHA	2032	manual	github:AnjaliRH
+ARI	0001103	Idiopathic pulmonary fibrosis	skos:exactMatch	icd10cm	J84.112	manual	github:AnjaliRH
+ARI	0001103	Idiopathic pulmonary fibrosis	skos:exactMatch	ncit	C35716	manual	github:AnjaliRH
+ARI	0001103	Idiopathic pulmonary fibrosis	skos:exactMatch	MONDO	0800504	manual	github:AnjaliRH
+ARI	0001103	Idiopathic pulmonary fibrosis	skos:exactMatch	DOID	0050156	manual	github:AnjaliRH
+ARI	0001103	Idiopathic pulmonary fibrosis	skos:exactMatch	omop	45763750	manual	github:AnjaliRH
+ARI	0001103	Idiopathic pulmonary fibrosis	skos:exactMatch	SNOMEDCT	700250006	manual	github:AnjaliRH
+ARI	0001104	IgA nephropathy	skos:exactMatch	SNOMEDCT	236407003	manual	github:AnjaliRH
+ARI	0001104	IgA nephropathy	skos:exactMatch	omop	4128061	manual	github:AnjaliRH
+ARI	0001104	IgA nephropathy	skos:exactMatch	DOID	2986	manual	github:AnjaliRH
+ARI	0001104	IgA nephropathy	skos:exactMatch	MONDO	0005342	manual	github:AnjaliRH
+ARI	0001104	IgA nephropathy	skos:exactMatch	ncit	C34643	manual	github:AnjaliRH
+ARI	0001104	IgA nephropathy	skos:exactMatch	ORPHA	34145	manual	github:AnjaliRH
+ARI	0001104	IgA nephropathy	skos:exactMatch	mesh	D005922	manual	github:AnjaliRH
+ARI	0001102	Idiopathic membranous glomerulonephritis	skos:exactMatch	OMIM	614692	manual-negative	github:AnjaliRH
+ARI	0001103	Idiopathic pulmonary fibrosis	skos:exactMatch	OMIM	178500	manual-negative	github:AnjaliRH
+ARI	0001093	Felty syndrome	skos:exactMatch	SNOMEDCT	57160007	manual	github:Jennyzeng25
+ARI	0001093	Felty syndrome	skos:exactMatch	omop	81097	manual	github:Jennyzeng25
+ARI	0001093	Felty syndrome	skos:exactMatch	DOID	11042	manual	github:Jennyzeng25
+ARI	0001093	Felty syndrome	skos:exactMatch	MONDO	0007603	manual	github:Jennyzeng25
+ARI	0001093	Felty syndrome	skos:exactMatch	ncit	C84712	manual	github:Jennyzeng25
+ARI	0001093	Felty syndrome	skos:exactMatch	ORPHA	47612	manual	github:Jennyzeng25
+ARI	0001093	Felty syndrome	skos:exactMatch	mesh	D005258	manual	github:Jennyzeng25
+ARI	0001093	Felty syndrome	skos:exactMatch	icd10cm	M05.0	manual-negative	github:Jennyzeng25
+ARI	0001093	Felty syndrome	skos:exactMatch	OMIM	134750	manual-negative	github:Jennyzeng25
+ARI	0001093	Felty syndrome	skos:exactMatch	umls	C0015773	manual-negative	github:Jennyzeng25
+ARI	0001094	Female infertility due to antisperm antibodies	skos:exactMatch	DOID	null	manual-negative	github:Jennyzeng25
+ARI	0001059	Calcinosis due to childhood type dermatomyositis	skos:exactMatch	SNOMEDCT	838312001	manual	github:KrishnaTO
+ARI	0001059	Calcinosis due to childhood type dermatomyositis	skos:exactMatch	omop	3654620	manual	github:KrishnaTO
+ARI	0001060	Cataplexy and narcolepsy	skos:exactMatch	SNOMEDCT	193042000	manual	github:KrishnaTO
+ARI	0001060	Cataplexy and narcolepsy	skos:exactMatch	omop	437854	manual	github:KrishnaTO
+ARI	0001060	Cataplexy and narcolepsy	skos:exactMatch	MONDO	0016158	manual	github:KrishnaTO
+ARI	0001060	Cataplexy and narcolepsy	skos:exactMatch	icd10cm	G47.411	manual	github:KrishnaTO
+ARI	0001060	Cataplexy and narcolepsy	skos:exactMatch	ORPHA	2073	manual	github:KrishnaTO
+ARI	0001060	Cataplexy and narcolepsy	skos:exactMatch	umls	C0751362	manual	github:KrishnaTO
+ARI	0001061	Celiac disease	skos:exactMatch	SNOMEDCT	396331005	manual	github:KrishnaTO
+ARI	0001061	Celiac disease	skos:exactMatch	omop	194992	manual	github:KrishnaTO
+ARI	0001061	Celiac disease	skos:exactMatch	DOID	10608	manual	github:KrishnaTO
+ARI	0001061	Celiac disease	skos:exactMatch	MONDO	0005130	manual	github:KrishnaTO
+ARI	0001061	Celiac disease	skos:exactMatch	ncit	C26714	manual	github:KrishnaTO
+ARI	0001061	Celiac disease	skos:exactMatch	icd10cm	K90.0	manual	github:KrishnaTO
+ARI	0001061	Celiac disease	skos:exactMatch	ORPHA	555	manual	github:KrishnaTO
+ARI	0001061	Celiac disease	skos:exactMatch	umls	C0007570	manual	github:KrishnaTO
+ARI	0001061	Celiac disease	skos:exactMatch	mesh	D002446	manual	github:KrishnaTO
+ARI	0001060	Cataplexy and narcolepsy	skos:exactMatch	SNOMEDCT	735676003	manual-negative	github:KrishnaTO
+ARI	0001060	Cataplexy and narcolepsy	skos:exactMatch	omop	42536721	manual-negative	github:KrishnaTO
+ARI	0001061	Celiac disease	skos:exactMatch	SNOMEDCT	91867008	manual-negative	github:KrishnaTO
+ARI	0001061	Celiac disease	skos:exactMatch	omop	4241413	manual-negative	github:KrishnaTO
+ARI	0001061	Celiac disease	skos:exactMatch	icd10cm	579.0	manual-negative	github:KrishnaTO
+ARI	0001062	Chronic Fatigue Syndrome	skos:exactMatch	SNOMEDCT	52702003	manual	github:KrishnaTO
+ARI	0001062	Chronic Fatigue Syndrome	skos:exactMatch	omop	432738	manual	github:KrishnaTO
+ARI	0001062	Chronic Fatigue Syndrome	skos:exactMatch	DOID	8544	manual	github:KrishnaTO
+ARI	0001062	Chronic Fatigue Syndrome	skos:exactMatch	MONDO	0005404	manual	github:KrishnaTO
+ARI	0001062	Chronic Fatigue Syndrome	skos:exactMatch	ncit	C3037	manual	github:KrishnaTO
+ARI	0001062	Chronic Fatigue Syndrome	skos:exactMatch	icd10cm	G93.32	manual	github:KrishnaTO
+ARI	0001062	Chronic Fatigue Syndrome	skos:exactMatch	ORPHA	1983	manual	github:KrishnaTO
+ARI	0001062	Chronic Fatigue Syndrome	skos:exactMatch	umls	C0015674	manual	github:KrishnaTO
+ARI	0001062	Chronic Fatigue Syndrome	skos:exactMatch	mesh	D015673	manual	github:KrishnaTO
+ARI	0001062	Chronic Fatigue Syndrome	skos:exactMatch	icd10cm	780.71	manual-negative	github:KrishnaTO
+ARI	0001065	Chronic Lyme disease	skos:exactMatch	DOID	11729	manual-negative	github:KrishnaTO
+ARI	0001065	Chronic Lyme disease	skos:exactMatch	icd10cm	088.81	manual-negative	github:KrishnaTO
+ARI	0001065	Chronic Lyme disease	skos:exactMatch	icd10cm	A69.2	manual-negative	github:KrishnaTO
+ARI	0001065	Chronic Lyme disease	skos:exactMatch	SNOMEDCT	1269516003	manual-negative	github:KrishnaTO
+ARI	0001063	Chronic inflammatory demyelinating polyradiculoneuropathy	skos:exactMatch	SNOMEDCT	128209004	manual	github:KrishnaTO
+ARI	0001063	Chronic inflammatory demyelinating polyradiculoneuropathy	skos:exactMatch	omop	381009	manual	github:KrishnaTO
+ARI	0001063	Chronic inflammatory demyelinating polyradiculoneuropathy	skos:exactMatch	DOID	5213	manual	github:KrishnaTO
+ARI	0001063	Chronic inflammatory demyelinating polyradiculoneuropathy	skos:exactMatch	MONDO	0006702	manual	github:KrishnaTO
+ARI	0001063	Chronic inflammatory demyelinating polyradiculoneuropathy	skos:exactMatch	ncit	C84636	manual	github:KrishnaTO
+ARI	0001063	Chronic inflammatory demyelinating polyradiculoneuropathy	skos:exactMatch	icd10cm	G61.81	manual	github:KrishnaTO
+ARI	0001063	Chronic inflammatory demyelinating polyradiculoneuropathy	skos:exactMatch	ORPHA	2932	manual	github:KrishnaTO
+ARI	0001063	Chronic inflammatory demyelinating polyradiculoneuropathy	skos:exactMatch	umls	C0393819	manual	github:KrishnaTO
+ARI	0001063	Chronic inflammatory demyelinating polyradiculoneuropathy	skos:exactMatch	mesh	D020277	manual	github:KrishnaTO
+ARI	0001064	Chronic interstitial cystitis	skos:exactMatch	SNOMEDCT	38731000087104	manual	github:KrishnaTO
+ARI	0001064	Chronic interstitial cystitis	skos:exactMatch	omop	1450471	manual	github:KrishnaTO
+ARI	0001064	Chronic interstitial cystitis	skos:exactMatch	MONDO	0018301	manual	github:KrishnaTO
+ARI	0001064	Chronic interstitial cystitis	skos:exactMatch	ncit	C27189	manual	github:KrishnaTO
+ARI	0001064	Chronic interstitial cystitis	skos:exactMatch	ORPHA	37202	manual	github:KrishnaTO
+ARI	0001066	Chronic multifocal osteomyelitis	skos:exactMatch	SNOMEDCT	1204420006	manual	github:KrishnaTO
+ARI	0001066	Chronic multifocal osteomyelitis	skos:exactMatch	omop	37163124	manual	github:KrishnaTO
+ARI	0001066	Chronic multifocal osteomyelitis	skos:exactMatch	MONDO	0009813	manual	github:KrishnaTO
+ARI	0001066	Chronic multifocal osteomyelitis	skos:exactMatch	ncit	C119042	manual	github:KrishnaTO
+ARI	0001066	Chronic multifocal osteomyelitis	skos:exactMatch	ORPHA	324964	manual	github:KrishnaTO
+ARI	0001066	Chronic multifocal osteomyelitis	skos:exactMatch	umls	C0410422	manual	github:KrishnaTO
+ARI	0001067	Chronic post-COVID-19 syndrome	skos:exactMatch	SNOMEDCT	1119304009	manual	github:KrishnaTO
+ARI	0001067	Chronic post-COVID-19 syndrome	skos:exactMatch	omop	600589	manual	github:KrishnaTO
+ARI	0001067	Chronic post-COVID-19 syndrome	skos:exactMatch	DOID	0080848	manual	github:KrishnaTO
+ARI	0001067	Chronic post-COVID-19 syndrome	skos:exactMatch	MONDO	0100233	manual	github:KrishnaTO
+ARI	0001067	Chronic post-COVID-19 syndrome	skos:exactMatch	ncit	C179263	manual	github:KrishnaTO
+ARI	0001067	Chronic post-COVID-19 syndrome	skos:exactMatch	umls	C5433293	manual	github:KrishnaTO
+ARI	0001067	Chronic post-COVID-19 syndrome	skos:exactMatch	mesh	D000094024	manual	github:KrishnaTO
+ARI	0001068	Cogan's syndrome	skos:exactMatch	SNOMEDCT	405810005	manual	github:KrishnaTO
+ARI	0001068	Cogan's syndrome	skos:exactMatch	omop	4233620	manual	github:KrishnaTO
+ARI	0001068	Cogan's syndrome	skos:exactMatch	icd10cm	H16.32	manual	github:KrishnaTO
+ARI	0001068	Cogan's syndrome	skos:exactMatch	ORPHA	1467	manual	github:KrishnaTO
+ARI	0001068	Cogan's syndrome	skos:exactMatch	mesh	D055952	manual	github:KrishnaTO
+ARI	0001063	Chronic inflammatory demyelinating polyradiculoneuropathy	skos:exactMatch	SNOMEDCT	230564004	manual-negative	github:KrishnaTO
+ARI	0001063	Chronic inflammatory demyelinating polyradiculoneuropathy	skos:exactMatch	omop	4048024	manual-negative	github:KrishnaTO
+ARI	0001063	Chronic inflammatory demyelinating polyradiculoneuropathy	skos:exactMatch	icd10cm	357.81	manual-negative	github:KrishnaTO
+ARI	0001066	Chronic multifocal osteomyelitis	skos:exactMatch	OMIM	609628	manual-negative	github:KrishnaTO
+ARI	0001068	Cogan's syndrome	skos:exactMatch	icd10cm	370.52	manual-negative	github:KrishnaTO
+ARI	0001068	Cogan's syndrome	skos:exactMatch	umls	C0155089	manual-negative	github:KrishnaTO
+ARI	0001069	Cold agglutinin disease	skos:exactMatch	SNOMEDCT	398937006	manual	github:KrishnaTO
+ARI	0001069	Cold agglutinin disease	skos:exactMatch	omop	4160887	manual	github:KrishnaTO
+ARI	0001069	Cold agglutinin disease	skos:exactMatch	MONDO	0018922	manual	github:KrishnaTO
+ARI	0001069	Cold agglutinin disease	skos:exactMatch	ncit	C208228	manual	github:KrishnaTO
+ARI	0001069	Cold agglutinin disease	skos:exactMatch	icd10cm	D59.12	manual	github:KrishnaTO
+ARI	0001069	Cold agglutinin disease	skos:exactMatch	ORPHA	56425	manual	github:KrishnaTO
+ARI	0001069	Cold agglutinin disease	skos:exactMatch	umls	C0175816	manual	github:KrishnaTO
+ARI	0001070	Combined immunodeficiency due to LRBA deficiency	skos:exactMatch	SNOMEDCT	1197477000	manual	github:KrishnaTO
+ARI	0001070	Combined immunodeficiency due to LRBA deficiency	skos:exactMatch	omop	37162777	manual	github:KrishnaTO
+ARI	0001070	Combined immunodeficiency due to LRBA deficiency	skos:exactMatch	DOID	0081151	manual	github:KrishnaTO
+ARI	0001070	Combined immunodeficiency due to LRBA deficiency	skos:exactMatch	MONDO	0013863	manual	github:KrishnaTO
+ARI	0001070	Combined immunodeficiency due to LRBA deficiency	skos:exactMatch	ORPHA	445018	manual	github:KrishnaTO
+ARI	0001070	Combined immunodeficiency due to LRBA deficiency	skos:exactMatch	OMIM	614700	manual	github:KrishnaTO
+ARI	0001070	Combined immunodeficiency due to LRBA deficiency	skos:exactMatch	umls	C3553512	manual	github:KrishnaTO
+ARI	0001071	Complex regional pain syndrome	skos:exactMatch	SNOMEDCT	128200000	manual	github:KrishnaTO
+ARI	0001071	Complex regional pain syndrome	skos:exactMatch	omop	4134577	manual	github:KrishnaTO
+ARI	0001071	Complex regional pain syndrome	skos:exactMatch	DOID	3223	manual	github:KrishnaTO
+ARI	0001071	Complex regional pain syndrome	skos:exactMatch	MONDO	0019369	manual	github:KrishnaTO
+ARI	0001071	Complex regional pain syndrome	skos:exactMatch	ncit	C206547	manual	github:KrishnaTO
+ARI	0001071	Complex regional pain syndrome	skos:exactMatch	ORPHA	83452	manual	github:KrishnaTO
+ARI	0001071	Complex regional pain syndrome	skos:exactMatch	umls	C0458219	manual	github:KrishnaTO
+ARI	0001071	Complex regional pain syndrome	skos:exactMatch	mesh	D020918	manual	github:KrishnaTO
+ARI	0001069	Cold agglutinin disease	skos:exactMatch	SNOMEDCT	127055007	manual-negative	github:KrishnaTO
+ARI	0001069	Cold agglutinin disease	skos:exactMatch	omop	4131128	manual-negative	github:KrishnaTO
+ARI	0001071	Complex regional pain syndrome	skos:exactMatch	SNOMEDCT	408751001	manual-negative	github:KrishnaTO
+ARI	0001071	Complex regional pain syndrome	skos:exactMatch	SNOMEDCT	734947007	manual-negative	github:KrishnaTO
+ARI	0001071	Complex regional pain syndrome	skos:exactMatch	omop	42536233	manual-negative	github:KrishnaTO
+ARI	0001071	Complex regional pain syndrome	skos:exactMatch	omop	4256912	manual-negative	github:KrishnaTO
+ARI	0001072	COPA syndrome	skos:exactMatch	DOID	0081242	manual	github:KrishnaTO
+ARI	0001072	COPA syndrome	skos:exactMatch	OMIM	616414	manual-negative	github:KrishnaTO
+ARI	0001212	CREST Syndrome	skos:exactMatch	SNOMEDCT	62382002	manual-negative	github:KrishnaTO
+ARI	0001095	Fibromyalgia	skos:exactMatch	SNOMEDCT	203082005	manual	github:Jennyzeng25
+ARI	0001095	Fibromyalgia	skos:exactMatch	omop	40405599	manual	github:Jennyzeng25
+ARI	0001095	Fibromyalgia	skos:exactMatch	DOID	631	manual	github:Jennyzeng25
+ARI	0001095	Fibromyalgia	skos:exactMatch	MONDO	0005546	manual	github:Jennyzeng25
+ARI	0001095	Fibromyalgia	skos:exactMatch	ncit	C87497	manual	github:Jennyzeng25
+ARI	0001095	Fibromyalgia	skos:exactMatch	icd10cm	M79.7	manual	github:Jennyzeng25
+ARI	0001095	Fibromyalgia	skos:exactMatch	mesh	D005356	manual	github:Jennyzeng25
+ARI	0003	Fulminant type 1 diabetes	skos:exactMatch	omop	37163452	manual	github:Jennyzeng25
+ARI	0001096	Graves' disease	skos:exactMatch	DOID	12361	manual	github:Jennyzeng25
+ARI	0001096	Graves' disease	skos:exactMatch	MONDO	0005364	manual	github:Jennyzeng25
+ARI	0001096	Graves' disease	skos:exactMatch	ncit	C3071	manual	github:Jennyzeng25
+ARI	0001096	Graves' disease	skos:exactMatch	icd10cm	E05.0	manual	github:Jennyzeng25
+ARI	0001096	Graves' disease	skos:exactMatch	OMIM	275000	manual	github:Jennyzeng25
+ARI	0001095	Fibromyalgia	skos:exactMatch	ORPHA	41842	manual	github:Jennyzeng25
+ARI	0001096	Graves' disease	skos:exactMatch	mesh	D006111	manual	github:Jennyzeng25
+ARI	0003	Fulminant type 1 diabetes	skos:exactMatch	SNOMEDCT	1217068008	manual-negative	github:Jennyzeng25
+ARI	0003	Fulminant type 1 diabetes	skos:exactMatch	DOID	null	manual-negative	github:Jennyzeng25
+ARI	0003	Fulminant type 1 diabetes	skos:exactMatch	MONDO	MONDO:0014523	manual-negative	github:Jennyzeng25
+ARI	0003	Fulminant type 1 diabetes	skos:exactMatch	icd10cm	E10	manual-negative	github:Jennyzeng25
+ARI	0001106	Immune Dysregulation, Polyendocrinopathy, Enteropathy, X-Linked Syndrome	skos:exactMatch	omop	28660	manual	github:AnjaliRH
+ARI	0001106	Immune Dysregulation, Polyendocrinopathy, Enteropathy, X-Linked Syndrome	skos:exactMatch	DOID	0090110	manual	github:AnjaliRH
+ARI	0001105	Immune checkpoint inhibitor-induced autoimmunity	skos:exactMatch	mesh	null	manual	github:AnjaliRH
+ARI	0001108	Immunoglobulin A vasculitis	skos:exactMatch	SNOMEDCT	191306005	manual	github:AnjaliRH
+ARI	0001110	Immunoglobulin G4 related ophthalmic disease	skos:exactMatch	SNOMEDCT	1187510006	manual	github:AnjaliRH
+ARI	0001111	Inclusion body myositis	skos:exactMatch	SNOMEDCT	72315009	manual	github:AnjaliRH
+ARI	0001112	Inflammatory Bowel Disease	skos:exactMatch	SNOMEDCT	24526004	manual	github:AnjaliRH
+ARI	0001113	Insulin autoimmune syndrome	skos:exactMatch	SNOMEDCT	408539000	manual	github:AnjaliRH
+ARI	0001114	Insulin resistance - type B	skos:exactMatch	SNOMEDCT	237652003	manual	github:AnjaliRH
+ARI	0001116	Interstitial lung disease	skos:exactMatch	SNOMEDCT	233703007	manual	github:AnjaliRH
+ARI	0001108	Immunoglobulin A vasculitis	skos:exactMatch	omop	4101602	manual	github:AnjaliRH
+ARI	0001110	Immunoglobulin G4 related ophthalmic disease	skos:exactMatch	omop	37162346	manual	github:AnjaliRH
+ARI	0001111	Inclusion body myositis	skos:exactMatch	omop	4216406	manual	github:AnjaliRH
+ARI	0001112	Inflammatory Bowel Disease	skos:exactMatch	omop	4074815	manual	github:AnjaliRH
+ARI	0001113	Insulin autoimmune syndrome	skos:exactMatch	omop	4252384	manual	github:AnjaliRH
+ARI	0001114	Insulin resistance - type B	skos:exactMatch	omop	4129525	manual	github:AnjaliRH
+ARI	0001116	Interstitial lung disease	skos:exactMatch	omop	4119786	manual	github:AnjaliRH
+ARI	0001108	Immunoglobulin A vasculitis	skos:exactMatch	DOID	11123	manual	github:AnjaliRH
+ARI	0001111	Inclusion body myositis	skos:exactMatch	DOID	3429	manual	github:AnjaliRH
+ARI	0001112	Inflammatory Bowel Disease	skos:exactMatch	DOID	0050589	manual	github:AnjaliRH
+ARI	0001113	Insulin autoimmune syndrome	skos:exactMatch	DOID	0040100	manual	github:AnjaliRH
+ARI	0001115	Intermediate uveitis	skos:exactMatch	DOID	12732	manual	github:AnjaliRH
+ARI	0001116	Interstitial lung disease	skos:exactMatch	DOID	3082	manual	github:AnjaliRH
+ARI	0001116	Interstitial lung disease	skos:exactMatch	ncit	C164315	manual	github:AnjaliRH
+ARI	0001115	Intermediate uveitis	skos:exactMatch	ncit	C35110	manual	github:AnjaliRH
+ARI	0001110	Immunoglobulin G4 related ophthalmic disease	skos:exactMatch	mesh	null	manual	github:AnjaliRH
+ARI	0001111	Inclusion body myositis	skos:exactMatch	mesh	D018979	manual	github:AnjaliRH
+ARI	0001112	Inflammatory Bowel Disease	skos:exactMatch	mesh	D015212	manual	github:AnjaliRH
+ARI	0001113	Insulin autoimmune syndrome	skos:exactMatch	mesh	null	manual	github:AnjaliRH
+ARI	0001115	Intermediate uveitis	skos:exactMatch	mesh	D015867	manual	github:AnjaliRH
+ARI	0001116	Interstitial lung disease	skos:exactMatch	mesh	D017563	manual	github:AnjaliRH
+ARI	0001108	Immunoglobulin A vasculitis	skos:exactMatch	OMIM	null	manual	github:AnjaliRH
+ARI	0001106	Immune Dysregulation, Polyendocrinopathy, Enteropathy, X-Linked Syndrome	skos:exactMatch	SNOMEDCT	237618001	manual-negative	github:AnjaliRH
+ARI	0001106	Immune Dysregulation, Polyendocrinopathy, Enteropathy, X-Linked Syndrome	skos:exactMatch	icd10cm	E31.0	manual-negative	github:AnjaliRH
+ARI	0001107	Immune thrombocytopenia	skos:exactMatch	DOID	8924	manual-negative	github:AnjaliRH
+ARI	0001109	Immunoglobulin G4 related disease	skos:exactMatch	DOID	0080356	manual-negative	github:AnjaliRH
+ARI	0001107	Immune thrombocytopenia	skos:exactMatch	icd10cm	D69.3	manual-negative	github:AnjaliRH
+ARI	0001107	Immune thrombocytopenia	skos:exactMatch	icd10cm	287.31	manual-negative	github:AnjaliRH
+ARI	0001073	Crohn's disease	skos:exactMatch	SNOMEDCT	34000006	manual	github:KrishnaTO
+ARI	0001073	Crohn's disease	skos:exactMatch	MONDO	0005011	manual	github:KrishnaTO
+ARI	0001073	Crohn's disease	skos:exactMatch	DOID	8778	manual	github:KrishnaTO
+ARI	0001073	Crohn's disease	skos:exactMatch	icd10cm	555.1	manual-negative	github:KrishnaTO
