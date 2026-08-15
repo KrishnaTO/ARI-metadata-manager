@@ -106,3 +106,30 @@ def test_backfill_skips_ids_no_longer_on_the_disease(base_owl, ledger):
     out = backfill(gone, "", base_owl, ledger)
     assert out["recorded"] == 0 and out["skipped"]["id"] == 1
     assert ledger.authors() == {}
+
+
+def test_ontology_service_over_a_temp_file_creates_no_sibling_dirs(tmp_path, base_owl):
+    """A read-only service built over a downloaded ontology must not touch the disk.
+
+    OntologyService derives its feedback store from the ontology file's *grandparent*
+    directory. The publish change summary, the export baseline and the id-authorship
+    backfill all build one over a file in the system temp directory, whose grandparent
+    is the filesystem root — so creating that store eagerly meant `mkdir /feedback`
+    and a PermissionError on Linux (silently swallowed in the two endpoints, which is
+    why every production PR body read "Change summary unavailable").
+    """
+    import shutil
+
+    from app.ontology_service import OntologyService
+
+    # Mimic the temp-file layout: the ontology sits directly in a directory whose
+    # own parent must not be written to.
+    root = tmp_path / "readonly"
+    holder = root / "holder"
+    holder.mkdir(parents=True)
+    owl = holder / "ari_t1d.owl"
+    shutil.copyfile(base_owl, owl)
+
+    svc = OntologyService(str(owl))
+    assert svc.get_xref_rows()                       # usable for reading
+    assert not (root / "feedback").exists()          # nothing created alongside it
