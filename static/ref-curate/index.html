@@ -4,7 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>ARI · Disease curator</title>
-<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<!-- Relative, like every other link on this page: the app is mounted under a path
+     prefix in production (/ari-editor), so a root-absolute href 404s there. -->
+<link rel="icon" href="../favicon.svg" type="image/svg+xml">
 <style>
   :root { --ui-zoom:1.25; --bg:#fff; --bg2:#f8fafc; --border:#e2e8f0; --text:#0f172a; --muted:#64748b; --accent:#2563eb; --accent-soft:#eff6ff; --ok:#059669; --bad:#dc2626; --predict:#d97706; }
   html[data-theme="dark"] { --bg:#0f172a; --bg2:#1e293b; --border:#334155; --text:#e2e8f0; --muted:#94a3b8; --accent:#60a5fa; --accent-soft:#1e293b; --ok:#34d399; --bad:#f87171; --predict:#fbbf24; }
