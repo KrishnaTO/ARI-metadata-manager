@@ -1,5 +1,10 @@
 # Changelog
 
+## remove-disease-curator-page
+- Removed the `/ref-curate` "disease curator" page (one-disease-at-a-time companion to the `/ref-edits` matrix): its route in `app/main.py`, `static/ref-curate/` (`index.html`, `ref-curate.js`), and every link to it — the matrix header button, the settings panel link, and the disease field editor's "Curate this disease" deep link (`static/js/editor.js`, `static/js/settings.js`, `static/ref-edits/index.html`). `/ref-edits` is now the only cross-reference review page; it shared no backend endpoints or data with `/ref-curate`, so nothing else changed.
+- `/ref-curate` also comes off the shared slash-less redirect added just below in `fix-ref-edits-page-icon` — that handler now serves `/ref-edits` alone, so the removed page 404s outright instead of `308`-ing to a directory that no longer exists.
+- Trimmed the now-dead `/ref-curate` tests from `tests/test_pages.py` (kept the shared `/ref-edits` render test) and reworded a docstring in `tests/test_ref_session.py` that referenced the removed page. Updated `README.md`'s architecture tree and subsystem description to match.
+
 ## fix-ref-edits-page-icon
 - Fixed the browser tab icon showing as broken on `/ref-edits/` and `/ref-curate/`. Both pages pointed at `href="/favicon.svg"`, and in production the app is mounted under a path prefix (`https://aurint.ca/ari-editor`, stripped by nginx before the app sees the request — see `deploy/nginx.conf`), so that root-absolute path resolved to `https://aurint.ca/favicon.svg` and returned nginx's 404 HTML. Confirmed against the live site: `/favicon.svg` → 404, `/ari-editor/favicon.svg` → 200 `image/svg+xml`. The main app page was never affected because it already used a relative `favicon.svg`.
 - Both pages now use `../favicon.svg`, matching how they already address everything else (`ref-edits.js`, `../ref-curate/`, `../`) and staying correct under any mount prefix. The SVG itself was fine and is unchanged.
