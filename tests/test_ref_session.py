@@ -1,6 +1,6 @@
 """Per-user cross-reference review session persistence.
 
-The ref-edits / ref-curate pages save their in-progress verdicts and PR pointer
+The ref-edits page saves its in-progress verdicts and PR pointer
 to the server so a signed-in user can resume after a page reload. These guard the
 GET/PUT endpoints and the auth boundary (anonymous users get no persistence)."""
 from fastapi.testclient import TestClient
