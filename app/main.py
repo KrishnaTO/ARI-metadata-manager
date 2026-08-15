@@ -268,13 +268,6 @@ async def _mapping_judgments(request: Request) -> list:
     return sssom_service.load_judgments(sssom_text, equiv_text)
 
 
-async def _review_context(request: Request):
-    """(rows, databases, judgments, predictions) — everything the queue needs."""
-    svc = service_for(request)
-    return (svc.get_xref_rows(), xref_registry.public_list(),
-            await _mapping_judgments(request), svc.predict_xrefs())
-
-
 def _ref_session_path(login) -> Path:
     """Per-user cross-reference review session file (verdicts + PR pointer)."""
     return USER_DIR / f"{login}.refsession.json"
@@ -660,15 +653,8 @@ async def publish(request: Request, payload: dict = Body(default={})):
 
     # Confirmed (positive) + flagged (negative) cross-references from a
     # reference-review session (also written to the mapping files further below).
-    # When the client sends neither, fall back to the curator's autosaved
-    # decisions so the redesigned ref-edits page can publish without resending them.
-    confirmed = payload.get("confirmed")
-    flagged = payload.get("flagged")
-    if confirmed is None and flagged is None:
-        stored = ASSIGNMENTS.to_publish_payload(_login(request))
-        confirmed, flagged = stored["confirmed"], stored["flagged"]
-    confirmed = confirmed or []
-    flagged = flagged or []
+    confirmed = payload.get("confirmed") or []
+    flagged = payload.get("flagged") or []
     author = payload.get("author") or f"github:{u['identity']['login']}"
 
     # Record the review in each affected disease's changelog before snapshotting
@@ -736,9 +722,6 @@ async def publish(request: Request, payload: dict = Body(default={})):
         path=GH_ONTOLOGY_PATH, content_bytes=content, disease_name=disease,
         message=message, identity=u["identity"], pr_body=pr_body, extra_files=extra_files,
         reuse_branch=reuse_branch, labels=(labels + ["sssom"] if ((confirmed or flagged) and "sssom" not in labels) else labels))
-    # Only after the PR call has come back: drop the autosaved decisions so a
-    # failed publish (which raises above) leaves the curator's work intact.
-    ASSIGNMENTS.clear(_login(request))
     return result
 
 
@@ -856,33 +839,6 @@ async def export_excel(request: Request):
         headers={"Content-Disposition": 'attachment; filename="ARI_current_changes.xlsx"'})
 
 
-# ----------------------------------------------------------------- REVIEW QUEUE
-@app.get("/api/v2/queue")
-async def review_queue(request: Request):
-    """The signed-in curator's assigned diseases with per-disease progress.
-
-    Drives the left-hand queue column and the header progress bar on the
-    reference-review page. 401-equivalent (400) when not signed in.
-    """
-    login = _require_login(request)
-    rows, dbs, judgments, preds = await _review_context(request)
-    return assignment_service.queue_for(login, ASSIGNMENTS, rows, dbs, judgments, preds)
-
-
-@app.get("/api/v2/queue/{iri:path}")
-async def review_queue_disease(request: Request, iri: str):
-    """One disease as the review panel wants it: identity + one entry per database."""
-    login = _login(request)
-    rows, dbs, judgments, preds = await _review_context(request)
-    row = next((r for r in rows if r["iri"] == iri), None)
-    if row is None:
-        raise KeyError(iri)
-    panel = assignment_service.disease_panel(
-        row, dbs, judgments, preds, ASSIGNMENTS.decisions(login) if login else [])
-    panel["assigned_to"] = ASSIGNMENTS.owner_of(iri)
-    return panel
-
-
 # ----------------------------------------------------------------- ASSIGNMENTS
 @app.get("/api/v2/assignments")
 async def assignments_all(request: Request):
@@ -918,48 +874,6 @@ async def assignments_done(request: Request, payload: dict = Body(...)):
     login = _require_login(request)
     return ASSIGNMENTS.set_done(login, payload.get("iri", ""),
                                 done=payload.get("done", True))
-
-
-# ------------------------------------------------------------------- DECISIONS
-@app.get("/api/v2/decisions")
-async def decisions_list(request: Request, disease: str = ""):
-    """My autosaved, not-yet-published decisions (optionally for one disease)."""
-    login = _require_login(request)
-    return {"decisions": ASSIGNMENTS.decisions(login, disease or None),
-            "summary": ASSIGNMENTS.summary(login)}
-
-
-@app.post("/api/v2/decisions")
-async def decisions_add(request: Request, payload: dict = Body(...)):
-    """Record one decision — autosave, called on every click.
-
-    Body: {iri, db, id, verdict, name?, ari_id?, label?, predicted?, note?}
-    verdict: confirm | reject | no_value | skip
-    """
-    login = _require_login(request)
-    return ASSIGNMENTS.decide(
-        login, payload.get("iri", ""), payload.get("db", ""), payload.get("id", ""),
-        payload.get("verdict", ""), name=payload.get("name"),
-        ari_id=payload.get("ari_id"), label=payload.get("label"),
-        predicted=bool(payload.get("predicted")), note=payload.get("note", ""))
-
-
-@app.delete("/api/v2/decisions/{decision_id}")
-async def decisions_undo(request: Request, decision_id: str):
-    """Undo one decision."""
-    login = _require_login(request)
-    return ASSIGNMENTS.undo(login, decision_id)
-
-
-@app.get("/api/v2/review-summary")
-async def review_summary(request: Request):
-    """Pre-publish summary: counts plus the exact payload publish will send."""
-    login = _require_login(request)
-    payload = ASSIGNMENTS.to_publish_payload(login)
-    return {"summary": ASSIGNMENTS.summary(login),
-            "confirmed": payload["confirmed"],
-            "flagged": payload["flagged"],
-            "skipped": payload["skipped"]}
 
 
 def _render_html(rel_path: str) -> HTMLResponse:

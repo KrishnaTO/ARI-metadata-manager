@@ -213,13 +213,8 @@ when its target actually changes.
 | GET | `/api/v2/mappings` | Already-curated positive/negative cross-reference judgments |
 | GET | `/api/v2/concept/{db}/{id}` | Label, synonyms, definition & parents for one target-database id (compare pane); distinguishes a database's own term from a hub cross-reference |
 | GET / PUT | `/api/v2/ref-session` | Signed-in user's saved cross-reference review session (resume across reloads) |
-| GET | `/api/v2/queue` | Signed-in curator's assigned diseases with per-disease progress + coverage strip |
-| GET | `/api/v2/queue/{iri}` | One disease as the review panel renders it (one entry per review database) |
 | GET / POST / DELETE | `/api/v2/assignments` | List / assign / unassign curator disease queues; `login` defaults to the caller (self-assignment is ungated), and a disease another curator holds needs `reassign` |
 | POST | `/api/v2/assignments/done` | Mark one assigned disease finished (or reopen it) |
-| GET / POST | `/api/v2/decisions` | List / autosave a curator's unpublished review decisions |
-| DELETE | `/api/v2/decisions/{id}` | Undo one autosaved decision |
-| GET | `/api/v2/review-summary` | Pre-publish summary + the exact payload publish will send |
 | GET | `/api/v2/search?q=` | Full-text search |
 | GET / POST / PUT / DELETE | `/api/v2/feedback[/{id}]` | Per-term feedback CRUD |
 | GET | `/api/v2/open-prs` | Open pull requests, matched to diseases by branch name |
