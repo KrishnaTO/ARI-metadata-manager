@@ -40,6 +40,7 @@ ARI-metadata-manager/
 │   ├── xref_registry.py        #   Single source of truth for cross-reference databases
 │   ├── github_service.py       #   Per-user OAuth, commit, fork, cross-repo pull request
 │   ├── sssom_service.py        #   Confirmed cross-refs -> SSSOM + equivalencies TSV
+│   ├── id_provenance.py        #   Who added each cross-reference id (separation of duties)
 │   ├── diff_service.py         #   Human-readable change summary for PR bodies
 │   ├── export_service.py       #   Export ontology -> 1_Core_ARI_Diseases.xlsx (marks changes)
 │   └── feedback_service.py     #   File-backed per-term feedback log
@@ -112,9 +113,18 @@ or into the shared baseline. A startup background task sweeps idle copies older 
 The `ref-edits` subpage lays out every disease against its database cross-references
 (SNOMED, OMOP, DOID, UMLS, MONDO, ICD-10, MeSH, NCI). A curator reviews each id in a
 resizable side panel and marks it correct or needs-change; empty cells link out to the target
-database's search. Confirmed matches become `skos:exactMatch` rows in an **SSSOM** TSV plus a
+database's search, and can be marked **∅ Not in *DB*** when that database has no term for the
+disease at all. Confirmed matches become `skos:exactMatch` rows in an **SSSOM** TSV plus a
 simpler biomappings-style **equivalencies** TSV — both merged idempotently under `mappings/`
-and included in the PR. Built by `app/sssom_service.py` + `static/ref-edits/`. The set of
+and included in the PR; an absence is recorded against SSSOM's `NoTermFound` object with the
+database named in `object_source`. Built by `app/sssom_service.py` + `static/ref-edits/`.
+
+Review is **two-person**: whoever adds a cross-reference id may not also confirm the mapping
+it stands for, so a second curator always vouches for every match. Every edit that introduces
+an id credits its author in a ledger (`app/id_provenance.py`, served by `GET
+/api/v2/id-authors`); the page then withholds the ✓ from that curator — flagging the id or
+declaring the database empty stays open to everyone — and `POST /api/v2/publish` re-checks
+authorship, so the rule holds regardless of what the client sends. The set of
 databases (labels, CURIE prefixes, and link-out/search URL templates) lives in one place,
 `app/xref_registry.py`, which both frontend pages fetch via `GET /api/v2/xref-databases`, so a
 database is added or changed once instead of in four hand-synced spots.
@@ -210,7 +220,8 @@ when its target actually changes.
 | POST | `/api/v2/releases` | Cut a versioned release |
 | GET | `/api/v2/xrefs` | Cross-reference matrix for the review page |
 | GET | `/api/v2/xref-databases` | Cross-reference database registry (labels, prefixes, link-outs) |
-| GET | `/api/v2/mappings` | Already-curated positive/negative cross-reference judgments |
+| GET | `/api/v2/mappings` | Already-curated positive/negative/absent cross-reference judgments |
+| GET | `/api/v2/id-authors` | Which curator added each cross-reference id (a curator may not confirm their own) |
 | GET | `/api/v2/concept/{db}/{id}` | Label, synonyms, definition & parents for one target-database id (compare pane); distinguishes a database's own term from a hub cross-reference |
 | GET / PUT | `/api/v2/ref-session` | Signed-in user's saved cross-reference review session (resume across reloads) |
 | GET / POST / DELETE | `/api/v2/assignments` | List / assign / unassign curator disease queues; `login` defaults to the caller (self-assignment is ungated), and a disease another curator holds needs `reassign` |

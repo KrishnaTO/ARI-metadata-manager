@@ -96,3 +96,47 @@ def test_build_skips_null_placeholder_ids():
     lines = [ln for ln in out["sssom"].splitlines() if ln.startswith("ARI:0001001\t")]
     assert len(lines) == 1
     assert lines[0].split("\t")[4] == "SNOMEDCT:12345"
+
+
+def test_build_absent_writes_no_term_found_with_object_source():
+    out = ss.build([], author="a", absent=[{"ari_id": "ARI:0001001", "name": "Test disease",
+                                            "db": "snomed"}])
+    assert out["added"] == 1
+    row = next(ln for ln in out["sssom"].splitlines() if ln.startswith("ARI:0001001\t")).split("\t")
+    assert row[4] == ss.NO_TERM          # object_id
+    assert row[5] == "SNOMEDCT"          # object_source names the empty database
+    assert row[3] == ""                  # NoTermFound is not itself a negative
+    assert "manual-absent" in out["equiv"]
+
+
+def test_absences_for_two_databases_stay_distinct():
+    # Both rows share the NoTermFound object, so object_source has to be part of
+    # the dedup key or the second database's judgment would vanish.
+    out = ss.build([], author="a", absent=[
+        {"ari_id": "ARI:0001001", "name": "D", "db": "snomed"},
+        {"ari_id": "ARI:0001001", "name": "D", "db": "mondo"}])
+    assert out["added"] == 2
+    judged = {j["prefix"]: j["judgment"] for j in ss.load_judgments(out["sssom"])}
+    assert judged == {"SNOMEDCT": "absent", "MONDO": "absent"}
+
+
+def test_load_judgments_reads_absent_from_equiv_fallback():
+    out = ss.build([], author="a", absent=[{"ari_id": "ARI:0001001", "name": "D", "db": "mondo"}])
+    judged = ss.load_judgments("", out["equiv"])
+    assert [(j["prefix"], j["id"], j["judgment"]) for j in judged] == \
+           [("MONDO", ss.NO_TERM_ID, "absent")]
+
+
+def test_merge_remaps_rows_written_under_an_older_header():
+    # A file written before object_source existed has one fewer field; re-merging
+    # it must realign by column name rather than shifting every value right.
+    legacy = ("subject_id\tsubject_label\tpredicate_id\tpredicate_modifier\tobject_id\t"
+              "mapping_justification\tauthor_id\tmapping_date\n"
+              "ARI:0001001\tTest disease\tskos:exactMatch\t\tSNOMEDCT:12345\t"
+              "semapv:ManualMappingCuration\ta\t2026-01-01\n")
+    out = ss.build([_confirmed(ids=["12345"])], author="a", existing_sssom=legacy)
+    rows = [ln for ln in out["sssom"].splitlines() if ln.startswith("ARI:0001001\t")]
+    assert len(rows) == 1                # the legacy row is recognised, not duplicated
+    assert rows[0].split("\t")[5] == "SNOMEDCT"   # object_source backfilled
+    judged = ss.load_judgments(out["sssom"])
+    assert [(j["id"], j["judgment"]) for j in judged] == [("12345", "positive")]

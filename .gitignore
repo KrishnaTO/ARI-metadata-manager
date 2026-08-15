@@ -232,3 +232,4 @@ CLAUDE.md
 .user-data/
 .sessions.json
 assignments/
+provenance/
