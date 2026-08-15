@@ -47,8 +47,15 @@
   // Empty means there is nothing to publish for it.
   const keyState = k => (reviewed[k] || '') + (edited[k] ? '+e' : '');
   const isPending = k => !!keyState(k) && (published[k] || {}).state !== keyState(k);
-  // Pre-existing curated judgments keyed `${ari_id}|${prefix}|${id}` -> 'positive'|'negative'.
+  // Pre-existing curated judgments keyed `${ari_id}|${prefix}|${id}` ->
+  // 'positive'|'negative', plus 'absent' under the NO_TERM id for a whole cell.
   let mappings = {};
+  // Who added each id on file, keyed `${iri}|${db}|${id}` -> github login
+  // (/api/v2/id-authors). A curator may not confirm an id they added themselves.
+  let idAuthors = {};
+  // SSSOM's "no term found in this database" sentinel — the id a cell-level
+  // "not in database" verdict is stored and published under.
+  const NO_TERM = 'NoTermFound';
   // Predicted matches (issue #42) keyed `${ari_id}|${prefix}|${id}` ->
   // {label, match_field, confidence}. From /api/v2/predictions: exact name/synonym
   // hits for blank cells. confidence 'high' = the disease label matched a concept;
@@ -81,6 +88,23 @@
 
   const $ = s => document.querySelector(s);
 
+  // ------------------------------------------------- SEPARATION OF DUTIES
+  // Whoever adds a mapping id may not be the one who confirms it, so a second
+  // curator always vouches for the match. Flagging or declaring the database
+  // empty stays open to everyone — only the ✓ is withheld.
+  const addedBy = (iri, db, id) => idAuthors[idKey(iri, db, id)] || null;
+  const isOwnAddition = (iri, db, id) => !!(me && me.login && addedBy(iri, db, id) === me.login);
+
+  // A one-line note under the header, used when an action is refused.
+  let _noteTimer = null;
+  function note(msg) {
+    const el = $('#note');
+    el.textContent = msg;
+    el.classList.add('open');
+    clearTimeout(_noteTimer);
+    _noteTimer = setTimeout(() => el.classList.remove('open'), 6000);
+  }
+
   // ------------------------------------------------------------- STATE MODEL
   // Per-id state, the single thing the glyphs, tints and counts are derived from:
   //   ok    confirmed this session, or positive in the curated mappings
@@ -88,6 +112,8 @@
   //   pred  lexical prediction for a blank cell (the disease label matched a concept)
   //   low   lexical prediction from a synonym only
   //   have  an id on file that nobody has judged yet
+  // A cell (not an id) can also be `none` — the curator judged that the database
+  // has no term for this disease at all.
   function idState(r, dbkey, id, pred) {
     const k = idKey(r.iri, dbkey, id);
     if (reviewed[k] === 'ok') return 'ok';
@@ -105,8 +131,19 @@
     return predFor(r, dbkey).map(p => ({ id: p.id, pred: p }));
   }
 
+  // The cell-level "this database has no term for the disease" verdict: this
+  // session's, or one already published to the mapping files.
+  const absentKey = (iri, dbkey) => idKey(iri, dbkey, NO_TERM);
+  function isAbsent(r, dbkey) {
+    const k = absentKey(r.iri, dbkey);
+    if (reviewed[k]) return reviewed[k] === 'none';   // this session overrides
+    const prefix = PREFIX[dbkey];
+    return !!(r.ari_id && prefix && mappings[r.ari_id + '|' + prefix + '|' + NO_TERM] === 'absent');
+  }
+
   // A cell only reads ✓ once every id in it has a verdict, so any unjudged entry wins.
   function cellState(r, dbkey) {
+    if (isAbsent(r, dbkey)) return 'none';
     const sts = cellEntries(r, dbkey).map(e => idState(r, dbkey, e.id, e.pred));
     if (!sts.length) return null;
     if (sts.includes('pred')) return 'pred';
@@ -120,9 +157,10 @@
   // A disease is complete when nothing in its row is still awaiting a verdict.
   const isComplete = r => DBS.every(db => !isOpenState(cellState(r, db.key)));
 
-  const GLYPH = { ok: '✓', bad: '✕', pred: '●', low: '○', have: '•' };
+  const GLYPH = { ok: '✓', bad: '✕', pred: '●', low: '○', have: '•', none: '∅' };
   const SUP = { 2: '²', 3: '³', 4: '⁴', 5: '⁵' };
-  const TAG = { ok: 'confirmed', bad: 'flagged', pred: 'predicted', low: 'synonym', have: 'on file' };
+  const TAG = { ok: 'confirmed', bad: 'flagged', pred: 'predicted', low: 'synonym',
+                have: 'on file', none: 'not in database' };
 
   // Concept labels for ids on file (predictions already carry theirs). Filled lazily
   // for the open row only, then painted in place so a re-render never blocks on them.
@@ -222,7 +260,7 @@
 
   function reviewMessage(keys) {
     const iris = new Set();
-    for (const k of keys) if (edited[k] || reviewed[k] === 'ok') iris.add(k.split('|')[0]);
+    for (const k of keys) if (edited[k] || reviewed[k] === 'ok' || reviewed[k] === 'none') iris.add(k.split('|')[0]);
     const ari = [...iris].map(i => (ROWS.find(x => x.iri === i) || {}).ari_id).filter(Boolean).sort();
     let lab = ari.slice(0, 6).join(', ');
     if (ari.length > 6) lab += ', +' + (ari.length - 6) + ' more';
@@ -248,13 +286,16 @@
   }
   const confirmedList = keys => reviewedCells('ok', keys);
   const flaggedList = keys => reviewedCells('bad', keys);
+  // "No term in this database" is a per-cell judgment, so it publishes without ids.
+  const absentList = keys => reviewedCells('none', keys)
+    .map(({ ari_id, iri, name, db }) => ({ ari_id, iri, name, db }));
 
   // The given (unpublished) keys grouped by disease, for the pending drawer.
   function pendingByDisease(keys) {
     const by = {};
-    const bump = (iri, f) => { (by[iri] = by[iri] || { ok: 0, bad: 0, ed: 0 })[f]++; };
+    const bump = (iri, f) => { (by[iri] = by[iri] || { ok: 0, bad: 0, none: 0, ed: 0 })[f]++; };
     for (const k of keys) {
-      if (reviewed[k] === 'ok' || reviewed[k] === 'bad') bump(k.split('|')[0], reviewed[k]);
+      if (reviewed[k] === 'ok' || reviewed[k] === 'bad' || reviewed[k] === 'none') bump(k.split('|')[0], reviewed[k]);
       if (edited[k]) bump(k.split('|')[0], 'ed');
     }
     return Object.entries(by).map(([iri, c]) => {
@@ -262,6 +303,7 @@
       return {
         name: r ? r.name : iri,
         summary: [c.ok ? c.ok + ' confirmed' : null, c.bad ? c.bad + ' flagged' : null,
+                  c.none ? c.none + ' not in database' : null,
                   c.ed ? c.ed + ' edited' : null].filter(Boolean).join(' · '),
       };
     });
@@ -271,6 +313,7 @@
     const pending = [...publishKeys(true)];        // work not yet in any pull request
     const ok = pending.filter(k => reviewed[k] === 'ok').length;
     const bad = pending.filter(k => reviewed[k] === 'bad').length;
+    const none = pending.filter(k => reviewed[k] === 'none').length;
     const ed = pending.filter(k => edited[k]).length;
     const done = ROWS.filter(isComplete).length;
     $('#done-n').textContent = done;
@@ -279,7 +322,7 @@
     const pend = pendingByDisease(pending);
     $('#pending-count').textContent = pend.length;
     $('#pending-dot').classList.toggle('live', pend.length > 0);
-    $('#pending-chip').title = `confirmed ${ok} · flagged ${bad} · edited ${ed}`;
+    $('#pending-chip').title = `confirmed ${ok} · flagged ${bad} · not in database ${none} · edited ${ed}`;
     $('#pending-list').innerHTML = pend.length
       ? pend.map(p => `<div class="pending-row"><span>${esc(p.name)}</span><span>${esc(p.summary)}</span></div>`).join('')
       : '<div class="pending-row"><span class="muted">Nothing waiting to publish. Open a disease and judge a mapping.</span></div>';
@@ -456,7 +499,8 @@
   }
 
   // One database card in the open row's review strip: the state tag, each id with its
-  // ✓/✕ verdict and a link out, and an "add another id" affordance.
+  // ✓/✕ verdict and a link out, an "add another id" affordance, and — while the cell
+  // holds no id — the "no term in this database" verdict.
   function cardHtml(r, db) {
     const entries = cellEntries(r, db.key);
     const st = cellState(r, db.key);
@@ -467,18 +511,28 @@
       const sel = active && active.iri === r.iri && active.dbkey === db.key && String(active.id) === String(e.id);
       const label = e.pred ? (e.pred.label || '') : (idLabels[labelKey(db.key, e.id)] || '');
       const at = ` data-iri="${esc(r.iri)}" data-db="${db.key}" data-id="${esc(e.id)}"`;
+      const own = isOwnAddition(r.iri, db.key, e.id);
+      const author = addedBy(r.iri, db.key, e.id);
       return `<div class="card-id${sel ? ' sel' : ''}${edited[k] ? ' edited' : ''}"${at}${e.pred ? ' data-pred="1"' : ''}>
         <div class="cid">${esc(e.id)}</div>
         <div class="clabel" data-lk="${esc(labelKey(db.key, e.id))}">${esc(label)}</div>
+        ${author ? `<div class="cwho${own ? ' own' : ''}">added by @${esc(author)}</div>` : ''}
         <div class="cacts">
-          <button class="cbtn ok${ist === 'ok' ? ' on' : ''}" data-v="ok"${at} title="Confirm this mapping">✓</button>
+          <button class="cbtn ok${ist === 'ok' ? ' on' : ''}${own ? ' locked' : ''}" data-v="ok"${at}
+            title="${own ? 'You added this id — another curator has to confirm it' : 'Confirm this mapping'}">✓</button>
           <button class="cbtn bad${ist === 'bad' ? ' on' : ''}" data-v="bad"${at} title="Flag this mapping as wrong">✕</button>
           <a class="copen" href="${esc(db.link(e.id))}" target="_blank" rel="noopener" title="Open in ${esc(db.label)}">↗</a>
         </div></div>`;
     }).join('');
+    // Declaring the database empty only makes sense while nothing is on file for it.
+    const absent = st === 'none';
+    const noneBtn = (r[db.key] || []).length ? '' :
+      `<button class="cnone${absent ? ' on' : ''}" data-none="1" data-iri="${esc(r.iri)}" data-db="${db.key}"
+         title="Record that ${esc(db.label)} has no term for this disease">∅ Not in ${esc(db.label)}</button>`;
     return `<div class="card${st ? ' ' + st : ''}">
       <div class="card-h"><span class="card-db">${esc(db.label)}</span><span class="card-tag${st ? ' ' + st : ''}">${esc(tag)}</span></div>
       ${ids}${entries.length ? '' : '<div class="card-empty">no id yet</div>'}
+      ${noneBtn}
       <div class="card-add" data-iri="${esc(r.iri)}" data-db="${db.key}">+ add another id</div>
     </div>`;
   }
@@ -510,8 +564,8 @@
       }).join('');
       let strip = '';
       if (open) {
-        const openN = DBS.reduce((n, db) => n + cellEntries(r, db.key)
-          .filter(e => isOpenState(idState(r, db.key, e.id, e.pred))).length, 0);
+        const openN = DBS.reduce((n, db) => n + (isAbsent(r, db.key) ? 0 : cellEntries(r, db.key)
+          .filter(e => isOpenState(idState(r, db.key, e.id, e.pred))).length), 0);
         const none = states.filter(s => !s).length;
         const multi = DBS.filter(db => cellEntries(r, db.key).length > 1).length;
         const summary = `${okN} confirmed · ${openN} ids awaiting review · ${none} databases with no id` +
@@ -565,8 +619,10 @@
   // Step to the next mapping anywhere in the matrix that still needs a verdict.
   function nextOpen() {
     const flat = [];
-    for (const r of ROWS) for (const db of DBS)
+    for (const r of ROWS) for (const db of DBS) {
+      if (isAbsent(r, db.key)) continue;          // settled — nothing left to judge here
       for (const e of cellEntries(r, db.key)) flat.push({ r, db: db.key, id: e.id, pred: e.pred });
+    }
     if (!flat.length) return;
     const at = active ? flat.findIndex(x => x.r.iri === active.iri && x.db === active.dbkey &&
                                              String(x.id) === String(active.id)) : -1;
@@ -577,6 +633,11 @@
   }
 
   function setReview(iri, db, id, v) {
+    if (v === 'ok' && isOwnAddition(iri, db, id)) {
+      note(`You added ${DBMAP[db] ? DBMAP[db].label : db} id ${id}, so you cannot confirm it — ` +
+           'another curator has to. You can still flag it as wrong.');
+      return;
+    }
     const key = idKey(iri, db, id);
     if (reviewed[key] === v) delete reviewed[key]; else reviewed[key] = v;
     counts(); saveSession(); renderMatrix();
@@ -587,6 +648,15 @@
       ok.classList.toggle('on', reviewed[key] === 'ok');
       bad.classList.toggle('on', reviewed[key] === 'bad');
     }
+  }
+
+  // Toggle the cell-level "this database has no term for the disease" verdict.
+  // It publishes as an SSSOM NoTermFound row rather than a per-id judgment.
+  function setAbsent(iri, dbkey) {
+    const key = absentKey(iri, dbkey);
+    if (reviewed[key] === 'none') delete reviewed[key]; else reviewed[key] = 'none';
+    counts(); saveSession(); renderMatrix();
+    if (active && active.iri === iri && active.dbkey === dbkey) openPanel(iri, dbkey, active.id);
   }
 
   // ------------------------------------------------------------- SIDE PANEL
@@ -600,7 +670,13 @@
     active = { iri, dbkey, id: target };
     const st = ent ? idState(r, dbkey, ent.id, ent.pred) : null;
 
-    const eyebrow = !ent ? 'No id yet'
+    const absent = isAbsent(r, dbkey);
+    const noIdsOnFile = !(r[dbkey] || []).length;
+    const own = ent ? isOwnAddition(iri, dbkey, ent.id) : false;
+    const author = ent ? addedBy(iri, dbkey, ent.id) : null;
+
+    const eyebrow = absent ? 'No term in ' + db.label
+      : !ent ? 'No id yet'
       : st === 'ok' ? 'Confirmed mapping' : st === 'bad' ? 'Flagged mapping'
       : st === 'low' ? 'Predicted · synonym match only'
       : st === 'pred' ? 'Predicted · exact ' + (ent.pred.match_field || 'label') + ' match'
@@ -654,20 +730,38 @@
       ? 'Each id publishes as its own SSSOM row; confirming one does not judge the others.'
       : 'Verdicts save to your review session as you work.';
 
+    // Whoever adds an id may not confirm it, so the ✓ is withheld from its author
+    // and the panel says why rather than leaving a dead button.
+    const ownNote = own
+      ? `<div class="p-lock">You added this id, so another curator has to confirm it.
+           You can still flag it as wrong.</div>`
+      : author ? `<div class="p-note">Added by @${esc(author)}.</div>` : '';
+    // "No term in this database" is a verdict about the cell, offered only while
+    // no id is on file for it.
+    const noneBtn = noIdsOnFile
+      ? `<div class="p-actions">
+           <button class="btn bad ${absent ? 'on' : ''}" id="p-none">∅ Not in ${esc(db.label)}</button>
+           <span class="muted">${absent
+             ? 'Publishes as an SSSOM “no term found” record for ' + esc(db.label) + '.'
+             : 'Record that ' + esc(db.label) + ' has no term for this disease.'}</span>
+         </div>`
+      : '';
+
     $('#panel').innerHTML = `
       <div class="p-head">
         <button class="p-close" id="p-close">✕</button>
-        <div class="p-eyebrow ${st === 'ok' ? 'ok' : st === 'bad' ? 'bad' : ''}">${esc(eyebrow)}</div>
+        <div class="p-eyebrow ${st === 'ok' ? 'ok' : (st === 'bad' || absent) ? 'bad' : ''}">${esc(eyebrow)}</div>
         <div class="p-title">${esc(r.name)}</div>
         <div class="p-sub">${esc(sub)}</div>
       </div>
       ${sibs}
       ${idBlock}
-      ${ent ? `<div class="p-actions">
-        <button class="btn ok ${st === 'ok' ? 'on' : ''}" id="p-ok">✓ Confirm</button>
+      ${ent ? `${ownNote}<div class="p-actions">
+        <button class="btn ok ${st === 'ok' ? 'on' : ''}${own ? ' locked' : ''}" id="p-ok">✓ Confirm</button>
         <button class="btn bad ${st === 'bad' ? 'on' : ''}" id="p-bad">✕ Not the same</button>
         <button class="btn" id="p-next">Next open mapping</button>
       </div>` : ''}
+      ${noneBtn}
       ${db.noframe || !ent
         ? ''
         : `<iframe id="p-frame" src="${esc(db.link(ent.id))}"></iframe>`}
@@ -692,6 +786,7 @@
       if (e.key === 'Enter') commit();
       else if (e.key === 'Escape') $('#p-cancel').click();
     });
+    if (noIdsOnFile) $('#p-none').addEventListener('click', () => setAbsent(iri, dbkey));
     if (ent) {
       $('#p-ok').addEventListener('click', () => setReview(iri, dbkey, target, 'ok'));
       $('#p-bad').addEventListener('click', () => setReview(iri, dbkey, target, 'bad'));
@@ -846,6 +941,9 @@
         delete edited[idKey(iri, dbkey, id)];
         delete reviewed[idKey(iri, dbkey, id)];
       }
+      // The save just credited an id to someone in the authorship ledger, so pull
+      // it again rather than guessing — the ledger keeps an id's *first* author.
+      await loadIdAuthors();
       counts(); saveSession();
       // Stay on the id just saved when it survived, so editing the third id in a
       // cell doesn't bounce the curator back to the first.
@@ -873,7 +971,8 @@
     try {
       const r = await api('publish', { method: 'POST', body: {
         disease: 'mappings review', message, comment,
-        confirmed: confirmedList(keys), flagged: flaggedList(keys), author,
+        confirmed: confirmedList(keys), flagged: flaggedList(keys),
+        absent: absentList(keys), author,
         apply_enrichment: applyEnrichment,
         branch: reuse, labels: ['edit term', 'sssom'] } });
       sessionBranch = r.branch;                       // subsequent publishes append to the same PR
@@ -940,6 +1039,8 @@
       if (sel) { toggleSelect(sel.dataset.sel, e.shiftKey); return; }   // never expands the row
       const btn = e.target.closest('.cbtn');
       if (btn) { setReview(btn.dataset.iri, btn.dataset.db, btn.dataset.id, btn.dataset.v); return; }
+      const nb = e.target.closest('.cnone');
+      if (nb) { setAbsent(nb.dataset.iri, nb.dataset.db); return; }
       const sub = e.target.closest('[data-subtype]');
       if (sub) { openSubtypeOverlay(sub.dataset.subtype); return; }
       const add = e.target.closest('.card-add');
@@ -951,6 +1052,13 @@
       const row = e.target.closest('.mrow');
       if (row) toggleRow(row.dataset.iri);
     });
+  }
+
+  // Who added each id on file. Failure is non-fatal — the frontend lock relaxes,
+  // but /api/v2/publish re-checks authorship server-side, so nothing slips through.
+  async function loadIdAuthors() {
+    try { idAuthors = await api('id-authors'); }
+    catch (e) { console.warn('Could not load id authorship:', e.message); idAuthors = {}; }
   }
 
   async function init() {
@@ -972,6 +1080,7 @@
       for (const p of await api('predictions'))
         predicted[p.ari_id + '|' + p.prefix + '|' + p.id] = { label: p.object_label, match_field: p.match_field, confidence: p.confidence };
     } catch (e) { predicted = {}; }
+    await loadIdAuthors();
     // Restore this user's saved review session (verdicts + PR pointer) so a reload
     // resumes their work. Anonymous users get {} — review state stays in-memory.
     if (me && me.authenticated) {

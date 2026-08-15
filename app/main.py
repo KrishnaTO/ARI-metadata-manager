@@ -24,6 +24,7 @@ from . import xref_registry
 from . import assignment_service
 from . import concept_service
 from . import predict_service
+from . import id_provenance
 
 log = logging.getLogger(__name__)
 
@@ -207,6 +208,9 @@ def service_for(request: Request, write=False):
 # ---- review queue: per-curator disease assignments + autosaved decisions
 ASSIGN_DIR = Path(__file__).resolve().parent.parent / "assignments"
 ASSIGNMENTS = assignment_service.AssignmentStore(ASSIGN_DIR)
+
+# ---- who added each cross-reference id (the review page's separation of duties)
+ID_AUTHORS = id_provenance.IdAuthorStore(Path(__file__).resolve().parent.parent / "provenance")
 
 # Curators who may hand work to *other* curators. Empty = anyone signed in (dev
 # default). Filling your own queue is never gated — every curator self-assigns.
@@ -400,7 +404,12 @@ async def update_disease(request: Request, iri: str, payload: dict = Body(...)):
     """Edit disease fields. Body: {"changes": {...}, "editor": "name"}."""
     changes = payload.get("changes", payload)
     editor = payload.get("editor", "user")
-    r = service_for(request, write=True).update_disease(iri, changes, editor=editor)
+    svc = service_for(request, write=True)
+    before = svc.get_xrefs(iri)
+    r = svc.update_disease(iri, changes, editor=editor)
+    # Credit this curator with any cross-reference id the edit introduced, so the
+    # review page can stop them confirming their own mapping (separation of duties).
+    ID_AUTHORS.record(iri, before, svc.get_xrefs(iri), _login(request))
     _mark_dirty(request)
     return r
 
@@ -494,6 +503,15 @@ async def mappings(request: Request):
     return await _mapping_judgments(request)
 
 
+@app.get("/api/v2/id-authors")
+async def id_authors():
+    """Which curator added each cross-reference id: ``"<iri>|<db>|<id>" -> login``.
+
+    The review page uses this to separate duties — the curator who added an id
+    may not also confirm the mapping it stands for."""
+    return ID_AUTHORS.authors()
+
+
 @app.get("/api/v2/predictions")
 async def predictions(request: Request):
     """Predicted cross-references for blank review-grid cells (issue #42).
@@ -542,7 +560,9 @@ async def create_disease(request: Request, payload: dict = Body(...)):
     """Create a new disease individual. Body: {data: {...}, editor: str}."""
     data = payload.get("data", {})
     editor = payload.get("editor", "user")
-    r = service_for(request, write=True).create_disease(data, editor=editor)
+    svc = service_for(request, write=True)
+    r = svc.create_disease(data, editor=editor)
+    ID_AUTHORS.record(r["iri"], {}, svc.get_xrefs(r["iri"]), _login(request))
     _mark_dirty(request)
     return r
 
@@ -668,7 +688,20 @@ async def publish(request: Request, payload: dict = Body(default={})):
     # reference-review session (also written to the mapping files further below).
     confirmed = payload.get("confirmed") or []
     flagged = payload.get("flagged") or []
+    # Cells judged to have no term at all in the target database.
+    absent = payload.get("absent") or []
     author = payload.get("author") or f"github:{u['identity']['login']}"
+    any_review = bool(confirmed or flagged or absent)
+
+    # A curator may not confirm a mapping id they added themselves; the frontend
+    # blocks it, and this is the boundary check behind that.
+    own = ID_AUTHORS.authors()
+    login = u["identity"]["login"]
+    for c in confirmed:
+        for ident in (c.get("ids") or []):
+            if own.get(f"{c.get('iri')}|{c.get('db')}|{ident}") == login:
+                return JSONResponse(status_code=400, content={
+                    "detail": f"@{login} added {c.get('db')} id {ident} — another curator must confirm it"})
 
     # Optionally fold each confirmed cross-reference's synonyms and direct children
     # into the disease record itself. Off unless the client opts in, so a plain
@@ -678,12 +711,12 @@ async def publish(request: Request, payload: dict = Body(default={})):
     # Record the review in each affected disease's changelog before snapshotting
     # the ontology for the commit. A write copy is used so the entries land in
     # this user's working ontology, mirroring how field edits are handled.
-    svc = service_for(request, write=True) if (confirmed or flagged) else service_for(request)
+    svc = service_for(request, write=True) if any_review else service_for(request)
     enrich_note = ""
-    if confirmed or flagged:
-        svc.log_xref_review(confirmed, flagged, editor=u["identity"]["login"])
+    if any_review:
+        svc.log_xref_review(confirmed, flagged, editor=login, absent=absent)
         if apply_enrich:
-            got = svc.apply_enrichment(confirmed, editor=u["identity"]["login"])
+            got = svc.apply_enrichment(confirmed, editor=login)
             if got["diseases"]:
                 enrich_note = (f"## Enrichment\n\nFolded confirmed cross-references into "
                                f"{got['diseases']} disease(s): +{got['synonyms_added']} "
@@ -719,18 +752,20 @@ async def publish(request: Request, payload: dict = Body(default={})):
     SS_PATH = MAPPINGS_SSSOM_PATH
     EQ_PATH = MAPPINGS_EQUIV_PATH
     map_note = ""
-    if confirmed or flagged:
+    if any_review:
         async def _read(path):
             try:
                 return (await gh.get_file_at(u["token"], GH_OWNER, GH_REPO, path, STATE["source_branch"])).decode("utf-8")
             except Exception as e:
                 log.debug("Could not read existing mapping file %s@%s, starting fresh: %s", path, STATE["source_branch"], e)
                 return ""
-        files = sssom_service.build(confirmed, author, await _read(SS_PATH), await _read(EQ_PATH), flagged=flagged)
+        files = sssom_service.build(confirmed, author, await _read(SS_PATH), await _read(EQ_PATH),
+                                    flagged=flagged, absent=absent)
         extra_files = {SS_PATH: files["sssom"].encode("utf-8"),
                        EQ_PATH: files["equiv"].encode("utf-8")}
         map_note = (f"## Reviewed mappings\n\n{files['added']} new "
-                    f"{len(confirmed)} positive / {len(flagged)} negative exact-match judgment(s) "
+                    f"{len(confirmed)} positive / {len(flagged)} negative / "
+                    f"{len(absent)} no-term-found judgment(s) "
                     f"added to `{SS_PATH}` (SSSOM) and `{EQ_PATH}`.")
 
     parts = []
@@ -748,7 +783,7 @@ async def publish(request: Request, payload: dict = Body(default={})):
         token=u["token"], owner=GH_OWNER, repo=GH_REPO, base_branch=STATE["pr_base"],
         path=GH_ONTOLOGY_PATH, content_bytes=content, disease_name=disease,
         message=message, identity=u["identity"], pr_body=pr_body, extra_files=extra_files,
-        reuse_branch=reuse_branch, labels=(labels + ["sssom"] if ((confirmed or flagged) and "sssom" not in labels) else labels))
+        reuse_branch=reuse_branch, labels=(labels + ["sssom"] if (any_review and "sssom" not in labels) else labels))
     return result
 
 

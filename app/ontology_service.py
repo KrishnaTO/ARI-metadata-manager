@@ -305,6 +305,16 @@ class OntologyService:
         # is unchanged versus the previous per-disease-detail implementation.
         return sorted(rows, key=lambda r: r["name"] or "")
 
+    def get_xrefs(self, iri: str) -> dict:
+        """One disease's cross-reference ids, keyed by database.
+
+        Cheap enough to call on both sides of an edit — which is what the
+        id-authorship ledger (``app/id_provenance.py``) diffs — unlike
+        ``get_disease_detail``."""
+        e = self._entity(iri)
+        return {key: _split_csv(self._get_annotation(e, self.base + suffix))
+                for key, suffix in self.XREF_SUFFIXES.items()}
+
     def predict_xrefs(self, index_dir=None) -> list:
         """Predicted cross-references for the review grid's blank cells.
 
@@ -823,22 +833,25 @@ class OntologyService:
         if clog is not None:
             clog[disease_e] = list(clog[disease_e]) + [f"{ts} | {editor} | {msg}"]
 
-    def log_xref_review(self, confirmed=None, flagged=None, editor: str = "curator") -> int:
+    def log_xref_review(self, confirmed=None, flagged=None, editor: str = "curator",
+                        absent=None) -> int:
         """Record a reference-review session in the affected diseases' changelogs.
 
         Confirming / flagging a cross-reference on the review page only writes to
         the SSSOM + equivalency mapping files; it does not otherwise touch the
         ontology. This appends a per-disease changelog entry so the judgment is
         also visible in the disease's own history. ``confirmed`` / ``flagged`` are
-        lists of ``{iri, db, ids, ...}`` (as the publish endpoint receives them).
+        lists of ``{iri, db, ids, ...}`` (as the publish endpoint receives them);
+        ``absent`` is ``{iri, db, ...}`` for a database the disease has no term in.
         Returns the number of diseases whose changelog was updated."""
-        # iri -> {"confirmed": {db: [ids]}, "flagged": {db: [ids]}}
+        # iri -> {"confirmed": {db: [ids]}, "flagged": ..., "no term in": ...}
         groups: dict = {}
-        for verdict, items in (("confirmed", confirmed or []), ("flagged", flagged or [])):
+        for verdict, items in (("confirmed", confirmed or []), ("flagged", flagged or []),
+                               ("no term in", absent or [])):
             for c in items:
                 iri = c.get("iri")
                 ids = [str(i) for i in (c.get("ids") or []) if str(i).strip()]
-                if not iri or not ids:
+                if not iri or (not ids and verdict != "no term in"):
                     continue
                 db = str(c.get("db", "")).strip()
                 groups.setdefault(iri, {}).setdefault(verdict, {}).setdefault(db, []).extend(ids)
@@ -850,9 +863,10 @@ class OntologyService:
             except KeyError:
                 continue
             parts = []
-            for verdict in ("confirmed", "flagged"):
+            for verdict in ("confirmed", "flagged", "no term in"):
                 for db, ids in (verdicts.get(verdict) or {}).items():
-                    parts.append(f"{verdict} {(db or 'xref').upper()} {', '.join(ids)}")
+                    label = (db or "xref").upper()
+                    parts.append(f"{verdict} {label} {', '.join(ids)}".rstrip())
             if parts:
                 self._append_changelog(e, editor, "Cross-reference review: " + "; ".join(parts))
                 updated += 1
