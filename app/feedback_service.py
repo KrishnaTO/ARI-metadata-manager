@@ -21,12 +21,23 @@ def _now() -> str:
 class FeedbackStore:
     def __init__(self, base_dir):
         self.dir = Path(base_dir)
-        self.dir.mkdir(parents=True, exist_ok=True)
         self.path = self.dir / "feedback.json"
         self.log_path = self.dir / "feedback.log"
         self.archive_dir = self.dir / "archive"
 
     # ------------------------------------------------------------------ io
+    def _ensure_dir(self):
+        """Create the store directory on first write, never on construction.
+
+        Every ``OntologyService`` builds one of these from the ontology file's
+        grandparent directory, including the throwaway services built over a
+        *downloaded* ontology (the publish change summary, the export baseline,
+        ``scripts/backfill_id_authors.py``). Those live under the system temp
+        directory, whose grandparent is the filesystem root — so creating the
+        directory eagerly meant constructing a read-only service tried to mkdir
+        ``/feedback`` and raised ``PermissionError`` on Linux."""
+        self.dir.mkdir(parents=True, exist_ok=True)
+
     def _load(self) -> list:
         if self.path.exists():
             try:
@@ -37,12 +48,14 @@ class FeedbackStore:
         return []
 
     def _save(self, items: list):
+        self._ensure_dir()
         self.path.write_text(json.dumps(items, indent=2, ensure_ascii=False), encoding="utf-8")
 
     def _log(self, action: str, entry: dict):
         line = (f"{_now()} | {entry.get('author', '')} | {action} | "
                 f"term={entry.get('term', '')} | keep={entry.get('keep')} | "
                 f"{entry.get('message', '')}\n")
+        self._ensure_dir()
         with open(self.log_path, "a", encoding="utf-8") as f:
             f.write(line)
 

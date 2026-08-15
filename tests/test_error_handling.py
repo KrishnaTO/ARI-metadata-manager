@@ -29,6 +29,7 @@ def test_load_sessions_corrupt_file_warns_and_recovers(tmp_path, monkeypatch, ca
 
 def test_feedback_store_survives_corrupt_json(tmp_path, caplog):
     store = FeedbackStore(tmp_path / "feedback")
+    store.dir.mkdir(parents=True)          # the store only creates this on its first write
     store.path.write_text("{ broken json")
     with caplog.at_level(logging.WARNING):
         assert store.list() == []
