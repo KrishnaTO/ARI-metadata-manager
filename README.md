@@ -48,7 +48,7 @@ ARI-metadata-manager/
 ├── scripts/                    # ── Data builders ──
 │   ├── build_t1d_ontology.py   #   Generate the seed T1D ontology from scratch
 │   ├── import_reports.py       #   Fold data/4-reports/ catalogue into the ontology
-│   └── backfill_id_authors.py  #   Seed the id-authorship ledger from ari.sssom.tsv
+│   └── backfill_id_authors.py  #   Seed the id-authorship ledger from the curated mappings
 │
 ├── tests/                      # pytest suite for the service layer
 ├── mappings/                   # Accumulated cross-reference judgments (merged into PRs)
@@ -128,15 +128,19 @@ declaring the database empty stays open to everyone — and `POST /api/v2/publis
 authorship, so the rule holds regardless of what the client sends.
 
 The ledger only sees edits made through the app, so ids curated before it existed are seeded
-from the `author_id` column of the accumulated SSSOM once per deployment:
+from the curator named on each accumulated mapping — SSSOM `author_id`, equivalencies
+`source` — once per deployment:
 
 ```bash
 python scripts/backfill_id_authors.py
 ```
 
-It records positive rows only (a negative names who *flagged* a mapping, not who added the
-id), skips non-`github:` authors, and records a row only while its id is still on file for
-that disease and database. Re-running is safe — an id keeps its first author. The set of
+It reads the mappings **and** the ontology from the source ARI repo (`KrishnaTO/ARI@main`),
+where publish accumulates them; this repo's tracked copies lag behind. `--local` reads the
+working tree instead. Positive rows only — a negative names who *flagged* a mapping, not who
+added the id — `github:` authors only, and a mapping is recorded only while its id is still on
+file for that disease and database. Both files are read because neither is a superset of the
+other; a mapping in both is recorded once. Re-running is safe: an id keeps its first author. The set of
 databases (labels, CURIE prefixes, and link-out/search URL templates) lives in one place,
 `app/xref_registry.py`, which both frontend pages fetch via `GET /api/v2/xref-databases`, so a
 database is added or changed once instead of in four hand-synced spots.
