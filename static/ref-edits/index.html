@@ -106,6 +106,27 @@
   .pending-row { display:flex; justify-content:space-between; gap:12px; font-size:11.5px; padding-top:6px; }
   .pending-row span:last-child { font-family:var(--mono); opacity:.7; }
 
+  /* Enrichment drawer — what the confirmed cross-references would add to the
+     diseases themselves: the matched terms' own synonyms, and their direct children
+     as clinical subtypes. Opt-in; nothing is written unless "apply on publish" is on. */
+  #enrich-panel { display:none; padding:12px 16px; border-bottom:1px solid var(--line);
+                  background:var(--head); color:var(--text); flex-shrink:0; max-height:34vh; overflow:auto; }
+  #enrich-panel.open { display:block; }
+  .en-head { display:flex; align-items:center; gap:12px; flex-wrap:wrap; padding-bottom:8px; }
+  .en-apply { display:flex; align-items:center; gap:6px; font-size:12px; cursor:pointer; user-select:none; }
+  .en-apply input { accent-color:var(--accent); }
+  .en-disease { border:1px solid var(--line); border-radius:6px; padding:8px 11px; margin-top:8px; background:var(--surface); }
+  .en-disease h4 { margin:0 0 6px; font:600 12.5px var(--sans); }
+  .en-group { margin-top:6px; }
+  .en-group .en-label { font:600 10px var(--sans); letter-spacing:.08em; text-transform:uppercase;
+                        color:var(--mute); display:block; margin-bottom:4px; }
+  .en-chips { display:flex; flex-wrap:wrap; gap:4px; }
+  .en-syn { font:400 11.5px var(--sans); background:var(--ok-bg); color:var(--ok-fg);
+            border-radius:99px; padding:2px 9px; }
+  .en-subs { list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:3px; }
+  .en-subs li { font-size:11.5px; border-left:2px solid var(--accent); padding:2px 8px; background:var(--band); }
+  .en-subs .en-src { font-family:var(--mono); color:var(--faint); font-size:10.5px; }
+
   /* ------------------------------------------------------------------- matrix */
   .body { flex:1; display:flex; min-height:0; position:relative; }
   #matrix-wrap { flex:1; min-width:0; overflow:auto; }
@@ -311,6 +332,7 @@
   <div class="progress"><b id="done-n">0</b>/<span id="total-n">0</span> diseases complete
     <span class="track"><span id="progress-bar"></span></span></div>
   <button class="chip" id="pending-chip"><span class="dot" id="pending-dot"></span><span id="pending-count">0</span> pending</button>
+  <button class="chip" id="enrich-chip" title="Preview the synonyms and clinical subtypes your confirmed cross-references would add to the diseases themselves" disabled><span class="dot" id="enrich-dot"></span>⚗ enrichment</button>
   <span id="auth"></span>
   <a class="btn" id="prlink" target="_blank" rel="noopener" style="display:none"></a>
   <button class="btn" id="publish-new" style="display:none" title="Open a fresh pull request with the verdicts you have not published yet" disabled>New PR</button>
@@ -334,6 +356,14 @@
 <div id="pending-panel">
   <div class="pending-h">Pending in this session — one entry per id, grouped by disease</div>
   <div id="pending-list"></div>
+</div>
+<div id="enrich-panel">
+  <div class="en-head">
+    <span class="pending-h">Enrichment — what your confirmed cross-references would add to the diseases</span>
+    <span class="spacer"></span>
+    <label class="en-apply"><input type="checkbox" id="en-apply"> Apply on publish</label>
+  </div>
+  <div id="enrich-list"></div>
 </div>
 <div class="body">
   <div id="subtype-overlay"></div>

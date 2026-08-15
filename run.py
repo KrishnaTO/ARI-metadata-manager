@@ -15,7 +15,9 @@ sys.path.insert(0, str(HERE))
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="ARI Metadata Manager")
-    parser.add_argument("--port", type=int, default=8001, help="Port to serve on")
+    # PORT (documented in .env.example) is the default; --port still wins.
+    parser.add_argument("--port", type=int, default=int(os.environ.get("PORT") or 8001),
+                        help="Port to serve on (default: $PORT, else 8001)")
     parser.add_argument("--file",
                         default=str(HERE / "ontologies" / "ari_t1d.owl"),
                         help="Path to OWL ontology file")
