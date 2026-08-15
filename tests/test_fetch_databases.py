@@ -134,3 +134,59 @@ def test_index_columns_match_predict_service():
     # The writer must emit exactly the columns predict_service reads.
     from app import predict_service as ps
     assert fd.INDEX_COLS == ps.INDEX_COLS
+
+
+# ------------------------------------------------------------------- hierarchy
+_HIER_OBO = '''\
+[Term]
+id: MONDO:0000001
+name: root disease
+
+[Term]
+id: MONDO:0005147
+name: type 1 diabetes mellitus
+is_a: MONDO:0000001 ! root disease
+
+[Term]
+id: MONDO:0011899
+name: type 1 diabetes mellitus 2
+is_a: MONDO:0005147 {source="DOID:10493", source="MONDO:Inferred"} ! type 1 diabetes
+
+[Term]
+id: MONDO:0099999
+name: obsolete thing
+is_a: MONDO:0005147 ! type 1 diabetes
+is_obsolete: true
+'''
+
+
+def test_parse_obo_keeps_parent_ids_alongside_resolved_labels(tmp_path):
+    # ``parents`` is resolved to labels for the human-facing details sidecar, but the
+    # raw ids must survive as ``parent_ids`` — a label does not identify a term, so
+    # write_subtypes cannot invert the hierarchy without them. The second parent here
+    # also carries an OBO trailing qualifier, which must not end up in the id.
+    rows = {r["id"]: r for r in fd.parse_obo(_write(tmp_path, "h.obo", _HIER_OBO), "MONDO")}
+    assert rows["MONDO:0011899"]["parent_ids"] == ["MONDO:0005147"]   # qualifier stripped
+    assert rows["MONDO:0011899"]["parents"] == ["type 1 diabetes mellitus"]
+    assert rows["MONDO:0005147"]["parent_ids"] == ["MONDO:0000001"]
+    assert "MONDO:0099999" not in rows                                # obsolete dropped
+
+
+def test_write_subtypes_inverts_edges_and_skips_pruned_parents(tmp_path, monkeypatch):
+    monkeypatch.setattr(fd, "DATA_DIR", tmp_path)
+    rows = [
+        {"id": "MONDO:1", "label": "parent", "parent_ids": []},
+        {"id": "MONDO:2", "label": "child a", "parent_ids": ["MONDO:1"]},
+        {"id": "MONDO:3", "label": "child b", "parent_ids": ["MONDO:1", "MONDO:404"]},
+    ]
+    out, n = fd.write_subtypes("mondo", rows)
+    assert n == 2                                    # MONDO:404 is not a kept term
+    lines = out.read_text(encoding="utf-8").strip().splitlines()
+    assert lines[0].split("\t") == fd.SUBTYPE_COLS
+    assert lines[1:] == ["MONDO:1\tMONDO:2\tchild a", "MONDO:1\tMONDO:3\tchild b"]
+
+
+def test_subtype_columns_match_enrich_service():
+    # The writer must emit exactly the columns the enrichment engine reads.
+    from app import enrich_service as es
+    assert fd.SUBTYPE_COLS == es.SUBTYPE_COLS

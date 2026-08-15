@@ -40,6 +40,7 @@ ARI-metadata-manager/
 │   ├── xref_registry.py        #   Single source of truth for cross-reference databases
 │   ├── github_service.py       #   Per-user OAuth, commit, fork, cross-repo pull request
 │   ├── sssom_service.py        #   Confirmed cross-refs -> SSSOM + equivalencies TSV
+│   ├── enrich_service.py       #   Confirmed cross-refs -> disease synonyms + clinical subtypes
 │   ├── diff_service.py         #   Human-readable change summary for PR bodies
 │   ├── export_service.py       #   Export ontology -> 1_Core_ARI_Diseases.xlsx (marks changes)
 │   └── feedback_service.py     #   File-backed per-term feedback log
@@ -48,6 +49,10 @@ ARI-metadata-manager/
 │   ├── build_t1d_ontology.py   #   Generate the seed T1D ontology from scratch
 │   └── import_reports.py       #   Fold data/4-reports/ catalogue into the ontology
 │
+├── data/2-databases/           # Reference-database indexes (built by fetch_databases.py)
+│   ├── <db>.index.tsv          #   term -> label, synonyms, cross-referenced ids
+│   ├── <db>.details.tsv        #   term -> definition, parent labels (on-demand lookup)
+│   └── <db>.subtypes.tsv       #   direct is_a parent->child edges (OBO sources)
 ├── tests/                      # pytest suite for the service layer
 ├── mappings/                   # Accumulated cross-reference judgments (merged into PRs)
 │   ├── ari.sssom.tsv           #   SSSOM exactMatch mappings
@@ -124,6 +129,33 @@ edited-id markers and the open-PR pointer, via `GET`/`PUT /api/v2/ref-session`),
 reload resumes where they left off. The session is stored per user beside their working
 ontology copy and is dropped when they switch source branch. Once a pull request exists,
 **Publish** commits to that same PR, while a **New PR** button opens a fresh one instead.
+
+### Enrichment from confirmed cross-references
+Confirming a cross-reference asserts that the external term **is** the disease, so two of that
+term's facts can be folded back into the ARI record: its label and exact synonyms extend
+`ARI_Synonym`, and its **direct children** extend `ARI_ClinicalSubtype`. `app/enrich_service.py`
+computes both; `OntologyService.apply_enrichment` writes them. Only confirmed (positive)
+mappings feed it — flagged ones never do — and additions are de-duplicated against existing
+values and filtered by the predictor's synonym blocklist.
+
+Many cross-references are coarser than a disease concept: one ICD-10 code is cross-referenced
+by up to 134 DOID terms. An id matching **more than one term within a single source** therefore
+identifies nothing there and is ignored for that source, while an id pinning exactly one term in
+each of several sources is kept from all of them — that is agreement, not ambiguity. A disease is
+never proposed as its own subtype.
+
+Synonyms come from the same `data/2-databases/<db>.index.tsv` files the predictor uses. Subtypes
+come from companion `<db>.subtypes.tsv` files: one row per direct `is_a` parent→child edge, built
+by `scripts/fetch_databases.py` for the OBO sources (MONDO, DOID, NCIt). That file is the
+`details.tsv` sidecar's hierarchy read the other way round — the sidecar answers "what is this
+term a kind of?" for one term and stores parent *labels* for display, while the engine asks the
+inverse across the whole ontology and needs ids, since a label does not identify a term.
+
+Nothing is written implicitly. The ref-edits page's **⚗ enrichment** chip previews the additions
+(`POST /api/v2/enrichment-preview`, read-only) and arms an "Apply on publish" checkbox; only then
+does publish send `apply_enrichment`, which applies them and notes them in the PR body. The
+server recomputes the additions from the confirmed list at publish time, so the preview can never
+go stale.
 
 ### Report import
 `scripts/import_reports.py` folds the curated `data/4-reports/` catalogue (diseases, symptoms,
