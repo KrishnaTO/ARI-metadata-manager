@@ -160,7 +160,8 @@ def parse_obo(path: Path, id_prefix: str, disease_only: bool = False) -> list[di
     ids and is resolved to the parents' **labels** by :func:`_resolve_parents` in a
     second pass over the returned rows (a target dropped from a disease-only index
     keeps its id — a curator reading "is_a NCIT:C2991" is better served by the id
-    than by nothing).
+    than by nothing). The unresolved ids stay available as ``parent_ids``, which
+    :func:`write_subtypes` inverts into the parent -> children index.
     """
     rows: list[dict] = []
     cur: dict | None = None
@@ -239,10 +240,15 @@ def _resolve_parents(rows: list[dict]) -> None:
     A single pass over ``rows`` builds an id->label map, then every ``parents``
     entry that names a kept term is replaced by that term's label. Targets absent
     from the map (obsolete, or filtered out of a disease-only index) keep their id.
+
+    The original ids are preserved as ``parent_ids``: the details sidecar wants
+    labels (it is read by humans), while :func:`write_subtypes` needs the ids to
+    invert the hierarchy without guessing which term a label meant.
     """
     id_to_label = {r["id"]: r["label"] for r in rows if r.get("id") and r.get("label")}
     for r in rows:
-        r["parents"] = [id_to_label.get(pid, pid) for pid in r.get("parents", [])]
+        r["parent_ids"] = list(r.get("parents", []))
+        r["parents"] = [id_to_label.get(pid, pid) for pid in r["parent_ids"]]
 
 
 def _local_tag(elem) -> str:
@@ -379,6 +385,40 @@ def write_details(db: str, rows: list[dict]) -> Path:
     return out
 
 
+# Columns of a ``<db>.subtypes.tsv``: one row per direct parent -> child edge. This
+# is the details sidecar's hierarchy read the other way round. The sidecar answers
+# "what is this term a kind of?" for one term a curator is looking at, and stores
+# parent *labels* for display; the enrichment engine asks the inverse — "what are
+# this term's children?" — across the whole ontology, and needs ids, since a label
+# does not identify a term. Inverting the sidecar would mean matching on labels, so
+# the edges are written out here instead. Read by ``app/enrich_service``.
+SUBTYPE_COLS = ["parent_id", "child_id", "child_label"]
+
+
+def write_subtypes(db: str, rows: list[dict]) -> tuple[Path, int]:
+    """Write direct parent->child edges (from OBO ``is_a``) to ``<db>.subtypes.tsv``.
+
+    Each row carries its own ``is_a`` targets as ``parent_ids``; inverting them
+    gives, for every parent term, its direct children. Only edges whose parent is
+    itself a kept term are emitted, so a confirmed cross-reference always resolves
+    against a real index record. Returns the path written and the number of edges.
+    """
+    label_of = {r["id"]: r.get("label", "") for r in rows if r.get("id")}
+    edges: list[tuple[str, str, str]] = []
+    for r in rows:
+        child_id = r.get("id", "")
+        for parent_id in r.get("parent_ids", []):
+            if parent_id in label_of:      # skip parents pruned from the index
+                edges.append((parent_id, child_id, r.get("label", "")))
+    edges.sort()
+    out = DATA_DIR / f"{db}.subtypes.tsv"
+    with open(out, "w", encoding="utf-8", newline="") as f:
+        f.write("\t".join(SUBTYPE_COLS) + "\n")
+        for parent_id, child_id, child_label in edges:
+            f.write("\t".join((parent_id, child_id, _clean_cell(child_label))) + "\n")
+    return out, len(edges)
+
+
 def build(only: list[str] | None) -> None:
     for db, cfg in SOURCES.items():
         if only and db not in only:
@@ -403,6 +443,11 @@ def build(only: list[str] | None) -> None:
         root = DATA_DIR.parent.parent
         print(f"[{db}] wrote {out.relative_to(root)} ({len(rows):,} terms, {out.stat().st_size:,} bytes)"
               f" + {det.relative_to(root)} ({det.stat().st_size:,} bytes)")
+        # Hierarchy is only reliable for the OBO sources (is_a); MeSH and Orphanet
+        # carry their own tree structures that we do not distil yet.
+        if fmt == "obo":
+            sub, n_edges = write_subtypes(db, rows)
+            print(f"[{db}] wrote {sub.relative_to(root)} ({n_edges:,} subtype edges)")
 
 
 def main(argv: list[str] | None = None) -> int:

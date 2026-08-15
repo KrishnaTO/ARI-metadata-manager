@@ -504,6 +504,19 @@ async def predictions(request: Request):
     return service_for(request).predict_xrefs()
 
 
+@app.post("/api/v2/enrichment-preview")
+async def enrichment_preview(request: Request, payload: dict = Body(default={})):
+    """Synonyms + clinical subtypes a set of confirmed cross-references would add.
+
+    Given a review session's confirmed (positive) mappings
+    (``confirmed: [{iri, db, ids}]``), return, per disease iri, the *new*
+    ``{synonyms, subtypes}`` the enrichment engine would fold in on publish — the
+    matched terms' own synonyms and their direct children. Read-only preview of the
+    ``apply_enrichment`` publish step; empty when nothing new is proposed."""
+    confirmed = payload.get("confirmed") or []
+    return service_for(request).enrichment_preview(confirmed)
+
+
 @app.get("/api/v2/concept/{db}/{obj_id:path}")
 async def concept_detail_lookup(db: str, obj_id: str):
     """Label, synonyms, definition and parents for one target-database id.
@@ -657,12 +670,24 @@ async def publish(request: Request, payload: dict = Body(default={})):
     flagged = payload.get("flagged") or []
     author = payload.get("author") or f"github:{u['identity']['login']}"
 
+    # Optionally fold each confirmed cross-reference's synonyms and direct children
+    # into the disease record itself. Off unless the client opts in, so a plain
+    # mappings review never rewrites disease fields.
+    apply_enrich = bool(payload.get("apply_enrichment")) and bool(confirmed)
+
     # Record the review in each affected disease's changelog before snapshotting
     # the ontology for the commit. A write copy is used so the entries land in
     # this user's working ontology, mirroring how field edits are handled.
     svc = service_for(request, write=True) if (confirmed or flagged) else service_for(request)
+    enrich_note = ""
     if confirmed or flagged:
         svc.log_xref_review(confirmed, flagged, editor=u["identity"]["login"])
+        if apply_enrich:
+            got = svc.apply_enrichment(confirmed, editor=u["identity"]["login"])
+            if got["diseases"]:
+                enrich_note = (f"## Enrichment\n\nFolded confirmed cross-references into "
+                               f"{got['diseases']} disease(s): +{got['synonyms_added']} "
+                               f"synonym(s), +{got['subtypes_added']} clinical subtype(s).")
         _mark_dirty(request)
     content = svc.path.read_bytes()
 
@@ -714,6 +739,8 @@ async def publish(request: Request, payload: dict = Body(default={})):
     parts.append(f"Submitted via the ARI Metadata Manager by @{u['identity']['login']}.")
     if map_note:
         parts.append(map_note)
+    if enrich_note:
+        parts.append(enrich_note)
     parts.append("## Changes\n\n" + summary)
     pr_body = "\n\n".join(parts)
 

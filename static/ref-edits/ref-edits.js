@@ -170,6 +170,56 @@
     return keys;
   }
 
+  // ------------------------------------------------------------- ENRICHMENT
+  // Confirming a cross-reference asserts the external term *is* the disease, so
+  // that term's own synonyms and its direct children can be folded into the ARI
+  // record. Preview only until "Apply on publish" is ticked; the server recomputes
+  // the additions from the confirmed list at publish time, so this can't go stale.
+  let applyEnrichment = false;
+
+  function renderEnrich(data) {
+    const iris = Object.keys(data || {});
+    const total = iris.reduce((n, i) => n + data[i].synonyms.length + data[i].subtypes.length, 0);
+    $('#enrich-list').innerHTML = !iris.length
+      ? '<div class="pending-row"><span class="muted">Nothing new to add — the confirmed'
+        + ' cross-references resolve to terms whose names and subtypes these diseases already'
+        + ' carry, or to ids too coarse to identify a single concept.</span></div>'
+      : iris.map(iri => {
+          const d = data[iri], r = ROWS.find(x => x.iri === iri);
+          const syn = !d.synonyms.length ? '' :
+            `<div class="en-group"><span class="en-label">+${d.synonyms.length} synonym(s)</span>
+              <div class="en-chips">${d.synonyms.map(s => `<span class="en-syn">${esc(s)}</span>`).join('')}</div></div>`;
+          // Each subtype reads "<name> - subtype of <disease> (<CURIE>)"; show the
+          // name plainly and the source CURIE as provenance.
+          const sub = !d.subtypes.length ? '' :
+            `<div class="en-group"><span class="en-label">+${d.subtypes.length} clinical subtype(s)</span>
+              <ul class="en-subs">${d.subtypes.map(s => {
+                const m = s.match(/^(.*) - subtype of .* \(([^)]+)\)$/);
+                return `<li>${esc(m ? m[1] : s)} <span class="en-src">${esc(m ? m[2] : '')}</span></li>`;
+              }).join('')}</ul></div>`;
+          return `<div class="en-disease"><h4>${esc((r && r.name) || iri)}</h4>${syn}${sub}</div>`;
+        }).join('');
+    $('#enrich-chip').title = `${iris.length} disease(s) · ${total} addition(s) proposed`;
+    $('#en-apply').disabled = !iris.length;
+    if (!iris.length && applyEnrichment) { applyEnrichment = false; $('#en-apply').checked = false; }
+    $('#enrich-dot').classList.toggle('live', applyEnrichment);
+  }
+
+  async function openEnrich() {
+    const panel = $('#enrich-panel');
+    if (panel.classList.contains('open')) { panel.classList.remove('open'); return; }
+    const confirmed = confirmedList(publishKeys(false));
+    if (!confirmed.length) return;
+    panel.classList.add('open');
+    $('#enrich-list').innerHTML = '<div class="pending-row"><span class="muted">Computing…</span></div>';
+    try {
+      renderEnrich(await api('enrichment-preview', { method: 'POST', body: { confirmed } }));
+    } catch (e) {
+      $('#enrich-list').innerHTML = '<div class="pending-row"><span class="muted">Preview failed: '
+        + esc(e.message) + '</span></div>';
+    }
+  }
+
   function reviewMessage(keys) {
     const iris = new Set();
     for (const k of keys) if (edited[k] || reviewed[k] === 'ok') iris.add(k.split('|')[0]);
@@ -236,6 +286,15 @@
     const canPublish = !!(me && me.authenticated && pending.length);
     $('#publish').disabled = !canPublish;
     $('#publish-new').disabled = !canPublish;
+    // Enrichment derives from confirmed cross-references, so it needs at least one.
+    const anyConfirmed = confirmedList(publishKeys(false)).length > 0;
+    $('#enrich-chip').disabled = !anyConfirmed;
+    if (!anyConfirmed) {
+      applyEnrichment = false;
+      $('#en-apply').checked = false;
+      $('#enrich-panel').classList.remove('open');
+    }
+    $('#enrich-dot').classList.toggle('live', applyEnrichment);
   }
 
   // Persist this signed-in user's review session (verdicts, edited-id markers and
@@ -815,6 +874,7 @@
       const r = await api('publish', { method: 'POST', body: {
         disease: 'mappings review', message, comment,
         confirmed: confirmedList(keys), flagged: flaggedList(keys), author,
+        apply_enrichment: applyEnrichment,
         branch: reuse, labels: ['edit term', 'sssom'] } });
       sessionBranch = r.branch;                       // subsequent publishes append to the same PR
       sessionPr = { number: r.pr_number, url: r.pr_url, fork: r.fork };
@@ -867,6 +927,11 @@
       applyGrid(); syncSegs();
     });
     $('#pending-chip').addEventListener('click', () => $('#pending-panel').classList.toggle('open'));
+    $('#enrich-chip').addEventListener('click', openEnrich);
+    $('#en-apply').addEventListener('change', e => {
+      applyEnrichment = e.target.checked;
+      $('#enrich-dot').classList.toggle('live', applyEnrichment);
+    });
     // One delegated handler for the whole matrix — 200+ rows x 10 cells is far too
     // many nodes to bind individually, and the matrix re-renders on every verdict.
     $('#matrix').addEventListener('click', e => {

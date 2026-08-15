@@ -860,6 +860,85 @@ class OntologyService:
             self._save()
         return updated
 
+    # --------------------------------------------------------- ENRICHMENT
+    def _enrich_disease_dict(self, e) -> dict:
+        """Current values an enrichment pass needs for one disease individual."""
+        base = self.base
+        ari = self._get_annotation(e, base + "ARI_ID")
+        return {
+            "iri": e.iri,
+            "ari_id": ari[0] if ari else None,
+            "name": self._get_label(e),
+            "synonyms": self._get_annotation(e, base + "ARI_Synonym"),
+            "clinical_subtypes": self._get_annotation(e, base + "ARI_ClinicalSubtype"),
+        }
+
+    @staticmethod
+    def _confirmed_by_iri(confirmed) -> dict:
+        """Group confirmed cross-references (``{iri, db, ids}``) by disease iri."""
+        out: dict = {}
+        for c in (confirmed or []):
+            iri = c.get("iri")
+            ids = [str(i).strip() for i in (c.get("ids") or []) if str(i).strip()]
+            if iri and ids:
+                out.setdefault(iri, []).append({"db": str(c.get("db", "")).strip(), "ids": ids})
+        return out
+
+    def enrichment_preview(self, confirmed, index_dir=None) -> dict:
+        """Proposed synonym + clinical-subtype additions for confirmed mappings.
+
+        Read-only companion to :meth:`apply_enrichment`: given a review session's
+        confirmed (positive) cross-references, return, per disease iri,
+        ``{"synonyms": [...], "subtypes": [...]}`` of the *new* values the engine
+        would add. Empty when nothing new is proposed (or no indexes are present)."""
+        from . import enrich_service
+        by_iri = self._confirmed_by_iri(confirmed)
+        diseases = []
+        for iri in by_iri:
+            try:
+                diseases.append(self._enrich_disease_dict(self._entity(iri)))
+            except KeyError:
+                continue
+        kw = {"index_dir": index_dir} if index_dir else {}
+        return enrich_service.enrich_many(diseases, by_iri, **kw)
+
+    def apply_enrichment(self, confirmed, editor: str = "curator", index_dir=None) -> dict:
+        """Fold confirmed cross-references' synonyms + subtypes into the ontology.
+
+        For each disease with confirmed (positive) mappings, appends the external
+        terms' synonyms to ``ARI_Synonym`` and their direct children to
+        ``ARI_ClinicalSubtype`` (requirements 1 & 2), de-duplicated and
+        blocklist-filtered by :func:`app.enrich_service.enrich`. Records a per-disease
+        changelog entry and saves. Returns a summary
+        ``{diseases, synonyms_added, subtypes_added}``."""
+        proposals = self.enrichment_preview(confirmed, index_dir=index_dir)
+        base = self.base
+        syn_total = sub_total = 0
+        for iri, add in proposals.items():
+            try:
+                e = self._entity(iri)
+            except KeyError:
+                continue
+            new_syn, new_sub = add.get("synonyms") or [], add.get("subtypes") or []
+            if new_syn:
+                prop = self._ensure_annotation_property("ARI_Synonym")
+                prop[e] = self._get_annotation(e, base + "ARI_Synonym") + new_syn
+                syn_total += len(new_syn)
+            if new_sub:
+                prop = self._ensure_annotation_property("ARI_ClinicalSubtype")
+                prop[e] = self._get_annotation(e, base + "ARI_ClinicalSubtype") + new_sub
+                sub_total += len(new_sub)
+            note = []
+            if new_syn:
+                note.append(f"+{len(new_syn)} synonym(s)")
+            if new_sub:
+                note.append(f"+{len(new_sub)} clinical subtype(s)")
+            self._append_changelog(e, editor,
+                                   "Enrichment from confirmed cross-references: " + ", ".join(note))
+        if proposals:
+            self._save()
+        return {"diseases": len(proposals), "synonyms_added": syn_total, "subtypes_added": sub_total}
+
     # --------------------------------------------------------- ITEM CRUD
     def get_schema(self) -> dict:
         """Field schema for every editable disease-data category."""
