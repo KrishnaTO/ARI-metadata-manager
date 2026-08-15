@@ -230,6 +230,35 @@ sudo systemctl status ari-mm
 sudo journalctl -u ari-mm -n 20
 ```
 
+### App code not updating (live version stuck on an old commit)
+
+Check what the running app reports against the branch tip:
+```bash
+curl -s https://aurint.ca/ari-editor/api/v2/overview | grep -o '"app_version":"[^"]*"'
+```
+`app_version` is `2.<commit-count> (<date>)`, derived from git at process start, so a
+stale value means the working tree really has not moved.
+
+Then check whether the timer is firing and whether the unit it starts is failing —
+these are different faults with the same symptom:
+```bash
+sudo systemctl list-timers 'ari-mm*' --all
+sudo journalctl -u ari-mm-update.service -n 40 --no-pager
+```
+
+`status=203/EXEC` with "Permission denied" means the update script lost its executable
+bit. Fix it in git, not on the server: `update.sh` stashes local changes to tracked
+files and then hard-resets, so a server-side `chmod +x` is reverted after one run.
+From a clone (on Windows, `core.filemode = false` means a plain `chmod` is not recorded):
+```bash
+git update-index --chmod=+x deploy/update.sh
+```
+
+Force an immediate run once the script is executable again:
+```bash
+sudo systemctl start ari-mm-update.service
+```
+
 ### Mappings not updating from ARI main
 Check the timer and service logs:
 ```bash
