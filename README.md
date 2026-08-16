@@ -62,15 +62,15 @@ ARI-metadata-manager/
 ├── .github/workflows/ci.yml    # CI: pytest + advisory ruff lint
 │
 ├── static/                     # ── Frontend (vanilla JS, no build step) ──
-│   ├── index.html              #   Main page skeleton
-│   ├── css/styles.css          #   All styles (light/dark)
+│   ├── index.html              #   Main page skeleton (two-column record shell)
+│   ├── css/styles.css          #   All main-page styles (light/dark); ref-edits has its own
 │   ├── js/                     #   Classic scripts, loaded in order:
 │   │   ├── core.js             #     state, constants, API helper, BASE_PATH detection
-│   │   ├── trees.js            #     left nav: alphabetical / tissue / symptoms trees, search
-│   │   ├── detail.js           #     middle panel: disease detail + narrative story
-│   │   ├── panels.js           #     right panel: category deep-dive read views
+│   │   ├── trees.js            #     left nav: alphabetical / tissue trees, search
+│   │   ├── detail.js           #     record view: header, reading column, story spine, sidebar
+│   │   ├── panels.js           #     deep-dive read views (inline card / drawer)
 │   │   ├── graph.js            #     D3 force-directed pathophysiology graph
-│   │   ├── editor.js           #     edit toggle, field/item editors, admin releases
+│   │   ├── editor.js           #     edit mode, field/item editors, admin releases
 │   │   ├── symptoms.js         #     "search by symptoms" multi-select board
 │   │   ├── feedback.js         #     per-term feedback panel
 │   │   ├── github.js           #     sign-in + publish control
@@ -98,6 +98,41 @@ ARI-metadata-manager/
 ```
 
 ## Key subsystems
+
+### Main page: the record view
+The main page is a **two-column record view** in the AurInt design system: a 288px index rail
+and one record column, sized against a 1440px reference. The rail holds the A–Z and Tissue
+trees and scrolls independently of the record. The record is a fixed header
+(breadcrumb, title, `Copy link` · `Edit record`) over a body split into a
+reading column — definition, citations, and the **disease story spine** — and a 340px sidebar
+carrying synonyms, target tissue, the cross-reference ledger, clinical subtypes and the record
+links — each a block whose section label collapses it (expanded by default; a collapsed block
+is remembered under `ari_side_collapsed`).
+
+The story spine is one column per numbered `STORY_GROUPS` step (`01`–`05`); the category lines
+inside a column are the click targets. Picking one expands its **deep dive** as a card inline
+under the spine (below 1024px, as a drawer over the record with a scrim). The card is the
+`#right-col` element from the shell, re-parented into the reading column on every render, so
+`panels.js` and `editor.js` keep rendering into `#right-panel-content` unchanged.
+
+The record header's **Edit record** button (`#edit-toggle`) is the single way in and out of
+edit mode; it reads *Done editing* while editing, and entering edit mode opens the
+disease-field form in the deep-dive slot. It is enabled only once a record is loaded **and**
+a curator is signed in, matching the server-side write gate in `service_for()` — on a
+deployment with GitHub integration switched off there is no identity to demand, so a loaded
+record is the only requirement.
+
+Leaving the form — **Cancel**, *Done editing*, dismissing the drawer, or opening a category
+from the story — routes through the same snapshot comparison (`fieldsDirty()`), so nothing
+unsaved is discarded without a prompt. A category panel opened while curating carries a
+**Disease fields** button back to the form, and its **Close** returns there rather than
+dropping out of edit mode.
+
+Design tokens (colour, type, spacing, radius, shadow) live in `:root` in
+`static/css/styles.css`, with a dark set under `[data-theme="dark"]`. Type is Barlow Condensed
+(wordmark), IBM Plex Sans (everything), IBM Plex Mono (ids, codes, counts) and IBM Plex Serif
+(blockquotes). There are no emoji anywhere in the UI; icons are inline Lucide SVGs, because
+the page pins its third-party scripts with SRI and cannot add an icon CDN.
 
 ### Per-user GitHub identity & publishing
 Sign-in uses the GitHub OAuth Authorization-Code flow. The access token is held

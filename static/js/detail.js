@@ -1,5 +1,28 @@
-// Middle panel: selecting a disease, rendering the ontology detail header and
-// the narrative "disease story" of selectable category boxes.
+// The record view: selecting a disease, rendering the record header, the
+// reading column (definition, citations, the disease-story spine) and the
+// sidebar (synonyms, target tissue, the cross-reference ledger, subtypes).
+
+// The deep-dive container lives in the shell but is re-parented into the reading
+// column on every render, so a category opens as an inline expansion under the
+// story spine instead of as a third column. Held by reference because
+// #detail-pane's innerHTML is replaced wholesale on each render.
+const DEEP_DIVE = document.getElementById('right-col');
+function mountDeepDive(){
+  ($('#deep-dive-slot') || $('#layout')).appendChild(DEEP_DIVE);
+}
+
+// The start state: nothing selected, just the index rail and a prompt. Reached
+// from the wordmark and from a Back navigation past the first disease.
+function showStartPage(){
+  state.activeIri = null;
+  state.detail = null;
+  setMode('read');
+  closeRightPanel();
+  $('#tree-pane').querySelectorAll('.selected').forEach(el => el.classList.remove('selected'));
+  $('#detail-pane').innerHTML = '<div class="empty-state">Select a disease from the list to view its record.</div>';
+  mountDeepDive();
+  syncCurateAccess();
+}
 
 // opts.history === false  -> selection driven by the URL (initial load or a
 //   Back/Forward navigation); don't push another history entry.
@@ -7,11 +30,9 @@
 //   the selection came from a link rather than a visible click).
 async function selectDisease(iri, opts = {}){
   state.activeIri = iri;
-  state.editMode = false;
-  // Reset the edit toggle so it doesn't stay stuck on "Done" from the previous
-  // disease while edit options are hidden.
-  $('#edit-toggle').classList.remove('active');
-  $('#edit-toggle').innerHTML = '✎ Edit';
+  // Cleared first so leaving curate mode doesn't repaint the outgoing record.
+  state.detail = null;
+  setMode('read');
   closeRightPanel();
   $('#tree-pane').querySelectorAll('.selected').forEach(el => el.classList.remove('selected'));
   $('#tree-pane').querySelectorAll(`[data-iri="${CSS.escape(iri)}"]`).forEach(el => el.classList.add('selected'));
@@ -20,188 +41,277 @@ async function selectDisease(iri, opts = {}){
   if (opts.scroll) scrollTreeToActive();
   const d = await api(`/api/v2/disease/${encodeURIComponent(iri)}`);
   state.detail = d;
-  $('#edit-toggle').disabled = false;
+  syncCurateAccess();
   renderDetail(d);
 }
 
-// Linkify "PMID: 12345" references inside a source string.
-function linkifySource(text){
-  return esc(text).replace(/PMID:?\s*(\d+)/gi, (m, id) =>
-    `<a href="https://pubmed.ncbi.nlm.nih.gov/${id}/" target="_blank" rel="noopener">PMID: ${id}</a>`);
+// ------------------------------------------------------------------ header
+// Evidence state closes the breadcrumb. This ontology's `evidence_quality` holds
+// free text — a strength ("High", "Unconfirmed") for some records and a mechanism
+// ("Antibody", "TCELL") for others — so the value is shown verbatim and only
+// coloured when it actually reads as a strength.
+function evidenceHTML(d){
+  const raw = first(d.evidence_quality);
+  if (!raw) return '';
+  const l = String(raw).toLowerCase();
+  let cls = '';
+  if (/\b(established|confirmed|high|strong)\b/.test(l)) cls = ' established';
+  else if (/\b(probable|suspected|unconfirmed|moderate|likely)\b/.test(l)) cls = ' probable';
+  return `<span class="crumb-sep">/</span><span class="evidence${cls}" title="Evidence quality">${esc(raw)}</span>`;
 }
 
-function renderDetail(d){
-  const obs = d.obsolete;
-  let html = `<div class="detail${obs ? ' obsolete' : ''}">
-    <h1>${esc(d.name)}${obs ? ' <span class="obsolete-tag">(obsolete)</span>' : ''}
-      <button class="copy-btn link-btn" data-copy="${esc(diseaseLinkUrl(d.iri))}" title="Copy a shareable link to this disease" aria-label="Copy link to this disease">&#128279; Copy link</button>
-    </h1>
-    <div class="iri">${esc(d.iri)}</div>`;
+function recordHeadHTML(d){
+  let crumbs = '';
   if (d.ari_id?.length){
-    // Stored ARI IDs carry an "ARI:" (or "ARI_") prefix; the "ARI ID:" label
-    // already says "ARI", so show just the bare number and let it be copied.
+    // Stored ARI IDs carry an "ARI:" (or "ARI_") prefix; normalise for display.
+    // The full IRI is break-all noise in the breadcrumb at this size, so it is
+    // the copy button's payload and tooltip rather than visible text.
     const bareId = String(d.ari_id[0]).replace(/^ARI[\s:_-]*/i, '');
-    html += `<div class="ari-id">ARI ID: <span class="ari-id-val">${esc(bareId)}</span>` +
-      `<button class="copy-btn" data-copy="${esc(bareId)}" title="Copy ID ${esc(bareId)}" aria-label="Copy ID">&#128203;</button></div>`;
+    crumbs += `<span class="ari-id">ARI:${esc(bareId)}` +
+      `<button class="copy-btn" data-copy="${esc(d.iri)}" title="Copy IRI — ${esc(d.iri)}" ` +
+      `aria-label="Copy the IRI for this disease">${COPY_ICON}</button></span>`;
   }
-
-  // Populated asynchronously with any open PRs whose branch targets this disease.
-  html += `<div id="disease-pr-banner"></div>`;
-
-  if (state.editMode){
-    html += `<div class="edit-banner">&#9998; <strong>Editing mode</strong> &mdash; edit the disease fields, or click a category below to add / edit / delete its data items.
-      <button class="hbtn" id="edit-fields-btn">Edit disease fields</button></div>`;
+  if (d.is_grouping){
+    crumbs += `${crumbs ? '<span class="crumb-sep">/</span>' : ''}<span>Umbrella category</span>`;
   }
-
   if (d.parent_disease?.length){
-    html += `<div style="font-size:12px;margin-bottom:8px">Subtype of <a href="#" class="parent-link" data-iri="${esc(d.parent_disease[0].iri)}">${esc(d.parent_disease[0].name)}</a></div>`;
+    crumbs += `${crumbs ? '<span class="crumb-sep">/</span>' : ''}<span>Subtype of ` +
+      `<a href="#" class="parent-link" data-iri="${esc(d.parent_disease[0].iri)}">${esc(d.parent_disease[0].name)}</a></span>`;
   }
-  if (d.subtypes?.length){
-    html += `<div style="font-size:12px;margin-bottom:8px">Subtypes: ${d.subtypes.map(s => `<a href="#" class="parent-link" data-iri="${esc(s.iri)}">${esc(s.name)}</a>`).join(', ')}</div>`;
+  crumbs += evidenceHTML(d);
+
+  return `<div class="rec-head">
+    <div class="rec-head-main">
+      <div class="crumbs">${crumbs}</div>
+      <h1>${esc(d.name)}${d.obsolete ? ' <span class="obsolete-tag">(obsolete)</span>' : ''}</h1>
+    </div>
+    <div class="rec-actions">
+      <button class="btn copy-btn" data-copy="${esc(diseaseLinkUrl(d.iri))}" title="Copy a shareable link to this disease">Copy link</button>
+      <button class="btn primary" id="edit-toggle" ${canCurate() ? '' : 'disabled'} title="${esc(curateHint())}">${state.editMode ? 'Done editing' : 'Edit record'}</button>
+    </div>
+  </div>`;
+}
+
+// ------------------------------------------------------- citations + byline
+// A citation's display text: its stored label, else "PMID: n" for PubMed, else
+// the host it points at.
+function citeLabel(c){
+  if (c.text) return esc(c.text);
+  const m = String(c.url).match(/pubmed\.ncbi\.nlm\.nih\.gov\/(\d+)/);
+  if (m) return `PMID: ${m[1]}`;
+  try { return esc(new URL(c.url).hostname.replace(/^www\./, '')); }
+  catch (e){ return 'Source'; }
+}
+
+function citationsHTML(d){
+  const shownUrls = new Set();
+  const cites = [];
+  for (const s of (d.def_source || [])){
+    for (const c of parseDefSrc(String(s))){
+      if (c.url) shownUrls.add(c.url);
+      cites.push(c);
+    }
+  }
+  for (const p of (d.pubmed || [])){
+    const u = String(p || '').trim();
+    if (u && !shownUrls.has(u)) cites.push({ text: '', url: u });
   }
 
-  if (d.definition) html += `<div class="definition">${mdToHtml(d.definition)}</div>`;
-  // Definition source(s) — parsed as "Author Year; URL" pairs, rendered as
-  // hyperlinks.  Pubmed URLs already embedded in def_source are not shown twice.
-  if (d.def_source?.length || d.pubmed?.length) {
-    const shownUrls = new Set();
-    const cites = [];
-    for (const s of (d.def_source || [])) {
-      for (const c of parseDefSrc(String(s))) {
-        if (c.url) shownUrls.add(c.url);
-        cites.push(c);
-      }
-    }
-    for (const p of (d.pubmed || [])) {
-      const u = String(p || '').trim();
-      if (u && !shownUrls.has(u)) cites.push({ text: '', url: u });
-    }
-    if (cites.length) {
-      html += `<div class="def-sources">`;
-      for (const c of cites) {
-        if (c.url) {
-          html += `<div class="def-source-item"><a href="${esc(c.url)}" target="_blank" rel="noopener">${c.text ? esc(c.text) : 'Source'} &#8599;</a></div>`;
-        } else if (c.text) {
-          html += `<div class="def-source-item"><span class="src-label">Source</span> ${esc(c.text)}</div>`;
-        }
-      }
-      html += `</div>`;
+  let byline = '';
+  if (d.authors?.length){
+    const [who, link] = String(d.authors[0]).split(' | ');
+    const date = d.author_date?.length ? `, ${esc(d.author_date[0])}` : '';
+    const whoHtml = link ? `<a href="${esc(link)}" target="_blank" rel="noopener">${esc(who)}</a>` : esc(who);
+    byline = `<span class="byline">Profile by ${whoHtml}${date}</span>`;
+  }
+  if (!cites.length && !byline) return '';
+
+  let html = '<div class="def-sources">';
+  for (const c of cites){
+    // Only a real "PMID: n" citation gets the mono treatment; a PubMed search
+    // URL is just another link.
+    const isPmid = /pubmed\.ncbi\.nlm\.nih\.gov\/\d+/.test(String(c.url));
+    if (c.url){
+      html += `<span class="def-source-item${isPmid ? ' pmid' : ''}">` +
+        `<a href="${esc(c.url)}" target="_blank" rel="noopener">${citeLabel(c)}</a></span>`;
+    } else if (c.text){
+      html += `<span class="def-source-item"><span class="src-label">Source</span>${esc(c.text)}</span>`;
     }
   }
+  return html + byline + '</div>';
+}
 
-  html += '<div class="meta">';
-  if (d.is_grouping) html += `<span class="tag grouping-tag">&#128193; Umbrella category</span>`;
-  if (d.disease_category?.length) html += `<span class="tag">${esc(d.disease_category[0])}</span>`;
-  if (d.evidence_quality?.length) html += `<span class="tag">Evidence: ${esc(d.evidence_quality[0])}</span>`;
-  if (d.version?.length) html += `<span class="tag">v${esc(d.version[0])}</span>`;
-  html += '</div>';
+// ---------------------------------------------------------- story spine
+// One column per numbered STORY_GROUPS entry; the category lines inside it are
+// the click targets into the deep dive (keyed by data-box).
+function boxNote(b){
+  if (b.count > 0) return String(b.count);
+  if (state.editMode && state.schema[b.key]) return '+ add';
+  return b.note || '';
+}
+function boxHTML(b){
+  const active = state.activeBox === b.key ? ' active' : '';
+  return `<div class="box${active}" data-box="${b.key}"><span class="lbl">${esc(b.label)}</span>` +
+    `<span class="count">${esc(boxNote(b))}</span></div>`;
+}
 
-  // Database cross-references as linkouts
-  const xrefs = [
-    ['icd10','ICD-10', d.icd10], ['snomed','SNOMED', d.snomed], ['doid','DOID', d.doid],
-    ['umls','UMLS', d.umls], ['mondo','MONDO', d.mondo], ['mesh','MeSH', d.mesh],
-    ['nci','NCI', d.nci], ['omop','OMOP', d.omop],
-  ].filter(x => x[2]?.length);
-  if (xrefs.length){
-    html += '<div class="section-label">Database cross-references</div><div class="xref-row">';
-    for (const [kind, lbl, vals] of xrefs){
-      for (const v of vals){
-        html += `<a class="xref" href="${esc(xrefLink(kind, v))}" target="_blank" rel="noopener"><b>${lbl}</b> <code>${esc(v)}</code> &#8599;</a>`;
-      }
-    }
-    html += '</div>';
+function visibleKeys(grp, boxByKey, isGrouping){
+  let keys = grp.keys.filter(k => {
+    const b = boxByKey[k];
+    return b && (b.show || (state.editMode && state.schema[k]));
+  });
+  if (isGrouping) keys = keys.filter(k => GROUPING_STORY_KEYS.includes(k));
+  return keys;
+}
+
+function storyHTML(d, boxByKey){
+  // A grouping/umbrella category carries no disease-specific clinical metadata,
+  // so its story is only the record-keeping step.
+  if (d.is_grouping){
+    const keys = visibleKeys(STORY_GROUPS[STORY_GROUPS.length - 1], boxByKey, true);
+    return `<div class="story record-only"><div class="story-step">` +
+      keys.map(k => boxHTML(boxByKey[k])).join('') + `</div></div>`;
   }
+  let html = '<div class="story">';
+  for (const grp of STORY_GROUPS){
+    if (!grp.num) continue;                       // the Record step lives in the sidebar
+    const keys = visibleKeys(grp, boxByKey, false);
+    const active = keys.includes(state.activeBox) ? ' active' : '';
+    html += `<div class="story-step${active}" title="${esc(grp.hint)}">` +
+      `<div class="story-head"><span class="story-num">${String(grp.num).padStart(2, '0')}</span>` +
+      `<span class="story-title">${esc(grp.title)}</span></div>` +
+      keys.map(k => boxHTML(boxByKey[k])).join('') + `</div>`;
+  }
+  return html + '</div>';
+}
+
+// ------------------------------------------------------------------ sidebar
+// The cross-reference ledger. Every database gets a row, in the order the
+// reference-review page lists its columns (XREF_MAIN, from the server registry);
+// a database with no id renders an em dash rather than disappearing, so the
+// ledger doubles as a coverage check. Ids stack one per line, right-aligned —
+// several 8-digit SNOMED codes on one line wrap, and a wrapped run reads as
+// left-indented against its single-id neighbours.
+function xrefLedgerRowsHTML(d){
+  let rows = '', filled = 0;
+  for (const db of XREF_MAIN){
+    const vals = d[db.key] || [];
+    if (vals.length){
+      filled++;
+      const ids = vals.map(v =>
+        `<a class="xr-id" href="${esc(xrefLink(db.key, v))}" target="_blank" rel="noopener">${esc(v)}</a>`).join('');
+      rows += `<div class="xr"><span class="xr-db">${esc(db.label)}</span><span class="xr-ids">${ids}</span></div>`;
+    } else {
+      rows += `<div class="xr empty"><span class="xr-db">${esc(db.label)}</span><span class="xr-ids"><span class="xr-id">&mdash;</span></span></div>`;
+    }
+  }
+  return { rows, filled, total: XREF_MAIN.length };
+}
+
+// A sidebar block: a section label that doubles as its collapse toggle, over
+// the block's body. Blocks open expanded; see toggleSideBlock in core.js.
+function sideBlockHTML(key, labelHTML, bodyHTML){
+  const open = !SIDE_COLLAPSED.has(key);
+  return `<div class="side-block${open ? '' : ' collapsed'}" data-block="${esc(key)}">` +
+    `<button class="section-label block-toggle" data-block-toggle="${esc(key)}" aria-expanded="${open}">` +
+    `${CARET_ICON}<span class="block-label">${labelHTML}</span></button>` +
+    `<div class="block-body">${bodyHTML}</div></div>`;
+}
+
+function xrefLedgerHTML(d){
+  const { rows, filled, total } = xrefLedgerRowsHTML(d);
+  return sideBlockHTML('xrefs',
+    `Cross-references<span class="count">${filled}/${total}</span>`,
+    `<div class="xref-ledger">${rows}</div>`);
+}
+
+function sidebarHTML(d, boxByKey){
+  let html = '<aside class="rec-side">';
 
   if (d.synonyms?.length){
-    html += `<div class="section-label">Synonyms</div><div class="synonyms">${d.synonyms.map(s => `<span>${esc(s)}</span>`).join('')}</div>`;
+    html += sideBlockHTML('synonyms', 'Synonyms',
+      `<div class="chips synonyms">${d.synonyms.map(s => `<span>${esc(s)}</span>`).join('')}</div>`);
   }
-
   if (d.tissue_targets?.length){
-    html += `<div class="section-label">Target tissue</div><div style="font-size:12px;margin-bottom:4px">${d.tissue_targets.map(t => `<span class="tissue-chip">${esc(t.name)}</span>`).join('')}</div>`;
+    html += sideBlockHTML('tissue', 'Target tissue',
+      `<div class="chips">${d.tissue_targets.map(t => `<span class="tissue-chip">${esc(t.name)}</span>`).join('')}</div>`);
   }
 
-  // Clinical subtypes / variants (from the report Subtypes sheet): "name - description".
-  // Each subtype may optionally link to an existing disease ("→ disease"); unlinked
-  // subtypes stay plain text and can be promoted into a new child disease.
+  html += xrefLedgerHTML(d);
+
+  // Clinical subtypes / variants (from the report Subtypes sheet): "name — description".
+  // Each may link to an existing disease; unlinked ones can be promoted into a
+  // new child disease while editing.
   const subs = d.clinical_subtypes_parsed || [];
   if (subs.length){
-    html += `<div class="section-label">Clinical subtypes</div><ul class="subtype-list">`;
+    let items = '';
     for (const sub of subs){
       let linkHtml = '';
       if (sub.link_iri && sub.link_name){
-        linkHtml = ` &rarr; <a href="#" class="parent-link subtype-link" data-iri="${esc(sub.link_iri)}">${esc(sub.link_name)}${sub.link_obsolete ? ' (obsolete)' : ''}</a>`;
+        linkHtml = ` <a href="#" class="parent-link subtype-link" data-iri="${esc(sub.link_iri)}">&rarr; ${esc(sub.link_name)}${sub.link_obsolete ? ' (obsolete)' : ''}</a>`;
       } else if (sub.link_iri){
-        linkHtml = ` <span class="subtype-broken" title="Linked disease not found in this ontology">&#9888;&#65039; broken link</span>`;
+        linkHtml = ` <span class="subtype-broken" title="Linked disease not found in this ontology">broken link</span>`;
       }
       const btn = (state.editMode && !sub.link_iri)
-        ? ` <button class="hbtn subtype-new-btn" data-subtype-name="${esc(sub.name)}" title="Create this subtype as a new disease (child of this disease)">&#xFF0B; New disease</button>`
+        ? ` <button class="hbtn subtype-new-btn" data-subtype-name="${esc(sub.name)}" title="Create this subtype as a new disease (child of this disease)">New disease</button>`
         : '';
-      html += `<li><strong>${esc(sub.name)}</strong>${sub.description ? ' &mdash; ' + esc(sub.description) : ''}${linkHtml}${btn}</li>`;
+      items += `<li><strong>${esc(sub.name)}</strong>${sub.description ? ' &mdash; <span class="sub-desc">' + esc(sub.description) + '</span>' : ''}${linkHtml}${btn}</li>`;
     }
-    html += `</ul>`;
+    html += sideBlockHTML('subtypes', 'Clinical subtypes', `<ul class="subtype-list">${items}</ul>`);
   }
 
-  // External reference links (Cleveland Clinic, Mayo, Healthline, registries, ...)
+  // External reference links (Cleveland Clinic, Mayo, registries, ...)
   if (d.ref_links?.length){
-    html += `<div class="section-label">External references</div><div class="ref-links">`;
+    let links = '';
     for (const ref of d.ref_links){
       const idx = String(ref).lastIndexOf(' | ');
       const text = idx >= 0 ? ref.slice(0, idx) : ref;
       const url = idx >= 0 ? ref.slice(idx + 3) : ref;
-      html += `<a class="ref-link" href="${esc(url)}" target="_blank" rel="noopener">${esc(text)} &#8599;</a>`;
+      links += `<a class="ref-link" href="${esc(url)}" target="_blank" rel="noopener">${esc(text)}${EXT_ICON}</a>`;
     }
-    html += `</div>`;
+    html += sideBlockHTML('refs', 'External references', `<div class="ref-links">${links}</div>`);
   }
 
-  // Profile authorship / byline
-  if (d.authors?.length){
-    const [who, link] = String(d.authors[0]).split(' | ');
-    const date = d.author_date?.length ? ` (${esc(d.author_date[0])})` : '';
-    const whoHtml = link ? `<a href="${esc(link)}" target="_blank" rel="noopener">${esc(who)}</a>` : esc(who);
-    html += `<div class="byline">Profile by ${whoHtml}${date}</div>`;
+  // The unnumbered "Record" story step (changelog + feedback) closes the sidebar
+  // as two text links rather than boxes.
+  const recordGroup = STORY_GROUPS[STORY_GROUPS.length - 1];
+  const recordKeys = visibleKeys(recordGroup, boxByKey, false);
+  if (recordKeys.length && !d.is_grouping){
+    html += sideBlockHTML('record', 'Record',
+      `<div class="record-links">${recordKeys.map(k => boxHTML(boxByKey[k])).join('')}</div>`);
   }
 
-  // Disease data organized as a narrative story; boxes grouped by aspect category
-  // (per the immunological data model) with each concept's description as a subtitle.
+  return html + '</aside>';
+}
+
+// ------------------------------------------------------------------ render
+function renderDetail(d){
   const boxByKey = {};
   for (const b of boxDefs(d)) boxByKey[b.key] = b;
-  const boxNote = b => b.count > 0 ? b.count + ' items' : (state.editMode && state.schema[b.key] ? '+ add' : (b.note || ''));
-  const boxHtml = b => `<div class="box" data-box="${b.key}"><div class="icon">${b.icon}</div><div class="label">${esc(b.label)}</div><div class="count">${boxNote(b)}</div></div>`;
-  // Grouping/umbrella categories carry no disease-specific clinical metadata, so the
-  // narrative story is suppressed — only the record-keeping boxes apply.
+
+  let html = `<div class="detail${d.obsolete ? ' obsolete' : ''}">`;
+  html += recordHeadHTML(d);
+  // Populated asynchronously with any open PRs whose branch targets this disease.
+  html += `<div id="disease-pr-banner"></div>`;
+  if (state.editMode){
+    html += `<div class="edit-banner"><strong>Curate mode</strong> &mdash; the disease fields are open below; pick a category in the story to add / edit / delete its data items.</div>`;
+  }
+
+  html += `<div class="rec-body"><div class="rec-read">`;
+  if (d.definition) html += `<div class="definition">${mdToHtml(d.definition)}</div>`;
+  html += citationsHTML(d);
   if (d.is_grouping){
-    html += `<div class="grouping-note">&#128193; <strong>Grouping / umbrella category.</strong> Clinical disease metadata (symptoms, antibodies, genetics, treatments, …) isn't tracked here — the defining details for a grouping are its definition, database cross-references, clinical subtypes and member diseases above.</div>`;
+    html += `<div class="grouping-note" style="margin-top:24px"><strong>Grouping / umbrella category.</strong> Clinical disease metadata (symptoms, antibodies, genetics, treatments, …) isn't tracked here — a grouping is defined by its definition, cross-references, clinical subtypes and member diseases.</div>`;
   }
-  html += `<div class="section-label">${d.is_grouping ? 'Record' : 'Disease story'}</div><div class="story">`;
-  for (const grp of STORY_GROUPS){
-    let keys = grp.keys.filter(k => { const b = boxByKey[k]; return b && (b.show || (state.editMode && state.schema[k])); });
-    if (d.is_grouping) keys = keys.filter(k => GROUPING_STORY_KEYS.includes(k));
-    if (!keys.length) continue;
-    html += `<div class="story-step"><div class="story-head"><span class="story-num${grp.num ? '' : ' muted'}">${grp.num ?? '•'}</span>`+
-      `<span class="story-title">${esc(grp.title)}</span><span class="story-hint">${esc(grp.hint)}</span></div>`;
-    if (grp.aspectGroups){
-      // sub-group the boxes under their aspect category (only this step)
-      const aspects = [], byAspect = {};
-      for (const k of keys){
-        const asp = (BOX_META[k] && BOX_META[k].aspect) || 'Other';
-        if (!byAspect[asp]){ byAspect[asp] = []; aspects.push(asp); }
-        byAspect[asp].push(k);
-      }
-      for (const asp of aspects){
-        html += `<div class="aspect"><div class="aspect-name">${esc(asp)}</div><div class="box-grid">`;
-        for (const k of byAspect[asp]) html += boxHtml(boxByKey[k]);
-        html += `</div></div>`;
-      }
-    } else {
-      html += `<div class="box-grid">`;
-      for (const k of keys) html += boxHtml(boxByKey[k]);
-      html += `</div>`;
-    }
-    html += `</div>`;
-  }
-  html += '</div></div>';
+  html += `<div class="section-label">${d.is_grouping ? 'Record' : 'Disease story'}</div>`;
+  html += storyHTML(d, boxByKey);
+  html += `<div id="deep-dive-slot"></div>`;
+  html += `</div>`;
+  html += sidebarHTML(d, boxByKey);
+  html += `</div></div>`;
 
   $('#detail-pane').innerHTML = html;
+  mountDeepDive();
 
   loadDiseasePRs(d);
 
@@ -211,20 +321,36 @@ function renderDetail(d){
   $('#detail-pane').querySelectorAll('.copy-btn').forEach(b =>
     b.addEventListener('click', () => copyToClipboard(b.dataset.copy || '')));
 
+  $('#detail-pane').querySelectorAll('[data-block-toggle]').forEach(btn =>
+    btn.addEventListener('click', () => {
+      const block = btn.closest('.side-block');
+      const open = block.classList.toggle('collapsed') === false;
+      btn.setAttribute('aria-expanded', String(open));
+      toggleSideBlock(btn.dataset.blockToggle);
+    }));
+
   $('#detail-pane').querySelectorAll('.subtype-new-btn').forEach(btn =>
     btn.addEventListener('click', () =>
       openNewDiseaseModal({ label: btn.dataset.subtypeName, parent_iri: d.iri })));
 
-  const efb = $('#edit-fields-btn');
-  if (efb) efb.addEventListener('click', () => openDiseaseFieldEditor(state.detail));
+  // The edit control lives inside the record, which is re-rendered on every
+  // change, so it is wired here rather than once at load. Leaving edit mode
+  // closes the field form, so it goes through the same discard check as Cancel.
+  $('#edit-toggle')?.addEventListener('click', () =>
+    state.editMode ? cancelFieldEdits() : setMode('curate'));
 
   $('#detail-pane').querySelectorAll('.box').forEach(box => {
     box.addEventListener('click', () => {
       const key = box.dataset.box;
+      // Opening a category replaces the disease-field form, so unsaved work in
+      // it must be confirmed away first.
+      if (!confirmDiscardEdits()) return;
       if (state.activeBox === key){ closeRightPanel(); return; }
       state.activeBox = key;
       $('#detail-pane').querySelectorAll('.box').forEach(b => b.classList.remove('active'));
+      $('#detail-pane').querySelectorAll('.story-step').forEach(s => s.classList.remove('active'));
       box.classList.add('active');
+      box.closest('.story-step')?.classList.add('active');
       openBoxDetail(d, key);
     });
   });
@@ -232,28 +358,28 @@ function renderDetail(d){
 
 function boxDefs(d){
   return [
-    { key:'prevalence', icon:'📊', label:'Prevalence', count: 0, note:'data', show: (d.prevalence_per_100k?.length || d.prevalence_desc?.length) },
-    { key:'symptoms', icon:'🤒', label:'Symptoms', count: d.symptoms?.length||0, show: d.symptoms?.length },
-    { key:'environmental', icon:'🌍', label:'Environmental', count: d.environmental_factors?.length||0, show: d.environmental_factors?.length },
-    { key:'antibodies', icon:'🧬', label:'Antibodies', count: d.antibodies?.length||0, show: d.antibodies?.length },
-    { key:'treatments', icon:'💊', label:'Treatments', count: d.treatments?.length||0, show: d.treatments?.length },
-    { key:'etiology', icon:'🔬', label:'Etiology', count: d.etiology?.length||0, show: d.etiology?.length },
-    { key:'genetic', icon:'🧬', label:'Genetics', count: d.genetic?.length||0, show: d.genetic?.length },
-    { key:'biomarkers', icon:'🩸', label:'Biomarkers', count: d.biomarkers?.length||0, show: d.biomarkers?.length },
-    { key:'pathophysiology', icon:'🗺️', label:'Pathophysiology', count: d.pathway?.length||0, show: d.pathway?.length },
-    { key:'cytokines', icon:'💉', label:'Cytokines', count: d.cytokines?.length||0, show: d.cytokines?.length },
-    { key:'tcells', icon:'🔴', label:'T-Cells', count: d.tcells?.length||0, show: d.tcells?.length },
-    { key:'apcs', icon:'🟡', label:'APCs', count: d.apcs?.length||0, show: d.apcs?.length },
-    { key:'transcription', icon:'📝', label:'Transcription Factors', count: d.transcription_factors?.length||0, show: d.transcription_factors?.length },
-    { key:'innate', icon:'🛡️', label:'Innate Immunity', count: d.innate_components?.length||0, show: d.innate_components?.length },
-    { key:'complement', icon:'🔗', label:'Complement', count: d.complement?.length||0, show: d.complement?.length },
-    { key:'receptors', icon:'📡', label:'Receptors', count: d.receptors?.length||0, show: d.receptors?.length },
-    { key:'netosis', icon:'🕸️', label:'NETosis', count: d.netosis?.length||0, show: d.netosis?.length },
-    { key:'inflammasome', icon:'🔥', label:'Inflammasome', count: d.inflammasome?.length||0, show: d.inflammasome?.length },
-    { key:'apr', icon:'⚡', label:'Acute Phase Reactants', count: d.acute_phase_reactants?.length||0, show: d.acute_phase_reactants?.length },
-    { key:'antigens', icon:'🎯', label:'Antigens', count: d.antigens?.length||0, show: d.antigens?.length },
-    { key:'changelog', icon:'📋', label:'Change Log', count: d.changelog?.length||0, show: true, note:'history' },
-    { key:'feedback', icon:'💬', label:'Feedback', count: 0, show: true, note:'comment' },
+    { key:'prevalence', label:'Prevalence', count: 0, note:'data', show: (d.prevalence_per_100k?.length || d.prevalence_desc?.length) },
+    { key:'symptoms', label:'Symptoms', count: d.symptoms?.length||0, show: d.symptoms?.length },
+    { key:'environmental', label:'Environmental', count: d.environmental_factors?.length||0, show: d.environmental_factors?.length },
+    { key:'antibodies', label:'Antibodies', count: d.antibodies?.length||0, show: d.antibodies?.length },
+    { key:'treatments', label:'Treatments', count: d.treatments?.length||0, show: d.treatments?.length },
+    { key:'etiology', label:'Etiology', count: d.etiology?.length||0, show: d.etiology?.length },
+    { key:'genetic', label:'Genetics', count: d.genetic?.length||0, show: d.genetic?.length },
+    { key:'biomarkers', label:'Biomarkers', count: d.biomarkers?.length||0, show: d.biomarkers?.length },
+    { key:'pathophysiology', label:'Pathophysiology', count: d.pathway?.length||0, show: d.pathway?.length },
+    { key:'cytokines', label:'Cytokines', count: d.cytokines?.length||0, show: d.cytokines?.length },
+    { key:'tcells', label:'T-cells', count: d.tcells?.length||0, show: d.tcells?.length },
+    { key:'apcs', label:'APCs', count: d.apcs?.length||0, show: d.apcs?.length },
+    { key:'transcription', label:'Transcription factors', count: d.transcription_factors?.length||0, show: d.transcription_factors?.length },
+    { key:'innate', label:'Innate immunity', count: d.innate_components?.length||0, show: d.innate_components?.length },
+    { key:'complement', label:'Complement', count: d.complement?.length||0, show: d.complement?.length },
+    { key:'receptors', label:'Receptors', count: d.receptors?.length||0, show: d.receptors?.length },
+    { key:'netosis', label:'NETosis', count: d.netosis?.length||0, show: d.netosis?.length },
+    { key:'inflammasome', label:'Inflammasome', count: d.inflammasome?.length||0, show: d.inflammasome?.length },
+    { key:'apr', label:'Acute phase reactants', count: d.acute_phase_reactants?.length||0, show: d.acute_phase_reactants?.length },
+    { key:'antigens', label:'Antigens', count: d.antigens?.length||0, show: d.antigens?.length },
+    { key:'changelog', label:'Change log', count: d.changelog?.length||0, show: true, note:'history' },
+    { key:'feedback', label:'Feedback', count: 0, show: true, note:'comment' },
   ];
 }
 
@@ -287,8 +413,8 @@ async function loadDiseasePRs(d){
   const slug = ariSlug(d.name);
   const matches = prs.filter(pr => prTargetsDisease(pr, slug));
   if (!matches.length) return;
-  el.innerHTML = `<div class="pr-banner"><div class="pr-banner-head">&#128260; ${matches.length} open pull request${matches.length===1?'':'s'} with unreviewed changes to this disease</div>` +
+  el.innerHTML = `<div class="pr-banner"><div class="pr-banner-head">${matches.length} open pull request${matches.length===1?'':'s'} with unreviewed changes to this disease</div>` +
     matches.map(pr => `<a class="pr-banner-item" href="${esc(pr.url)}" target="_blank" rel="noopener">` +
-      `<span class="pr-num">#${esc(pr.number)}</span> ${esc(pr.title)} <span class="pr-author">@${esc(pr.author)}</span> &#8599;</a>`).join('') +
+      `<span class="pr-num">#${esc(pr.number)}</span> ${esc(pr.title)} <span class="pr-author">@${esc(pr.author)}</span>${EXT_ICON}</a>`).join('') +
     `</div>`;
 }

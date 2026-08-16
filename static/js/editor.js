@@ -7,7 +7,7 @@ function defSrcRowHtml(text = '', url = '') {
   return `<div class="def-src-row">` +
     `<input class="f_defsrc_url" type="text" placeholder="URL or PMID: 12345678" value="${esc(url)}">` +
     `<input class="f_defsrc_text" type="text" placeholder="Label / author (optional)" value="${esc(text)}">` +
-    `<button type="button" class="hbtn defsrc-rm-btn" onclick="this.closest('.def-src-row').remove()" title="Remove">&#x2715;</button>` +
+    `<button type="button" class="hbtn defsrc-rm-btn" onclick="this.closest('.def-src-row').remove()" title="Remove">&times;</button>` +
     `</div>`;
 }
 function _collectDefSrcs(listId) {
@@ -84,7 +84,7 @@ function subtypeRowHtml(diseases, currentIri, name = '', description = '', linkI
     `<input class="f_sub_name" type="text" placeholder="Subtype name" value="${esc(name)}">` +
     `<input class="f_sub_desc" type="text" placeholder="Description (optional)" value="${esc(description)}">` +
     `<select class="f_sub_link" title="Link to an existing disease (optional)">${opts}</select>` +
-    `<button type="button" class="hbtn subtype-rm-btn" onclick="this.closest('.subtype-row').remove()" title="Remove">&#x2715;</button>` +
+    `<button type="button" class="hbtn subtype-rm-btn" onclick="this.closest('.subtype-row').remove()" title="Remove">&times;</button>` +
     `</div>`;
 }
 // Build the full subtype list editor (rows + "add" button) for container `listId`.
@@ -92,7 +92,7 @@ function subtypeListHtml(listId, diseases, currentIri, parsed) {
   const rows = (parsed && parsed.length ? parsed : [{ name: '', description: '', link_iri: '' }])
     .map(s => subtypeRowHtml(diseases, currentIri, s.name || '', s.description || '', s.link_iri || '')).join('');
   return `<div id="${listId}">${rows}</div>` +
-    `<button type="button" class="hbtn subtype-add-btn" data-sub-list="${listId}" style="font-size:11px;margin-top:3px">&#xFF0B; Add subtype</button>`;
+    `<button type="button" class="hbtn subtype-add-btn" data-sub-list="${listId}" style="font-size:11px;margin-top:3px">Add subtype</button>`;
 }
 // Wire the "Add subtype" button inside `rootEl` to append a fresh row.
 function wireSubtypeAdd(rootEl, diseases, currentIri) {
@@ -130,17 +130,21 @@ function _parseSubtypePrefill(raw) {
 }
 
 // ----------------------------------------------------------------- EDIT MODE
-$('#edit-toggle').addEventListener('click', () => {
+// The record header's "Edit record" button (#edit-toggle) is the single way in
+// and out of edit mode. It is re-rendered with the record, so detail.js wires
+// its click; this only owns the state change. Curating additionally requires a
+// signed-in curator — see canCurate() in core.js.
+function setMode(mode){
+  const curate = mode === 'curate' && canCurate();
+  if (curate === state.editMode) return;
+  state.editMode = curate;
   if (!state.detail) return;
-  state.editMode = !state.editMode;
-  $('#edit-toggle').classList.toggle('active', state.editMode);
-  $('#edit-toggle').innerHTML = state.editMode ? '✓ Done' : '✎ Edit';
   closeRightPanel();
   renderDetail(state.detail);
-  // Entering edit mode jumps straight to the disease-field editor so curators
-  // don't have to hunt for the "Edit disease fields" button first.
-  if (state.editMode) openDiseaseFieldEditor(state.detail);
-});
+  // Entering curate mode opens the disease-field editor straight away, so the
+  // button is the whole affordance.
+  if (curate) openDiseaseFieldEditor(state.detail);
+}
 
 function fieldText(id, label, value){
   return `<div class="field"><label>${label}</label><input id="${id}" value="${esc(value)}"></div>`;
@@ -150,38 +154,31 @@ function fieldArea(id, label, value){
 }
 
 // Read-only database cross-references block for the disease-field editor. These
-// are curated on the reference-review page (ref-edits/), so here we just display
-// the current values as linkouts and offer a button to open that page in a new tab.
+// are curated on the reference-review page (ref-edits/), so here they are shown
+// as the same ledger the record sidebar uses — same order as the review page's
+// columns, and an em dash for a database with no id, so a gap in coverage reads
+// at a glance instead of hiding among a row of chips.
 function xrefReadonlyHTML(d){
-  const kinds = [
-    ['icd10','ICD-10'], ['snomed','SNOMED'], ['doid','DOID'], ['umls','UMLS'],
-    ['mondo','MONDO'], ['mesh','MeSH'], ['nci','NCI'], ['omop','OMOP'],
-  ];
-  let chips = '';
-  for (const [kind, lbl] of kinds){
-    for (const v of (d[kind] || [])){
-      chips += `<a class="xref" href="${esc(xrefLink(kind, v))}" target="_blank" rel="noopener"><b>${lbl}</b> <code>${esc(v)}</code> &#8599;</a>`;
-    }
-  }
-  const body = chips
-    ? `<div class="xref-row">${chips}</div>`
-    : `<div style="font-size:12px;color:var(--muted);margin-bottom:6px">No cross-references recorded yet.</div>`;
-  return `<div class="field"><label>Database cross-references <span style="font-weight:400;text-transform:none;font-size:11px;color:var(--muted)">(curated on the reference pages)</span></label>` +
-    body +
-    `<div style="display:flex;gap:8px;flex-wrap:wrap">` +
-    `<a class="hbtn" href="ref-edits/" target="_blank" rel="noopener" style="font-size:12px">&#128279; Open review matrix &#8599;</a></div></div>`;
+  const { rows, filled, total } = xrefLedgerRowsHTML(d);
+  return `<div class="field"><label>Database cross-references ` +
+    `<span style="font-weight:400;text-transform:none;font-size:11px;color:var(--muted)">` +
+    `(curated on the reference pages &mdash; ${filled}/${total} filled)</span></label>` +
+    `<div class="xref-ledger">${rows}</div>` +
+    `<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">` +
+    `<a class="hbtn" href="ref-edits/" target="_blank" rel="noopener" style="font-size:12px">Open review matrix</a></div></div>`;
 }
 
 // Disease-level field editor (opens in the right panel, like the item editors)
 async function openDiseaseFieldEditor(d){
   const diseases = await _ndDiseases();
   state.activeBox = '__fields__';
-  $('#layout').classList.add('split');
   $('#right-col').classList.add('open');
   $('#detail-pane').querySelectorAll('.box').forEach(b => b.classList.remove('active'));
-  let html = `<button class="close-btn" onclick="closeRightPanel()">✕ Close</button>
-    <div class="edit-form" style="padding:0"><h2>Edit fields: ${esc(d.name)}</h2>
-    <p style="font-size:12px;color:var(--muted);margin:0 0 12px">IRI / ARI local id is fixed. Saving appends a changelog entry and writes the OWL file.</p>`;
+  let html = `<h2><span class="panel-title">Edit fields: ${esc(d.name)}</span>`+
+    `<button class="hbtn primary save-fields-btn">Save changes</button>`+
+    `<button class="close-btn" onclick="cancelFieldEdits()">Cancel</button></h2>
+    <div class="edit-form">
+    <p class="panel-desc">IRI / ARI local id is fixed. Saving appends a changelog entry and writes the OWL file.</p>`;
   html += fieldText('f_name', 'Label', d.name);
   html += fieldArea('f_definition', 'Definition (markdown)', d.definition);
   html += `<div class="field"><label>Synonyms <span style="font-weight:400;text-transform:none;font-size:11px;color:var(--muted)">(one chip each — press Enter or ; to add)</span></label>` +
@@ -209,23 +206,28 @@ async function openDiseaseFieldEditor(d){
   if (!_dsCites.length) _dsCites.push({text:'',url:''});
   html += `<div class="field"><label>Definition sources <span style="font-weight:400;text-transform:none;font-size:11px;color:var(--muted)">(URL required for each; label optional)</span></label>` +
     `<div id="f_defsrc_list">${_dsCites.map(c => defSrcRowHtml(c.text, c.url)).join('')}</div>` +
-    `<button type="button" class="hbtn" id="f_defsrc_add" style="font-size:11px;margin-top:3px">&#xFF0B; Add source</button></div>`;
+    `<button type="button" class="hbtn" id="f_defsrc_add" style="font-size:11px;margin-top:3px">Add source</button></div>`;
   html += `<div class="field field-row"><input type="checkbox" id="f_is_grouping" ${d.is_grouping?'checked':''}><label style="margin:0">Grouping / umbrella category <span style="font-weight:400;text-transform:none;font-size:11px;color:var(--muted)">(collects related diseases; no disease-specific clinical metadata)</span></label></div>`;
   html += `<div class="field field-row"><input type="checkbox" id="f_obsolete" ${d.obsolete?'checked':''}><label style="margin:0">Mark as obsolete</label></div>`;
   html += `<div class="field"><label>Editor name</label><input id="f_editor" value="${esc(state.editor)}"></div>`;
-  html += `<div class="edit-actions"><button class="hbtn primary" id="save-btn">💾 Save changes</button>
-    <button class="hbtn" onclick="closeRightPanel()">Cancel</button></div></div>`;
+  html += `<div class="edit-actions"><button class="hbtn primary save-fields-btn">Save changes</button>
+    <button class="hbtn" onclick="cancelFieldEdits()">Cancel</button></div></div>`;
   $('#right-panel-content').innerHTML = html;
-  $('#save-btn').addEventListener('click', saveEdits);
+  document.querySelectorAll('.save-fields-btn').forEach(b => b.addEventListener('click', saveEdits));
   $('#f_defsrc_add')?.addEventListener('click', () =>
     $('#f_defsrc_list').insertAdjacentHTML('beforeend', defSrcRowHtml('', '')));
   wireTagEditor('#f_synonyms');
   wireSubtypeAdd($('#right-panel-content'), diseases, d.iri);
+  _fieldsBaseline = JSON.stringify(collectDiseaseFields());
+  revealDeepDive();
 }
 
-async function saveEdits(){
+// ---- unsaved-change guard for the disease-field form
+// The form's values as the API wants them. Shared by the save call and the
+// dirty check, so the two can never disagree about what counts as a change.
+function collectDiseaseFields(){
   const v = id => $('#'+id)?.value ?? '';
-  const changes = {
+  return {
     name: v('f_name'), definition: v('f_definition'),
     synonyms: collectTags('f_synonyms'), clinical_subtypes: _collectSubtypes('f_sub_list'),
     disease_category: v('f_disease_category'),
@@ -237,24 +239,56 @@ async function saveEdits(){
     incidence_rate: v('f_incidence_rate'), demographic_bias: v('f_demographic_bias'),
     age_range: v('f_age_range'), prevalence_desc: v('f_prevalence_desc'),
     def_source: _collectDefSrcs('f_defsrc_list'),
-    obsolete: $('#f_obsolete').checked ? 'true' : 'false',
-    is_grouping: $('#f_is_grouping').checked ? 'true' : 'false',
+    obsolete: $('#f_obsolete')?.checked ? 'true' : 'false',
+    is_grouping: $('#f_is_grouping')?.checked ? 'true' : 'false',
   };
-  state.editor = v('f_editor') || 'curator';
+}
+let _fieldsBaseline = '';
+
+// True only when the field form is the panel's current content and differs from
+// how it opened. The baseline is cleared on save and on cancel, so a stale one
+// can never make an untouched record look edited.
+function fieldsDirty(){
+  if (state.activeBox !== '__fields__' || !_fieldsBaseline) return false;
+  return JSON.stringify(collectDiseaseFields()) !== _fieldsBaseline;
+}
+
+// Ask before throwing away edits. Returns false if the curator backs out.
+function confirmDiscardEdits(){
+  if (!fieldsDirty()) return true;
+  return window.confirm('Discard your unsaved changes to this record?');
+}
+window.confirmDiscardEdits = confirmDiscardEdits;
+
+// The one way out of editing: Cancel, and the record header's "Done editing"
+// both land here, so edit mode and the form can never disagree about whether a
+// record is being curated.
+function cancelFieldEdits(){
+  if (!confirmDiscardEdits()) return;
+  _fieldsBaseline = '';
+  setMode('read');
+}
+window.cancelFieldEdits = cancelFieldEdits;
+
+async function saveEdits(){
+  const changes = collectDiseaseFields();
+  state.editor = ($('#f_editor')?.value || '').trim() || 'curator';
+  const saveBtns = [...document.querySelectorAll('.save-fields-btn')];
   try {
-    $('#save-btn').disabled = true; $('#save-btn').textContent = 'Saving...';
+    saveBtns.forEach(b => { b.disabled = true; b.textContent = 'Saving...'; });
     const updated = await api(`/api/v2/disease/${encodeURIComponent(state.activeIri)}`, {
       method: 'PUT', body: { changes, editor: state.editor }
     });
     state.detail = updated;
+    _fieldsBaseline = '';
     closeRightPanel();
     renderDetail(updated);
     renderTab();
     init();
-    toast('Saved ✓ changelog updated');
+    toast('Saved — changelog updated');
   } catch (err){
     toast('Save failed: ' + err.message);
-    $('#save-btn').disabled = false; $('#save-btn').textContent = '💾 Save changes';
+    saveBtns.forEach(b => { b.disabled = false; b.textContent = 'Save changes'; });
   }
 }
 
@@ -271,11 +305,13 @@ function itemSecondary(category, it){
 function renderItemEditor(d, category, panel){
   const spec = state.schema[category];
   const items = d[DETAIL_KEY[category]] || [];
-  let html = `<button class="close-btn" onclick="closeRightPanel()">✕ Close</button><h2>Manage ${esc(spec.label)} items</h2>`;
+  let html = `<h2><span class="panel-title">Manage ${esc(spec.label)} items</span>`+
+    fieldsReturnBtnHTML()+
+    `<button class="close-btn" onclick="dismissPanel()">Close</button></h2>`;
   html += panelDescHTML(category);
   html += `<div style="display:flex;gap:8px;margin-bottom:10px">`+
-    `<button class="hbtn primary" id="item-add">＋ Add ${esc(spec.label)}</button>`+
-    `<button class="hbtn" id="item-view">← Back to details</button></div>`;
+    `<button class="hbtn primary" id="item-add">Add ${esc(spec.label)}</button>`+
+    `<button class="hbtn" id="item-view">Back to details</button></div>`;
   if (!items.length){
     html += '<div class="empty-state">No items yet — use “Add”.</div>';
   } else {
@@ -284,13 +320,14 @@ function renderItemEditor(d, category, panel){
       const sec = itemSecondary(category, it);
       html += `<tr class="${it.obsolete?'obsolete':''}"><td><strong>${esc(it.name)}</strong>${it.obsolete?' <span class="obsolete-tag">(obsolete)</span>':''}`+
         (sec ? `<div style="font-size:11px;color:var(--muted)">${esc(sec)}</div>` : '')+
-        `</td><td style="white-space:nowrap"><button class="icon-btn" data-edit="${i}" title="Edit">✎</button> <button class="icon-btn danger" data-del="${i}" title="Delete">🗑</button></td></tr>`;
+        `</td><td style="white-space:nowrap"><button class="icon-btn" data-edit="${i}" title="Edit">Edit</button> <button class="icon-btn danger" data-del="${i}" title="Delete">Delete</button></td></tr>`;
     });
     html += `</tbody></table>`;
   }
   panel.innerHTML = html;
   $('#item-add').addEventListener('click', () => openItemModal(category, null));
   $('#item-view').addEventListener('click', () => renderReadView(d, category, panel));
+  wireFieldsReturn(panel);
   panel.querySelectorAll('[data-edit]').forEach(b => b.addEventListener('click', () => openItemModal(category, items[+b.dataset.edit])));
   panel.querySelectorAll('[data-del]').forEach(b => b.addEventListener('click', () => deleteItem(category, items[+b.dataset.del])));
 }
@@ -315,10 +352,10 @@ function openItemModal(category, item){
     }
   }
   const html = `<div class="modal-overlay" id="item-overlay"><div class="modal">
-    <div class="modal-head"><h2>${isEdit?'Edit':'Add'} ${esc(spec.label)}</h2><button class="hbtn" id="item-cancel">✕</button></div>
+    <div class="modal-head"><h2>${isEdit?'Edit':'Add'} ${esc(spec.label)}</h2><button class="hbtn" id="item-cancel">Close</button></div>
     <div class="modal-body">${fields}
       <div class="field"><label>Editor name</label><input id="itf_editor" value="${esc(state.editor)}"></div>
-      <div class="edit-actions"><button class="hbtn primary" id="item-save">💾 Save</button>
+      <div class="edit-actions"><button class="hbtn primary" id="item-save">Save</button>
         <button class="hbtn" id="item-cancel2">Cancel</button></div>
     </div></div></div>`;
   document.body.insertAdjacentHTML('beforeend', html);
@@ -350,10 +387,10 @@ async function saveItem(category, item){
     }
     $('#item-overlay')?.remove();
     afterItemChange(updated, category);
-    toast(item ? 'Item updated ✓' : 'Item added ✓');
+    toast(item ? 'Item updated' : 'Item added');
   } catch (err){
     toast('Save failed: ' + err.message);
-    $('#item-save').disabled = false; $('#item-save').textContent = '💾 Save';
+    $('#item-save').disabled = false; $('#item-save').textContent = 'Save';
   }
 }
 
@@ -518,7 +555,7 @@ async function saveNewDisease() {
     await selectDisease(created.iri);
   } catch (err) {
     toast('Create failed: ' + err.message);
-    btn.disabled = false; btn.textContent = '＋ Create Disease';
+    btn.disabled = false; btn.textContent = 'Create disease';
   }
 }
 
@@ -531,7 +568,7 @@ async function deleteItem(category, item){
     const updated = await api(`/api/v2/item/${encodeURIComponent(item.iri)}`, {
       method:'DELETE', body:{ category, disease: state.activeIri, editor: state.editor }});
     afterItemChange(updated, category);
-    toast('Item deleted ✓');
+    toast('Item deleted');
   } catch (err){ toast('Delete failed: ' + err.message); }
 }
 
@@ -540,9 +577,9 @@ function afterItemChange(updated, category){
   renderDetail(updated);
   init();
   state.activeBox = category;
-  $('#layout').classList.add('split');
   $('#right-col').classList.add('open');
   $('#detail-pane').querySelectorAll('.box').forEach(b => b.classList.toggle('active', b.dataset.box === category));
   renderItemEditor(updated, category, $('#right-panel-content'));
+  revealDeepDive();
 }
 

@@ -13,42 +13,48 @@
 <script src="https://cdn.jsdelivr.net/npm/d3-cloud@1.2.7/build/d3.layout.cloud.js" integrity="sha384-bI0nd/RAwAtZt0P/RMrpDzJ5neK0yrKvlsnqYvSISaz7sEUWIcNuiTrvs2F9b+mM" crossorigin="anonymous"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Code+Pro:wght@400;500&family=Source+Sans+3:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Source+Serif+4:wght@600;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@200;300;400;500;600;700&family=IBM+Plex+Serif:wght@400&display=swap">
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link rel="stylesheet" href="css/styles.css?v=__ASSETV__">
 </head>
 <body>
-<!-- One row, three zones: identity (brand) · scope (what you are looking at:
-     search, then the pages and actions that work on a disease) · account and
-     the publish action. Set-and-forget options live behind ⚙, not in the bar. -->
+<!-- One 56px bar: identity · search · the Read/Curate mode switch · account.
+     Everything set-and-forget (new disease, symptom search, review matrix, theme,
+     data source) lives behind the preferences button, not in the bar. -->
 <header>
-  <div class="brand">
-    <span class="brand-mark"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a9 9 0 00-9 9h18a9 9 0 00-9-9z"/><path d="M12 12v7a2.5 2.5 0 005 0"/></svg></span>
-    <span class="brand-name">Autoimmune Registry</span> <span class="brand-sub">Metadata Manager</span>
-  </div>
-  <span class="tsep"></span>
+  <!-- Only shown below 1200px, where the rail becomes an overlay. -->
+  <button id="rail-toggle" class="iconbtn" aria-label="Show the disease index" title="Show the disease index">
+    <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+  </button>
+  <!-- The wordmark is the way back to the start state. -->
+  <a class="brand" href="./" title="Back to the start page">
+    <span class="brand-name">Autoimmune Registry</span>
+    <span class="brand-sub">Metadata Manager</span>
+  </a>
   <div class="search-wrap">
-    <input id="search" placeholder="Search diseases, synonyms, codes…" autocomplete="off">
+    <svg class="search-icon" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M16.5 16.5 21 21"/></svg>
+    <input id="search" placeholder="Search diseases, synonyms, codes" autocomplete="off">
     <div id="search-results" class="dropdown hidden"></div>
   </div>
-  <button id="symptom-search-btn" class="hbtn" title="Search diseases by symptom">&#129657;<span class="lbl">Symptoms</span></button>
   <!-- Relative href: the app is mounted under a path prefix in production. -->
-  <a id="matrix-link" class="hbtn" href="ref-edits/" title="Open the cross-reference review matrix">&#9638;<span class="lbl">Review matrix</span></a>
-  <span class="spacer"></span>
-  <button id="new-disease-btn" class="hbtn primary" title="Create a new disease entry">&#xFF0B; New Disease</button>
-  <button id="edit-toggle" class="hbtn" disabled>&#9998; Edit</button>
-  <span class="tsep"></span>
+  <a id="matrix-link" class="hbtn" href="ref-edits/" title="Open the cross-reference review matrix">Cross-references</a>
   <!-- GitHub identity and publish control (injected by js/github.js). -->
   <span id="gh-slot"></span>
   <div class="menuwrap">
-    <button id="settings-btn" class="hbtn icon" aria-expanded="false" aria-label="Settings and preferences" title="Settings and preferences">&#9881;</button>
+    <button id="settings-btn" class="iconbtn" aria-expanded="false" aria-label="Settings and preferences" title="Settings and preferences">
+      <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.6 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+    </button>
     <div class="menu" id="app-menu" role="dialog" aria-label="Settings and preferences">
+      <div class="menu-h">Workspace</div>
+      <button class="menu-item" id="new-disease-btn">New disease…</button>
+      <button class="menu-item" id="symptom-search-btn">Search by symptom…</button>
+      <div class="menu-sep"></div>
       <div class="menu-h">Appearance</div>
       <div class="menu-row"><span>Theme</span>
         <div class="seg" id="theme-seg"><button data-theme="light">Light</button><button data-theme="dark">Dark</button></div>
       </div>
       <div class="menu-sep"></div>
-      <div class="menu-h">Workspace</div>
+      <div class="menu-h">Data</div>
       <button class="menu-item" id="menu-settings">Data source, identity &amp; export…</button>
       <div id="menu-account"></div>
     </div>
@@ -58,23 +64,25 @@
 <div class="layout" id="layout">
   <div class="left-col">
     <div class="tabs">
-      <button class="tab active" data-view="alphabetical">Alphabetical</button>
-      <button class="tab" data-view="tissue">Tissue Target</button>
+      <button class="tab active" data-view="alphabetical">A–Z</button>
+      <button class="tab" data-view="tissue">Tissue</button>
     </div>
     <div class="pane" id="tree-pane"><div class="loading">Loading...</div></div>
+    <div class="rail-legend"><span class="ai-dot"></span>Confirmed autoimmune</div>
   </div>
 
   <div class="col-resizer" id="resize-left" title="Drag to resize the list"></div>
 
   <div class="mid-col" id="mid-col">
     <div id="detail-pane">
-      <div class="empty-state">
-        <p style="font-size:24px;margin:0 0 8px">&#128203;</p>
-        <p>Select a disease from the list to view details.</p>
-      </div>
+      <div class="empty-state">Select a disease from the list to view its record.</div>
     </div>
   </div>
 
+  <!-- Deep-dive container. It is moved into the reading column of the record on
+       each render (see detail.js) so a category opens inline under the story
+       spine; below 1024px the same element becomes a drawer over the record.
+       #resize-right is retained for the resize module but no longer visible. -->
   <div class="col-resizer" id="resize-right" title="Drag to resize the panel"></div>
 
   <div class="right-col" id="right-col">

@@ -35,7 +35,7 @@
     const wrap = $('#sym-chips');
     if (!selected.size){ wrap.innerHTML = '<span style="font-size:12px;color:var(--muted)">No symptoms selected — pick some on the left.</span>'; return; }
     wrap.innerHTML = [...selected].map(([k, n]) =>
-      `<span class="badge badge-common" style="cursor:pointer" data-rm="${esc(k)}">${esc(n)} ✕</span>`).join(' ');
+      `<span class="badge badge-common" style="cursor:pointer" data-rm="${esc(k)}">${esc(n)} &times;</span>`).join(' ');
     wrap.querySelectorAll('[data-rm]').forEach(b => b.addEventListener('click', () => toggle(b.dataset.rm, '')));
   }
 
@@ -91,7 +91,7 @@
   async function open(){
     selected = new Map(); requireAll = false;
     const m = el(`<div class="modal-overlay" id="sym-overlay"><div class="modal" style="max-width:820px;width:94%">
-      <div class="modal-head"><h2>&#129657; Search diseases by symptoms</h2><button class="hbtn" id="sym-close">✕</button></div>
+      <div class="modal-head"><h2>Search diseases by symptoms</h2><button class="hbtn" id="sym-close">Close</button></div>
       <div class="modal-body">
         <div id="sym-chips" style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:10px;min-height:24px"></div>
         <div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:14px">

@@ -3,7 +3,7 @@
 // Opened from the Feedback box in the Record step of the disease story.
 
 function renderFeedback(d, panel){
-  let html = closeHeader('💬 Feedback');
+  let html = closeHeader('Feedback');
   html += `<div class="fb-form">
       <textarea id="fb-message" rows="3" placeholder="Leave feedback about “${esc(d.name)}”…"></textarea>
       <div class="fb-form-row">
@@ -40,8 +40,8 @@ function feedbackItemHTML(it){
     <div class="fb-msg">${esc(it.message)}</div>
     <div class="fb-meta"><span>${esc(it.author || 'anonymous')} &middot; ${esc(it.updated || it.created)}</span>
       ${it.keep ? '<span class="fb-pill">kept after release</span>' : ''}
-      <span class="fb-actions"><button class="icon-btn" data-fb-edit="${esc(it.id)}" title="Edit">✎</button>`+
-      `<button class="icon-btn danger" data-fb-del="${esc(it.id)}" title="Delete">🗑</button></span></div>
+      <span class="fb-actions"><button class="icon-btn" data-fb-edit="${esc(it.id)}" title="Edit">Edit</button>`+
+      `<button class="icon-btn danger" data-fb-del="${esc(it.id)}" title="Delete">Delete</button></span></div>
   </div>`;
 }
 
@@ -56,7 +56,7 @@ async function submitFeedback(d){
       body:{ disease: d.iri, term: d.name, message, keep, author: state.editor } });
     $('#fb-message').value = ''; $('#fb-keep').checked = false;
     await loadFeedbackList(d);
-    toast('Feedback posted ✓');
+    toast('Feedback posted');
   } catch (err){ toast('Failed: ' + err.message); }
   finally { const b = $('#fb-submit'); if (b) b.disabled = false; }
 }
@@ -81,7 +81,7 @@ function editFeedback(d, it){
       await api('/api/v2/feedback/' + encodeURIComponent(it.id), {
         method:'PUT', body:{ message, keep, author: state.editor } });
       await loadFeedbackList(d);
-      toast('Feedback updated ✓');
+      toast('Feedback updated');
     } catch (err){ toast('Update failed: ' + err.message); }
   });
 }
@@ -91,6 +91,6 @@ async function deleteFeedback(d, fid){
   try {
     await api('/api/v2/feedback/' + encodeURIComponent(fid), { method:'DELETE' });
     await loadFeedbackList(d);
-    toast('Feedback deleted ✓');
+    toast('Feedback deleted');
   } catch (err){ toast('Delete failed: ' + err.message); }
 }

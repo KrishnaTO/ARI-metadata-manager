@@ -10,7 +10,7 @@ import subprocess
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI, Request, Body
+from fastapi import FastAPI, HTTPException, Request, Body
 from fastapi.responses import JSONResponse, RedirectResponse, StreamingResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
@@ -196,9 +196,20 @@ def user_service(login, create=False):
 
 def service_for(request: Request, write=False):
     """The ontology a request should read/write: a signed-in user's private copy
-    once they have started editing, otherwise the shared base."""
+    once they have started editing, otherwise the shared base.
+
+    Every write endpoint resolves its ontology through here, so this is where
+    write access is gated. An anonymous caller has no private copy, so without
+    this guard `user_service(None, create=True)` handed back the shared BASE and
+    an unauthenticated request could edit the published ontology directly.
+    Where sign-in exists we demand it; a deployment with GitHub integration off
+    has no identity to check, so local/offline use still writes to BASE.
+    """
     login = _login(request)
     if write:
+        if GH_ENABLED and not login:
+            raise HTTPException(status_code=401,
+                                detail="Sign in with GitHub to edit this ontology")
         return user_service(login, create=True)
     if login and login in USER_SVC:
         return USER_SVC[login]

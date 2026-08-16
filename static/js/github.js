@@ -7,27 +7,40 @@
 
   function el(html) { const t = document.createElement('template'); t.innerHTML = html.trim(); return t.content.firstChild; }
 
+  // Two-letter avatar: the initials of the display name when there is one,
+  // otherwise the first two characters of the login.
+  function initials(u) {
+    const parts = String(u.name || '').trim().split(/\s+/).filter(Boolean);
+    if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
+    return String(u.name || u.login || '?').replace(/[^a-z0-9]/gi, '').slice(0, 2).toUpperCase();
+  }
+
   async function refresh() {
     let me;
     try { me = await api('/api/v2/me'); } catch (e) { return; }
-    if (!me.github_enabled) return;          // feature off -> show nothing
+    state.githubEnabled = !!me.github_enabled;
+    state.authenticated = !!me.authenticated;
     ghUser = me.authenticated ? me : null;
     state.githubName = ghUser ? (ghUser.name || ghUser.login) : null;
     state.githubLogin = ghUser ? ghUser.login : null;
     if (typeof resolveEditor === 'function') resolveEditor();
+    // Whether curating is allowed depends on this answer, so re-check the
+    // Curate segment once it has landed.
+    syncCurateAccess();
+    if (!me.github_enabled) return;          // feature off -> no identity control
     render();
   }
 
   // The toolbar carries only who you are and the publish action; signing out is
-  // a once-a-session act, so it sits in the ⚙ popover's account section.
+  // a once-a-session act, so it sits in the preferences popover's account section.
   function render() {
     const slot = document.getElementById('gh-slot');
     const account = document.getElementById('menu-account');
     if (!slot || !account) return;
     slot.innerHTML = ''; account.innerHTML = '';
     if (ghUser) {
-      slot.appendChild(el(`<span class="who">@${esc(ghUser.login)}</span>`));
-      const pub = el('<button class="hbtn primary" title="Commit current ontology to GitHub as a pull request">&#11014; Publish</button>');
+      slot.appendChild(el(`<span class="who"><span class="avatar">${esc(initials(ghUser))}</span>${esc(ghUser.login)}</span>`));
+      const pub = el('<button class="hbtn primary" title="Commit current ontology to GitHub as a pull request">Publish</button>');
       pub.addEventListener('click', publish);
       slot.appendChild(pub);
       account.appendChild(el('<div class="menu-sep"></div>'));
@@ -37,7 +50,9 @@
         closeAppMenu();
         await api('/api/v2/logout', { method: 'POST' });
         ghUser = null; state.githubName = null; state.githubLogin = null;
+        state.authenticated = false;
         if (typeof resolveEditor === 'function') resolveEditor();
+        syncCurateAccess();
         render();
       });
       account.appendChild(out);
@@ -52,7 +67,7 @@
     const disease = state.detail?.name || '';
     const def = disease ? `Update ${disease}` : 'Update ontology';
     const m = el(`<div class="modal-overlay" id="pub-overlay"><div class="modal">
-      <div class="modal-head"><h2>&#11014; Publish to GitHub</h2><button class="hbtn" id="pub-close">✕</button></div>
+      <div class="modal-head"><h2>Publish to GitHub</h2><button class="hbtn" id="pub-close">Close</button></div>
       <div class="modal-body">
         <p style="font-size:13px;margin:0 0 10px">Opens a pull request with a summary of your changes (previous &rarr; new values).</p>
         <div class="field"><label>Commit message / PR title</label><input id="pub-msg" value="${esc(def)}"></div>

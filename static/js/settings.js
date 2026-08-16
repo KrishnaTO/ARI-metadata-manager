@@ -18,7 +18,7 @@
     const dirty = s.dirty ? '<span class="fb-pill" style="background:#fce4d6;color:#9b1c1c">unpublished local edits</span>' : '<span class="fb-pill">in sync</span>';
 
     const html = `<div class="modal-overlay" id="set-overlay"><div class="modal">
-      <div class="modal-head"><h2>&#9881; Settings</h2><button class="hbtn" id="set-close">✕</button></div>
+      <div class="modal-head"><h2>Settings</h2><button class="hbtn" id="set-close">Close</button></div>
       <div class="modal-body">
         <div class="section-label">Data source</div>
         <p style="font-size:13px;margin:0 0 8px">Populating from <strong>${esc(s.source_branch)}</strong> ${dirty}</p>
@@ -73,7 +73,7 @@
   }
 
   function bind() {
-    // Opened from the ⚙ popover, which closes as the modal takes over.
+    // Opened from the preferences popover, which closes as the modal takes over.
     const btn = document.getElementById('menu-settings');
     if (btn) btn.addEventListener('click', () => { closeAppMenu(); open(); });
   }
