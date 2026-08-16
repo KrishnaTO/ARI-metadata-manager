@@ -1,13 +1,14 @@
 // Pathophysiology deep-dive: the interactive force-directed pathograph graph
 // (D3) plus its colour maps and step-detail rendering.
 
-const CAT_COLORS = { genetic:'#7c3aed', trigger:'#d97706', immune:'#2563eb', antibody:'#059669', tissuedamage:'#dc2626', outcome:'#475569' };
-const MED_COLORS = { gene:'#7c3aed', env:'#d97706', antigen:'#0ea5e9', apc:'#f59e0b', antibody:'#059669', tcell:'#ef4444', cyto:'#db2777', complement:'#0891b2', inflammasome:'#ea580c', netosis:'#8b5cf6' };
-function nodeColor(n){ return n.kind==='step' ? (CAT_COLORS[n.cat]||'#475569') : (MED_COLORS[n.type]||'#64748b'); }
+// Knowledge-graph palette (AurInt design system).
+const CAT_COLORS = { genetic:'#6C57A3', trigger:'#B5841A', immune:'#3F6699', antibody:'#2F8F6F', tissuedamage:'#B7382D', outcome:'#1F6B7A' };
+const MED_COLORS = { gene:'#6C57A3', env:'#B5841A', antigen:'#3F6699', apc:'#B5841A', antibody:'#2F8F6F', tcell:'#B7382D', cyto:'#6C57A3', complement:'#1F6B7A', inflammasome:'#B7382D', netosis:'#6C57A3' };
+function nodeColor(n){ return n.kind==='step' ? (CAT_COLORS[n.cat]||'#5C6675') : (MED_COLORS[n.type]||'#8A93A2'); }
 function trunc(s, n){ s = String(s); return s.length > n ? s.slice(0, n-1)+'…' : s; }
 
 function pathwayLegend(){
-  const items = [['Genetic','#7c3aed'],['Trigger','#d97706'],['Immune','#2563eb'],['Antibody','#059669'],['Tissue damage','#dc2626'],['Outcome','#475569']];
+  const items = [['Genetic','#6C57A3'],['Trigger','#B5841A'],['Immune','#3F6699'],['Antibody','#2F8F6F'],['Tissue damage','#B7382D'],['Outcome','#1F6B7A']];
   return `<div class="graph-legend">` + items.map(([l,c]) => `<span><i style="background:${c}"></i>${l}</span>`).join('') + `</div>`;
 }
 
@@ -24,7 +25,7 @@ function showStepDetail(p, d){
 }
 
 function renderPathophysiology(d, panel){
-  let html = closeHeader('🗺️ Pathophysiology Map');
+  let html = closeHeader('Pathophysiology map');
   html += `<p style="font-size:12px;color:var(--muted);margin:0 0 6px">Interactive pathograph — numbered nodes are the mechanistic cascade; surrounding nodes are the associated genetic, antigen, <span class="ab-highlight">antibody</span> and immune mediators. Drag nodes to explore; click a step for sources.</p>`;
   html += pathwayLegend();
   html += `<div id="patho-graph" class="patho-graph"></div>`;

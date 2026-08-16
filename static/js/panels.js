@@ -2,12 +2,19 @@
 // for each category. The graph renderer lives in graph.js; the item editors
 // live in editor.js.
 
+// The deep dive expands below the story spine, which can sit past the fold, so
+// opening one always brings the card into view.
+function revealDeepDive(){
+  $('#right-col').scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+}
+window.revealDeepDive = revealDeepDive;
+
 function openBoxDetail(d, key){
-  $('#layout').classList.add('split');
   $('#right-col').classList.add('open');
   const panel = $('#right-panel-content');
-  if (state.editMode && state.schema[key]){ renderItemEditor(d, key, panel); return; }
-  renderReadView(d, key, panel);
+  if (state.editMode && state.schema[key]) renderItemEditor(d, key, panel);
+  else renderReadView(d, key, panel);
+  revealDeepDive();
 }
 
 function renderReadView(d, key, panel){
@@ -25,28 +32,76 @@ function renderReadView(d, key, panel){
   }
   const h2 = panel.querySelector('h2');
   if (h2){
+    // Locate the category in the disease story: "03 · Pathophysiology · Adaptive immunity".
+    const ord = storyOrdinal(key), crumb = panelCrumb(key);
+    if (ord) h2.insertAdjacentHTML('afterbegin', `<span class="panel-ord">${ord}</span>`);
+    if (crumb) h2.querySelector('.panel-title')?.insertAdjacentHTML('beforebegin', `<span class="panel-aspect">${esc(crumb)} &middot;</span>`);
     // Concept description under the title.
     if (!panel.querySelector('.panel-desc')) h2.insertAdjacentHTML('afterend', panelDescHTML(key));
     // Make item editing reachable directly from any editable category's deep-dive.
     if (state.schema[key] && !h2.querySelector('.edit-items-btn')){
-      h2.insertAdjacentHTML('beforeend', ` <button class="hbtn edit-items-btn">✎ Edit items</button>`);
+      h2.querySelector('.close-btn').insertAdjacentHTML('beforebegin', `<button class="edit-items-btn">Edit items</button>`);
       h2.querySelector('.edit-items-btn').addEventListener('click', () => renderItemEditor(d, key, panel));
+    }
+    // While curating, offer the way back to the disease-field form.
+    if (!h2.querySelector('.fields-return-btn')){
+      h2.querySelector('.close-btn').insertAdjacentHTML('beforebegin', fieldsReturnBtnHTML());
+      wireFieldsReturn(h2);
     }
   }
 }
 
 function closeRightPanel(){
   state.activeBox = null;
-  $('#right-col').classList.remove('open');
-  $('#layout').classList.remove('split');
+  $('#right-col')?.classList.remove('open');
+  // Clear rather than just hide: a closed panel that still holds the last
+  // form's fields makes "is the editor open?" checks lie (see fieldsDirty).
+  const panel = $('#right-panel-content');
+  if (panel) panel.innerHTML = '';
   $('#detail-pane')?.querySelectorAll('.box').forEach(b => b.classList.remove('active'));
+  $('#detail-pane')?.querySelectorAll('.story-step').forEach(s => s.classList.remove('active'));
 }
 window.closeRightPanel = closeRightPanel;
 
-const closeHeader = title => `<button class="close-btn" onclick="closeRightPanel()">✕ Close</button><h2>${title}</h2>`;
+// Dismissing the deep dive from outside it (the drawer's scrim, Escape). When
+// the field editor is what's open, this is a cancel and must honour its
+// unsaved-changes guard rather than discarding silently.
+function requestCloseDeepDive(){
+  if (state.activeBox === '__fields__'){ cancelFieldEdits(); return; }
+  closeRightPanel();
+}
+window.requestCloseDeepDive = requestCloseDeepDive;
+
+// The panel's own Close button. While curating, a category panel is a detour
+// from the disease-field form, so closing it goes back there rather than
+// dropping the curator out of the form they were filling in.
+function dismissPanel(){
+  if (state.editMode && state.detail && state.activeBox !== '__fields__'){
+    openDiseaseFieldEditor(state.detail);
+    return;
+  }
+  closeRightPanel();
+}
+window.dismissPanel = dismissPanel;
+
+// Head-bar button back to the disease-field form, shown on any panel opened
+// while curating.
+function fieldsReturnBtnHTML(){
+  return state.editMode && state.detail
+    ? `<button class="hbtn fields-return-btn" title="Back to the disease fields form">Disease fields</button>`
+    : '';
+}
+function wireFieldsReturn(panel){
+  panel.querySelector('.fields-return-btn')
+    ?.addEventListener('click', () => openDiseaseFieldEditor(state.detail));
+}
+
+// The deep-dive card's head bar: title, then the actions pushed to the right.
+const closeHeader = title =>
+  `<h2><span class="panel-title">${title}</span><button class="close-btn" onclick="dismissPanel()">Close</button></h2>`;
 
 function renderPrevalence(d, panel){
-  let html = closeHeader('📊 Prevalence &amp; Epidemiology');
+  let html = closeHeader('Prevalence &amp; epidemiology');
   const p100k = first(d.prevalence_per_100k) || 0;
   const pVal = first(d.prevalence_value) || 0;
   html += `<div class="prev-stats">
@@ -79,7 +134,7 @@ function renderPrevalence(d, panel){
     new Chart(ctx, {
       type: 'bar',
       data: { labels: ['Per 100k', 'US cases (÷1000)'],
-        datasets: [{ label: 'Prevalence', data: [p100k, pVal/1000], backgroundColor: ['#2563eb','#0891b2'], borderRadius: 4 }] },
+        datasets: [{ label: 'Prevalence', data: [p100k, pVal/1000], backgroundColor: ['#1F6B7A','#3F6699'], borderRadius: 4 }] },
       options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
     });
   }
@@ -93,7 +148,7 @@ function symBadge(lik){
 }
 
 function renderSymptoms(d, panel){
-  let html = closeHeader('🤒 Symptoms');
+  let html = closeHeader('Symptoms');
   if (!d.symptoms?.length){ panel.innerHTML = html + '<div class="empty-state">No symptoms data.</div>'; return; }
   html += `<table class="data-table"><thead><tr><th>Symptom</th><th>Likelihood</th><th>Description</th><th>Ref</th></tr></thead><tbody>`;
   for (const s of d.symptoms){
@@ -118,13 +173,14 @@ function renderSymptoms(d, panel){
     const width = $('#wordcloud-container').clientWidth || 400, height = 220;
     svg.attr('viewBox', `0 0 ${width} ${height}`);
     d3.layout.cloud().size([width, height]).words(words).padding(4).rotate(0)
-      .font('system-ui').fontSize(d => d.size)
+      .font('IBM Plex Sans').fontSize(d => d.size)
       .on('end', ws => {
         svg.selectAll('*').remove();
         svg.append('g').attr('transform', `translate(${width/2},${height/2})`)
           .selectAll('text').data(ws).enter().append('text')
-          .style('font-family','system-ui').style('font-size', d => d.size+'px')
-          .style('fill', () => d3.schemeCategory10[Math.floor(Math.random()*10)])
+          .style('font-family','IBM Plex Sans, system-ui').style('font-size', d => d.size+'px')
+          // Weight, not hue, carries meaning here — the cloud stays in the ink scale.
+          .style('fill', d => d.size >= 28 ? '#0F2840' : (d.size >= 22 ? '#1F6B7A' : '#5C6675'))
           .attr('text-anchor','middle').attr('transform', d => `translate(${d.x},${d.y})`)
           .text(d => d.text);
       }).start();
@@ -132,7 +188,7 @@ function renderSymptoms(d, panel){
 }
 
 function renderEnvironmental(d, panel){
-  let html = closeHeader('🌍 Environmental Triggers');
+  let html = closeHeader('Environmental triggers');
   if (!d.environmental_factors?.length){ panel.innerHTML = html + '<div class="empty-state">No environmental triggers.</div>'; return; }
   for (const f of d.environmental_factors){
     html += `<div class="card${f.obsolete?' obsolete':''}"><h3>${esc(f.name)} <span class="badge badge-weak">${esc(first(f.likelihood))}</span></h3>`+
@@ -143,7 +199,7 @@ function renderEnvironmental(d, panel){
 }
 
 function renderAntibodies(d, panel){
-  let html = closeHeader('🧬 Autoantibodies');
+  let html = closeHeader('Autoantibodies');
   if (!d.antibodies?.length){ panel.innerHTML = html + '<div class="empty-state">No antibody data.</div>'; return; }
   html += `<p style="font-size:12px;color:var(--muted);margin:0 0 8px">Autoantibodies are produced at the <span class="ab-highlight">autoantibody production</span> step of the pathophysiology map. Select a row for details.</p>`;
   html += pathographHTML(d, { compact: true });
@@ -165,7 +221,7 @@ function renderAntibodies(d, panel){
 }
 
 function renderTreatments(d, panel){
-  let html = closeHeader('💊 Treatments');
+  let html = closeHeader('Treatments');
   if (!d.treatments?.length){ panel.innerHTML = html + '<div class="empty-state">No treatment data.</div>'; return; }
   for (const t of d.treatments){
     html += `<div class="card${t.obsolete?' obsolete':''}"><h3>${esc(t.name)} <span style="font-size:11px;color:var(--muted);font-weight:400">${esc((t.type||[]).join(', '))}</span></h3>`+
@@ -177,7 +233,7 @@ function renderTreatments(d, panel){
 }
 
 function renderEtiology(d, panel){
-  let html = closeHeader('🔬 Etiology');
+  let html = closeHeader('Etiology');
   if (!d.etiology?.length){ panel.innerHTML = html + '<div class="empty-state">No etiology data.</div>'; return; }
   for (const e of d.etiology){
     const origin = first(e.origin_type);
@@ -192,7 +248,7 @@ function renderEtiology(d, panel){
 }
 
 function renderGenetic(d, panel){
-  let html = closeHeader('🧬 Genetic Associations');
+  let html = closeHeader('Genetic associations');
   if (!d.genetic?.length){ panel.innerHTML = html + '<div class="empty-state">No genetic data.</div>'; return; }
   html += `<table class="data-table"><thead><tr><th>Gene / HLA</th><th>Locus</th><th>Product</th><th>Effect</th><th>OR</th><th>Source</th></tr></thead><tbody>`;
   for (const g of d.genetic){
@@ -200,7 +256,7 @@ function renderGenetic(d, panel){
     html += `<tr class="${g.obsolete?'obsolete':''}"><td><strong>${esc(g.name)}</strong></td><td>${esc(first(g.locus))}</td><td>${esc(first(g.product))}</td>`+
       `<td>${esc(first(g.risk_effect) || first(g.hla_effect))}</td><td>${esc(first(g.odds_ratio))}</td><td class="src">${src || '—'}</td></tr>`;
     if (g.hla_mechanism?.length){
-      html += `<tr><td colspan="6" style="font-size:11px;color:var(--muted);background:#f8fafc">↳ ${esc(first(g.hla_mechanism))}</td></tr>`;
+      html += `<tr><td colspan="6" style="font-size:11px;color:var(--muted);background:var(--paper)">↳ ${esc(first(g.hla_mechanism))}</td></tr>`;
     }
   }
   html += `</tbody></table>`;
@@ -208,7 +264,7 @@ function renderGenetic(d, panel){
 }
 
 function renderBiomarkers(d, panel){
-  let html = closeHeader('🩸 Biochemical Markers');
+  let html = closeHeader('Biochemical markers');
   if (!d.biomarkers?.length){ panel.innerHTML = html + '<div class="empty-state">No biomarker data.</div>'; return; }
   html += `<table class="data-table"><thead><tr><th>Marker</th><th>Description</th><th>Diagnostic use</th><th>Source</th></tr></thead><tbody>`;
   for (const m of d.biomarkers){
@@ -240,17 +296,17 @@ function pathographHTML(d, opts={}){
 
 function renderImmuneList(d, panel, key){
   const map = {
-    cytokines: { title:'💉 Cytokines', data: d.cytokines },
-    tcells: { title:'🔴 T-Cell Subsets', data: d.tcells },
-    apcs: { title:'🟡 Antigen Presenting Cells', data: d.apcs },
-    transcription: { title:'📝 Transcription Factors', data: d.transcription_factors },
-    innate: { title:'🛡️ Innate Immune Components', data: d.innate_components },
-    complement: { title:'🔗 Complement Components', data: d.complement },
-    receptors: { title:'📡 Receptors', data: d.receptors },
-    netosis: { title:'🕸️ NETosis', data: d.netosis },
-    inflammasome: { title:'🔥 Inflammasome', data: d.inflammasome },
-    apr: { title:'⚡ Acute Phase Reactants', data: d.acute_phase_reactants },
-    antigens: { title:'🎯 Antigens', data: d.antigens },
+    cytokines: { title:'Cytokines', data: d.cytokines },
+    tcells: { title:'T-cell subsets', data: d.tcells },
+    apcs: { title:'Antigen-presenting cells', data: d.apcs },
+    transcription: { title:'Transcription factors', data: d.transcription_factors },
+    innate: { title:'Innate immune components', data: d.innate_components },
+    complement: { title:'Complement components', data: d.complement },
+    receptors: { title:'Receptors', data: d.receptors },
+    netosis: { title:'NETosis', data: d.netosis },
+    inflammasome: { title:'Inflammasome', data: d.inflammasome },
+    apr: { title:'Acute phase reactants', data: d.acute_phase_reactants },
+    antigens: { title:'Antigens', data: d.antigens },
   };
   const info = map[key];
   let html = closeHeader(info ? info.title : 'Details');
@@ -269,7 +325,7 @@ function renderImmuneList(d, panel, key){
 }
 
 function renderChangelog(d, panel){
-  let html = closeHeader('📋 Change Log');
+  let html = closeHeader('Change log');
   if (!d.changelog?.length){ panel.innerHTML = html + '<div class="empty-state">No changelog entries.</div>'; return; }
   for (const c of [...d.changelog].reverse()){
     html += `<div class="card"><div class="desc">${esc(c)}</div></div>`;

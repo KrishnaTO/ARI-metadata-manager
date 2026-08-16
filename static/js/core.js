@@ -18,7 +18,51 @@ const BASE_PATH = (() => {
   return m && knownPrefixes.includes(m[1]) ? '/' + m[1] : '';
 })();
 
-let state = { activeIri: null, activeTab: 'alphabetical', activeBox: null, editMode: false, detail: null, schema: {}, editor: 'curator', githubName: null };
+// `githubEnabled` / `authenticated` mirror GET /api/v2/me and gate curating.
+let state = { activeIri: null, activeTab: 'alphabetical', activeBox: null, editMode: false, detail: null, schema: {}, editor: 'curator', githubName: null, githubEnabled: false, authenticated: false };
+
+// Curating requires a signed-in curator wherever sign-in exists, so edits are
+// attributable and land in that curator's own working copy. On a deployment with
+// GitHub integration switched off there is no identity to demand, so a loaded
+// record is the only requirement.
+function canCurate(){
+  return !!state.detail && (!state.githubEnabled || state.authenticated);
+}
+function curateHint(){
+  if (state.githubEnabled && !state.authenticated) return 'Sign in with GitHub to edit this record';
+  if (!state.detail) return 'Select a disease to edit it';
+  return 'Edit this record';
+}
+// Keep the record's edit button in step with sign-in state. It is rendered with
+// the record, so this only matters when sign-in resolves after a record is up.
+function syncCurateAccess(){
+  const btn = $('#edit-toggle');
+  if (!btn) return;
+  if (!canCurate() && state.editMode){ setMode('read'); return; }
+  btn.disabled = !canCurate();
+  btn.title = curateHint();
+}
+
+// Lucide icons, inlined so they inherit currentColor (the page pins its
+// third-party scripts with SRI, so no icon library is loaded).
+const EXT_ICON = '<svg class="ext" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M21 14v7H3V3h7"/></svg>';
+const COPY_ICON = '<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>';
+const CARET_ICON = '<svg class="caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>';
+
+// ------------------------------------------------- sidebar block collapse
+// Every record-sidebar block starts expanded. Collapsing one is a deliberate
+// choice about what a curator wants out of the way, so it is remembered per
+// browser rather than reset on the next disease.
+const SIDE_COLLAPSED_KEY = 'ari_side_collapsed';
+let SIDE_COLLAPSED = new Set((() => {
+  try { return JSON.parse(localStorage.getItem(SIDE_COLLAPSED_KEY) || '[]'); }
+  catch (e){ return []; }
+})());
+function toggleSideBlock(key){
+  SIDE_COLLAPSED.has(key) ? SIDE_COLLAPSED.delete(key) : SIDE_COLLAPSED.add(key);
+  try { localStorage.setItem(SIDE_COLLAPSED_KEY, JSON.stringify([...SIDE_COLLAPSED])); }
+  catch (e){ /* storage may be unavailable */ }
+}
 
 // --------------------------------------------------------------- deep links
 // The selected disease is mirrored in the URL fragment as
@@ -215,6 +259,22 @@ function panelDescHTML(key){
   return m && m.desc ? `<div class="panel-desc">${esc(m.desc)}</div>` : '';
 }
 
+// The story step a category belongs to, used for the story spine's ordinals and
+// for the deep-dive head's "03 · Pathophysiology · Adaptive immunity" breadcrumb.
+function storyGroupOf(key){
+  return STORY_GROUPS.find(g => g.keys.includes(key)) || null;
+}
+function storyOrdinal(key){
+  const g = storyGroupOf(key);
+  return g && g.num ? String(g.num).padStart(2, '0') : '';
+}
+function panelCrumb(key){
+  const g = storyGroupOf(key);
+  const aspect = BOX_META[key] && BOX_META[key].aspect;
+  // The Record step's only aspect is also called "Record"; show it once.
+  return [...new Set([g && g.title, aspect].filter(Boolean))].join(' · ');
+}
+
 // ----------------------------------------------------------------- API
 async function api(path, opts={}){
   // Prepend BASE_PATH so API calls work when app is served under a subpath
@@ -231,7 +291,14 @@ async function api(path, opts={}){
 // place on the server (app/xref_registry.py) instead of being duplicated here and
 // in the reference-review page.
 let XREF_DB = {};
-function setXrefDatabases(list){ XREF_DB = Object.fromEntries((list || []).map(d => [d.key, d])); }
+// The cross-reference databases the main page shows, in the registry's own
+// order — which is the column order of the reference-review page, so the record
+// ledger and the review matrix read the same way round.
+let XREF_MAIN = [];
+function setXrefDatabases(list){
+  XREF_DB = Object.fromEntries((list || []).map(d => [d.key, d]));
+  XREF_MAIN = (list || []).filter(d => d.main_app);
+}
 
 // Fill a database's {num}/{id} URL template for one cross-reference id.
 function xrefLink(kind, id){
