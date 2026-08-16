@@ -31,19 +31,40 @@ window.addEventListener('popstate', navigateToHash);
 window.addEventListener('hashchange', navigateToHash);
 
 // ----------------------------------------------------------------- THEME
+// Theme is a set-and-forget preference, so it lives in the ⚙ popover rather
+// than paying permanent toolbar rent.
 function applyTheme(theme) {
   document.documentElement.setAttribute('data-theme', theme);
   try { localStorage.setItem('ari-theme', theme); } catch (e) {}
+  document.querySelectorAll('#theme-seg button').forEach(b => b.classList.toggle('on', b.dataset.theme === theme));
 }
 function initTheme() {
   const saved = (() => { try { return localStorage.getItem('ari-theme'); } catch (e) { return ''; } })();
-  const pref = saved || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
-  applyTheme(pref);
+  applyTheme(saved || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'));
 }
-document.getElementById('theme-toggle')?.addEventListener('click', () => {
-  const cur = document.documentElement.getAttribute('data-theme');
-  applyTheme(cur === 'dark' ? 'light' : 'dark');
+document.getElementById('theme-seg')?.addEventListener('click', e => {
+  const b = e.target.closest('button'); if (b) applyTheme(b.dataset.theme);
 });
 initTheme();
+
+// ------------------------------------------------------------ TOOLBAR MENU
+// The ⚙ popover closes on an outside click and on Escape, keeping the button's
+// aria-expanded in step. A click inside adjusts a preference, so it stays open;
+// the one-shot items close it through their own handlers.
+(function () {
+  const btn = document.getElementById('settings-btn');
+  const menu = document.getElementById('app-menu');
+  if (!btn || !menu) return;
+  window.closeAppMenu = () => { menu.classList.remove('open'); btn.setAttribute('aria-expanded', 'false'); };
+  btn.addEventListener('click', e => {
+    e.stopPropagation();
+    const open = !menu.classList.contains('open');
+    menu.classList.toggle('open', open);
+    btn.setAttribute('aria-expanded', String(open));
+  });
+  menu.addEventListener('click', e => e.stopPropagation());
+  document.addEventListener('click', () => closeAppMenu());
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') closeAppMenu(); });
+})();
 
 init();

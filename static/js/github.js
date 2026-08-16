@@ -18,25 +18,34 @@
     render();
   }
 
+  // The toolbar carries only who you are and the publish action; signing out is
+  // a once-a-session act, so it sits in the ⚙ popover's account section.
   function render() {
-    document.getElementById('gh-ctrl')?.remove();
-    const header = document.querySelector('header');
-    if (!header) return;
-    const wrap = el('<div id="gh-ctrl" style="display:flex;align-items:center;gap:8px;margin-left:8px"></div>');
+    const slot = document.getElementById('gh-slot');
+    const account = document.getElementById('menu-account');
+    if (!slot || !account) return;
+    slot.innerHTML = ''; account.innerHTML = '';
     if (ghUser) {
-      wrap.appendChild(el(`<span style="font-size:12px;color:var(--muted,#6b7280)">@${esc(ghUser.login)}</span>`));
-      const pub = el('<button class="hbtn" title="Commit current ontology to GitHub as a pull request">&#11014; Publish to GitHub</button>');
+      slot.appendChild(el(`<span class="who">@${esc(ghUser.login)}</span>`));
+      const pub = el('<button class="hbtn primary" title="Commit current ontology to GitHub as a pull request">&#11014; Publish</button>');
       pub.addEventListener('click', publish);
-      wrap.appendChild(pub);
-      const out = el('<button class="hbtn">Sign out</button>');
-      out.addEventListener('click', async () => { await api('/api/v2/logout', { method: 'POST' }); ghUser = null; render(); });
-      wrap.appendChild(out);
+      slot.appendChild(pub);
+      account.appendChild(el('<div class="menu-sep"></div>'));
+      account.appendChild(el('<div class="menu-h">Account</div>'));
+      const out = el('<button class="menu-item">Sign out</button>');
+      out.addEventListener('click', async () => {
+        closeAppMenu();
+        await api('/api/v2/logout', { method: 'POST' });
+        ghUser = null; state.githubName = null; state.githubLogin = null;
+        if (typeof resolveEditor === 'function') resolveEditor();
+        render();
+      });
+      account.appendChild(out);
     } else {
       const login = el('<button class="hbtn">Sign in with GitHub</button>');
       login.addEventListener('click', () => (location.href = BASE_PATH + '/auth/github'));
-      wrap.appendChild(login);
+      slot.appendChild(login);
     }
-    header.appendChild(wrap);
   }
 
   function publish() {
