@@ -18,20 +18,41 @@
 <link rel="stylesheet" href="css/styles.css?v=__ASSETV__">
 </head>
 <body>
+<!-- One row, three zones: identity (brand) · scope (what you are looking at:
+     search, then the pages and actions that work on a disease) · account and
+     the publish action. Set-and-forget options live behind ⚙, not in the bar. -->
 <header>
   <div class="brand">
     <span class="brand-mark"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a9 9 0 00-9 9h18a9 9 0 00-9-9z"/><path d="M12 12v7a2.5 2.5 0 005 0"/></svg></span>
-    Autoimmune Registry <span>Metadata Manager</span>
+    <span class="brand-name">Autoimmune Registry</span> <span class="brand-sub">Metadata Manager</span>
   </div>
+  <span class="tsep"></span>
   <div class="search-wrap">
     <input id="search" placeholder="Search diseases, synonyms, codes…" autocomplete="off">
     <div id="search-results" class="dropdown hidden"></div>
   </div>
+  <button id="symptom-search-btn" class="hbtn" title="Search diseases by symptom">&#129657;<span class="lbl">Symptoms</span></button>
+  <!-- Relative href: the app is mounted under a path prefix in production. -->
+  <a id="matrix-link" class="hbtn" href="ref-edits/" title="Open the cross-reference review matrix">&#9638;<span class="lbl">Review matrix</span></a>
+  <span class="spacer"></span>
   <button id="new-disease-btn" class="hbtn primary" title="Create a new disease entry">&#xFF0B; New Disease</button>
-  <button id="symptom-search-btn" class="hbtn" title="Search diseases by symptom">Symptoms</button>
   <button id="edit-toggle" class="hbtn" disabled>&#9998; Edit</button>
-  <button id="settings-btn" class="hbtn" title="Settings">&#9881;</button>
-  <button id="theme-toggle" class="hbtn" title="Toggle dark mode">&#9790;</button>
+  <span class="tsep"></span>
+  <!-- GitHub identity and publish control (injected by js/github.js). -->
+  <span id="gh-slot"></span>
+  <div class="menuwrap">
+    <button id="settings-btn" class="hbtn icon" aria-expanded="false" aria-label="Settings and preferences" title="Settings and preferences">&#9881;</button>
+    <div class="menu" id="app-menu" role="dialog" aria-label="Settings and preferences">
+      <div class="menu-h">Appearance</div>
+      <div class="menu-row"><span>Theme</span>
+        <div class="seg" id="theme-seg"><button data-theme="light">Light</button><button data-theme="dark">Dark</button></div>
+      </div>
+      <div class="menu-sep"></div>
+      <div class="menu-h">Workspace</div>
+      <button class="menu-item" id="menu-settings">Data source, identity &amp; export…</button>
+      <div id="menu-account"></div>
+    </div>
+  </div>
 </header>
 
 <div class="layout" id="layout">

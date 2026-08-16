@@ -60,17 +60,55 @@ code, .iri, .ari-id, .ari-chip, .search-result-row .srr-sub,
 .xref code, .detail .meta .tag code, .def-source-item code,
 .data-table .src, .definition code { font-family: var(--font-mono); }
 
-/* Header */
-header { display: flex; align-items: center; gap: 12px; padding: 10px 20px; border-bottom: 1px solid var(--border); background: var(--bg); flex-shrink: 0; box-shadow: 0 1px 2px rgba(15,23,42,.04); }
-.brand { display: flex; align-items: center; gap: 9px; font-family: var(--font-serif); font-weight: 700; font-size: 19px; letter-spacing: -.01em; white-space: nowrap; }
+/* Header
+   Deliberately one line: the toolbar never wraps into a second row. Pressure is
+   absorbed by the search box shrinking, then by the brand's subtitle and the
+   button labels stepping out on narrow screens (see the media queries below). */
+header { display: flex; align-items: center; gap: 8px; padding: 0 16px; height: 54px; flex-wrap: nowrap; border-bottom: 1px solid var(--border); background: var(--bg); flex-shrink: 0; box-shadow: 0 1px 2px rgba(15,23,42,.04); }
+/* Hairline between the toolbar's zones — cheaper than a gap for the same grouping. */
+.tsep { width: 1px; height: 22px; background: var(--border); flex-shrink: 0; }
+header .spacer { flex: 1; min-width: 8px; }
+header .hbtn { height: 32px; padding: 0 12px; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; text-decoration: none; }
+header .hbtn.icon { width: 32px; padding: 0; font-size: 15px; }
+/* Keyboard users get a visible ring across the toolbar and its popover. */
+header :focus-visible, header .menu :focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+#gh-slot { display: flex; align-items: center; gap: 8px; }
+#gh-slot .who { font-size: 12px; color: var(--muted); white-space: nowrap; }
+.brand { display: flex; align-items: center; gap: 9px; font-family: var(--font-serif); font-weight: 700; font-size: 19px; letter-spacing: -.01em; white-space: nowrap; flex-shrink: 0; }
 .brand .brand-mark { width: 28px; height: 28px; flex: none; border-radius: 50%; background: #4aa0af; color: #fff; display: inline-flex; align-items: center; justify-content: center; }
-.brand span { font-family: var(--font-sans); font-size: 12px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; border-left: 1px solid var(--border); padding-left: 9px; }
+.brand .brand-sub { font-family: var(--font-sans); font-size: 12px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; border-left: 1px solid var(--border); padding-left: 9px; }
+header .hbtn .lbl { margin-left: 6px; }
+/* Narrow viewports drop the toolbar's least load-bearing pieces, in order: the
+   brand subtitle, the wordmark, then the secondary buttons' labels (they keep
+   their icon and their tooltip). No control is ever hidden. Thresholds are
+   device pixels — the body's 1.25 zoom does not apply to media queries, so they
+   sit 25% above the layout widths they guard. */
+@media (max-width: 1500px) { .brand .brand-sub { display: none; } }
+@media (max-width: 1280px) { .brand .brand-name { display: none; } .brand + .tsep { display: none; } }
+@media (max-width: 1100px) { header .hbtn .lbl { display: none; } }
 #onto-meta { color: var(--muted); font-size: 12px; }
 footer#app-footer { flex-shrink: 0; display: flex; align-items: center; padding: 7px 20px; border-top: 1px solid var(--border); background: var(--bg-side); }
-.search-wrap { position: relative; width: 280px; margin-left: auto; }
-.search-wrap input { width: 100%; padding: 9px 12px 9px 12px; border: 1px solid var(--border-strong); border-radius: 8px; outline: none; font-size: 13px; font-family: inherit; background: var(--bg); color: var(--text); transition: border-color .12s, box-shadow .12s; }
+/* The search box is the one elastic control: it gives up width first when the
+   signed-in toolbar (identity, publish button) needs the room. */
+.search-wrap { position: relative; flex: 0 1 300px; min-width: 150px; }
+.search-wrap input { width: 100%; height: 32px; padding: 0 12px; border: 1px solid var(--border-strong); border-radius: 8px; outline: none; font-size: 13px; font-family: inherit; background: var(--bg); color: var(--text); transition: border-color .12s, box-shadow .12s; }
 .search-wrap input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 28%, transparent); }
-.dropdown { position: absolute; top: 42px; left: 0; right: 0; background: var(--bg); border: 1px solid var(--border); border-radius: 12px; box-shadow: var(--shadow-md); max-height: 300px; overflow: auto; z-index: 50; }
+.dropdown { position: absolute; top: 38px; left: 0; right: 0; min-width: 300px; background: var(--bg); border: 1px solid var(--border); border-radius: 12px; box-shadow: var(--shadow-md); max-height: 300px; overflow: auto; z-index: 50; }
+
+/* Toolbar popover (⚙ settings and preferences) */
+.menuwrap { position: relative; display: flex; flex-shrink: 0; }
+.menu { display: none; position: absolute; top: calc(100% + 6px); right: 0; z-index: 60; min-width: 250px; padding: 8px; border: 1px solid var(--border-strong); border-radius: 10px; background: var(--bg); box-shadow: var(--shadow-md); }
+.menu.open { display: block; }
+.menu-h { font-size: 10px; font-weight: 700; letter-spacing: .09em; text-transform: uppercase; color: var(--muted); padding: 4px 6px 6px; }
+.menu-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 5px 6px; font-size: 13px; }
+.menu-sep { height: 1px; background: var(--border); margin: 6px 2px; }
+.menu-item { display: block; width: 100%; text-align: left; padding: 7px 8px; border: 0; border-radius: 6px; background: transparent; color: var(--text); font-size: 13px; font-family: inherit; cursor: pointer; }
+.menu-item:hover { background: var(--bg-side); color: var(--accent); }
+/* Segmented control (theme) — one shape, the active half filled with the accent. */
+.seg { display: flex; border: 1px solid var(--border-strong); border-radius: 8px; overflow: hidden; flex-shrink: 0; }
+.seg button { border: 0; background: transparent; color: var(--muted); padding: 4px 11px; font-size: 12px; font-weight: 600; white-space: nowrap; }
+.seg button:hover { color: var(--text); }
+.seg button.on { background: var(--accent); color: #fff; }
 .search-all-row { font-weight: 600; color: var(--accent); cursor: pointer; position: sticky; bottom: 0; background: var(--accent-soft); border-top: 1px solid var(--border); }
 .search-all-row:hover { background: var(--accent-border); }
 
