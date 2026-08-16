@@ -95,7 +95,37 @@ CURIE_BASES = {d["prefix"]: d["curie_base"] for d in XREF_DATABASES if d.get("cu
 
 _PUBLIC_KEYS = ("key", "label", "prefix", "link", "search", "noframe", "review", "main_app")
 
+# Values that mean "no id was supplied". They arrive as text rather than as None
+# because the review page builds its session keys by string concatenation, so a
+# JavaScript null reaches the API as the four characters "null".
+PLACEHOLDER_IDS = frozenset({"null", "none", "nil", "nan", "n/a", "na",
+                             "undefined", "-", "--", "#n/a", "?"})
+
 
 def public_list() -> list:
     """The JSON view the frontends consume (internal fields dropped)."""
     return [{k: d[k] for k in _PUBLIC_KEYS} for d in XREF_DATABASES]
+
+
+def normalize_id(db_key: str, value) -> str:
+    """The canonical stored form of one cross-reference id: the bare local part.
+
+    Ids arrive carrying their own prefix — a curator pasting ``MONDO:0012345``
+    into the MONDO column, or a value that was stored that way before this
+    existed. Keeping the prefix and then prepending it again when the SSSOM
+    object CURIE is built publishes ``MONDO:MONDO:0014523``, which is exactly how
+    ARI:0003 ended up doubled in ``ari.sssom.tsv``.
+
+    Link building already strips a leading prefix in three separate places
+    (``core.js``, ``ref-edits.js``, ``concept_service``), each tolerating the
+    problem at read time. This canonicalises it at write time instead.
+
+    Returns "" for a missing or placeholder id; callers drop those.
+    """
+    if value is None:
+        return ""
+    text = str(value).strip()
+    prefix = PREFIX.get(db_key)
+    if prefix and text.lower().startswith(prefix.lower() + ":"):
+        text = text[len(prefix) + 1:].strip()
+    return "" if text.lower() in PLACEHOLDER_IDS else text

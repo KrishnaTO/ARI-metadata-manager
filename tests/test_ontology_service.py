@@ -95,6 +95,23 @@ def test_update_disease_changes_field_and_appends_changelog(service):
     assert "tester" in detail["changelog"][-1]
 
 
+def test_update_disease_stores_xref_ids_without_their_prefix(service):
+    # A curator pasting "MONDO:0012345" must be stored as the bare local part.
+    # Storing the prefixed form is what let the SSSOM exporter prepend MONDO a
+    # second time and publish MONDO:MONDO:0014523.
+    iri = service.get_diseases_list()[0]["iri"]
+    detail = service.update_disease(iri, {"mondo": "MONDO:0012345, 0067890"}, editor="tester")
+    assert detail["mondo"] == ["0012345", "0067890"]
+
+
+def test_update_disease_keeps_free_text_multi_fields_verbatim(service):
+    # Only cross-reference columns are canonicalised; a synonym that happens to
+    # contain a colon must survive untouched.
+    iri = service.get_diseases_list()[0]["iri"]
+    detail = service.update_disease(iri, {"synonyms": "Type 1: juvenile onset"}, editor="tester")
+    assert detail["synonyms"] == ["Type 1: juvenile onset"]
+
+
 def test_update_disease_ignores_unknown_field(service):
     iri = service.get_diseases_list()[0]["iri"]
     before = len(service.get_disease_detail(iri)["changelog"])

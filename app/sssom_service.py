@@ -12,7 +12,7 @@ already-judged cells.
 """
 import datetime
 
-from .xref_registry import CURIE_BASES, PREFIX  # db key -> object/target prefix
+from .xref_registry import CURIE_BASES, PREFIX, normalize_id  # db key -> object/target prefix
 
 # CURIE map for the SSSOM header: object-database prefixes come from the shared
 # xref registry (so they can't drift from the review page / ontology); the subject
@@ -127,17 +127,17 @@ def build(confirmed, author, existing_sssom="", existing_equiv="", flagged=None,
             name = c.get("name") or ""
             prefix = PREFIX.get(c["db"], c["db"])
             for ident in c.get("ids", []):
-                # Guard the client-supplied id boundary: a stray null/placeholder
-                # id (e.g. a stale UI state predating a "no id yet" guard) must
-                # never turn into a literal "PREFIX:null" mapping row.
-                ident_s = str(ident).strip() if ident is not None else ""
-                if not ident_s or ident_s.lower() in ("null", "none", "undefined"):
+                # Guard the client-supplied id boundary. A stray placeholder must
+                # never become a literal "PREFIX:null" row, and an id that already
+                # carries its own prefix must not have it prepended a second time.
+                ident_s = normalize_id(c["db"], ident)
+                if not ident_s:
                     continue
-                obj = _object_curie(c["db"], ident)
+                obj = _object_curie(c["db"], ident_s)
                 sssom_rows.append([subj, name, "skos:exactMatch", modifier, obj, prefix,
                                    "semapv:ManualMappingCuration", author, today])
                 equiv_rows.append(["ARI", (subj.split(":")[-1] if subj else ""), name,
-                                   "skos:exactMatch", prefix, str(ident), eq_type, author])
+                                   "skos:exactMatch", prefix, ident_s, eq_type, author])
     for c in (absent or []):
         subj = c.get("ari_id") or ""
         name = c.get("name") or ""

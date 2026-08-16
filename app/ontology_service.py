@@ -30,6 +30,25 @@ def _split_csv(values):
     return out
 
 
+def _multi_values(key, raw):
+    """Split a multi-valued annotation input into the values to store.
+
+    Cross-reference columns are canonicalised on the way in, so an id pasted as
+    ``MONDO:0012345`` is stored as ``0012345``. Storing the prefixed form is what
+    later produced ``MONDO:MONDO:0012345`` in the published SSSOM, since the
+    exporter prepends the prefix again. ``key`` is None for the free-text
+    multi-valued fields (synonyms, subtypes, definition sources), which are left
+    exactly as typed.
+    """
+    if isinstance(raw, str):
+        items = [s.strip() for s in raw.replace("\n", ",").split(",")]
+    else:
+        items = [str(s).strip() for s in (raw or [])]
+    if key in xref_registry.XREF_SUFFIXES:
+        items = [xref_registry.normalize_id(key, s) for s in items]
+    return [s for s in items if s]
+
+
 class OntologyService:
     def __init__(self, path: str):
         self.path = Path(path)
@@ -663,11 +682,7 @@ class OntologyService:
                 comment[e] = [str(raw)] if str(raw).strip() else []
             elif kind == "multi_ann":
                 prop = self._ensure_annotation_property(suffix)
-                if isinstance(raw, str):
-                    items = [s.strip() for s in raw.replace("\n", ",").split(",")]
-                else:
-                    items = [str(s).strip() for s in (raw or [])]
-                prop[e] = [s for s in items if s]
+                prop[e] = _multi_values(key, raw)
             elif kind == "ann":
                 prop = self._ensure_annotation_property(suffix)
                 prop[e] = [str(raw)] if str(raw).strip() != "" else []
@@ -784,13 +799,9 @@ class OntologyService:
             if par_prop and parent is not None:
                 par_prop[new_d] = [parent]
 
-        def _multi(suffix, val):
+        def _multi(suffix, val, key=None):
             prop = self._ensure_annotation_property(suffix)
-            if isinstance(val, str):
-                items = [s.strip() for s in val.replace("\n", ",").split(",")]
-            else:
-                items = [str(s).strip() for s in (val or [])]
-            prop[new_d] = [s for s in items if s]
+            prop[new_d] = _multi_values(key, val)
 
         _multi("ARI_Synonym", data.get("synonyms", ""))
         _multi("ARI_ClinicalSubtype", data.get("clinical_subtypes", ""))
@@ -804,7 +815,7 @@ class OntologyService:
             if kind in ("label", "comment"):
                 continue
             elif kind == "multi_ann":
-                _multi(suffix, raw)
+                _multi(suffix, raw, key)
             elif kind == "ann":
                 prop = self._ensure_annotation_property(suffix)
                 prop[new_d] = [str(raw)] if str(raw).strip() else []

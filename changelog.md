@@ -1,5 +1,13 @@
 # Changelog
 
+## canonicalise-xref-id-prefixes
+- **Cross-reference ids are stored as the bare local part, so a prefix is never doubled.** An id that already carried its own prefix — a curator pasting `MONDO:0012345`, or a value stored that way — was kept verbatim, and `sssom_service._object_curie()` then prepended the prefix again. That published `MONDO:MONDO:0014523` for ARI:0003 into `ari.sssom.tsv` and `ari.equivalencies.tsv`, where it sat until it was found by the mapping validator in `KrishnaTO/ARI`.
+- **The fix is one normaliser, `xref_registry.normalize_id()`, applied at both write boundaries.** `ontology_service` canonicalises cross-reference columns on save so the prefixed form never enters the ontology, and `sssom_service.build()` canonicalises again on export so a value stored before this — or arriving from an import — cannot leak into the published mappings. Only the column's own prefix is stripped, case-insensitively; a foreign prefix (a DOID id filed under MONDO) is left intact, because that is a curation error rather than a formatting one and silently rewriting it would hide it.
+- **The placeholder guard moved into the same normaliser.** `build()` previously carried its own inline `null`/`none`/`undefined` check, added when the `PREFIX:null` rows were fixed; it now shares one list with the prefix handling, and covers a placeholder hiding behind a prefix (`MONDO:null`). The published id is now the normalised one — previously the guard tested the stripped value but wrote the raw one, so a padded id round-tripped with its whitespace.
+- Free-text multi-valued fields (synonyms, clinical subtypes, definition sources) are untouched, so a synonym containing a colon still survives verbatim.
+- Regression tests at all three levels: the normaliser itself, `build()` (including that the prefixed and bare spellings of one id dedup to a single row), and `update_disease()`.
+
+
 ## main-page-redesign
 - **Rebuilt the main page as a two-column record view in the AurInt design system** (option `1b` of the `design_handoff_main_page` bundle). The three-column browser — deep-teal rail, middle detail pane, sliding right panel — becomes a 288px index rail and one record column, sized against a 1440px reference. Front end, plus one server-side security fix (below).
 - **New shell.** A 56px `#0F2840` header carries the wordmark (Barlow Condensed 600/26px, and a link back to the start state), the search box, the `Cross-references` link to the review matrix, and the account control. `＋ New Disease` and `Symptoms` moved into the ⚙ preferences popover — they were five filled buttons competing at one level of emphasis. The record's own actions (`Copy link` · `Edit record`) sit where they act, in the record header.
