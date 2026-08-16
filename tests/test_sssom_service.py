@@ -98,6 +98,24 @@ def test_build_skips_null_placeholder_ids():
     assert lines[0].split("\t")[4] == "SNOMEDCT:12345"
 
 
+def test_build_does_not_double_the_prefix_on_an_already_prefixed_id():
+    # An id stored or pasted as "MONDO:0014523" must not have MONDO prepended a
+    # second time. That is what published ARI:0003 -> MONDO:MONDO:0014523.
+    out = ss.build([_confirmed(db="mondo", ids=["MONDO:0014523"])], author="a")
+    assert out["added"] == 1
+    row = next(ln for ln in out["sssom"].splitlines() if ln.startswith("ARI:0001001\t")).split("\t")
+    assert row[4] == "MONDO:0014523"
+    equiv = next(ln for ln in out["equiv"].splitlines() if ln.startswith("ARI\t"))
+    assert equiv.split("\t")[5] == "0014523"   # target_id is the bare local part
+
+
+def test_build_dedups_prefixed_and_bare_spellings_of_one_id():
+    # The two spellings are the same mapping, so once both normalise to the same
+    # object CURIE the second must not be appended as a separate row.
+    out = ss.build([_confirmed(db="mondo", ids=["MONDO:0014523", "0014523"])], author="a")
+    assert out["added"] == 1
+
+
 def test_build_absent_writes_no_term_found_with_object_source():
     out = ss.build([], author="a", absent=[{"ari_id": "ARI:0001001", "name": "Test disease",
                                             "db": "snomed"}])

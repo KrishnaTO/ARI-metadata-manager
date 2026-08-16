@@ -32,6 +32,25 @@ def test_curie_map_covers_every_object_prefix():
         assert meta in sssom_service.CURIE_MAP
 
 
+def test_normalize_id_strips_a_self_prefix_and_drops_placeholders():
+    n = xref_registry.normalize_id
+    assert n("mondo", "MONDO:0014523") == "0014523"      # the ARI:0003 case
+    assert n("mondo", "mondo:0014523") == "0014523"      # prefix match is case-insensitive
+    assert n("mondo", "0014523") == "0014523"            # already canonical
+    assert n("dxcode", "SNOMEDCT:12345") == "12345"      # dxcode shares SNOMED's prefix
+    assert n("snomed", "  12345  ") == "12345"
+    for empty in (None, "", "   ", "null", "NULL", "None", "undefined", "n/a", "-"):
+        assert n("snomed", empty) == ""
+    assert n("mondo", "MONDO:null") == ""                # placeholder behind a prefix
+
+
+def test_normalize_id_leaves_a_foreign_prefix_alone():
+    # Only the column's own prefix is stripped. A DOID id filed under MONDO is a
+    # curation error, not a formatting one; silently rewriting it would hide that,
+    # so it is left intact for the mapping validator to flag.
+    assert xref_registry.normalize_id("mondo", "DOID:1234") == "DOID:1234"
+
+
 def test_ontology_suffixes_come_from_registry():
     assert OntologyService.XREF_SUFFIXES is xref_registry.XREF_SUFFIXES
 
