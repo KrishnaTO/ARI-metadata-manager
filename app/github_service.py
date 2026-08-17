@@ -126,27 +126,46 @@ async def publish_file(*, token: str, owner: str, repo: str, base_branch: str, p
                 raise ValueError(f"Could not create branch: {r.json().get('message')}")
         head_label = f"{c_owner}:{branch}"
 
-        # commit the ontology (sha looked up on the branch in the commit repo)
-        cur = await c.get(f"{API}/repos/{c_owner}/{c_repo}/contents/{path}", params={"ref": branch})
-        sha = cur.json().get("sha") if cur.status_code == 200 else None
-        put = await c.put(f"{API}/repos/{c_owner}/{c_repo}/contents/{path}", json={
-            "message": message or f"Update {disease_name}",
-            "content": base64.b64encode(content_bytes).decode(),
-            "branch": branch, "sha": sha, "author": _author(), "committer": _author(),
-        })
-        if put.status_code >= 300 and not extra_files:
-            raise ValueError(f"Commit failed: {put.json().get('message')}")
+        # Commit the ontology + any extra files (mapping tables) as a single
+        # commit via the git data API, rather than one PUT /contents per file.
+        files = {path: content_bytes, **(extra_files or {})}
 
-        for fpath, fbytes in (extra_files or {}).items():
-            cf = await c.get(f"{API}/repos/{c_owner}/{c_repo}/contents/{fpath}", params={"ref": branch})
-            fsha = cf.json().get("sha") if cf.status_code == 200 else None
-            fput = await c.put(f"{API}/repos/{c_owner}/{c_repo}/contents/{fpath}", json={
-                "message": f"Cross-reference mappings ({disease_name})",
-                "content": base64.b64encode(fbytes).decode(),
-                "branch": branch, "sha": fsha, "author": _author(), "committer": _author(),
+        tip = await c.get(f"{API}/repos/{c_owner}/{c_repo}/git/ref/heads/{branch}")
+        if tip.status_code != 200 or "object" not in tip.json():
+            raise ValueError(f"Could not read branch tip: {tip.json().get('message')}")
+        parent_sha = tip.json()["object"]["sha"]
+
+        parent_commit = (await c.get(f"{API}/repos/{c_owner}/{c_repo}/git/commits/{parent_sha}")).json()
+        base_tree_sha = parent_commit["tree"]["sha"]
+
+        tree_entries = []
+        for fpath, fbytes in files.items():
+            blob = await c.post(f"{API}/repos/{c_owner}/{c_repo}/git/blobs", json={
+                "content": base64.b64encode(fbytes).decode(), "encoding": "base64",
             })
-            if fput.status_code >= 300:
-                raise ValueError(f"Mapping commit failed for {fpath}: {fput.json().get('message')}")
+            if blob.status_code >= 300:
+                raise ValueError(f"Blob creation failed for {fpath}: {blob.json().get('message')}")
+            tree_entries.append({"path": fpath, "mode": "100644", "type": "blob", "sha": blob.json()["sha"]})
+
+        tree = await c.post(f"{API}/repos/{c_owner}/{c_repo}/git/trees", json={
+            "base_tree": base_tree_sha, "tree": tree_entries,
+        })
+        if tree.status_code >= 300:
+            raise ValueError(f"Tree creation failed: {tree.json().get('message')}")
+
+        commit = await c.post(f"{API}/repos/{c_owner}/{c_repo}/git/commits", json={
+            "message": message or f"Update {disease_name}",
+            "tree": tree.json()["sha"], "parents": [parent_sha],
+            "author": _author(), "committer": _author(),
+        })
+        if commit.status_code >= 300:
+            raise ValueError(f"Commit failed: {commit.json().get('message')}")
+
+        upd = await c.patch(f"{API}/repos/{c_owner}/{c_repo}/git/refs/heads/{branch}", json={
+            "sha": commit.json()["sha"],
+        })
+        if upd.status_code >= 300:
+            raise ValueError(f"Could not update branch: {upd.json().get('message')}")
 
         # PR is always opened/looked up on UPSTREAM; head may be a fork (owner:branch)
         found = await c.get(f"{API}/repos/{owner}/{repo}/pulls",

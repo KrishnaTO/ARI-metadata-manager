@@ -1,5 +1,9 @@
 # Changelog
 
+## ref-edits-single-commit
+- **A publish from ref-edits now lands as one commit instead of up to three.** `github_service.publish_file()` previously issued a separate `PUT /contents` for the ontology file and for each mapping file (`ari.sssom.tsv`, `ari.equivalencies.tsv`), producing three commits on the branch whenever a curator's edit also carried confirmed/flagged cross-reference judgments. It now builds one tree (via the git data API — blobs + a tree on top of the branch's current tree) and creates a single commit with all changed files, then fast-forwards the branch ref to it.
+- No behavior change for callers: same branch creation/reuse, same fork handling for outside contributors, same PR open/update and labeling logic — only the commit step changed.
+
 ## ref-edits-autoimmune-markers
 - **The review matrix marks which diseases are confirmed autoimmune.** A 5px teal dot sits after the disease name in every matrix row and in the expanded review strip's title, matching the marker the editor's index rail already uses for `diseaseCategory: Autoimmune` — so a disease reads the same on both pages instead of the review page being category-blind.
 - `get_xref_rows()` now carries `autoimmune` per row, from the same `_is_autoimmune()` the alphabetical tree uses, so the two views cannot disagree. No new endpoint and no extra request: the flag rides along on `/api/v2/xrefs`.
