@@ -1,5 +1,12 @@
 # Changelog
 
+## ref-edits-autoimmune-markers
+- **The review matrix marks which diseases are confirmed autoimmune.** A 5px teal dot sits after the disease name in every matrix row and in the expanded review strip's title, matching the marker the editor's index rail already uses for `diseaseCategory: Autoimmune` — so a disease reads the same on both pages instead of the review page being category-blind.
+- `get_xref_rows()` now carries `autoimmune` per row, from the same `_is_autoimmune()` the alphabetical tree uses, so the two views cannot disagree. No new endpoint and no extra request: the flag rides along on `/api/v2/xrefs`.
+- The glyph legend gains a line for the dot, and the dot is `flex-shrink: 0`, so a long disease name ellipsizes around it rather than pushing it out of the cell.
+- Verified against the running app: 124 of 214 diseases marked, byte-for-byte agreement with `/api/v2/tree/alphabetical` (zero mismatches), dot visible in both the row and the strip, no console errors, 147 tests pass.
+
+
 ## canonicalise-xref-id-prefixes
 - **Cross-reference ids are stored as the bare local part, so a prefix is never doubled.** An id that already carried its own prefix — a curator pasting `MONDO:0012345`, or a value stored that way — was kept verbatim, and `sssom_service._object_curie()` then prepended the prefix again. That published `MONDO:MONDO:0014523` for ARI:0003 into `ari.sssom.tsv` and `ari.equivalencies.tsv`, where it sat until it was found by the mapping validator in `KrishnaTO/ARI`.
 - **The fix is one normaliser, `xref_registry.normalize_id()`, applied at both write boundaries.** `ontology_service` canonicalises cross-reference columns on save so the prefixed form never enters the ontology, and `sssom_service.build()` canonicalises again on export so a value stored before this — or arriving from an import — cannot leak into the published mappings. Only the column's own prefix is stripped, case-insensitively; a foreign prefix (a DOID id filed under MONDO) is left intact, because that is a curation error rather than a formatting one and silently rewriting it would hide it.
