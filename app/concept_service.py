@@ -20,14 +20,14 @@ false``); a missing id *within* a present sidecar means "this term genuinely has
 Why provenance is the whole point
 ----------------------------------
 Only five databases have an index of their own (MONDO, DOID, NCIt→``nci``, MeSH,
-Orphanet). SNOMED, OMOP, ICD-10, OMIM and UMLS appear **only** as cross-reference
+Orphanet). SNOMED, OMOP, ICD-10 and UMLS appear **only** as cross-reference
 columns on those ontologies' terms. So a lookup of ``SNOMEDCT:408335007`` can at best
 find "the MONDO term that *claims* this SNOMED id" — which is MONDO's opinion, not
 SNOMED's own label. Presenting that as SNOMED's term would let a curator confirm a
 wrong ``skos:exactMatch``. Every answer therefore carries:
 
 * ``direct`` — True only when the id came from an index we hold **for that database**
-  (an own-index db). For SNOMED/OMOP/ICD-10/OMIM/UMLS it is always False.
+  (an own-index db). For SNOMED/OMOP/ICD-10/UMLS it is always False.
 * ``via``    — the hub term(s) a non-direct answer came through (empty when direct).
   Several hubs can claim one id and disagree on its label; that disagreement is a
   signal a curator wants, so all of them are returned rather than one being chosen.
@@ -56,7 +56,7 @@ log = logging.getLogger(__name__)
 
 # Which index ``source`` (file stem) is the *own* index for a target-database key.
 # The db key ``nci`` is served by the ``ncit`` index; the rest match by name. A db
-# absent here (snomed/omop/icd10/omim/umls) has no own index — only hub xrefs.
+# absent here (snomed/omop/icd10/umls) has no own index — only hub xrefs.
 SOURCE_DB = {"mondo": "mondo", "doid": "doid", "ncit": "nci",
              "mesh": "mesh", "orphanet": "orphanet"}
 

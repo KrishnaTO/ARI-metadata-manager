@@ -51,8 +51,8 @@ def test_predicts_all_xreffed_dbs_for_a_label_match():
     got = {p["db"]: p["id"] for p in preds}
     assert got["mondo"] == "0005147"
     assert got["snomed"] == "46635009"
-    assert got["omim"] == "222100"
     assert got["orphanet"] == "243377"
+    assert "omim" not in got                # OMIM is not a review column, so not predicted
     # prefix comes from the shared registry, not invented here
     snomed = next(p for p in preds if p["db"] == "snomed")
     assert snomed["prefix"] == "SNOMEDCT"
@@ -122,9 +122,9 @@ def test_load_synonym_blocklist(tmp_path):
 
 
 def test_blank_cells_only_no_prediction_when_already_filled():
-    d = _disease("Type 1 diabetes mellitus", existing={"snomed": ["46635009"], "omim": ["222100"]})
+    d = _disease("Type 1 diabetes mellitus", existing={"snomed": ["46635009"], "doid": ["9744"]})
     dbs = {p["db"] for p in ps.predict_for_disease(d, [HUB])}
-    assert "snomed" not in dbs and "omim" not in dbs   # already present
+    assert "snomed" not in dbs and "doid" not in dbs   # already present
     assert "orphanet" in dbs                            # still blank -> predicted
 
 
@@ -184,7 +184,8 @@ def test_real_indexes_predict_type1_diabetes_across_databases():
     preds = ps.predict_for_disease(_disease("Type 1 diabetes mellitus"), indexes)
     got = {p["db"] for p in preds}
     # MONDO term MONDO:0005147 cross-references these, so all should be predicted.
-    assert {"mondo", "snomed", "doid", "nci", "omim", "orphanet", "umls", "mesh"} <= got
+    assert {"mondo", "snomed", "doid", "nci", "orphanet", "umls", "mesh"} <= got
+    assert "omim" not in got
 
 
 @needs_indexes

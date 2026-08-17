@@ -13,7 +13,7 @@ committed.
 
 Sources and formats:
   mondo, doid  OBO ontologies. MONDO is the hub — one term xrefs SNOMED/DOID/NCI/
-               ICD-10/Orphanet/OMIM/UMLS/MeSH, so it alone predicts nine columns.
+               ICD-10/Orphanet/UMLS/MeSH, so it alone predicts eight columns.
   ncit         NCI Thesaurus OBO, filtered to disease semantic types; also carries
                its UMLS CUI (P207) as a umls xref.
   mesh         NLM MeSH descriptor XML, filtered to the Diseases (C*) and Mental

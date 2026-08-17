@@ -1,5 +1,11 @@
 # Changelog
 
+## remove-omim-mappings-ref-edits
+- **OMIM is no longer a cross-reference option on the ref-edits page.** Its registry entry in `app/xref_registry.py` flips `review` to `False`, so the column disappears from the review matrix (the page builds its columns from `GET /api/v2/xref-databases`) and OMIM drops out of `predict_service.TARGET_DBS` — no OMIM ids are proposed any more. It was already absent from the main disease page (`main_app: False`).
+- The entry itself stays so ids already stored under `ARI_OMIM` keep their CURIE prefix and SSSOM `curie_map` base, and `normalize_id("omim", …)` still strips a self-prefix.
+- The committed `data/2-databases/*.index.tsv` files keep their `omim` column; the loader reads by header name, so it is simply ignored and no rebuild is needed. A future `scripts/fetch_databases.py` run stops writing the column.
+- Tests updated where they asserted OMIM was predicted; 148 pass.
+
 ## ref-edits-single-commit
 - **A publish from ref-edits now lands as one commit instead of up to three.** `github_service.publish_file()` previously issued a separate `PUT /contents` for the ontology file and for each mapping file (`ari.sssom.tsv`, `ari.equivalencies.tsv`), producing three commits on the branch whenever a curator's edit also carried confirmed/flagged cross-reference judgments. It now builds one tree (via the git data API — blobs + a tree on top of the branch's current tree) and creates a single commit with all changed files, then fast-forwards the branch ref to it.
 - No behavior change for callers: same branch creation/reuse, same fork handling for outside contributors, same PR open/update and labeling logic — only the commit step changed.
