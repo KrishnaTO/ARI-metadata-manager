@@ -173,6 +173,7 @@ USER_DIR = Path(__file__).resolve().parent.parent / ".user-data"
 USER_DATA_TTL_DAYS = int(os.environ.get("USER_DATA_TTL_DAYS", "14"))
 USER_SVC: dict = {}
 USER_DIRTY: set = set()
+USER_TOUCHED: dict = {}   # login -> set of disease IRIs actually edited this session
 
 
 def _login(request: Request):
@@ -316,6 +317,7 @@ def _clear_ref_session(login):
 def _reset_user(login):
     USER_SVC.pop(login, None)
     USER_DIRTY.discard(login)
+    USER_TOUCHED.pop(login, None)
     _clear_ref_session(login)                   # verdicts reference the old data — drop them
     try:
         (USER_DIR / f"{login}.owl").unlink()
@@ -329,6 +331,15 @@ def _mark_dirty(request: Request):
     login = _login(request)
     if login:
         USER_DIRTY.add(login)
+
+
+def _touch(request: Request, *iris):
+    """Record disease IRIs this curator actually edited, so the PR summary can
+    be scoped to their own changes instead of the whole working copy."""
+    login = _login(request)
+    if not login:
+        return
+    USER_TOUCHED.setdefault(login, set()).update(i for i in iris if i)
 
 
 def _dirty(request: Request):
@@ -422,6 +433,7 @@ async def update_disease(request: Request, iri: str, payload: dict = Body(...)):
     # review page can stop them confirming their own mapping (separation of duties).
     ID_AUTHORS.record(iri, before, svc.get_xrefs(iri), _login(request))
     _mark_dirty(request)
+    _touch(request, iri)
     return r
 
 
@@ -431,6 +443,7 @@ async def add_item(request: Request, iri: str, payload: dict = Body(...)):
     r = service_for(request, write=True).add_item(iri, payload["category"], payload.get("values", {}),
                          editor=payload.get("editor", "user"))
     _mark_dirty(request)
+    _touch(request, iri)
     return r
 
 
@@ -441,6 +454,7 @@ async def update_item(request: Request, iri: str, payload: dict = Body(...)):
                             disease_iri=payload.get("disease", ""),
                             editor=payload.get("editor", "user"))
     _mark_dirty(request)
+    _touch(request, payload.get("disease", ""))
     return r
 
 
@@ -450,6 +464,7 @@ async def delete_item(request: Request, iri: str, payload: dict = Body(...)):
     r = service_for(request, write=True).delete_item(iri, payload.get("category", ""),
                             payload["disease"], editor=payload.get("editor", "user"))
     _mark_dirty(request)
+    _touch(request, payload.get("disease", ""))
     return r
 
 
@@ -575,6 +590,7 @@ async def create_disease(request: Request, payload: dict = Body(...)):
     r = svc.create_disease(data, editor=editor)
     ID_AUTHORS.record(r["iri"], {}, svc.get_xrefs(r["iri"]), _login(request))
     _mark_dirty(request)
+    _touch(request, r["iri"])
     return r
 
 
@@ -733,6 +749,7 @@ async def publish(request: Request, payload: dict = Body(default={})):
                                f"{got['diseases']} disease(s): +{got['synonyms_added']} "
                                f"synonym(s), +{got['subtypes_added']} clinical subtype(s).")
         _mark_dirty(request)
+        _touch(request, *(c.get("iri") for c in confirmed + flagged + absent))
     content = svc.path.read_bytes()
 
     # Diff current vs the source branch to summarise previous -> new values.
@@ -744,7 +761,7 @@ async def publish(request: Request, payload: dict = Body(default={})):
         tf = tempfile.NamedTemporaryFile(suffix=".owl", delete=False)
         tf.write(data); tf.close(); tmp_path = tf.name
         baseline = OntologyService(tmp_path)
-        summary = diff_service.build_change_summary(svc, baseline)
+        summary = diff_service.build_change_summary(svc, baseline, touched_iris=USER_TOUCHED.get(login))
     except Exception as e:
         log.warning("Could not build change summary against source branch %s: %s", STATE["source_branch"], e)
         summary = "_Change summary unavailable (could not load the source-branch baseline)._"

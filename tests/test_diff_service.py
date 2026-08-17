@@ -47,3 +47,19 @@ def test_new_disease_flagged_as_new(make_service):
     summary = ds.build_change_summary(current, baseline)
     assert "Brand New Test Disease" in summary
     assert "new disease" in summary.lower()
+
+
+def test_touched_iris_restricts_summary_to_own_edits(make_service):
+    """A curator's working copy can drift from a fresh baseline for diseases
+    they never touched (e.g. another curator's merged PR); touched_iris keeps
+    those out of this curator's own change summary."""
+    baseline = make_service()
+    current = make_service()
+    diseases = current.get_diseases_list()
+    mine, other = diseases[0]["iri"], diseases[1]["iri"]
+    current.update_disease(mine, {"disease_category": "ZZZ-Mine"}, editor="t")
+    current.update_disease(other, {"disease_category": "ZZZ-Other"}, editor="t")
+
+    summary = ds.build_change_summary(current, baseline, touched_iris={mine})
+    assert "ZZZ-Mine" in summary
+    assert "ZZZ-Other" not in summary
