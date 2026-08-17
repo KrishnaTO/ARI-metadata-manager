@@ -248,7 +248,7 @@ def test_details_sidecar_does_not_affect_predictions(tmp_path):
     _write_index(tmp_path / "mondo.index.tsv",
                  _irow(id="MONDO:0005147", label="type 1 diabetes mellitus",
                        synonyms="juvenile diabetes", mondo="0005147", snomed="46635009",
-                       doid="9744", omim="222100"))
+                       doid="9744", umls="C0011854"))
     disease = {"ari_id": "ARI:1", "name": "Type 1 diabetes mellitus",
                "synonyms": [], "existing": {}}
     before = ps.build_predicted_sssom(ps.predict_for_disease(disease, ps.load_indexes(tmp_path)))

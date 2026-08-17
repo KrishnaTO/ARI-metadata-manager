@@ -60,11 +60,14 @@ XREF_DATABASES = [
      "link": "https://www.orpha.net/en/disease/detail/{num}",
      "search": "https://www.orpha.net/en/disease?keyword={name}",
      "noframe": True, "review": True, "main_app": False},
+    # OMIM is no longer curated on the reference-review page, so it is neither a
+    # review column nor a prediction target. The entry stays for the ids already
+    # stored under ARI_OMIM: they keep their CURIE prefix and SSSOM curie_map base.
     {"key": "omim", "label": "OMIM", "prefix": "OMIM",
      "curie_base": "https://omim.org/entry/", "ari_suffix": "ARI_OMIM",
      "link": "https://omim.org/entry/{num}",
      "search": "https://omim.org/search/?search={name}",
-     "noframe": True, "review": True, "main_app": False},
+     "noframe": True, "review": False, "main_app": False},
     {"key": "umls", "label": "UMLS", "prefix": "umls",
      "curie_base": "https://uts.nlm.nih.gov/uts/umls/concept/", "ari_suffix": "ARI_UMLS",
      "link": "https://uts.nlm.nih.gov/uts/umls/concept/{id}",

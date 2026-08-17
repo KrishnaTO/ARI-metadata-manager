@@ -1,7 +1,7 @@
 """Predict database cross-references for diseases by exact name/synonym match.
 
 Issue #42: many ARI diseases already carry an id for some of the target databases
-(SNOMED, OMOP, DOID, MONDO, NCI, ICD-10, Orphanet, OMIM, UMLS, MeSH) but leave the
+(SNOMED, OMOP, DOID, MONDO, NCI, ICD-10, Orphanet, UMLS, MeSH) but leave the
 rest blank. For a blank cell we can often *propose* an id automatically: if the
 disease's own label or one of its synonyms is an **exact** name/synonym of a term
 in a downloaded reference ontology, that term (and the databases it cross-references)
@@ -16,8 +16,8 @@ Predictions are computed from compact per-database *index* TSVs built by
 ...) and stored under ``data/2-databases/`` for local version control. Each index
 row is one ontology term with its label, exact synonyms, and the ids it
 cross-references in each target database. MONDO is the primary hub: a single MONDO
-term xrefs SNOMED/DOID/NCI/ICD-10/Orphanet/OMIM/UMLS/MeSH, so matching a disease
-name to MONDO can fill nine of the ten columns at once. OMOP is OHDSI-specific and
+term xrefs SNOMED/DOID/NCI/ICD-10/Orphanet/UMLS/MeSH, so matching a disease
+name to MONDO can fill eight of the nine columns at once. OMOP is OHDSI-specific and
 is not carried by these ontologies; predicting it requires the licensed Athena
 vocabulary, which the user must supply (see ``data/2-databases/README.md``).
 
