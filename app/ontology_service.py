@@ -316,6 +316,7 @@ class OntologyService:
             ari = self._get_annotation(ind, base + "ARI_ID")
             row = {"iri": ind.iri, "name": self._get_label(ind),
                    "ari_id": ari[0] if ari else None,
+                   "autoimmune": self._is_autoimmune(ind),
                    "synonyms": self._get_annotation(ind, base + "ARI_Synonym")}
             for key, suffix in self.XREF_SUFFIXES.items():
                 row[key] = _split_csv(self._get_annotation(ind, base + suffix))

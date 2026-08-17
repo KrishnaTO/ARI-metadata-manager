@@ -216,6 +216,9 @@
   .mowner + .mcount { margin-left:8px; }
   .mgroup.open .mcaret { color:var(--accent); }
   .mname-text { font:600 12.5px var(--sans); color:var(--text); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  /* Confirmed autoimmune (diseaseCategory "Autoimmune") — the same teal dot the
+     editor's disease tree uses, so the marker reads the same across both pages. */
+  .ai-dot { flex-shrink:0; width:5px; height:5px; border-radius:50%; background:var(--accent); }
   .mcount { font:400 10px var(--mono); color:var(--faint); flex-shrink:0; margin-left:auto; }
   .mcell { display:flex; align-items:center; justify-content:center; border-left:1px solid var(--line);
            font-size:11px; cursor:pointer; color:var(--empty-fg); }
@@ -465,6 +468,7 @@
   <span class="g">✕</span> flagged ·
   <span class="g">∅</span> no term exists in that database ·
   blank no id. A superscript is the number of ids in that cell; a cell only reads ✓ once every id in it has a verdict.
+  <span class="ai-dot" style="display:inline-block;vertical-align:middle"></span> after a disease name marks it confirmed autoimmune.
   The curator who added an id cannot confirm it — another curator has to.
 </div>
 <script>
