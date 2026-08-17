@@ -41,12 +41,21 @@ def _rows(service):
     return out
 
 
-def build_change_summary(current_service, baseline_service) -> str:
+def build_change_summary(current_service, baseline_service, touched_iris=None) -> str:
+    """``touched_iris``, when given, restricts the summary to diseases whose IRI
+    is in that set — the ones the publishing curator actually edited this
+    session — so a stale working copy doesn't surface other curators' changes
+    as if they were this curator's own."""
     cur = _rows(current_service)
     base = _rows(baseline_service)
     blocks = []
 
+    def _touched(d):
+        return touched_iris is None or d.get("iri") in touched_iris
+
     for key, d in sorted(cur.items(), key=lambda kv: _fmt(kv[1].get("name"))):
+        if not _touched(d):
+            continue
         name = _fmt(d.get("name")) or key
         if key not in base:
             blocks.append(f"### {name} ({key}) — **new disease**")
@@ -65,7 +74,7 @@ def build_change_summary(current_service, baseline_service) -> str:
             blocks.append("\n".join(tbl))
 
     for key, b in sorted(base.items(), key=lambda kv: _fmt(kv[1].get("name"))):
-        if key not in cur:
+        if key not in cur and _touched(b):
             blocks.append(f"### {_fmt(b.get('name')) or key} ({key}) — **removed**")
 
     if not blocks:
