@@ -19,7 +19,7 @@ const BASE_PATH = (() => {
 })();
 
 // `githubEnabled` / `authenticated` mirror GET /api/v2/me and gate curating.
-let state = { activeIri: null, activeTab: 'alphabetical', activeBox: null, editMode: false, detail: null, schema: {}, editor: 'curator', githubName: null, githubEnabled: false, authenticated: false };
+let state = { activeIri: null, activeTab: 'alphabetical', autoimmuneOnly: false, activeBox: null, editMode: false, detail: null, schema: {}, editor: 'curator', githubName: null, githubEnabled: false, authenticated: false };
 
 // Curating requires a signed-in curator wherever sign-in exists, so edits are
 // attributable and land in that curator's own working copy. On a deployment with

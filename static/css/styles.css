@@ -210,6 +210,10 @@ body.resizing-cols { cursor: col-resize; user-select: none; }
 .rail-legend { flex: none; display: flex; align-items: center; gap: 12px; padding: 12px 16px;
   border-top: 1px solid var(--line); font-size: 11px; color: var(--mute); }
 .rail-legend .ai-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--accent); flex: none; }
+.rail-legend-key { display: flex; align-items: center; gap: 8px; }
+/* Bottom-of-list toggle: restrict both tree views to confirmed autoimmune. */
+.rail-filter { display: flex; align-items: center; gap: 6px; margin-left: auto; cursor: pointer; }
+.rail-filter input { margin: 0; accent-color: var(--accent); cursor: pointer; }
 
 /* ------------------------------------------------------------ record shell */
 .detail { flex: 1; min-height: 0; display: flex; flex-direction: column; }

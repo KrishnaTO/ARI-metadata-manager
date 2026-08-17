@@ -17,9 +17,33 @@ function autoimmuneClass(d){
   return d && d.autoimmune ? ' autoimmune' : '';
 }
 
+// The bottom-of-list "Only" toggle restricts both tree views to confirmed
+// autoimmune diseases. Grouping rows (alphabetical parents, tissue classes) are
+// kept when they still contain a match, so a confirmed subtype under an
+// unconfirmed parent stays reachable.
+function filterAlphabetical(nodes){
+  const out = [];
+  for (const n of nodes){
+    const children = filterAlphabetical(n.children || []);
+    if (n.autoimmune || children.length) out.push({ ...n, children });
+  }
+  return out;
+}
+
+function filterTissue(nodes){
+  const out = [];
+  for (const n of nodes){
+    const children = filterTissue(n.children || []);
+    const diseases = (n.diseases || []).filter(d => d.autoimmune);
+    if (children.length || diseases.length) out.push({ ...n, children, diseases });
+  }
+  return out;
+}
+
 function renderAlphabetical(){
   showLoading('#tree-pane');
-  api('/api/v2/tree/alphabetical').then(roots => {
+  api('/api/v2/tree/alphabetical').then(all => {
+    const roots = state.autoimmuneOnly ? filterAlphabetical(all) : all;
     const node = (n) => {
       const kids = n.children || [];
       const hasKids = kids.length > 0;
@@ -32,13 +56,15 @@ function renderAlphabetical(){
       h += `</div>`;
       return h;
     };
-    $('#tree-pane').innerHTML = roots.length ? roots.map(node).join('') : '<div class="empty-state">No diseases.</div>';
+    $('#tree-pane').innerHTML = roots.length ? roots.map(node).join('')
+      : `<div class="empty-state">${state.autoimmuneOnly ? 'No confirmed autoimmune diseases.' : 'No diseases.'}</div>`;
   }).catch(() => $('#tree-pane').innerHTML = '<div class="empty-state">Error loading list.</div>');
 }
 
 function renderTissue(){
   showLoading('#tree-pane');
-  api('/api/v2/tree/tissue').then(tree => {
+  api('/api/v2/tree/tissue').then(all => {
+    const tree = state.autoimmuneOnly ? filterTissue(all) : all;
     const node = (n) => {
       const subClasses = n.children || [];
       const diseases = n.diseases || [];
@@ -59,7 +85,8 @@ function renderTissue(){
       }
       return h;
     };
-    $('#tree-pane').innerHTML = tree.length ? tree.map(node).join('') : '<div class="empty-state">No tissue hierarchy.</div>';
+    $('#tree-pane').innerHTML = tree.length ? tree.map(node).join('')
+      : `<div class="empty-state">${state.autoimmuneOnly ? 'No confirmed autoimmune diseases.' : 'No tissue hierarchy.'}</div>`;
   }).catch(() => $('#tree-pane').innerHTML = '<div class="empty-state">No tissue hierarchy available.</div>');
 }
 
@@ -119,6 +146,11 @@ document.querySelectorAll('.tab').forEach(tab => {
     state.activeTab = tab.dataset.view;
     renderTab();
   });
+});
+
+$('#ai-only').addEventListener('change', e => {
+  state.autoimmuneOnly = e.target.checked;
+  renderTab();
 });
 
 // Tree interactions: twisty toggles, disease rows select.
