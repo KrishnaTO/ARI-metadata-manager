@@ -157,6 +157,11 @@
   // A disease is complete when nothing in its row is still awaiting a verdict.
   const isComplete = r => DBS.every(db => !isOpenState(cellState(r, db.key)));
 
+  // Confirmed autoimmune (diseaseCategory "Autoimmune") — the same teal dot the
+  // editor's disease tree carries, so a disease is marked identically on both pages.
+  const aiDot = r => r.autoimmune
+    ? '<span class="ai-dot" title="Confirmed autoimmune"></span>' : '';
+
   const GLYPH = { ok: '✓', bad: '✕', pred: '●', low: '○', have: '•', none: '∅' };
   const SUP = { 2: '²', 3: '³', 4: '⁴', 5: '⁵' };
   const TAG = { ok: 'confirmed', bad: 'flagged', pred: 'predicted', low: 'synonym',
@@ -580,7 +585,7 @@
           (multi ? ` · ${multi} with several ids` : '');
         strip = `<div class="strip">
           <div class="strip-head">
-            <span class="strip-title">${esc(r.name)}</span>
+            <span class="strip-title">${esc(r.name)}</span>${aiDot(r)}
             <span class="strip-id">${esc(r.ari_id || '')}</span>
             <span class="strip-syn">${esc((r.synonyms || []).join(' · '))}</span>
             <span style="flex:1"></span>
@@ -602,7 +607,7 @@
       h += `<div class="mgroup${open ? ' open' : ''}">
         <div class="mrow" data-iri="${esc(r.iri)}">
           <div class="mname">${box}<span class="mcaret">${open ? '▾' : '▸'}</span>
-            <span class="mname-text">${esc(r.name)}</span>
+            <span class="mname-text">${esc(r.name)}</span>${aiDot(r)}
             ${badge}<span class="mcount">${okN}/${DBS.length}</span></div>
           ${cells}
         </div>${strip}</div>`;
