@@ -68,7 +68,12 @@
       <button class="tab" data-view="tissue">Tissue</button>
     </div>
     <div class="pane" id="tree-pane"><div class="loading">Loading...</div></div>
-    <div class="rail-legend"><span class="ai-dot"></span>Confirmed autoimmune</div>
+    <div class="rail-legend">
+      <span class="rail-legend-key"><span class="ai-dot"></span>Confirmed autoimmune</span>
+      <label class="rail-filter" title="Show only diseases confirmed autoimmune">
+        <input type="checkbox" id="ai-only"> Show only
+      </label>
+    </div>
   </div>
 
   <div class="col-resizer" id="resize-left" title="Drag to resize the list"></div>

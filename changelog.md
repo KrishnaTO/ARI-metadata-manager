@@ -1,5 +1,10 @@
 # Changelog
 
+## autoimmune-disease-filter
+- **The index rail can be narrowed to confirmed autoimmune diseases.** A `Show only` checkbox sits in the rail footer beside the teal-dot legend it acts on; ticking it re-renders the current scope with everything that is not `diseaseCategory: Autoimmune` removed. It applies to both `A–Z` and `Tissue`, is client-side over the tree already fetched (no new endpoint — `autoimmune` was already on every node of `/api/v2/tree/alphabetical` and `/api/v2/tree/tissue`), and resets on reload.
+- Grouping rows survive when they still contain a match: an unconfirmed parent disease whose subtype is confirmed stays in the A–Z tree, and a tissue class keeps its place while any disease under it qualifies — empty tissue classes drop out entirely (26 → 20 on the current ontology).
+- Verified in the running app: A–Z 214 → 124 rows, Tissue 218 → 128, zero unconfirmed rows left in either, and the footer control fits the 288px rail. No console errors.
+
 ## canonicalise-xref-id-prefixes
 - **Cross-reference ids are stored as the bare local part, so a prefix is never doubled.** An id that already carried its own prefix — a curator pasting `MONDO:0012345`, or a value stored that way — was kept verbatim, and `sssom_service._object_curie()` then prepended the prefix again. That published `MONDO:MONDO:0014523` for ARI:0003 into `ari.sssom.tsv` and `ari.equivalencies.tsv`, where it sat until it was found by the mapping validator in `KrishnaTO/ARI`.
 - **The fix is one normaliser, `xref_registry.normalize_id()`, applied at both write boundaries.** `ontology_service` canonicalises cross-reference columns on save so the prefixed form never enters the ontology, and `sssom_service.build()` canonicalises again on export so a value stored before this — or arriving from an import — cannot leak into the published mappings. Only the column's own prefix is stripped, case-insensitively; a foreign prefix (a DOID id filed under MONDO) is left intact, because that is a curation error rather than a formatting one and silently rewriting it would hide it.
