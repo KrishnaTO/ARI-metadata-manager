@@ -224,6 +224,21 @@
   .mcolgrip:hover::before, body.dragging .mcolgrip::before { background:var(--accent); }
   .mcolgrip:hover::after, body.dragging .mcolgrip::after { left:3px; width:3px; border-radius:2px;
                                                            background:var(--accent); }
+  /* Column controls: the label sorts the column (missing mappings first, then the
+     reverse, then off) and the ∅ button narrows the matrix to the diseases missing
+     a mapping in that one database. Both are buttons so keyboard users get them. */
+  .hcol { display:flex; flex-direction:column; align-items:center; gap:2px; }
+  .hcol.active { color:var(--accent); }
+  .hsort, .hmiss { border:0; background:transparent; padding:0; cursor:pointer; color:inherit;
+                   font:inherit; letter-spacing:inherit; text-transform:inherit; }
+  .hsort { display:flex; align-items:center; justify-content:center; gap:2px; width:100%; }
+  .hsort:hover, .hmiss:hover { color:var(--accent); }
+  .harrow { font-size:8px; }
+  .hmiss { font-size:11px; line-height:1; opacity:.45; }
+  .hmiss:hover { opacity:1; }
+  .hmiss.on { opacity:1; color:var(--accent-fg); background:var(--accent);
+              border-radius:99px; padding:1px 5px; }
+  .mhead > div:first-child .hsort { justify-content:flex-start; }
   .mrow { display:grid; grid-template-columns:var(--grid-cols); border-bottom:1px solid var(--line);
           cursor:pointer; background:var(--surface); }
   .mgroup:nth-child(even) .mrow { background:var(--band); }
