@@ -37,6 +37,11 @@
   // Review queue: which curator holds each disease (iri -> {login, done}), the
   // logins known to have a queue, and this page's tick-box selection.
   let owners = {}, curators = [], selected = new Set(), lastSel = null, queueFilter = 'all';
+  // Column view state. `colSort` orders the matrix by one column — 'missing' puts the
+  // diseases still needing a mapping in that database on top, 'mapped' reverses it;
+  // `missingOnly` narrows the matrix to the diseases missing a mapping in one column.
+  // Both are view-only: nothing here touches verdicts or what gets published.
+  let colSort = null, missingOnly = null;
   // reviewed/edited keys: `${iri}|${db}|${id}` (per-ID, not per-cell)
   const idKey = (iri, db, id) => iri + '|' + db + '|' + id;
   // What a key already sits in a pull request as: `key -> {pr, state}`. Keeps
@@ -154,6 +159,14 @@
   }
 
   const isOpenState = st => st === 'pred' || st === 'low' || st === 'have';
+  // A database is missing a mapping for a disease until it is either confirmed or
+  // declared to have no term for it — a blank, predicted, unjudged or flagged cell
+  // all still need a mapping.
+  const isMissing = (r, dbkey) => { const st = cellState(r, dbkey); return st !== 'ok' && st !== 'none'; };
+  // How much work a cell still needs, lowest first: blank cells lead, resolved
+  // cells trail. Drives the "missing first" column sort.
+  const NEED = { bad: 1, low: 2, pred: 3, have: 4, none: 5, ok: 6 };
+  const cellNeed = (r, dbkey) => NEED[cellState(r, dbkey)] || 0;
   // A disease is complete when nothing in its row is still awaiting a verdict.
   const isComplete = r => DBS.every(db => !isOpenState(cellState(r, db.key)));
 
@@ -495,8 +508,50 @@
       (compact ? '250px' : '330px') + ' repeat(' + DBS.length + ', minmax(44px,1fr))');
   }
 
+  // Header cells carry both column controls: the label sorts, the ∅ button filters.
+  function headCell(key, label, extra) {
+    const dir = colSort && colSort.db === key ? colSort.dir : null;
+    const only = missingOnly === key;
+    const arrow = dir === 'missing' ? '▲' : dir === 'mapped' ? '▼' : dir === 'az' ? '▲' : dir === 'za' ? '▼' : '';
+    const sortTitle = key === NAME_COL ? 'Sort diseases by name'
+      : `Sort by ${label}: diseases missing a mapping first`;
+    return `<div class="hcol${dir || only ? ' active' : ''}">
+      <button class="hsort" data-sort="${esc(key)}" title="${esc(sortTitle)}">${esc(label)}<span class="harrow">${arrow}</span></button>
+      ${extra}</div>`;
+  }
+
   function renderHead() {
-    $('#mhead').innerHTML = '<div>Disease</div>' + DBS.map(d => `<div>${esc(d.label)}</div>`).join('');
+    $('#mhead').innerHTML = headCell(NAME_COL, 'Disease', '') + DBS.map(d =>
+      headCell(d.key, d.label,
+        `<button class="hmiss${missingOnly === d.key ? ' on' : ''}" data-miss="${esc(d.key)}"
+           title="Show only the diseases missing a ${esc(d.label)} mapping">∅</button>`)).join('');
+  }
+
+  // The disease column sorts by name; the database columns sort by how much of the
+  // mapping work is left. One column at a time, and a third click clears it.
+  const NAME_COL = '__name';
+  function cycleSort(key) {
+    const order = key === NAME_COL ? ['az', 'za'] : ['missing', 'mapped'];
+    const cur = colSort && colSort.db === key ? colSort.dir : null;
+    const next = cur === null ? order[0] : cur === order[0] ? order[1] : null;
+    colSort = next ? { db: key, dir: next } : null;
+    renderHead(); renderMatrix();
+  }
+
+  function toggleMissingOnly(key) {
+    missingOnly = missingOnly === key ? null : key;
+    renderHead(); renderMatrix();
+  }
+
+  function sortRows(rows) {
+    if (!colSort) return rows;
+    const { db, dir } = colSort;
+    const key = db === NAME_COL ? r => (r.name || '').toLowerCase() : r => cellNeed(r, db);
+    const sign = dir === 'mapped' || dir === 'za' ? -1 : 1;
+    return rows.slice().sort((a, b) => {
+      const x = key(a), y = key(b);
+      return x < y ? -sign : x > y ? sign : 0;
+    });
   }
 
   const inQueueFilter = r => queueFilter === 'all' ? true
@@ -504,11 +559,12 @@
 
   function visibleRows() {
     const q = ($('#filter').value || '').trim().toLowerCase();
-    const rows = queueFilter === 'all' ? ROWS : ROWS.filter(inQueueFilter);
-    if (!q) return rows;
-    return rows.filter(r => (r.name || '').toLowerCase().includes(q) ||
+    let rows = queueFilter === 'all' ? ROWS : ROWS.filter(inQueueFilter);
+    if (missingOnly) rows = rows.filter(r => isMissing(r, missingOnly));
+    if (q) rows = rows.filter(r => (r.name || '').toLowerCase().includes(q) ||
       (r.synonyms || []).some(s => String(s).toLowerCase().includes(q)) ||
       DBS.some(db => cellEntries(r, db.key).some(e => String(e.id).toLowerCase().includes(q))));
+    return sortRows(rows);
   }
 
   // One database card in the open row's review strip: the state tag, each id with its
@@ -551,6 +607,8 @@
   }
 
   function emptyNote() {
+    if (missingOnly && !$('#filter').value.trim())
+      return 'Every disease in view already has a ' + ((DBMAP[missingOnly] || {}).label || missingOnly) + ' mapping.';
     if (queueFilter === 'mine' && !$('#filter').value.trim())
       return 'Nothing in your review queue yet — tick some diseases under “All” and add them.';
     if (queueFilter === 'unassigned' && !$('#filter').value.trim())
@@ -1148,6 +1206,12 @@
     applyGrid(); syncSegs(); renderHead(); renderMatrix(); counts();
     initDivider(); initControls(); initQueue();
     $('#filter').addEventListener('input', renderMatrix);
+    $('#mhead').addEventListener('click', e => {
+      const miss = e.target.closest('[data-miss]');
+      if (miss) { toggleMissingOnly(miss.dataset.miss); return; }
+      const sort = e.target.closest('[data-sort]');
+      if (sort) cycleSort(sort.dataset.sort);
+    });
     $('#publish').addEventListener('click', () => publish(false));
     $('#publish-new').addEventListener('click', () => { closeMenus(); publish(true); });
     $('#prlink').addEventListener('click', () => closeMenus());
