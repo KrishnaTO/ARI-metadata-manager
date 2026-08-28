@@ -1,5 +1,12 @@
 # Changelog
 
+## column-sort-disease-mapping
+- **The review matrix can be ordered and narrowed by a single database column.** Every column header in `static/ref-edits/` is now two controls: clicking the label sorts the matrix by that database — diseases still missing a mapping first (▲), the reverse (▼), then back to the ontology's own order — and the `∅` button beside it hides every disease that already has a mapping there, so a curator can work one target database down to zero.
+- "Missing" is the same notion the glyphs already use: a cell counts as missing until it is confirmed (`✓`) or declared to have no term in that database (`∅`). Blank, predicted, on-file-but-unjudged and flagged cells all still need work, and the missing-first sort ranks them in that order (blank → flagged → synonym-only → predicted → on file), so the emptiest cells lead.
+- The `Disease` header sorts by name (A–Z, Z–A, off) on the same three-click cycle.
+- The column controls compose with the existing text filter and the queue filter rather than replacing them, and the shift-click range selection follows the sorted order it can see. One column is sorted and one filtered at a time; both are view-only state and neither touches verdicts, counts, or what a publish contains.
+- Verified against the running app: MONDO missing-first puts the 40 blank cells on top, `∅ MONDO` narrows 214 rows to the 192 without a confirmed mapping (zero confirmed or not-in-database rows leaking through), the filters compose with a text search (49 rows), row expansion still works after sorting, and no console errors.
+
 ## remove-omim-mappings-ref-edits
 - **OMIM is no longer a cross-reference option on the ref-edits page.** Its registry entry in `app/xref_registry.py` flips `review` to `False`, so the column disappears from the review matrix (the page builds its columns from `GET /api/v2/xref-databases`) and OMIM drops out of `predict_service.TARGET_DBS` — no OMIM ids are proposed any more. It was already absent from the main disease page (`main_app: False`).
 - The entry itself stays so ids already stored under `ARI_OMIM` keep their CURIE prefix and SSSOM `curie_map` base, and `normalize_id("omim", …)` still strips a self-prefix.
