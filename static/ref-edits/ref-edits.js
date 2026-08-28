@@ -503,13 +503,14 @@
     const compact = document.documentElement.dataset.density === 'compact';
     if (diseaseW !== null) diseaseW = Math.max(DISEASE_MIN, Math.min(diseaseMax(), diseaseW));
     const w = diseaseW === null ? (compact ? 250 : 330) : diseaseW;
+    // The splitter reads --disease-col to place itself on the boundary.
+    document.documentElement.style.setProperty('--disease-col', Math.round(w) + 'px');
     document.documentElement.style.setProperty('--grid-cols',
-      Math.round(w) + 'px repeat(' + DBS.length + ', minmax(44px,1fr))');
+      'var(--disease-col) repeat(' + DBS.length + ', minmax(44px,1fr))');
   }
 
   function renderHead() {
-    $('#mhead').innerHTML = '<div>Disease<span class="mcolgrip" title="Drag to widen the disease column · ' +
-      'double-click to reset"></span></div>' + DBS.map(d => `<div>${esc(d.label)}</div>`).join('');
+    $('#mhead').innerHTML = '<div>Disease</div>' + DBS.map(d => `<div>${esc(d.label)}</div>`).join('');
   }
 
   const inQueueFilter = r => queueFilter === 'all' ? true
@@ -1036,7 +1037,7 @@
     const move = e => {
       if (!dragging) return;
       const x = (e.touches ? e.touches[0].clientX : e.clientX);
-      diseaseW = (x - $('#mhead').getBoundingClientRect().left) / uiZoom();
+      diseaseW = (x - $('#matrix-inner').getBoundingClientRect().left) / uiZoom();
       applyGrid();
       e.preventDefault();
     };
@@ -1045,15 +1046,11 @@
       dragging = false; document.body.classList.remove('dragging');
       try { localStorage.setItem('refDiseaseW', String(Math.round(diseaseW))); } catch (err) {}
     };
-    const start = e => {
-      if (!e.target.closest('.mcolgrip')) return;
-      dragging = true; document.body.classList.add('dragging'); e.preventDefault();
-    };
-    const head = $('#mhead');
-    head.addEventListener('mousedown', start);
-    head.addEventListener('touchstart', start, { passive: false });
-    head.addEventListener('dblclick', e => {
-      if (!e.target.closest('.mcolgrip')) return;
+    const start = e => { dragging = true; document.body.classList.add('dragging'); e.preventDefault(); };
+    const grip = $('#colgrip');
+    grip.addEventListener('mousedown', start);
+    grip.addEventListener('touchstart', start, { passive: false });
+    grip.addEventListener('dblclick', () => {
       diseaseW = null; applyGrid();
       try { localStorage.removeItem('refDiseaseW'); } catch (err) {}
     });
