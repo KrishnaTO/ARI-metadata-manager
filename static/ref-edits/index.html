@@ -29,7 +29,10 @@
     --sans:'IBM Plex Sans',system-ui,-apple-system,sans-serif;
     --mono:'IBM Plex Mono',ui-monospace,monospace;
     /* Column track list — rebuilt by JS from the database count and the density. */
-    --grid-cols:330px repeat(10,minmax(0,1fr));
+    /* Disease column width and the full track list — both rebuilt by JS from the
+       database count, the density, and any width the curator has dragged. */
+    --disease-col:330px;
+    --grid-cols:var(--disease-col) repeat(10,minmax(0,1fr));
   }
   html[data-theme="dark"] {
     --surface:#0F2840; --band:#0C2438; --head:#0C2438; --line:#1F3A58; --line-strong:#1F3A58;
@@ -195,12 +198,32 @@
   #matrix-wrap { flex:1; min-width:0; overflow:auto; }
   /* The columns have a floor (see --grid-cols), so opening the side panel scrolls the
      matrix horizontally rather than crushing ten headers into an unreadable smear. */
-  #matrix, .mhead { min-width:min-content; }
+  #matrix, .mhead, #matrix-inner { min-width:min-content; }
+  /* Positioning context for the column splitter: it wraps the header and the rows, so
+     its height is the whole matrix rather than the visible slice. */
+  #matrix-inner { position:relative; }
   .mhead { display:grid; grid-template-columns:var(--grid-cols); position:sticky; top:0; z-index:2;
            background:var(--head); border-bottom:1px solid var(--line-strong); }
   .mhead > div { padding:8px 4px; text-align:center; font:600 10px var(--sans); letter-spacing:.05em;
                  text-transform:uppercase; color:var(--mute); border-left:1px solid var(--line); }
   .mhead > div:first-child { padding:8px 14px; text-align:left; letter-spacing:.09em; border-left:0; }
+  /* Column splitter between Disease and the first database (SNOMED). A narrow screen
+     squeezes the disease names to an ellipsis long before the glyph columns hurt, so
+     the boundary drags — up to half the viewport — and double-clicks back to default.
+     The strip is grabbable down the whole column, not just at the header, and sits on
+     the boundary itself (--disease-col is the first grid track). */
+  .mcolgrip { position:absolute; top:0; bottom:0; left:var(--disease-col); margin-left:-4px; width:9px;
+              z-index:3; cursor:col-resize; touch-action:none; }
+  /* The handle: a pill that sticks to the top of the scrollport, so it stays in reach
+     however far the matrix is scrolled — the header it marks is sticky too. */
+  .mcolgrip::before { content:''; display:block; position:sticky; top:5px; margin-left:3px; width:3px;
+                      height:18px; border-radius:2px; background:var(--line-strong); }
+  /* Hover and drag light the full column length, so the boundary being moved is legible
+     against the rows rather than only in the header. */
+  .mcolgrip::after { content:''; position:absolute; top:0; bottom:0; left:4px; width:1px; background:transparent; }
+  .mcolgrip:hover::before, body.dragging .mcolgrip::before { background:var(--accent); }
+  .mcolgrip:hover::after, body.dragging .mcolgrip::after { left:3px; width:3px; border-radius:2px;
+                                                           background:var(--accent); }
   /* Column controls: the label sorts the column (missing mappings first, then the
      reverse, then off) and the ∅ button narrows the matrix to the diseases missing
      a mapping in that one database. Both are buttons so keyboard users get them. */
@@ -314,6 +337,7 @@
   #side { width:0; flex-shrink:0; border-left:1px solid var(--line-strong); overflow:hidden; transition:width .15s;
           background:var(--band); }
   #side.open { width:34%; min-width:320px; }
+  body.dragging { user-select:none; }
   body.dragging #side { transition:none; }
   body.dragging iframe { pointer-events:none; }
   /* The panel stacks head/ids/compare/actions above the preview frame; on a short
@@ -469,8 +493,11 @@
 <div class="body">
   <div id="subtype-overlay"></div>
   <div id="matrix-wrap">
-    <div class="mhead" id="mhead"></div>
-    <div id="matrix"><p class="muted" style="padding:16px">Loading cross-references…</p></div>
+    <div id="matrix-inner">
+      <div class="mcolgrip" id="colgrip" title="Drag to widen the disease column · double-click to reset"></div>
+      <div class="mhead" id="mhead"></div>
+      <div id="matrix"><p class="muted" style="padding:16px">Loading cross-references…</p></div>
+    </div>
   </div>
   <div id="divider"></div>
   <div id="side"><div id="panel"></div></div>

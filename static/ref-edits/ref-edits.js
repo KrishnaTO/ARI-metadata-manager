@@ -500,12 +500,26 @@
   }
 
   // ----------------------------------------------------------------- MATRIX
-  // Column tracks: a fixed disease column plus one equal track per database. The 44px
-  // floor is what makes the matrix scroll instead of collapse when the panel opens.
+  // Disease column width, in px. null means the density default; a dragged value
+  // (see initColGrip) is clamped to half the matrix area and remembered per browser.
+  let diseaseW = null;
+  const DISEASE_MIN = 150;
+  // body carries a --ui-zoom scale, so pointer coordinates are that much larger than
+  // the CSS pixels the grid track is expressed in — divide before using them as width.
+  const uiZoom = () => Number(getComputedStyle(document.documentElement).getPropertyValue('--ui-zoom')) || 1;
+  const diseaseMax = () => document.querySelector('.body').getBoundingClientRect().width / uiZoom() / 2;
+
+  // Column tracks: the disease column plus one equal track per database. The 44px
+  // floor is what makes the matrix scroll instead of collapse when the panel opens
+  // or the disease column is dragged wide.
   function applyGrid() {
     const compact = document.documentElement.dataset.density === 'compact';
+    if (diseaseW !== null) diseaseW = Math.max(DISEASE_MIN, Math.min(diseaseMax(), diseaseW));
+    const w = diseaseW === null ? (compact ? 250 : 330) : diseaseW;
+    // The splitter reads --disease-col to place itself on the boundary.
+    document.documentElement.style.setProperty('--disease-col', Math.round(w) + 'px');
     document.documentElement.style.setProperty('--grid-cols',
-      (compact ? '250px' : '330px') + ' repeat(' + DBS.length + ', minmax(44px,1fr))');
+      'var(--disease-col) repeat(' + DBS.length + ', minmax(44px,1fr))');
   }
 
   // Header cells carry both column controls: the label sorts, the ∅ button filters.
@@ -1074,6 +1088,36 @@
     window.addEventListener('mouseup', end); window.addEventListener('touchend', end);
   }
 
+  // Draggable boundary between the disease column and the first database column —
+  // small screens clip long disease names, so the column widens to half the matrix.
+  function initColGrip() {
+    let dragging = false;
+    const move = e => {
+      if (!dragging) return;
+      const x = (e.touches ? e.touches[0].clientX : e.clientX);
+      diseaseW = (x - $('#matrix-inner').getBoundingClientRect().left) / uiZoom();
+      applyGrid();
+      e.preventDefault();
+    };
+    const end = () => {
+      if (!dragging) return;
+      dragging = false; document.body.classList.remove('dragging');
+      try { localStorage.setItem('refDiseaseW', String(Math.round(diseaseW))); } catch (err) {}
+    };
+    const start = e => { dragging = true; document.body.classList.add('dragging'); e.preventDefault(); };
+    const grip = $('#colgrip');
+    grip.addEventListener('mousedown', start);
+    grip.addEventListener('touchstart', start, { passive: false });
+    grip.addEventListener('dblclick', () => {
+      diseaseW = null; applyGrid();
+      try { localStorage.removeItem('refDiseaseW'); } catch (err) {}
+    });
+    window.addEventListener('mousemove', move); window.addEventListener('touchmove', move, { passive: false });
+    window.addEventListener('mouseup', end); window.addEventListener('touchend', end);
+    // A narrower window lowers the half-the-viewport ceiling; applyGrid re-clamps.
+    window.addEventListener('resize', () => { if (diseaseW !== null) applyGrid(); });
+  }
+
   // ------------------------------------------------------- HEADER CONTROLS
   // Toolbar popovers (preferences, publish options). One is open at a time, and a
   // click outside or Escape closes it — the button keeps aria-expanded in step.
@@ -1203,8 +1247,9 @@
     // Who holds which disease — drives the owner badges and the queue filter.
     await loadOwners();
     reflectPr();
+    diseaseW = Number(localStorage.getItem('refDiseaseW')) || null;
     applyGrid(); syncSegs(); renderHead(); renderMatrix(); counts();
-    initDivider(); initControls(); initQueue();
+    initDivider(); initColGrip(); initControls(); initQueue();
     $('#filter').addEventListener('input', renderMatrix);
     $('#mhead').addEventListener('click', e => {
       const miss = e.target.closest('[data-miss]');
