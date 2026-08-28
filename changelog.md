@@ -1,5 +1,13 @@
 # Changelog
 
+## disease-snomed-column-slider
+- **The Disease/SNOMED boundary in the review matrix drags.** A `col-resize` grip sits at the right edge of the `Disease` header cell; dragging it sets the matrix's first grid track anywhere between 150px and half the viewport, and a double-click returns it to the density default (330px comfortable, 250px compact). On a small screen the disease names were the first thing to ellipsize, long before the glyph columns became unreadable — this trades glyph width for name width on demand instead of at a fixed ratio.
+- The grip lives inside the sticky `.mhead`, so it stays reachable while the matrix scrolls, and works with mouse and touch (the same handler shape as the side-panel `#divider`).
+- Pointer coordinates are divided by `--ui-zoom` before they become a width — the body is scaled 1.25x, so the raw delta would have run 25% ahead of the cursor.
+- The width is remembered per browser in `localStorage` under `refDiseaseW`, re-clamped on load and on window resize, so a value saved on a wide screen cannot exceed half of a narrower one.
+- Widening past the point where the databases hit their 44px floor scrolls the matrix horizontally, as before — the glyph columns are never crushed.
+- Verified in the running app at a 900px viewport: drag, both clamps, double-click reset, persistence across reload, density switch, and horizontal scroll at maximum width; no console errors.
+
 ## remove-omim-mappings-ref-edits
 - **OMIM is no longer a cross-reference option on the ref-edits page.** Its registry entry in `app/xref_registry.py` flips `review` to `False`, so the column disappears from the review matrix (the page builds its columns from `GET /api/v2/xref-databases`) and OMIM drops out of `predict_service.TARGET_DBS` — no OMIM ids are proposed any more. It was already absent from the main disease page (`main_app: False`).
 - The entry itself stays so ids already stored under `ARI_OMIM` keep their CURIE prefix and SSSOM `curie_map` base, and `normalize_id("omim", …)` still strips a self-prefix.

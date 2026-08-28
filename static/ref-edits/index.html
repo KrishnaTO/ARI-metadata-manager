@@ -200,7 +200,18 @@
            background:var(--head); border-bottom:1px solid var(--line-strong); }
   .mhead > div { padding:8px 4px; text-align:center; font:600 10px var(--sans); letter-spacing:.05em;
                  text-transform:uppercase; color:var(--mute); border-left:1px solid var(--line); }
-  .mhead > div:first-child { padding:8px 14px; text-align:left; letter-spacing:.09em; border-left:0; }
+  .mhead > div:first-child { padding:8px 14px; text-align:left; letter-spacing:.09em; border-left:0;
+                             position:relative; }
+  /* Column splitter between Disease and the first database (SNOMED). A narrow screen
+     squeezes the disease names to an ellipsis long before the glyph columns hurt, so
+     the boundary drags — up to half the viewport — and double-clicks back to default.
+     It lives in the sticky header, so it stays reachable while the matrix scrolls. */
+  .mcolgrip { position:absolute; top:0; right:-4px; width:9px; height:100%; z-index:3; cursor:col-resize;
+              touch-action:none; }
+  .mcolgrip::after { content:''; position:absolute; top:3px; bottom:3px; left:4px; width:1px;
+                     background:var(--line-strong); }
+  .mcolgrip:hover::after, body.dragging .mcolgrip::after { left:3px; width:3px; border-radius:2px;
+                                                           background:var(--accent); }
   .mrow { display:grid; grid-template-columns:var(--grid-cols); border-bottom:1px solid var(--line);
           cursor:pointer; background:var(--surface); }
   .mgroup:nth-child(even) .mrow { background:var(--band); }
@@ -299,6 +310,7 @@
   #side { width:0; flex-shrink:0; border-left:1px solid var(--line-strong); overflow:hidden; transition:width .15s;
           background:var(--band); }
   #side.open { width:34%; min-width:320px; }
+  body.dragging { user-select:none; }
   body.dragging #side { transition:none; }
   body.dragging iframe { pointer-events:none; }
   /* The panel stacks head/ids/compare/actions above the preview frame; on a short
