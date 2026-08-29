@@ -24,7 +24,7 @@ def signed_in(tmp_path, monkeypatch):
 
 def test_anonymous_cannot_assign():
     r = client.post("/api/v2/assignments", json={"iris": ["a"]})
-    assert r.status_code == 400
+    assert r.status_code == 401
     assert "Sign in" in r.json()["detail"]
 
 

@@ -24,11 +24,18 @@ def slugify(text: str) -> str:
     return (s or "disease")[:60]
 
 
+# The app forks one public repository and pushes one branch to it. `repo` — the
+# scope this used to request — is read and write over every repository the
+# curator can reach, including their employer's private ones. `public_repo` is
+# the narrowest scope that still covers fork + commit + pull request.
+OAUTH_SCOPE = "public_repo user:email"
+
+
 def authorize_url(client_id: str, redirect_uri: str, state: str) -> str:
     from urllib.parse import urlencode
     return f"{GH}/login/oauth/authorize?" + urlencode({
         "client_id": client_id, "redirect_uri": redirect_uri,
-        "scope": "repo user:email", "state": state, "allow_signup": "false",
+        "scope": OAUTH_SCOPE, "state": state, "allow_signup": "false",
     })
 
 

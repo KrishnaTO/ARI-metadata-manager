@@ -13,9 +13,21 @@ from pathlib import Path
 
 log = logging.getLogger(__name__)
 
+MAX_MESSAGE_CHARS = 4000
+
 
 def _now() -> str:
     return datetime.now().strftime("%Y-%m-%d %H:%M")
+
+
+def _checked_message(message) -> str:
+    message = (message or "").strip()
+    if not message:
+        raise ValueError("Feedback message is empty")
+    if len(message) > MAX_MESSAGE_CHARS:
+        raise ValueError(f"Feedback message is too long "
+                         f"({len(message)} characters; the limit is {MAX_MESSAGE_CHARS})")
+    return message
 
 
 class FeedbackStore:
@@ -68,9 +80,7 @@ class FeedbackStore:
 
     def add(self, disease_iri: str, term: str, message: str,
             keep: bool = False, author: str = "anonymous") -> dict:
-        message = (message or "").strip()
-        if not message:
-            raise ValueError("Feedback message is empty")
+        message = _checked_message(message)
         items = self._load()
         entry = {
             "id": "fb_" + uuid.uuid4().hex[:10],
@@ -87,17 +97,15 @@ class FeedbackStore:
         self._log("ADD", entry)
         return entry
 
-    def update(self, fid: str, message=None, keep=None, author=None) -> dict:
+    def update(self, fid: str, message=None, keep=None) -> dict:
         items = self._load()
         found = None
         for x in items:
             if x.get("id") == fid:
                 if message is not None:
-                    x["message"] = str(message).strip()
+                    x["message"] = _checked_message(message)
                 if keep is not None:
                     x["keep"] = bool(keep)
-                if author:
-                    x["author"] = str(author).strip()
                 x["updated"] = _now()
                 found = x
                 break
@@ -110,10 +118,11 @@ class FeedbackStore:
     def delete(self, fid: str) -> dict:
         items = self._load()
         removed = next((x for x in items if x.get("id") == fid), None)
-        if removed:
-            self._log("DELETE", removed)
+        if not removed:
+            return {"ok": True, "deleted": False}    # nothing matched; don't rewrite the file
+        self._log("DELETE", removed)
         self._save([x for x in items if x.get("id") != fid])
-        return {"ok": True, "deleted": bool(removed)}
+        return {"ok": True, "deleted": True}
 
     def archive_on_release(self, version: str) -> dict:
         """Move non-kept feedback into a versioned archive; retain flagged entries."""
