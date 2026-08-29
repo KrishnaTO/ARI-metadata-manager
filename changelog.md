@@ -1,5 +1,34 @@
 # Changelog
 
+## accessibility-contrast-keyboard
+Closes #95, #100. **[UI change — needs review]**
+
+### Contrast and shape (#95)
+- **The verdict colours meet WCAG AA.** Five of the six states failed the 4.5:1 minimum, three of them badly, so at the shipped glyph size the grid read as an undifferentiated pale wash and you could not see at a glance where the outstanding work was. Only the foregrounds move; the background tints are unchanged. Every ratio was recomputed independently rather than taken from the issue:
+
+  | State | Was | Now | Ratio |
+  |---|---|---|---|
+  | confirmed | `#2F8F6F` (3.41) | `#1B6B50` | **5.52** |
+  | predicted | `#B5841A` (2.92) | `#7D5A0E` | **5.48** |
+  | synonym-only | `#C4A85E` (2.17) | `#6F5A18` | **6.28** |
+  | flagged | `#B7382D` (4.61) | `#9E2B22` | **5.91** |
+  | empty, light | `#C2CAD4` (1.53) | `#5C6675` | **5.37** |
+  | empty, dark | `#3A5170` (1.85) | `#8FA3BC` | **5.82** |
+  | `--mute-soft` on white | `#8A93A2` (3.10) | `#6E7787` | **4.51** |
+
+- **Each state has its own shape, not just its own size.** `●` predicted, `○` synonym-only and `•` on-file differed mainly in *size* at 11px — a discrimination the eye is poor at, and one that left a red-green colour-blind curator with no reliable channel at all. They are now `!`, `?` and `•`, and "no term in database" is `–` rather than `∅`.
+- The `∅` on a column header meant "show what is still missing", a *filter* rather than a verdict, so it is now `○` and no longer collides with the state alphabet. The `Not in <DB>` buttons show the `–` they set.
+- Matrix glyphs step from 11px to 13.5px.
+
+### Keyboard and target size (#100)
+- **The disease index is operable from the keyboard.** Every row was a plain `div` with a click handler — no tabindex, no role, no focus ring — so the rail could not be reached without a mouse and screen readers saw unlabelled containers. The pane is a `role="tree"` of `treeitem` rows with a roving tabindex: ↑↓ move, ←→ collapse and expand, Home/End jump, Enter/Space open, and `:focus-visible` shows a ring. Verified on the running app: 214 rows, exactly one tab stop, arrow keys move focus.
+- **The matrix is operable from the keyboard.** All 1,926 cells are `role="gridcell"` with an accessible name ("Acquired epidermolysis bullosa, SNOMED: confirmed") and a roving tabindex; arrow keys move in both axes, Enter opens the review panel, and `Y`/`N`/`D` apply a verdict by clicking the panel's own buttons — so every rule they enforce, including the separation-of-duties gate, is inherited rather than reimplemented. Arrow movement is also the fastest way for a mouse user to work through the grid.
+- **The search dropdown can be used from the keyboard.** It handled only Enter, which jumped to the full results page, so a keyboard user could never select a suggestion. ↑↓ move through them with `aria-activedescendant` on the input, Enter opens the highlighted one, Escape closes. Enter with nothing highlighted still opens the full results page.
+- **The story-spine categories are real buttons.** Querying the accessibility tree for "Symptoms" returned nothing while the link was plainly on screen; it now reports "Symptoms 18". The UA button chrome is reset so nothing moves visually.
+- **Five targets below the WCAG 2.2 AA 24×24 minimum are padded out** — the remove-synonym × (was 14×14), the copy-the-ARI-id button (17×17, verified now exactly 24×24), the rail filter checkbox (13×13), the matrix row-select checkbox (13×13) and the missing-only column button (~11×11). The icons keep their size; only the hit area grows.
+
+Verified against the running app in both themes: no console errors, matrix and index render correctly, keyboard navigation confirmed by driving the real page.
+
 ## disease-snomed-column-slider
 - **The Disease/SNOMED boundary in the review matrix drags.** A `col-resize` grip sits on the boundary; dragging it sets the matrix's first grid track anywhere between 150px and half the viewport, and a double-click returns it to the density default (330px comfortable, 250px compact). On a small screen the disease names were the first thing to ellipsize, long before the glyph columns became unreadable — this trades glyph width for name width on demand instead of at a fixed ratio.
 - **The grip runs the whole column length, not just the header.** A new `#matrix-inner` wraps the header and the rows, giving the splitter a positioning context as tall as the matrix; the strip is grabbable beside any row, and hovering or dragging lights the boundary down the full length so the move is legible against the rows. Its handle — a small pill — is `position: sticky`, so it stays at the top of the scrollport however far the matrix has scrolled. Mouse and touch, the same handler shape as the side-panel `#divider`.

@@ -19,12 +19,17 @@
     --surface:#fff; --band:#FAFBFC; --head:#EAEEF2; --line:#DDE3EA; --line-strong:#C2CAD4;
     --text:#0F2840; --mute:#5C6675; --faint:#8A93A2;
     --accent:#1F6B7A; --accent-fg:#fff;
-    --ok-bg:#E2F1EB; --ok-fg:#2F8F6F; --ok-solid:#2F8F6F;
-    --pred-bg:#F8EFD6; --pred-fg:#B5841A;
-    --low-bg:#FCF8EE; --low-fg:#C4A85E;
-    --bad-bg:#F4E1DF; --bad-fg:#B7382D; --bad-solid:#B7382D;
+    /* Verdict foregrounds are measured against their own tint: five of the six
+       states failed the WCAG AA 4.5:1 minimum, three of them badly, so at the
+       shipped glyph size the grid read as an undifferentiated pale wash and you
+       could not see where the outstanding work was. Ratios in comments; the
+       background tints are unchanged. */
+    --ok-bg:#E2F1EB; --ok-fg:#1B6B50; --ok-solid:#2F8F6F;    /* 5.52 (was 3.41) */
+    --pred-bg:#F8EFD6; --pred-fg:#7D5A0E;                    /* 5.48 (was 2.92) */
+    --low-bg:#FCF8EE; --low-fg:#6F5A18;                      /* 6.28 (was 2.17) */
+    --bad-bg:#F4E1DF; --bad-fg:#9E2B22; --bad-solid:#B7382D; /* 5.91 (was 4.61) */
     --have-bg:#F4F6F8; --have-fg:#5C6675;
-    --empty-fg:#C2CAD4; --rail:#0F2840;
+    --empty-fg:#5C6675; --rail:#0F2840;                      /* 5.37 (was 1.53) */
     --header-bg:#fff; --track:#E3E8EE;
     --sans:'IBM Plex Sans',system-ui,-apple-system,sans-serif;
     --mono:'IBM Plex Mono',ui-monospace,monospace;
@@ -43,7 +48,7 @@
     --low-bg:rgba(181,132,26,.13); --low-fg:#B79A5C;
     --bad-bg:rgba(183,56,45,.24); --bad-fg:#D98A80; --bad-solid:#B7382D;
     --have-bg:rgba(227,232,238,.05); --have-fg:#8A93A2;
-    --empty-fg:#3A5170; --rail:#9DD3D6;
+    --empty-fg:#8FA3BC; --rail:#9DD3D6;                      /* 5.42 on #0F2840 (was 1.85) */
     --header-bg:#081A2C; --track:#1F3A58;
   }
   * { box-sizing:border-box; }
@@ -225,7 +230,7 @@
   .mcolgrip:hover::after, body.dragging .mcolgrip::after { left:3px; width:3px; border-radius:2px;
                                                            background:var(--accent); }
   /* Column controls: the label sorts the column (missing mappings first, then the
-     reverse, then off) and the ∅ button narrows the matrix to the diseases missing
+     reverse, then off) and the ○ button narrows the matrix to the diseases missing
      a mapping in that one database. Both are buttons so keyboard users get them. */
   .hcol { display:flex; flex-direction:column; align-items:center; gap:2px; }
   .hcol.active { color:var(--accent); }
@@ -234,7 +239,11 @@
   .hsort { display:flex; align-items:center; justify-content:center; gap:2px; width:100%; }
   .hsort:hover, .hmiss:hover { color:var(--accent); }
   .harrow { font-size:8px; }
-  .hmiss { font-size:11px; line-height:1; opacity:.45; }
+  /* WCAG 2.2 AA wants a 24x24 target. The glyph stays small; the hit area does
+     not — padding and a min-size do the work, so nothing moves visually. */
+  .hmiss { font-size:11px; line-height:1; opacity:.45;
+           min-width:24px; min-height:24px; display:inline-flex;
+           align-items:center; justify-content:center; }
   .hmiss:hover { opacity:1; }
   .hmiss.on { opacity:1; color:var(--accent-fg); background:var(--accent);
               border-radius:99px; padding:1px 5px; }
@@ -246,7 +255,10 @@
   .mname { padding:9px 14px; display:flex; align-items:center; gap:8px; min-width:0; }
   .mcaret { color:var(--faint); font-size:10px; flex-shrink:0; }
   /* Queue controls in the disease cell: a select box, and who holds the disease. */
-  .mselect { flex-shrink:0; width:13px; height:13px; margin:0; cursor:pointer; accent-color:var(--accent); }
+  /* The box stays 13px; the clickable square around it is 24x24. */
+  .mselect { flex-shrink:0; width:13px; height:13px; margin:0; cursor:pointer;
+             accent-color:var(--accent); padding:5.5px; box-sizing:content-box;
+             background-clip:content-box; }
   .mowner { flex-shrink:0; margin-left:auto; font:500 10px var(--mono); padding:2px 7px; border-radius:99px;
             background:var(--have-bg); color:var(--have-fg); }
   .mowner.mine { background:var(--ok-bg); color:var(--ok-fg); }
@@ -259,7 +271,12 @@
   .ai-dot { flex-shrink:0; width:5px; height:5px; border-radius:50%; background:var(--accent); }
   .mcount { font:400 10px var(--mono); color:var(--faint); flex-shrink:0; margin-left:auto; }
   .mcell { display:flex; align-items:center; justify-content:center; border-left:1px solid var(--line);
-           font-size:11px; cursor:pointer; color:var(--empty-fg); }
+           font-size:13.5px; cursor:pointer; color:var(--empty-fg); }
+  /* Keyboard: the matrix is a grid of ~1,900 cells and was entirely unreachable
+     without a mouse. A roving tabindex means one cell is in the tab order and
+     the arrow keys move between them. */
+  .mcell:focus { outline:none; }
+  .mcell:focus-visible { outline:2px solid var(--accent); outline-offset:-2px; z-index:2; }
   .mcell.ok   { background:var(--ok-bg);   color:var(--ok-fg); }
   .mcell.bad  { background:var(--bad-bg);  color:var(--bad-fg); }
   .mcell.pred { background:var(--pred-bg); color:var(--pred-fg); }
@@ -505,10 +522,10 @@
 <div class="legend">
   <span class="g">✓</span> confirmed ·
   <span class="g">•</span> id on file, not yet reviewed ·
-  <span class="g">●</span> predicted ·
-  <span class="g">○</span> predicted from a synonym only ·
+  <span class="g">!</span> predicted ·
+  <span class="g">?</span> predicted from a synonym only ·
   <span class="g">✕</span> flagged ·
-  <span class="g">∅</span> no term exists in that database ·
+  <span class="g">–</span> no term exists in that database ·
   blank no id. A superscript is the number of ids in that cell; a cell only reads ✓ once every id in it has a verdict.
   <span class="ai-dot" style="display:inline-block;vertical-align:middle"></span> after a disease name marks it confirmed autoimmune.
   The curator who added an id cannot confirm it — another curator has to.

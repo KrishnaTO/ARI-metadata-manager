@@ -51,13 +51,16 @@ function renderAlphabetical(){
       const obs = n.obsolete ? ' obsolete' : '';
       const obsTag = n.obsolete ? ' <span class="obsolete-tag">(obsolete)</span>' : '';
       let h = `<div class="node${hasKids ? ' collapsed' : ''}">`;
-      h += `<div class="node-row disease-row${sel}${obs}${autoimmuneClass(n)}" data-iri="${esc(n.iri)}">${twisty(true, !hasKids, hasKids)}<span class="nm">${esc(n.name)}</span>${obsTag}</div>`;
+      h += `<div class="node-row disease-row${sel}${obs}${autoimmuneClass(n)}" data-iri="${esc(n.iri)}"
+             role="treeitem" tabindex="-1" aria-selected="${sel ? 'true' : 'false'}"
+             ${hasKids ? 'aria-expanded="false"' : ''}>${twisty(true, !hasKids, hasKids)}<span class="nm">${esc(n.name)}</span>${obsTag}</div>`;
       if (hasKids){ h += `<div class="children">${kids.map(node).join('')}</div>`; }
       h += `</div>`;
       return h;
     };
     $('#tree-pane').innerHTML = roots.length ? roots.map(node).join('')
       : `<div class="empty-state">${state.autoimmuneOnly ? 'No confirmed autoimmune diseases.' : 'No diseases.'}</div>`;
+    primeTreeTabStop();
   }).catch(() => $('#tree-pane').innerHTML = '<div class="empty-state">Error loading list.</div>');
 }
 
@@ -71,7 +74,8 @@ function renderTissue(){
       const hasKids = subClasses.length > 0 || diseases.length > 0;
       const ari = n.ari_id ? `<span class="ari-chip">${esc(n.ari_id)}</span>` : '';
       let h = `<div class="node">`;
-      h += `<div class="node-row tissue" data-toggle="1">${twisty(false, !hasKids)}<span class="nm">${esc(n.name)}</span>${ari}</div>`;
+      h += `<div class="node-row tissue" data-toggle="1" role="treeitem" tabindex="-1"
+             ${hasKids ? 'aria-expanded="false"' : ''}>${twisty(false, !hasKids)}<span class="nm">${esc(n.name)}</span>${ari}</div>`;
       if (hasKids){
         h += `<div class="children">`;
         h += subClasses.map(node).join('');
@@ -79,7 +83,8 @@ function renderTissue(){
           const sel = state.activeIri === d.iri ? ' selected' : '';
           const obs = d.obsolete ? ' obsolete' : '';
           const obsTag = d.obsolete ? ' <span class="obsolete-tag">(obsolete)</span>' : '';
-          h += `<div class="node"><div class="node-row disease-row${sel}${obs}${autoimmuneClass(d)}" data-iri="${esc(d.iri)}">${twisty(true, true)}<span class="nm">${esc(d.name)}</span>${obsTag}</div></div>`;
+          h += `<div class="node"><div class="node-row disease-row${sel}${obs}${autoimmuneClass(d)}" data-iri="${esc(d.iri)}"
+             role="treeitem" tabindex="-1" aria-selected="${sel ? 'true' : 'false'}">${twisty(true, true)}<span class="nm">${esc(d.name)}</span>${obsTag}</div></div>`;
         }
         h += `</div>`;
       }
@@ -87,6 +92,7 @@ function renderTissue(){
     };
     $('#tree-pane').innerHTML = tree.length ? tree.map(node).join('')
       : `<div class="empty-state">${state.autoimmuneOnly ? 'No confirmed autoimmune diseases.' : 'No tissue hierarchy.'}</div>`;
+    primeTreeTabStop();
   }).catch(() => $('#tree-pane').innerHTML = '<div class="empty-state">No tissue hierarchy available.</div>');
 }
 
@@ -246,3 +252,102 @@ async function showSearchResultsPage(q){
   $('#detail-pane').querySelectorAll('[data-iri]').forEach(row =>
     row.addEventListener('click', () => selectDisease(row.dataset.iri)));
 }
+
+// ------------------------------------------------------------------ KEYBOARD
+// The disease index was plain divs with click handlers: no tabindex, no role,
+// no focus ring, so it could not be reached without a mouse and screen readers
+// saw unlabelled containers. One roving tabindex over the visible rows makes
+// the whole rail keyboard-operable (issue #100).
+
+function visibleTreeRows(){
+  return [...$('#tree-pane').querySelectorAll('.node-row')]
+    .filter(el => el.offsetParent !== null);   // collapsed branches are not reachable
+}
+
+function focusTreeRow(row){
+  if (!row) return;
+  visibleTreeRows().forEach(el => el.tabIndex = -1);
+  row.tabIndex = 0;
+  row.focus();
+}
+
+// Keep exactly one row in the tab order as the tree re-renders.
+function primeTreeTabStop(){
+  const rows = visibleTreeRows();
+  if (!rows.length) return;
+  const current = rows.find(el => el.tabIndex === 0) ||
+                  rows.find(el => el.classList.contains('selected')) || rows[0];
+  rows.forEach(el => el.tabIndex = el === current ? 0 : -1);
+}
+
+$('#tree-pane').addEventListener('keydown', e => {
+  const row = e.target.closest('.node-row');
+  if (!row) return;
+  const rows = visibleTreeRows();
+  const i = rows.indexOf(row);
+  const twist = row.querySelector('.twisty');
+  const node = row.closest('.node');
+
+  switch (e.key) {
+    case 'ArrowDown': e.preventDefault(); focusTreeRow(rows[i + 1]); break;
+    case 'ArrowUp':   e.preventDefault(); focusTreeRow(rows[i - 1]); break;
+    case 'Home':      e.preventDefault(); focusTreeRow(rows[0]); break;
+    case 'End':       e.preventDefault(); focusTreeRow(rows[rows.length - 1]); break;
+    case 'ArrowRight':
+      if (node && node.classList.contains('collapsed')){ e.preventDefault(); twist?.click(); }
+      break;
+    case 'ArrowLeft':
+      if (node && !node.classList.contains('collapsed') && twist){ e.preventDefault(); twist.click(); }
+      else { e.preventDefault(); focusTreeRow(rows[i - 1]); }
+      break;
+    case 'Enter':
+    case ' ':
+      e.preventDefault();
+      row.click();
+      break;
+    default: return;
+  }
+});
+
+$('#tree-pane').addEventListener('focusin', e => {
+  const row = e.target.closest('.node-row');
+  if (row) visibleTreeRows().forEach(el => el.tabIndex = el === row ? 0 : -1);
+});
+
+// ---- search suggestions: arrow keys + Enter, with aria-activedescendant ----
+let _searchActive = -1;
+
+function searchOptions(){
+  return [...$('#search-results').querySelectorAll('.node-row')];
+}
+
+function highlightSearchOption(n){
+  const opts = searchOptions();
+  if (!opts.length) return;
+  _searchActive = (n + opts.length) % opts.length;
+  opts.forEach((el, i) => {
+    const on = i === _searchActive;
+    el.classList.toggle('kb-active', on);
+    if (on){
+      el.id = el.id || 'search-opt-' + i;
+      $('#search').setAttribute('aria-activedescendant', el.id);
+      el.scrollIntoView({ block: 'nearest' });
+    }
+  });
+}
+
+$('#search').addEventListener('keydown', e => {
+  const opts = searchOptions();
+  const open = !$('#search-results').classList.contains('hidden') && opts.length;
+  if (e.key === 'ArrowDown' && open){ e.preventDefault(); highlightSearchOption(_searchActive + 1); return; }
+  if (e.key === 'ArrowUp' && open){ e.preventDefault(); highlightSearchOption(_searchActive - 1); return; }
+  if (e.key === 'Escape'){ $('#search-results').classList.add('hidden'); _searchActive = -1; return; }
+  // Enter on a highlighted suggestion opens THAT disease. Enter with nothing
+  // highlighted keeps the old behaviour of opening the full results page —
+  // which was previously the only thing the keyboard could do here at all.
+  if (e.key === 'Enter' && open && _searchActive >= 0){
+    e.preventDefault();
+    opts[_searchActive].click();
+    _searchActive = -1;
+  }
+});
