@@ -27,6 +27,7 @@ from . import concept_service
 from . import predict_service
 from . import id_provenance
 from . import atomic_store
+from .errors import Invalid, NotFound
 
 log = logging.getLogger(__name__)
 
@@ -78,7 +79,11 @@ def _app_version() -> str:
     try:
         g = lambda *a: subprocess.check_output(["git", "-C", str(root), *a],
                                                text=True, stderr=subprocess.DEVNULL).strip()
-        return f"2.{g('rev-list', '--count', 'HEAD')} ({g('show', '-s', '--format=%cd', '--date=short', 'HEAD')})"
+        # README documents `2.<commit-count> (<sha>, <date>)`. The sha was
+        # missing, and it is the useful half in a bug report.
+        return (f"2.{g('rev-list', '--count', 'HEAD')} "
+                f"({g('show', '-s', '--format=%h', 'HEAD')}, "
+                f"{g('show', '-s', '--format=%cd', '--date=short', 'HEAD')})")
     except (OSError, subprocess.SubprocessError) as e:
         log.debug("Could not derive app version from git: %s", e)
         return "2.x"
@@ -487,13 +492,25 @@ async def no_cache_assets(request: Request, call_next):
     return response
 
 
-@app.exception_handler(KeyError)
-async def not_found(request: Request, exc: KeyError):
-    return JSONResponse(status_code=404, content={"detail": str(exc.args[0])})
+@app.exception_handler(NotFound)
+async def not_found(request: Request, exc: NotFound):
+    return JSONResponse(status_code=404, content={"detail": str(exc)})
+
+
+@app.exception_handler(Invalid)
+async def invalid(request: Request, exc: Invalid):
+    return JSONResponse(status_code=400, content={"detail": str(exc)})
 
 
 @app.exception_handler(ValueError)
 async def bad_request(request: Request, exc: ValueError):
+    """A refusal the caller can act on.
+
+    ``NotFound`` and ``Invalid`` above are the deliberate ones. A bare
+    ``ValueError`` from the service layer is still a refusal, so it keeps its
+    400 — but a bare ``KeyError`` is no longer mapped at all: it is a dictionary
+    bug, and it now 500s with a logged traceback instead of becoming a 404
+    carrying an internal key name."""
     return JSONResponse(status_code=400, content={"detail": str(exc)})
 
 
@@ -974,14 +991,23 @@ async def publish(request: Request, payload: dict = Body(default={})):
                                     flagged=flagged, absent=absent)
         extra_files = {SS_PATH: files["sssom"].encode("utf-8"),
                        EQ_PATH: files["equiv"].encode("utf-8")}
-        map_note = (f"## Reviewed mappings\n\n{files['added']} new "
-                    f"{len(confirmed)} positive / {len(flagged)} negative / "
-                    f"{len(absent)} no-term-found judgment(s) "
+        # This used to read "3 new 5 positive / 2 negative / 1 no-term-found
+        # judgment(s) added to …" — the new-row count and the verdict counts
+        # concatenated with no connecting words, in every review PR.
+        verdicts = ", ".join(
+            f"{n} {label}" for n, label in
+            ((len(confirmed), "confirmed"), (len(flagged), "flagged"),
+             (len(absent), "no term in database")) if n)
+        map_note = (f"## Reviewed mappings\n\n"
+                    f"{verdicts or 'No'} — {files['added']} new row(s) "
                     f"added to `{SS_PATH}` (SSSOM) and `{EQ_PATH}`.")
 
     parts = []
     if comment:
-        parts.append("**Curator comment:**\n\n" + comment)
+        # Quoted, not interpolated: the comment is authenticated input going
+        # into a public artefact, and markdown or raw HTML in it would render.
+        quoted = "\n".join("> " + line for line in comment.splitlines())
+        parts.append("**Curator comment:**\n\n" + quoted)
     parts.append(f"Submitted via the ARI Metadata Manager by @{u['identity']['login']}.")
     if map_note:
         parts.append(map_note)

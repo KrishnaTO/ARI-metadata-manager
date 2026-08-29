@@ -11,6 +11,7 @@ from datetime import datetime
 from pathlib import Path
 
 from . import atomic_store
+from .errors import NotFound
 
 log = logging.getLogger(__name__)
 
@@ -105,7 +106,7 @@ class FeedbackStore:
                 found = x
                 break
         if found is None:
-            raise KeyError(fid)
+            raise NotFound(fid)
         self._save(items)
         self._log("EDIT", found)
         return found

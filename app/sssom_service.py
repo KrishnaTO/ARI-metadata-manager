@@ -73,6 +73,10 @@ def _backfill_object_source(row: dict) -> dict:
     return row
 
 
+# Every publish parses the accumulated TSV, re-emits every row, and uploads the
+# result as one blob. That is fine at today's size but grows linearly with the
+# project's whole curation history, and it sits on the critical path of every
+# publish. Known and bounded; the move to append-only should be deliberate.
 def _merge_tsv(existing, cols, new_rows, key_idx, header_block="", normalize=None):
     existing_data = []
     old_cols = None

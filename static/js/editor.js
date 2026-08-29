@@ -285,7 +285,15 @@ async function saveEdits(){
     renderDetail(updated);
     renderTab();
     init();
-    toast('Saved — changelog updated');
+    // The server reports any value it could not store. These used to be dropped
+    // silently — a numeric field given "about 30 per 100k" saved successfully,
+    // wrote a changelog entry, and stored nothing.
+    const rejected = updated.rejected || [];
+    if (rejected.length){
+      toast(rejected.map(r => `${r.field}: ${r.reason} (kept "${r.value}" out)`).join('; '));
+    } else {
+      toast('Saved — changelog updated');
+    }
   } catch (err){
     toast('Save failed: ' + err.message);
     saveBtns.forEach(b => { b.disabled = false; b.textContent = 'Save changes'; });

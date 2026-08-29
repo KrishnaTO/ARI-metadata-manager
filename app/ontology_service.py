@@ -12,6 +12,7 @@ import types
 from owlready2 import AnnotationProperty, World, label, comment, destroy_entity
 
 from . import xref_registry
+from .errors import NotFound
 from .feedback_service import FeedbackStore
 from .id_allocator import IdAllocator
 from .schema import CATEGORIES, SEEALSO_IRI
@@ -62,6 +63,7 @@ class OntologyService:
         # convention as the feedback store, so `.user-data/<login>.owl` and the
         # base `ontologies/ari_t1d.owl` resolve to the one `provenance/` dir.
         self.ids = IdAllocator(self.path.parent.parent / "provenance")
+        self._predict_cache = None      # (ontology mtime, index dir) -> predicted cells
         self._load()
 
     def _load(self):
@@ -80,7 +82,7 @@ class OntologyService:
     def _entity(self, iri: str):
         e = self.world[iri]
         if e is None:
-            raise KeyError(f"No entity with IRI: {iri}")
+            raise NotFound(f"No entity with IRI: {iri}")
         return e
 
     def _get_label(self, e) -> str:
@@ -349,8 +351,20 @@ class OntologyService:
         downloaded reference-database indexes (``data/2-databases``) and returns a
         candidate id for each currently-empty target-database cell — the yellow
         "predicted" highlights of issue #42. Read-only: nothing is written to the
-        ontology. Returns the compact per-cell shape ``to_cells`` produces."""
+        ontology. Returns the compact per-cell shape ``to_cells`` produces.
+
+        Cached per (ontology mtime, index directory). The index files were
+        already cached with an mtime signature, but this rebuilt the disease
+        list and re-ran the whole matching pass on every call — and the review
+        page calls it on every load."""
         from . import predict_service as ps
+        index_dir = index_dir or ps.DEFAULT_INDEX_DIR
+        try:
+            sig = (self.path.stat().st_mtime_ns, str(index_dir))
+        except OSError:
+            sig = None
+        if sig is not None and self._predict_cache and self._predict_cache[0] == sig:
+            return self._predict_cache[1]
         base = self.base
         diseases = []
         for ind in self._all_diseases():
@@ -363,8 +377,10 @@ class OntologyService:
                 "existing": {db: _split_csv(self._get_annotation(ind, base + suffix))
                              for db, suffix in self.XREF_SUFFIXES.items()},
             })
-        preds = ps.predict_matches(diseases, index_dir=index_dir or ps.DEFAULT_INDEX_DIR)
-        return ps.to_cells(preds)
+        cells = ps.to_cells(ps.predict_matches(diseases, index_dir=index_dir))
+        if sig is not None:
+            self._predict_cache = (sig, cells)
+        return cells
 
     def get_disease_detail(self, iri: str) -> dict:
         """Return full detail about a disease individual and all its associations."""
@@ -674,13 +690,24 @@ class OntologyService:
     }
 
     def update_disease(self, iri: str, changes: dict, editor: str = "user") -> dict:
+        """Apply ``changes``, reporting anything that could not be stored.
+
+        A value that failed to cast, or a key that is not editable, used to be
+        skipped silently — so a curator typing "about 30 per 100k" into a numeric
+        prevalence field got a successful save, a changelog entry, and no value
+        stored, with nothing on screen saying otherwise. Rejections come back on
+        the detail as ``rejected`` so the form can say what went wrong and where.
+        """
         e = self._entity(iri)
         base = self.base
         changed = []
+        rejected = []
 
         for key, raw in changes.items():
             spec = self.EDITABLE.get(key)
             if not spec:
+                rejected.append({"field": key, "value": str(raw),
+                                 "reason": "is not an editable field"})
                 continue
             kind, suffix, caster = spec
 
@@ -697,6 +724,8 @@ class OntologyService:
             elif kind == "data":
                 prop = self.world[base + suffix]
                 if prop is None:
+                    rejected.append({"field": key, "value": str(raw),
+                                     "reason": f"the ontology declares no {suffix} property"})
                     continue
                 if str(raw).strip() == "":
                     prop[e] = []
@@ -704,6 +733,9 @@ class OntologyService:
                     try:
                         prop[e] = [caster(raw)]
                     except (ValueError, TypeError):
+                        wanted = "a number" if caster in (int, float) else caster.__name__
+                        rejected.append({"field": key, "value": str(raw),
+                                         "reason": f"expected {wanted}"})
                         continue
             changed.append(key)
 
@@ -711,7 +743,9 @@ class OntologyService:
             self._append_changelog(e, editor, f"Edited: {', '.join(sorted(changed))}")
             self._save()
 
-        return self.get_disease_detail(iri)
+        detail = self.get_disease_detail(iri)
+        detail["rejected"] = rejected
+        return detail
 
     # Width of the zero-padded numeric part of an ARI id (e.g. ARI:0001211).
     ARI_ID_WIDTH = 7
@@ -760,7 +794,7 @@ class OntologyService:
         base = self.base
         dis_cls = self._disease_class()
         if dis_cls is None:
-            raise KeyError("AutoimmuneDisease class not found")
+            raise NotFound("AutoimmuneDisease class not found")
 
         lbl = str(data.get("label", "")).strip()
         if not lbl:
@@ -870,10 +904,16 @@ class OntologyService:
             Path(tmp).unlink(missing_ok=True)
 
     def _append_changelog(self, disease_e, editor: str, msg: str):
+        """Record an edit on the disease's own changelog annotation.
+
+        This looked the property up and returned silently when it was absent, so
+        on any ontology where ``ARI_ChangeLog`` had not been declared every edit
+        was recorded nowhere while the caller still reported success. It is
+        declared on demand, the same way every other annotation writer here does.
+        """
         ts = datetime.now().strftime("%Y-%m-%d %H:%M")
-        clog = self.world[self.base + "ARI_ChangeLog"]
-        if clog is not None:
-            clog[disease_e] = list(clog[disease_e]) + [f"{ts} | {editor} | {msg}"]
+        clog = self._ensure_annotation_property("ARI_ChangeLog")
+        clog[disease_e] = list(clog[disease_e]) + [f"{ts} | {editor} | {msg}"]
 
     def log_xref_review(self, confirmed=None, flagged=None, editor: str = "curator",
                         absent=None) -> int:
@@ -1046,12 +1086,12 @@ class OntologyService:
 
     def add_item(self, disease_iri: str, category: str, values: dict, editor: str = "user") -> dict:
         if category not in CATEGORIES:
-            raise KeyError(f"Unknown category: {category}")
+            raise NotFound(f"Unknown category: {category}")
         spec = CATEGORIES[category]
         de = self._entity(disease_iri)
         cls = self.world[self.base + spec["cls"]]
         if cls is None:
-            raise KeyError(f"Class not found: {spec['cls']}")
+            raise NotFound(f"Class not found: {spec['cls']}")
         local = f"{spec['id_prefix']}_{uuid.uuid4().hex[:8]}"
         with self.onto:
             new = cls(local)
@@ -1067,7 +1107,7 @@ class OntologyService:
     def update_item(self, item_iri: str, category: str, changes: dict,
                     disease_iri: str = "", editor: str = "user") -> dict:
         if category not in CATEGORIES:
-            raise KeyError(f"Unknown category: {category}")
+            raise NotFound(f"Unknown category: {category}")
         e = self._entity(item_iri)
         applied = self._apply_item_fields(e, category, changes)
         if disease_iri and applied:
