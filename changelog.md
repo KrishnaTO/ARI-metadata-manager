@@ -1,5 +1,20 @@
 # Changelog
 
+## deployment
+Closes #122. Stacked on `security-hardening` (shares `deploy/nginx.conf`).
+
+- **The deploy no longer restarts out from under a curator.** `update.sh` ran `git reset --hard` and restarted on a ten-minute timer whenever the branch moved, with no gate. It now asks `/healthz` first and defers the restart when any curator's working copy is live in memory, so an idle window is found within ten minutes instead of the deploy interrupting someone mid-edit. `ARI_FORCE_RESTART=1` overrides for an urgent fix. (The data loss this used to cause is fixed separately in `data-durability`.)
+- **`GET /healthz`** returns ontology load state, working-copy count, in-memory worlds, session count and version — 503 when the base ontology will not load. No session required and no curation content in the response. nginx has a location block for it with `access_log off`.
+- **The cache-busting scheme finally does something.** Real care went into `__ASSETV__` — one git-derived token, substituted at render, tagging every asset so a deploy busts all of them at once. Then `no_cache_assets` set `Cache-Control: no-cache` on **every** `.js` and `.css` response, so nothing was cached and the token did nothing: every page load re-downloaded all thirteen JS files and the stylesheets, which is the slowest part of opening a record on the laptops this audience uses. HTML still revalidates (it carries the token); an asset *requested with* a version token is immutable by construction and now gets `max-age=31536000, immutable`.
+- **The three CDN libraries are vendored.** SRI pinning is exactly right for integrity but does nothing for *availability*, and hospital, university and pharmaceutical networks block third-party CDNs routinely — the failure mode was a broken pathophysiology graph and word cloud with nothing on screen explaining why. `static/vendor/` holds chart.js 4.5.1, d3 7.9.0 and d3-cloud 1.2.7, **each verified byte-for-byte against the SHA-384 the page already pinned**, so what is committed is exactly what was being served. `static/vendor/README.md` records the versions, upstream URLs and how to check a digest before refreshing one.
+- That removes the CDN exception from the CSP: `script-src` is now `'self'` alone.
+- Fonts still come from Google Fonts. They degrade to the fallback stack rather than breaking a feature, so vendoring them is lower value and larger; the CSP still allows those two origins.
+
+Verified against the running app: all three libraries load from `static/vendor/` with no CDN request and no console errors, `/healthz` returns 200 with the ontology loaded, a versioned asset gets the immutable header and an unversioned one does not, and the record page renders unchanged.
+
+### Still to do by hand — see `OPERATIONS.md`
+`OPERATIONS.md` collects every change across the whole review batch that a pull request cannot make: `SESSION_SECRET` (now required to start), `ALLOWED_LOGINS`, `ASSIGN_ADMINS`, re-authorising the OAuth app at the narrower scope, applying the nginx config, backing up the gitignored operational state (#109), and log retention. Each step has a verification command and a rollback.
+
 ## security-hardening
 Closes #102, #106, #110, #113.
 

@@ -8,9 +8,14 @@
      a CDN compromise or a silent upstream change can no longer inject code into an
      authenticated editor's session — the browser refuses any file whose hash differs.
      Bump the version and the matching integrity hash together. -->
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.1/dist/chart.umd.min.js" integrity="sha384-jb8JQMbMoBUzgWatfe6COACi2ljcDdZQ2OxczGA3bGNeWe+6DChMTBJemed7ZnvJ" crossorigin="anonymous"></script>
-<script src="https://cdn.jsdelivr.net/npm/d3@7.9.0/dist/d3.min.js" integrity="sha384-CjloA8y00+1SDAUkjs099PVfnY2KmDC2BZnws9kh8D/lX1s46w6EPhpXdqMfjK6i" crossorigin="anonymous"></script>
-<script src="https://cdn.jsdelivr.net/npm/d3-cloud@1.2.7/build/d3.layout.cloud.js" integrity="sha384-bI0nd/RAwAtZt0P/RMrpDzJ5neK0yrKvlsnqYvSISaz7sEUWIcNuiTrvs2F9b+mM" crossorigin="anonymous"></script>
+<!-- Vendored, not loaded from a CDN. SRI pinning is exactly right for integrity,
+     but it does nothing for *availability*, and hospital, university and pharma
+     networks block third-party CDNs routinely — the failure mode was a broken
+     pathophysiology graph with no explanation. See static/vendor/README.md for
+     the versions, their upstream URLs, and how to refresh them. -->
+<script src="vendor/chart.umd.min.js?v=__ASSETV__"></script>
+<script src="vendor/d3.min.js?v=__ASSETV__"></script>
+<script src="vendor/d3.layout.cloud.js?v=__ASSETV__"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@200;300;400;500;600;700&family=IBM+Plex+Serif:wght@400&display=swap">

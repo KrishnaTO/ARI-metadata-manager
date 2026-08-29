@@ -10,3 +10,11 @@
 # are sensitive to autocrlf, and adding them would renormalize tracked content.
 data/2-databases/*.index.tsv   linguist-generated=true
 data/2-databases/*.details.tsv linguist-generated=true
+
+# Vendored third-party libraries (static/vendor/). Their SHA-384 digests are
+# recorded in static/vendor/README.md and were checked against the hashes the
+# page previously pinned, so their bytes must survive a checkout unchanged --
+# autocrlf would rewrite the line endings and invalidate every one of them.
+# `-text` disables all end-of-line conversion; `linguist-vendored` keeps them
+# out of language statistics and collapses them in diffs.
+static/vendor/*.js  -text linguist-vendored=true
