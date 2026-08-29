@@ -23,11 +23,21 @@ jobs:
         run: python -c "import app.main; print('app.main imported OK')"
       - name: Tests
         run: pytest -q
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Frontend tests
+        # The review page owns the verdict state machine, the missing-first
+        # ordering, the separation-of-duties gate and the publish payload. No
+        # framework: the pure functions live in static/ref-edits/review-model.js.
+        run: node --test tests/review-model.test.js
 
   lint:
-    # Advisory for now: runs ruff and prints every finding to the log, but
-    # --exit-zero keeps the check green while the existing code is brought up to
-    # the ruleset. Drop --exit-zero to make lint a required gate once it's clean.
+    # A required gate. It was advisory (--exit-zero) with 184 outstanding
+    # findings: at that volume the log was noise, nobody read it, and the count
+    # only grew. The 19 auto-fixable ones are fixed, E701/E702 are ignored as
+    # deliberate house style, and three table-shaped files have a per-file E501
+    # ignore — so the baseline is clean and new code cannot add to a pile.
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -35,4 +45,4 @@ jobs:
         with:
           python-version: "3.12"
       - run: pip install ruff
-      - run: ruff check . --exit-zero
+      - run: ruff check .

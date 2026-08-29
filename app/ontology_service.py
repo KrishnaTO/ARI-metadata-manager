@@ -1,15 +1,15 @@
 """Service layer for reading and editing the ARI T1D ontology via owlready2."""
 import json
-import os
 import logging
+import os
 import re
 import shutil
+import types
 import uuid
 from datetime import datetime
 from pathlib import Path
-import types
 
-from owlready2 import AnnotationProperty, World, label, comment, destroy_entity
+from owlready2 import AnnotationProperty, World, comment, destroy_entity, label
 
 from . import xref_registry
 from .errors import NotFound

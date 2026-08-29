@@ -23,13 +23,15 @@ import argparse
 import re
 import sys
 import types
-from datetime import datetime, date
+from datetime import date, datetime
 from pathlib import Path
 
 import openpyxl
 from owlready2 import (
-    World, AnnotationProperty, DataProperty, ObjectProperty,
-    label, comment, seeAlso,
+    AnnotationProperty,
+    World,
+    comment,
+    label,
 )
 
 HERE = Path(__file__).resolve().parent

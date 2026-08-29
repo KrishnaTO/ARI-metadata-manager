@@ -2,8 +2,9 @@
 format, optionally marking what changed versus a baseline (the source branch).
 """
 import io
+
 from openpyxl import Workbook
-from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 
 COLUMNS = ["ARI ID", "IRI", "Preferred Name", "Synonyms", "Subtypes", "SNOMED Code(s)",
            "Obsolete SNOMED", "OMOP ConceptID", "Concept Code (DXCODE)", "Code Status",
@@ -123,7 +124,8 @@ def build_report(current_service, baseline_service=None) -> bytes:
         r = ws.max_row
         for ci in range(1, len(headers) + 1):
             cell = ws.cell(row=r, column=ci); cell.font = CELL_FONT; cell.border = BORDER
-            cell.alignment = WRAP if headers[ci - 1] in ("Synonyms", "Subtypes", "Definition", "Definition Source(s)") else TOP
+            wrapped = ("Synonyms", "Subtypes", "Definition", "Definition Source(s)")
+            cell.alignment = WRAP if headers[ci - 1] in wrapped else TOP
         if base is not None:
             if status == "New":
                 for ci in range(1, len(headers) + 1):

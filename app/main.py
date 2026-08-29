@@ -1,33 +1,35 @@
 """FastAPI app for ARI Disease Metadata Manager."""
-import os
+import asyncio
 import json
 import logging
-import time
-import shutil
-import asyncio
+import os
 import secrets
+import shutil
 import subprocess
+import time
 from collections import OrderedDict
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException, Request, Body
-from fastapi.responses import JSONResponse, RedirectResponse, StreamingResponse, HTMLResponse
+from fastapi import Body, FastAPI, HTTPException, Request
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
 
-from .ontology_service import OntologyService
+from . import (
+    assignment_service,
+    atomic_store,
+    concept_service,
+    diff_service,
+    export_service,
+    id_provenance,
+    predict_service,
+    sssom_service,
+    xref_registry,
+)
 from . import github_service as gh
-from . import export_service
-from . import diff_service
-from . import sssom_service
-from . import xref_registry
-from . import assignment_service
-from . import concept_service
-from . import predict_service
-from . import id_provenance
-from . import atomic_store
 from .errors import Invalid, NotFound
+from .ontology_service import OntologyService
 
 log = logging.getLogger(__name__)
 
@@ -77,8 +79,10 @@ def _app_version() -> str:
     """Manager version derived from git so it bumps on every update/deploy."""
     root = Path(__file__).resolve().parent.parent  # app repo root
     try:
-        g = lambda *a: subprocess.check_output(["git", "-C", str(root), *a],
-                                               text=True, stderr=subprocess.DEVNULL).strip()
+        def g(*a):
+            return subprocess.check_output(["git", "-C", str(root), *a],
+                                           text=True, stderr=subprocess.DEVNULL).strip()
+
         # README documents `2.<commit-count> (<sha>, <date>)`. The sha was
         # missing, and it is the useful half in a bug report.
         return (f"2.{g('rev-list', '--count', 'HEAD')} "
@@ -953,7 +957,8 @@ async def publish(request: Request, payload: dict = Body(default={})):
     content = svc.path.read_bytes()
 
     # Diff current vs the source branch to summarise previous -> new values.
-    import tempfile, os as _os
+    import os as _os
+    import tempfile
     summary = ""
     tmp_path = None
     try:
@@ -1127,7 +1132,9 @@ async def set_pr_base(request: Request, payload: dict = Body(...)):
 async def export_excel(request: Request):
     """Export current data to an .xlsx in the core-report format. When signed in,
     changed cells are marked against the source branch (the baseline)."""
-    import io as _io, tempfile, os as _os
+    import io as _io
+    import os as _os
+    import tempfile
     baseline = None
     u = _user(request)
     if GH_ENABLED and u:

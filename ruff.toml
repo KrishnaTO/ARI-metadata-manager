@@ -7,3 +7,16 @@ extend-exclude = ["ontologies", "static"]
 
 [lint]
 select = ["E", "F", "W", "I"]
+
+# E701/E702 flag `if x: return` and `a = 1; b = 2`. Both are used deliberately
+# and consistently here (`tf.write(data); tf.close()`, one-line guards), and
+# there were 153 of them: enforcing the rule would be a rewrite of working code
+# for no correctness gain, and leaving it firing kept the whole log unread.
+ignore = ["E701", "E702"]
+
+[lint.per-file-ignores]
+# Table-shaped data whose readability comes from one record per line. Reflowing
+# these to 120 columns would make them harder to scan, not easier.
+"app/schema.py" = ["E501"]
+"scripts/build_t1d_ontology.py" = ["E501"]
+"scripts/import_reports.py" = ["E501"]
