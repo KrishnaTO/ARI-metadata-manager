@@ -4,7 +4,7 @@ import logging
 import re
 import shutil
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 import types
 
@@ -840,7 +840,7 @@ class OntologyService:
         self.onto.save(file=str(self.path), format="rdfxml")
 
     def _append_changelog(self, disease_e, editor: str, msg: str):
-        ts = datetime.now().strftime("%Y-%m-%d %H:%M")
+        ts = datetime.now(timezone.utc).isoformat(timespec="seconds")
         clog = self.world[self.base + "ARI_ChangeLog"]
         if clog is not None:
             clog[disease_e] = list(clog[disease_e]) + [f"{ts} | {editor} | {msg}"]
@@ -1105,8 +1105,8 @@ class OntologyService:
         """Snapshot the current ontology into releases/, stamp the version onto every
         disease, and record a per-disease changelog entry."""
         version = version.strip() or self._next_version()
-        ts_human = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        ts_file = datetime.now().strftime("%Y%m%d_%H%M%S")
+        ts_human = datetime.now(timezone.utc).isoformat(timespec="seconds")
+        ts_file = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
 
         # Stamp version + changelog onto every disease before snapshotting
         base = self.base

@@ -8,14 +8,19 @@ point it is moved into ``feedback/archive/``; entries flagged ``keep`` survive r
 import json
 import logging
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 log = logging.getLogger(__name__)
 
 
 def _now() -> str:
-    return datetime.now().strftime("%Y-%m-%d %H:%M")
+    """UTC, ISO-8601 with an offset.
+
+    This was naive server-local time while `id_provenance` wrote UTC, so
+    correlating a comment with the provenance record for the same edit meant
+    knowing the server's timezone — which is recorded nowhere."""
+    return datetime.now(timezone.utc).isoformat(timespec="seconds")
 
 
 class FeedbackStore:
@@ -122,7 +127,7 @@ class FeedbackStore:
         retained = [x for x in items if x.get("keep")]
         if expiring:
             self.archive_dir.mkdir(parents=True, exist_ok=True)
-            ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+            ts = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
             dest = self.archive_dir / f"feedback_v{version}_{ts}.json"
             dest.write_text(json.dumps(expiring, indent=2, ensure_ascii=False), encoding="utf-8")
             with open(self.log_path, "a", encoding="utf-8") as f:
