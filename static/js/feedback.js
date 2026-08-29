@@ -4,20 +4,29 @@
 
 function renderFeedback(d, panel){
   let html = closeHeader('Feedback');
-  html += `<div class="fb-form">
+  // Comments are attributed to the signed-in GitHub account: the server takes
+  // the author from the session, so there is no name to type in here.
+  html += state.githubLogin
+    ? `<div class="fb-form">
       <textarea id="fb-message" rows="3" placeholder="Leave feedback about “${esc(d.name)}”…"></textarea>
       <div class="fb-form-row">
         <label class="fb-keep"><input type="checkbox" id="fb-keep"> Keep after release</label>
-        <input id="fb-author" class="fb-author" placeholder="Your name" value="${esc(state.editor || '')}">
+        <span class="fb-author-note">Posting as ${esc(state.githubLogin)}</span>
         <button class="hbtn primary" id="fb-submit">Post feedback</button>
       </div>
-    </div>`;
+    </div>`
+    : `<div class="fb-form"><div class="empty-state" style="padding:14px">
+        Sign in with GitHub to leave feedback — comments are attributed to your account.
+      </div></div>`;
   html += `<div class="section-label">Comments</div><div id="fb-list"><div class="loading">Loading…</div></div>`;
   panel.innerHTML = html;
-  $('#fb-submit').addEventListener('click', () => submitFeedback(d));
-  $('#fb-message').addEventListener('keydown', e => {
-    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) submitFeedback(d);
-  });
+  const submit = $('#fb-submit');
+  if (submit){
+    submit.addEventListener('click', () => submitFeedback(d));
+    $('#fb-message').addEventListener('keydown', e => {
+      if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) submitFeedback(d);
+    });
+  }
   loadFeedbackList(d);
 }
 
@@ -36,12 +45,17 @@ async function loadFeedbackList(d){
 }
 
 function feedbackItemHTML(it){
+  // Only the author may edit or delete; the server enforces the same rule.
+  const mine = state.githubLogin && it.author === state.githubLogin;
+  const actions = mine
+    ? `<span class="fb-actions"><button class="icon-btn" data-fb-edit="${esc(it.id)}" title="Edit">Edit</button>`+
+      `<button class="icon-btn danger" data-fb-del="${esc(it.id)}" title="Delete">Delete</button></span>`
+    : '';
   return `<div class="fb-item" data-fb="${esc(it.id)}">
     <div class="fb-msg">${esc(it.message)}</div>
     <div class="fb-meta"><span>${esc(it.author || 'anonymous')} &middot; ${esc(it.updated || it.created)}</span>
       ${it.keep ? '<span class="fb-pill">kept after release</span>' : ''}
-      <span class="fb-actions"><button class="icon-btn" data-fb-edit="${esc(it.id)}" title="Edit">Edit</button>`+
-      `<button class="icon-btn danger" data-fb-del="${esc(it.id)}" title="Delete">Delete</button></span></div>
+      ${actions}</div>
   </div>`;
 }
 
@@ -49,11 +63,10 @@ async function submitFeedback(d){
   const message = $('#fb-message').value.trim();
   if (!message){ toast('Write some feedback first'); return; }
   const keep = $('#fb-keep').checked;
-  state.editor = $('#fb-author').value.trim() || state.editor || 'curator';
   try {
     $('#fb-submit').disabled = true;
     await api('/api/v2/feedback', { method:'POST',
-      body:{ disease: d.iri, term: d.name, message, keep, author: state.editor } });
+      body:{ disease: d.iri, term: d.name, message, keep } });
     $('#fb-message').value = ''; $('#fb-keep').checked = false;
     await loadFeedbackList(d);
     toast('Feedback posted');
@@ -79,7 +92,7 @@ function editFeedback(d, it){
     if (!message){ toast('Message cannot be empty'); return; }
     try {
       await api('/api/v2/feedback/' + encodeURIComponent(it.id), {
-        method:'PUT', body:{ message, keep, author: state.editor } });
+        method:'PUT', body:{ message, keep } });
       await loadFeedbackList(d);
       toast('Feedback updated');
     } catch (err){ toast('Update failed: ' + err.message); }
