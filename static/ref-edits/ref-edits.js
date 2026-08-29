@@ -33,7 +33,8 @@
   }
 
   let ROWS = [], me = null, reviewed = {}, edited = {}, active = null,
-      sessionBranch = null, sessionPr = null, _tissues = null, openRow = null;
+      sessionBranch = null, sessionPr = null, _tissues = null, openRow = null,
+      pendingPublishId = null;   // survives a failed attempt so a retry is recognised
   // Review queue: which curator holds each disease (iri -> {login, done}), the
   // logins known to have a queue, and this page's tick-box selection.
   let owners = {}, curators = [], selected = new Set(), lastSel = null, queueFilter = 'all';
@@ -1052,6 +1053,11 @@
     const orcid = (localStorage.getItem('ari_editor_orcid') || '').trim();
     const author = orcid ? ('orcid:' + orcid) : (me && me.login ? ('github:' + me.login) : 'curator');
     const message = reviewMessage(keys);
+    // One id per publish *attempt*. If the commit and PR succeed but the response
+    // is lost — a proxy timeout, a closed laptop — retrying with the same id
+    // returns the original result instead of committing the judgments twice.
+    if (!pendingPublishId) pendingPublishId = 'pub_' + Date.now().toString(36) +
+      '_' + Math.random().toString(36).slice(2, 10);
     $('#publish').disabled = true; $('#publish-new').disabled = true; $('#publish').textContent = 'Publishing…';
     try {
       const r = await api('publish', { method: 'POST', body: {
@@ -1059,14 +1065,28 @@
         confirmed: confirmedList(keys), flagged: flaggedList(keys),
         absent: absentList(keys), author,
         apply_enrichment: applyEnrichment,
+        request_id: pendingPublishId,
         branch: reuse, labels: ['edit term', 'sssom'] } });
+      pendingPublishId = null;                        // this attempt is settled
       sessionBranch = r.branch;                       // subsequent publishes append to the same PR
       sessionPr = { number: r.pr_number, url: r.pr_url, fork: r.fork };
       for (const k of keys) published[k] = { pr: r.pr_number, state: keyState(k) };
+      // A PR this branch used to feed has been merged or closed, so this work
+      // went into a new one. Say which, rather than leaving the header pointing
+      // at a number the curator's work is no longer in.
+      if (r.superseded && r.superseded.length){
+        const old = r.superseded[0];
+        note(`PR #${old.number} was ${old.merged ? 'merged' : 'closed'}, so this went into ` +
+             `a new submission, PR #${r.pr_number}.`);
+      }
       reflectPr();
       counts();                                       // published work leaves the pending set
       saveSession(true);                              // persist the PR pointer immediately
-    } catch (e) { alert('Publish failed: ' + e.message); reflectPr(); counts(); }
+    } catch (e) {
+      // pendingPublishId is deliberately kept: the next click retries the SAME
+      // attempt, which the server can recognise if the first one actually landed.
+      alert('Publish failed: ' + e.message); reflectPr(); counts();
+    }
   }
 
   // Draggable splitter — adjust side-panel width on all screens (mouse + touch).

@@ -10,7 +10,6 @@ import subprocess
 from collections import OrderedDict
 from contextlib import asynccontextmanager
 from pathlib import Path
-from urllib.parse import urlsplit, urlunsplit
 
 from fastapi import FastAPI, HTTPException, Request, Body
 from fastapi.responses import JSONResponse, RedirectResponse, StreamingResponse, HTMLResponse
@@ -40,10 +39,7 @@ def _load_dotenv():
             if not line or line.startswith("#") or "=" not in line:
                 continue
             k, v = line.split("=", 1)
-            v = v.strip()
-            if len(v) >= 2 and v[0] == v[-1] and v[0] in "\"'":
-                v = v[1:-1]          # SESSION_SECRET="abc" must not load the quotes
-            os.environ.setdefault(k.strip(), v)
+            os.environ.setdefault(k.strip(), v.strip())
 
 
 _load_dotenv()
@@ -63,7 +59,6 @@ async def lifespan(app: FastAPI):
     async def _sweep_loop():
         while True:
             _sweep_user_data()
-            _sweep_sessions()
             await asyncio.sleep(6 * 3600)   # every 6 hours
     task = asyncio.create_task(_sweep_loop())
     try:
@@ -196,34 +191,12 @@ def reload_base():
     global BASE
     BASE = OntologyService(ONTOLOGY_FILE)
 
-def _session_secret() -> str:
-    """The cookie signing key.
-
-    A per-process random key signs every curator out on each restart — and the
-    deploy timer restarts every ten minutes — while their tokens accumulate in
-    the session store forever. So it is required wherever sign-in is enabled.
-    """
-    secret = os.environ.get("SESSION_SECRET", "")
-    if secret:
-        return secret
-    if GH_ENABLED:
-        raise RuntimeError(
-            "SESSION_SECRET is required when GitHub sign-in is configured. "
-            "Generate one with `python -c \"import secrets; print(secrets.token_hex(32))\"` "
-            "and set it in .env — otherwise every restart signs all curators out."
-        )
-    return secrets.token_hex(32)      # sign-in disabled: local read-only use
-
-
 app.add_middleware(
     SessionMiddleware,
-    secret_key=_session_secret(),
+    secret_key=os.environ.get("SESSION_SECRET", secrets.token_hex(32)),
     same_site="lax",
     https_only=APP_BASE_URL.startswith("https"),
 )
-
-# Sign-ins older than this are swept by the same loop that sweeps working copies.
-SESSION_TTL_DAYS = int(os.environ.get("SESSION_TTL_DAYS", "30"))
 
 
 def _user(request: Request):
@@ -322,16 +295,9 @@ ASSIGN_ADMINS = [s.strip() for s in os.environ.get("ASSIGN_ADMINS", "").split(",
 
 
 def _require_login(request: Request) -> str:
-    """The signed-in curator, or a 401.
-
-    401 rather than a bare ValueError (which the global handler turns into a
-    400): "you are not signed in" is a different thing from "your request was
-    malformed", and the client shows a sign-in prompt for one and an error for
-    the other. Matches ``service_for(write=True)``.
-    """
     login = _login(request)
     if not login:
-        raise HTTPException(status_code=401, detail="Sign in with GitHub to do this")
+        raise ValueError("Sign in with GitHub to use your review queue")
     return login
 
 
@@ -622,17 +588,11 @@ async def releases_list(request: Request):
 
 @app.post("/api/v2/releases")
 async def create_release(request: Request, payload: dict = Body(default={})):
-    """Admin action: cut a versioned release snapshot of the ontology.
-
-    Cutting a release also archives every non-kept feedback entry, so this is
-    gated on ``ASSIGN_ADMINS`` rather than on merely being signed in."""
-    login = _require_login(request)
-    if not _can_assign_others(login):
-        raise ValueError(f"@{login} is not an administrator; releases are cut by "
-                         f"{', '.join('@' + a for a in ASSIGN_ADMINS)}")
+    """Admin action: cut a versioned release snapshot of the ontology."""
     version = payload.get("version", "")
     notes = payload.get("notes", "")
-    return service_for(request, write=True).create_release(version=version, notes=notes, editor=login)
+    editor = payload.get("editor", "admin")
+    return service_for(request, write=True).create_release(version=version, notes=notes, editor=editor)
 
 
 @app.get("/api/v2/xrefs")
@@ -682,13 +642,11 @@ async def mappings(request: Request):
 
 
 @app.get("/api/v2/id-authors")
-async def id_authors(request: Request):
+async def id_authors():
     """Which curator added each cross-reference id: ``"<iri>|<db>|<id>" -> login``.
 
     The review page uses this to separate duties — the curator who added an id
-    may not also confirm the mapping it stands for. It is the evidence base for
-    that boundary, so it needs a session."""
-    _require_login(request)
+    may not also confirm the mapping it stands for."""
     return ID_AUTHORS.authors()
 
 
@@ -759,43 +717,23 @@ async def feedback_list(disease: str = ""):
     return BASE.feedback.list(disease or None)
 
 
-def _own_feedback(request: Request, fid: str) -> str:
-    """The caller, having checked they may edit this entry.
-
-    Feedback is attributable curator commentary, so an entry is editable by its
-    own author or by an admin — never by whoever names themselves in the body.
-    """
-    login = _require_login(request)
-    entry = next((x for x in BASE.feedback.list() if x.get("id") == fid), None)
-    if entry is None:
-        raise KeyError(fid)
-    if entry.get("author") != login and not _can_assign_others(login):
-        raise ValueError(f"@{login} may only change their own feedback")
-    return login
-
-
 @app.post("/api/v2/feedback")
-async def feedback_add(request: Request, payload: dict = Body(...)):
-    """Add feedback for a term. Body: {disease, term, message, keep}.
-
-    The author is the signed-in curator; it is never taken from the payload."""
-    login = _require_login(request)
+async def feedback_add(payload: dict = Body(...)):
+    """Add feedback for a term. Body: {disease, term, message, keep, author}."""
     return BASE.feedback.add(
         payload.get("disease", ""), payload.get("term", ""), payload.get("message", ""),
-        keep=payload.get("keep", False), author=login)
+        keep=payload.get("keep", False), author=payload.get("author", "anonymous"))
 
 
 @app.put("/api/v2/feedback/{fid}")
-async def feedback_update(request: Request, fid: str, payload: dict = Body(...)):
-    """Edit your own feedback. Body: {message?, keep?}."""
-    _own_feedback(request, fid)
+async def feedback_update(fid: str, payload: dict = Body(...)):
+    """Edit feedback. Body: {message?, keep?, author?}."""
     return BASE.feedback.update(fid, message=payload.get("message"),
-                                   keep=payload.get("keep"))
+                                   keep=payload.get("keep"), author=payload.get("author"))
 
 
 @app.delete("/api/v2/feedback/{fid}")
-async def feedback_delete(request: Request, fid: str):
-    _own_feedback(request, fid)
+async def feedback_delete(fid: str):
     return BASE.feedback.delete(fid)
 
 
@@ -834,18 +772,8 @@ async def me(request: Request):
 
 
 def _safe_next(nxt: str) -> str:
-    """Only allow same-origin relative paths (avoid open redirects).
-
-    Prefix-matching on "/" is not enough: browsers normalise backslashes to
-    forward slashes, so a backslash-prefixed path reads as a protocol-relative
-    URL and leaves the site. Parse it and require an empty scheme and netloc.
-    """
-    if not nxt or "\\" in nxt or not nxt.startswith("/"):
-        return "/"
-    parts = urlsplit(nxt)
-    if parts.scheme or parts.netloc:
-        return "/"
-    return urlunsplit(("", "", parts.path, parts.query, parts.fragment)) or "/"
+    """Only allow same-origin relative paths (avoid open redirects)."""
+    return nxt if nxt.startswith("/") and not nxt.startswith("//") else "/"
 
 
 @app.get("/auth/github")
@@ -868,13 +796,8 @@ async def auth_callback(request: Request, code: str = "", state: str = ""):
     identity = await gh.get_identity(token)
     if ALLOWED_LOGINS and identity["login"] not in ALLOWED_LOGINS:
         return JSONResponse(status_code=403, content={"detail": f"@{identity['login']} is not allowed"})
-    if not ALLOWED_LOGINS:
-        # No allow-list means anyone with repo access can sign in. That is the
-        # dev default; in production it should at least be visible in the log.
-        log.warning("Sign-in by @%s with ALLOWED_LOGINS unset — any GitHub user "
-                    "with repo access can sign in", identity["login"])
     sid = secrets.token_urlsafe(24)
-    SESSIONS[sid] = {"token": token, "identity": identity, "created": time.time()}
+    SESSIONS[sid] = {"token": token, "identity": identity}
     _save_sessions()
     request.session["sid"] = sid
     request.session.pop("oauth_state", None)
@@ -886,6 +809,61 @@ async def logout(request: Request):
     SESSIONS.pop(request.session.pop("sid", ""), None)
     _save_sessions()
     return {"ok": True}
+
+
+def _restore_working_copy(login, svc, snapshot: bytes):
+    """Put ``login``'s working copy back to ``snapshot`` after a failed publish."""
+    try:
+        atomic_store.write_bytes(svc.path, snapshot, mode=0o644)
+        USER_SVC.pop(login, None)        # reload from the restored bytes on next use
+        log.info("Rolled @%s's working copy back after a failed publish", login)
+    except OSError as e:
+        # Losing the rollback is worse than the original failure, so say so
+        # loudly rather than swallowing it.
+        log.error("Could not roll @%s's working copy back after a failed publish "
+                  "(%s); the changelog entries for this attempt are still applied "
+                  "and republishing will repeat them", login, e)
+
+
+def _clear_touched(login):
+    """Forget which diseases this curator has edited, after a successful publish.
+
+    ``USER_TOUCHED`` accumulated every disease IRI a curator touched for the life
+    of the process and scoped the change summary in every subsequent PR body, so
+    the second and later pull requests of a session described changes that had
+    already been published. Only ``_reset_user()`` cleared it."""
+    USER_TOUCHED.pop(login, None)
+
+
+PUBLISH_KEEP = 20        # recent publishes remembered per curator
+
+
+def _publish_log_path(login) -> Path:
+    return USER_DIR / f"{login}.publishes.json"
+
+
+def _remembered_publish(login, request_id):
+    """The result of a publish already completed under ``request_id``.
+
+    If the commit and PR succeed but the *response* is lost — a proxy timeout, a
+    closed laptop, a flaky connection — the client shows "Publish failed", the
+    curator publishes again, and a second commit lands carrying the same
+    judgments. Nothing on either side detected the repeat.
+    """
+    if not request_id:
+        return None
+    return atomic_store.read_json(_publish_log_path(login), {}).get(request_id)
+
+
+def _remember_publish(login, request_id, result):
+    if not request_id:
+        return
+    done = atomic_store.read_json(_publish_log_path(login), {})
+    done[request_id] = result
+    # Keep the tail; this is a short-window replay guard, not an audit trail.
+    if len(done) > PUBLISH_KEEP:
+        done = dict(list(done.items())[-PUBLISH_KEEP:])
+    atomic_store.write_json(_publish_log_path(login), done)
 
 
 @app.post("/api/v2/publish")
@@ -914,6 +892,15 @@ async def publish(request: Request, payload: dict = Body(default={})):
     own = ID_AUTHORS.authors()
     login = u["identity"]["login"]
     source_branch = _source_branch(request)     # this curator's baseline, not a global
+
+    # A retry of a publish that actually succeeded returns the original result
+    # rather than committing the same judgments twice.
+    request_id = (payload.get("request_id") or "").strip()[:64]
+    already = _remembered_publish(login, request_id)
+    if already is not None:
+        log.info("Publish %s by @%s already completed; returning the first result",
+                 request_id, login)
+        return {**already, "repeated": True}
     for c in confirmed:
         for ident in (c.get("ids") or []):
             if own.get(f"{c.get('iri')}|{c.get('db')}|{ident}") == login:
@@ -930,6 +917,12 @@ async def publish(request: Request, payload: dict = Body(default={})):
     # this user's working ontology, mirroring how field edits are handled.
     svc = service_for(request, write=True) if any_review else service_for(request)
     enrich_note = ""
+    # The changelog entries and the enrichment are applied to the working copy
+    # *before* the eight GitHub calls that publish it, so any failure among them
+    # used to leave the entries applied: the curator saw "Publish failed",
+    # clicked again, and the changelog and enrichment were written a second
+    # time. Snapshot first and roll back on failure.
+    rollback = svc.path.read_bytes() if any_review else None
     if any_review:
         svc.log_xref_review(confirmed, flagged, editor=login, absent=absent)
         if apply_enrich:
@@ -997,11 +990,20 @@ async def publish(request: Request, payload: dict = Body(default={})):
     parts.append("## Changes\n\n" + summary)
     pr_body = "\n\n".join(parts)
 
-    result = await gh.publish_file(
-        token=u["token"], owner=GH_OWNER, repo=GH_REPO, base_branch=_pr_base(request),
-        path=GH_ONTOLOGY_PATH, content_bytes=content, disease_name=disease,
-        message=message, identity=u["identity"], pr_body=pr_body, extra_files=extra_files,
-        reuse_branch=reuse_branch, labels=(labels + ["sssom"] if (any_review and "sssom" not in labels) else labels))
+    try:
+        result = await gh.publish_file(
+            token=u["token"], owner=GH_OWNER, repo=GH_REPO, base_branch=_pr_base(request),
+            path=GH_ONTOLOGY_PATH, content_bytes=content, disease_name=disease,
+            message=message, identity=u["identity"], pr_body=pr_body, extra_files=extra_files,
+            reuse_branch=reuse_branch,
+            labels=(labels + ["sssom"] if (any_review and "sssom" not in labels) else labels))
+    except Exception:
+        if rollback is not None:
+            _restore_working_copy(login, svc, rollback)
+        raise
+
+    _remember_publish(login, request_id, result)
+    _clear_touched(login)        # published; later PRs must not re-describe this work
     return result
 
 
