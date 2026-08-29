@@ -29,13 +29,33 @@ xref view.
 Each `*.index.tsv` is one row per ontology term:
 
 ```
-id	label	synonyms	snomed	omop	doid	mondo	nci	icd10	orphanet	omim	umls	mesh
+id	label	synonyms	<only the target columns this source actually fills>
 ```
 
 `synonyms` is ` | `-joined (EXACT synonyms only); each database column holds the
 `;`-joined ids that term cross-references there (its own column holds its own id).
 This file is loaded on **every** prediction request, so it is kept lean — labels,
 synonyms and cross-references only.
+
+Two things are deliberately *not* in the file:
+
+* **Columns this source never fills.** The full column vocabulary is
+  `predict_service.INDEX_COLS`, but each source populates only a few of it — MeSH
+  fills one, NCIt two — and `omop` is empty in all five (there is no freely
+  redistributable OMOP source). `write_index` emits only the populated columns;
+  `predict_service` reads columns by name, so an absent column reads as "this
+  source cross-references nothing there", which is what it means. A hand-supplied
+  index may still carry the full set.
+* **`omim`.** OMIM is no longer a review column or a prediction target (see
+  `app/xref_registry`), so nothing reads it out of an index. `parse_obo` still
+  harvests it, so restoring the column is a `review: True` flip plus a rebuild.
+* **Synonyms that only echo the label.** Sources routinely repeat a term's own name
+  as its first synonym — NCIt on nearly every row. Both the matcher and the
+  enrichment engine walk `[label] + synonyms` and keep the first spelling of each
+  key, so an echo can never match anything the label does not; it is only a
+  duplicate chip in the compare pane. The comparison is casefold-only, so
+  punctuation and accent variants ("Sjögren" vs "Sjogren") are kept as the distinct
+  names they are.
 
 ### Detail sidecars — `<db>.details.tsv`
 
@@ -53,8 +73,9 @@ only when the term has a definition or parents. These back the reference-review
 lazily — the prediction hot path never parses them.
 
 The split is deliberate: folding definitions into the index would roughly **double**
-its size (measured: 13.9 MB → 32.2 MB) while slowing every prediction load for data
-prediction never uses. As a sidecar the indexes stay ~13.9 MB and the ~18 MB of
+its size (measured before the column/synonym pruning above: 13.9 MB → 32.2 MB) while slowing
+every prediction load for data prediction never uses. As a sidecar the indexes stay
+~11.5 MB and the ~18 MB of
 details load only when a curator opens the compare pane — and only the sidecar for
 the database being looked up (a DOID lookup costs ~8 MB resident, not the ~52 MB all
 five would). This matters on the small hosted instance; see `DEPLOY.md`.
