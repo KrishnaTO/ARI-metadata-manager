@@ -1,5 +1,10 @@
-"""The hardened error paths: corrupt state files must recover *and* leave a trail
-(a warning), while the normal 'file absent' case stays quiet."""
+"""The hardened error paths.
+
+An absent state file is a first run and stays quiet. A *present but corrupt*
+one is data that existed and is now unreadable: the ledgers raise rather than
+read as empty, because continuing on an empty one loses it for good on the next
+write. The session store is the one exception — it is regenerable by signing
+in again, so it recovers with a warning."""
 import logging
 
 import app.main as main
@@ -27,13 +32,20 @@ def test_load_sessions_corrupt_file_warns_and_recovers(tmp_path, monkeypatch, ca
     assert any("session" in r.getMessage().lower() for r in _app_warnings(caplog))
 
 
-def test_feedback_store_survives_corrupt_json(tmp_path, caplog):
+def test_feedback_store_refuses_to_read_corrupt_json_as_empty(tmp_path):
+    """Present-but-unparseable is not the same as absent.
+
+    Reading it as `[]` meant the next write replaced the damaged file with an
+    empty one and the comments were gone for good. It now raises so the bytes
+    stay on disk (issue #108)."""
+    import pytest
+    from app.atomic_store import StoreCorrupt
+
     store = FeedbackStore(tmp_path / "feedback")
     store.dir.mkdir(parents=True)          # the store only creates this on its first write
     store.path.write_text("{ broken json")
-    with caplog.at_level(logging.WARNING):
-        assert store.list() == []
-    assert any("feedback" in r.getMessage().lower() for r in _app_warnings(caplog))
+    with pytest.raises(StoreCorrupt):
+        store.list()
 
 
 def test_feedback_store_missing_file_is_quiet(tmp_path, caplog):

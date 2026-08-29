@@ -10,10 +10,11 @@ curator already holds unless the caller passes ``reassign``. Verdicts themselves
 not stored here — the review page keeps them in its own session
 (``GET``/``PUT /api/v2/ref-session``) and sends them with ``POST /api/v2/publish``.
 """
-import json
 import logging
 from datetime import datetime, timezone
 from pathlib import Path
+
+from . import atomic_store
 
 log = logging.getLogger(__name__)
 
@@ -33,17 +34,10 @@ class AssignmentStore:
 
     # ------------------------------------------------------------------ io
     def _read(self, path: Path, fallback):
-        if not path.exists():
-            return fallback
-        try:
-            return json.loads(path.read_text(encoding="utf-8"))
-        except (json.JSONDecodeError, OSError) as e:
-            log.warning("Could not read %s: %s", path, e)
-            return fallback
+        return atomic_store.read_json(path, fallback)
 
     def _write(self, path: Path, data):
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
+        atomic_store.write_json(path, data, indent=2)
 
     def _audit(self, action: str, login: str, detail: str):
         try:

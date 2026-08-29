@@ -5,11 +5,12 @@ Feedback comments are stored as structured log entries in ``feedback/feedback.js
 disease term. By default an entry lives only until the next version release, at which
 point it is moved into ``feedback/archive/``; entries flagged ``keep`` survive releases.
 """
-import json
 import logging
 import uuid
 from datetime import datetime
 from pathlib import Path
+
+from . import atomic_store
 
 log = logging.getLogger(__name__)
 
@@ -51,17 +52,11 @@ class FeedbackStore:
         self.dir.mkdir(parents=True, exist_ok=True)
 
     def _load(self) -> list:
-        if self.path.exists():
-            try:
-                return json.loads(self.path.read_text(encoding="utf-8"))
-            except (json.JSONDecodeError, OSError) as e:
-                log.warning("Could not read feedback store %s: %s", self.path, e)
-                return []
-        return []
+        return atomic_store.read_json(self.path, [])
 
     def _save(self, items: list):
         self._ensure_dir()
-        self.path.write_text(json.dumps(items, indent=2, ensure_ascii=False), encoding="utf-8")
+        atomic_store.write_json(self.path, items, indent=2)
 
     def _log(self, action: str, entry: dict):
         line = (f"{_now()} | {entry.get('author', '')} | {action} | "
@@ -133,7 +128,7 @@ class FeedbackStore:
             self.archive_dir.mkdir(parents=True, exist_ok=True)
             ts = datetime.now().strftime("%Y%m%d_%H%M%S")
             dest = self.archive_dir / f"feedback_v{version}_{ts}.json"
-            dest.write_text(json.dumps(expiring, indent=2, ensure_ascii=False), encoding="utf-8")
+            atomic_store.write_json(dest, expiring, indent=2)
             with open(self.log_path, "a", encoding="utf-8") as f:
                 for x in expiring:
                     f.write(f"{_now()} | system | ARCHIVED@v{version} | "
