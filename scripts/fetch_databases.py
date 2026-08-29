@@ -347,21 +347,62 @@ def _clean_cell(text: str) -> str:
 DETAILS_COLS = ["id", "definition", "parents"]
 
 
+def _unique(values: list[str]) -> list[str]:
+    """De-duplicate ids preserving order."""
+    seen, uniq = set(), []
+    for v in values:
+        if v not in seen:
+            seen.add(v)
+            uniq.append(v)
+    return uniq
+
+
+def _index_synonyms(label: str, synonyms: list[str]) -> list[str]:
+    """Drop synonyms that only echo the label or an earlier synonym.
+
+    Sources routinely repeat a term's own name as its first synonym — NCIt does it
+    on nearly every row, which alone costs ~1.4 MB — and every consumer already
+    folds label and synonyms into one key space and keeps the first spelling of
+    each key: ``predict_service.LexicalIndex.add`` and ``enrich_service`` both walk
+    ``[label] + synonyms`` that way. So an echo is dead weight in the file and a
+    duplicate chip in the concept-detail pane, and dropping it changes no match.
+
+    Comparison is **casefold-only**, deliberately weaker than ``normalize()``: two
+    spellings differing in punctuation or accents ("Sjögren" vs "Sjogren") share a
+    match key but are genuinely different names, so both are kept for display.
+    """
+    seen = {label.strip().casefold()}
+    out = []
+    for s in synonyms:
+        key = s.strip().casefold()
+        if not key or key in seen:
+            continue
+        seen.add(key)
+        out.append(s)
+    return out
+
+
 def write_index(db: str, rows: list[dict]) -> Path:
+    """Write the lean prediction index ``<db>.index.tsv``.
+
+    Only the target-database columns this source actually populates are written.
+    Each source leaves most of the ten empty — MeSH fills one, NCIt two — and
+    ``omop`` is empty in all five (no freely redistributable OMOP source; see the
+    README), so an always-empty column is a tab per row and nothing else.
+    ``predict_service`` reads columns by name (``row.get(db, "")``), so an absent
+    column reads as "this source cross-references nothing there" — which is what it
+    means. ``INDEX_COLS`` stays the full canonical order: it is the column
+    *vocabulary*, and a hand-supplied index may still carry all of it.
+    """
     out = DATA_DIR / f"{db}.index.tsv"
+    xrefs = [{col: ";".join(_unique(r.get(col, []))) for col in TARGET_DBS} for r in rows]
+    cols = [c for c in TARGET_DBS if any(x[c] for x in xrefs)]
     with open(out, "w", encoding="utf-8", newline="") as f:
-        f.write("\t".join(INDEX_COLS) + "\n")
-        for r in rows:
-            cells = [r.get("id", ""), r.get("label", ""), " | ".join(r.get("synonyms", []))]
-            for col in TARGET_DBS:
-                vals = r.get(col, [])
-                # de-dupe preserving order
-                seen, uniq = set(), []
-                for v in vals:
-                    if v not in seen:
-                        seen.add(v)
-                        uniq.append(v)
-                cells.append(";".join(uniq))
+        f.write("\t".join(INDEX_COLS[:3] + cols) + "\n")
+        for r, x in zip(rows, xrefs):
+            synonyms = _index_synonyms(r.get("label", ""), r.get("synonyms", []))
+            cells = [r.get("id", ""), r.get("label", ""), " | ".join(synonyms)]
+            cells += [x[c] for c in cols]
             f.write("\t".join(cells) + "\n")
     return out
 
