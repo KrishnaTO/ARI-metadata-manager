@@ -16,9 +16,17 @@ def _render_html(rel_path: str) -> HTMLResponse:
     """Serve an app HTML page with the `__ASSETV__` asset token substituted.
 
     The page is marked no-cache so it is always revalidated: it must be fresh to
-    carry the current deploy's token, which is what busts the (cacheable) assets."""
+    carry the current deploy's token, which is what busts the (cacheable) assets.
+
+    In development the token is re-derived per render. Assets are now served
+    ``immutable`` for a year, so a token fixed at startup means editing a JS or
+    CSS file has no effect until the server is restarted — and for a frontend-only
+    edit there is otherwise no reason to restart at all. Production keeps the
+    single startup token: re-deriving it walks ``static/`` on every page load.
+    """
     html = (config.STATIC_DIR / rel_path).read_text(encoding="utf-8")
-    return HTMLResponse(html.replace("__ASSETV__", config.ASSET_VERSION),
+    token = config._asset_version() if config.DEV_MODE else config.ASSET_VERSION
+    return HTMLResponse(html.replace("__ASSETV__", token),
                         headers={"Cache-Control": "no-cache, must-revalidate"})
 
 

@@ -75,12 +75,17 @@ async def get_ref_session(request: Request):
 
 @router.put("/api/v2/ref-session")
 async def put_ref_session(request: Request, payload: dict = Body(...)):
-    """Persist the signed-in user's cross-reference review session. The body is
-    the frontend-owned state blob ({reviewed, edited, published, branch, pr})."""
+    """Merge one window's changes into the signed-in user's review session.
+
+    Body: ``{patch: {reviewed, edited, published}, branch, pr}``, where a patch
+    value of ``null`` clears that key. Comparing two records side by side is the
+    product's core loop and takes two windows, so these writes have to merge
+    rather than overwrite — see ``workspace._merge_ref_session``."""
     login = sessions._login(request)
     if not login:
         return JSONResponse(status_code=401, content={"detail": "Sign in with GitHub first"})
-    workspace._save_ref_session(login, payload)
+    workspace._merge_ref_session(login, payload.get("patch") or {},
+                                 payload.get("branch"), payload.get("pr"))
     return {"ok": True}
 
 

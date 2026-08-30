@@ -70,7 +70,7 @@ async function submitFeedback(d){
     $('#fb-message').value = ''; $('#fb-keep').checked = false;
     await loadFeedbackList(d);
     toast('Feedback posted');
-  } catch (err){ toast('Failed: ' + err.message); }
+  } catch (err){ toastError(explainError(err, 'Could not post your comment')); }
   finally { const b = $('#fb-submit'); if (b) b.disabled = false; }
 }
 
@@ -95,15 +95,20 @@ function editFeedback(d, it){
         method:'PUT', body:{ message, keep } });
       await loadFeedbackList(d);
       toast('Feedback updated');
-    } catch (err){ toast('Update failed: ' + err.message); }
+    } catch (err){ toastError(explainError(err, 'Could not update your comment')); }
   });
 }
 
 async function deleteFeedback(d, fid){
-  if (!confirm('Delete this feedback comment?')) return;
+  if (!await UIDialog.confirm({
+    title: 'Delete this comment?',
+    detail: 'It is removed for everyone, and cannot be brought back.',
+    confirmLabel: 'Delete it',
+    danger: true,
+  })) return;
   try {
     await api('/api/v2/feedback/' + encodeURIComponent(fid), { method:'DELETE' });
     await loadFeedbackList(d);
     toast('Feedback deleted');
-  } catch (err){ toast('Delete failed: ' + err.message); }
+  } catch (err){ toastError(explainError(err, 'Could not delete your comment')); }
 }

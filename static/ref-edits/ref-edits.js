@@ -15,6 +15,36 @@
     return r.json();
   }
 
+  // ------------------------------------------------------- WINDOW PREFERENCES
+  // Layout is per-window; identity-ish preferences (theme, text size) are not.
+  //
+  // Density and the disease-column width lived in localStorage, which is shared
+  // by every window of the browser. Open a narrow comparison window beside a wide
+  // one, size it to fit, and the wide window inherited the change on its next
+  // reload — in a workflow whose whole point is two differently-shaped windows
+  // (issue #114).
+  //
+  // A window seeds itself from the last value set anywhere and then keeps its
+  // own: sessionStorage is read first and seeded from localStorage on first use,
+  // so a new window still opens with the density the curator prefers, and an
+  // existing one is never reshaped by a change made somewhere else.
+  function winPref(key) {
+    try {
+      const own = sessionStorage.getItem(key);
+      if (own !== null) return own;
+      const shared = localStorage.getItem(key);
+      if (shared !== null) sessionStorage.setItem(key, shared);
+      return shared;
+    } catch (e) { return null; }
+  }
+
+  function setWinPref(key, value) {
+    try {
+      sessionStorage.setItem(key, value);       // this window, from now on
+      localStorage.setItem(key, value);         // and the default for the next one
+    } catch (e) { /* storage may be unavailable */ }
+  }
+
   // The database columns (labels, link/search URL builders, object-curie prefixes)
   // are all built from the shared registry served by /api/v2/xref-databases
   // (app/xref_registry.py) — the single source of truth, so the PREFIX map here
@@ -93,14 +123,29 @@
   const addedBy = (iri, db, id) => RM.addedBy(model(), iri, db, id);
   const isOwnAddition = (iri, db, id) => RM.isOwnAddition(model(), iri, db, id);
 
-  // A one-line note under the header, used when an action is refused.
+  // The inline banner under the header. It already existed but was used only
+  // for refusals, while errors and confirmations went to blocking alert()s
+  // (issue #118). Everything routes through it now.
+  //
+  //   note(msg)            a refusal or a neutral notice — auto-dismisses
+  //   note(msg, 'ok')      a confirmation — auto-dismisses
+  //   note(msg, 'error')   a failure — stays until dismissed or superseded
+  //
+  // Errors persist because a message that describes a failed save must not
+  // vanish while the curator is still reading it.
   let _noteTimer = null;
-  function note(msg) {
+  function note(msg, kind) {
     const el = $('#note');
     el.textContent = msg;
+    el.classList.remove('is-ok', 'is-error');
+    if (kind) el.classList.add('is-' + kind);
+    el.setAttribute('role', kind === 'error' ? 'alert' : 'status');
     el.classList.add('open');
     clearTimeout(_noteTimer);
-    _noteTimer = setTimeout(() => el.classList.remove('open'), 6000);
+    if (kind !== 'error') _noteTimer = setTimeout(() => el.classList.remove('open'), 6000);
+    // Announce it too: the banner is visual, and there was no live region
+    // anywhere in the app.
+    UIDialog.announce(msg);
   }
 
   // ------------------------------------------------------------- STATE MODEL
@@ -172,6 +217,76 @@
     for (const db of DBS) for (const id of (r[db.key] || [])) ensureLabel(db.key, id);
   }
 
+  // ---------------------------------------------------------- COMPARE PANE
+  // Judging a cross-reference means comparing two definitions. The endpoint
+  // already returns the candidate's definition, synonyms and parents — the panel
+  // used to fetch all of it and keep only `label`, so for the four databases that
+  // block embedding (OMOP, Orphanet, UMLS, MeSH — 44% of every disease's review)
+  // it showed nothing about the candidate at all, and the curator opened a tab
+  // and held the ARI definition in working memory (issue #96).
+
+  const MAX_SYNONYMS_SHOWN = 8;
+
+  function synonymChips(list) {
+    const all = (list || []).filter(Boolean);
+    if (!all.length) return '<span class="cmp-none">none recorded</span>';
+    const shown = all.slice(0, MAX_SYNONYMS_SHOWN);
+    const rest = all.length - shown.length;
+    return shown.map(x => `<span class="cmp-chip">${esc(x)}</span>`).join('') +
+      (rest > 0 ? `<span class="cmp-more" title="${esc(all.slice(MAX_SYNONYMS_SHOWN).join(', '))}">+${rest} more</span>` : '');
+  }
+
+  function comparePaneHTML(r, db, ent) {
+    // Left: the ARI record. Right: a placeholder the async lookup fills in, so
+    // nothing blocks on the network.
+    return `<div class="cmp">
+      <div class="cmp-col">
+        <div class="cmp-head">ARI &middot; ${esc(r.ari_id || '')}</div>
+        <div class="cmp-name">${esc(r.name)}</div>
+        <div class="cmp-label">Definition</div>
+        <div class="cmp-def">${r.definition ? esc(r.definition) : '<span class="cmp-none">none recorded</span>'}</div>
+        <div class="cmp-label">Synonyms</div>
+        <div class="cmp-chips">${synonymChips(r.synonyms)}</div>
+      </div>
+      <div class="cmp-col" id="cmp-candidate">
+        <div class="cmp-head">${esc(db.label)}${ent ? ' &middot; ' + esc(ent.id) : ''}</div>
+        <div class="cmp-loading">Looking up the candidate concept…</div>
+      </div>
+    </div>`;
+  }
+
+  function renderCandidate(c, db, ent) {
+    const col = $('#cmp-candidate');
+    if (!col) return;
+    const head = `<div class="cmp-head">${esc(db.label)} &middot; ${esc(ent.id)}</div>`;
+    if (!c || !c.found) {
+      col.innerHTML = head + `<div class="cmp-none" style="margin-top:8px">
+        This id is not in the downloaded ${esc(db.label)} index, so there is nothing to
+        compare against here. Open it at the source to check it.</div>`;
+      return;
+    }
+    // A hub cross-reference is a weaker claim than the database's own term, and
+    // the curator should be able to see which they are looking at.
+    const via = (!c.direct && (c.via || []).length)
+      ? `<div class="cmp-via">Not ${esc(db.label)}'s own record — found via
+           ${c.via.map(v => esc(v)).join(', ')}, which cross-references this id.</div>`
+      : '';
+    const defn = c.definition
+      ? esc(c.definition)
+      : `<span class="cmp-none">${esc(c.note || 'no definition in the downloaded index')}</span>`;
+    const parents = (c.parents || []).length
+      ? `<div class="cmp-label">Broader terms</div>
+         <div class="cmp-chips">${(c.parents || []).map(x => `<span class="cmp-chip">${esc(x)}</span>`).join('')}</div>`
+      : '';
+    col.innerHTML = head + via +
+      `<div class="cmp-name">${esc(c.label || '(unnamed)')}</div>
+       <div class="cmp-label">Definition</div>
+       <div class="cmp-def">${defn}</div>
+       <div class="cmp-label">Synonyms</div>
+       <div class="cmp-chips">${synonymChips(c.synonyms)}</div>
+       ${parents}`;
+  }
+
   // Session cache of concept lookups, keyed `${db}|${id}`. Labels are decoration —
   // nothing waits on them, and a failed lookup just leaves the id unlabelled.
   const conceptCache = {};
@@ -196,32 +311,114 @@
   // the additions from the confirmed list at publish time, so this can't go stale.
   let applyEnrichment = false;
 
+  // What the curator has ticked, as {iri: {synonyms: Set, subtypes: Set}}.
+  // Everything starts ticked, so the default matches the old all-or-nothing
+  // behaviour and a curator only has to act to *decline* something.
+  let enrichPick = {};
+  let enrichData = {};
+
+  function enrichSelection() {
+    // The publish payload: plain arrays of the values still ticked.
+    const out = {};
+    for (const iri of Object.keys(enrichPick)) {
+      out[iri] = {
+        synonyms: [...enrichPick[iri].synonyms],
+        subtypes: [...enrichPick[iri].subtypes],
+      };
+    }
+    return out;
+  }
+
+  function enrichCount() {
+    return Object.values(enrichPick)
+      .reduce((n, p) => n + p.synonyms.size + p.subtypes.size, 0);
+  }
+
+  function enrichItemHTML(iri, kind, entry, i) {
+    // `entry` is {value, source} — the source is what makes this a curated
+    // record rather than an aggregated one (#117), so it is always shown.
+    const id = `en-${kind}-${i}`;
+    const on = enrichPick[iri] && enrichPick[iri][kind].has(entry.value);
+    // A subtype value reads "<name> - subtype of <disease> (<CURIE>)"; show the
+    // name plainly, since the source is displayed separately.
+    const m = kind === 'subtypes' && entry.value.match(/^(.*) - subtype of .* \(([^)]+)\)$/);
+    const shown = m ? m[1] : entry.value;
+    return `<li class="en-item">
+      <label>
+        <input type="checkbox" id="${id}" ${on ? 'checked' : ''}
+               data-iri="${esc(iri)}" data-kind="${kind}" data-value="${esc(entry.value)}">
+        <span class="en-val">${esc(shown)}</span>
+        <span class="en-src" title="Proposed from this term">${esc(entry.source || '')}</span>
+      </label></li>`;
+  }
+
   function renderEnrich(data) {
-    const iris = Object.keys(data || {});
-    const total = iris.reduce((n, i) => n + data[i].synonyms.length + data[i].subtypes.length, 0);
+    enrichData = data || {};
+    const iris = Object.keys(enrichData);
+    // Rebuild the selection, keeping any box the curator already unticked.
+    const prev = enrichPick;
+    enrichPick = {};
+    for (const iri of iris) {
+      const had = prev[iri];
+      enrichPick[iri] = {
+        synonyms: new Set((enrichData[iri].synonyms || [])
+          .map(e => e.value).filter(v => !had || had.synonyms.has(v))),
+        subtypes: new Set((enrichData[iri].subtypes || [])
+          .map(e => e.value).filter(v => !had || had.subtypes.has(v))),
+      };
+    }
+    const total = iris.reduce(
+      (n, i) => n + enrichData[i].synonyms.length + enrichData[i].subtypes.length, 0);
+
+    let i = 0;
     $('#enrich-list').innerHTML = !iris.length
       ? '<div class="pending-row"><span class="muted">Nothing new to add — the confirmed'
         + ' cross-references resolve to terms whose names and subtypes these diseases already'
         + ' carry, or to ids too coarse to identify a single concept.</span></div>'
       : iris.map(iri => {
-          const d = data[iri], r = ROWS.find(x => x.iri === iri);
-          const syn = !d.synonyms.length ? '' :
-            `<div class="en-group"><span class="en-label">+${d.synonyms.length} synonym(s)</span>
-              <div class="en-chips">${d.synonyms.map(s => `<span class="en-syn">${esc(s)}</span>`).join('')}</div></div>`;
-          // Each subtype reads "<name> - subtype of <disease> (<CURIE>)"; show the
-          // name plainly and the source CURIE as provenance.
-          const sub = !d.subtypes.length ? '' :
-            `<div class="en-group"><span class="en-label">+${d.subtypes.length} clinical subtype(s)</span>
-              <ul class="en-subs">${d.subtypes.map(s => {
-                const m = s.match(/^(.*) - subtype of .* \(([^)]+)\)$/);
-                return `<li>${esc(m ? m[1] : s)} <span class="en-src">${esc(m ? m[2] : '')}</span></li>`;
-              }).join('')}</ul></div>`;
-          return `<div class="en-disease"><h4>${esc((r && r.name) || iri)}</h4>${syn}${sub}</div>`;
+          const d = enrichData[iri], r = ROWS.find(x => x.iri === iri);
+          const group = (kind, label) => !d[kind].length ? '' :
+            `<div class="en-group">
+               <div class="en-grouphead">
+                 <span class="en-label">${d[kind].length} ${label}</span>
+                 <button class="en-all" data-iri="${esc(iri)}" data-kind="${kind}" data-on="0">None</button>
+                 <button class="en-all" data-iri="${esc(iri)}" data-kind="${kind}" data-on="1">All</button>
+               </div>
+               <ul class="en-items">${d[kind].map(e => enrichItemHTML(iri, kind, e, i++)).join('')}</ul>
+             </div>`;
+          return `<div class="en-disease"><h4>${esc((r && r.name) || iri)}</h4>` +
+                 group('synonyms', 'synonym(s)') + group('subtypes', 'clinical subtype(s)') + '</div>';
         }).join('');
-    $('#enrich-chip').title = `${iris.length} disease(s) · ${total} addition(s) proposed`;
+
+    // One handler for the list rather than one per checkbox.
+    $('#enrich-list').querySelectorAll('input[type=checkbox]').forEach(cb =>
+      cb.addEventListener('change', () => {
+        const set = enrichPick[cb.dataset.iri][cb.dataset.kind];
+        if (cb.checked) set.add(cb.dataset.value); else set.delete(cb.dataset.value);
+        reflectEnrichCount(total);
+      }));
+    $('#enrich-list').querySelectorAll('.en-all').forEach(b =>
+      b.addEventListener('click', () => {
+        const on = b.dataset.on === '1';
+        const iri = b.dataset.iri, kind = b.dataset.kind;
+        enrichPick[iri][kind] = new Set(on ? enrichData[iri][kind].map(e => e.value) : []);
+        $('#enrich-list').querySelectorAll(
+          `input[data-iri="${CSS.escape(iri)}"][data-kind="${kind}"]`).forEach(cb => { cb.checked = on; });
+        reflectEnrichCount(total);
+      }));
+
     $('#en-apply').disabled = !iris.length;
     if (!iris.length && applyEnrichment) { applyEnrichment = false; $('#en-apply').checked = false; }
-    $('#enrich-dot').classList.toggle('live', applyEnrichment);
+    reflectEnrichCount(total);
+  }
+
+  function reflectEnrichCount(total) {
+    const picked = enrichCount();
+    const n = Object.keys(enrichData).length;
+    $('#enrich-chip').title = n
+      ? `${n} disease(s) · ${picked} of ${total} proposed addition(s) selected`
+      : 'No additions proposed';
+    $('#enrich-dot').classList.toggle('live', applyEnrichment && picked > 0);
   }
 
   // Open or close a drawer from its toolbar toggle, keeping the toggle's pressed
@@ -330,20 +527,65 @@
   }
 
   // Persist this signed-in user's review session (verdicts, edited-id markers and
-  // the PR pointer) to the server so a page reload resumes where they left off.
-  // Debounced; anonymous users keep review state in-memory only (no persistence).
+  // the PR pointer) to the server so a page reload resumes their work.
+  //
+  // Only what *this window* changed is sent. The whole state blob used to go up
+  // on every save and the server wrote it wholesale, so comparing two records
+  // side by side — which is the product's core loop, and takes two windows —
+  // meant the last window to save replaced the whole document and the other
+  // one's verdicts were gone on the next reload (issue #114). Every key here is
+  // one cell or one id, so the merge is unambiguous; `null` is the one thing a
+  // plain merge cannot express, and means the curator cleared that verdict.
+  const emptyPatch = () => ({ reviewed: {}, edited: {}, published: {} });
+  let patch = emptyPatch();
+
+  function setSessionKey(name, key, value) {
+    const map = { reviewed, edited, published }[name];
+    if (value === null) delete map[key]; else map[key] = value;
+    patch[name][key] = value;
+  }
+
+  const patchIsEmpty = () => Object.values(patch).every(m => !Object.keys(m).length);
+
+  // A failed save puts its keys back, without overwriting anything changed since.
+  function requeue(sent) {
+    for (const name of Object.keys(sent))
+      for (const [k, v] of Object.entries(sent[name]))
+        if (!(k in patch[name])) patch[name][k] = v;
+  }
+
+  function sessionBody() {
+    const sent = patch;
+    patch = emptyPatch();
+    return { sent, body: { patch: sent, branch: sessionBranch, pr: sessionPr } };
+  }
+
   let _saveTimer = null;
   function saveSession(immediate) {
     if (!(me && me.authenticated)) return;
     clearTimeout(_saveTimer);
     const put = () => {
-      const reviewedClean = {};
-      for (const [k, v] of Object.entries(reviewed)) if (v) reviewedClean[k] = v;
-      api('ref-session', { method: 'PUT', body: { reviewed: reviewedClean, edited, published, branch: sessionBranch, pr: sessionPr } })
-        .catch(e => console.warn('Could not save review session:', e.message));
+      if (patchIsEmpty() && !immediate) return;
+      const { sent, body } = sessionBody();
+      api('ref-session', { method: 'PUT', body })
+        .catch(e => { requeue(sent); console.warn('Could not save review session:', e.message); });
     };
     if (immediate) put(); else _saveTimer = setTimeout(put, 500);
   }
+
+  // The debounce is a 500ms window in which closing the tab loses a verdict, and
+  // this workflow closes tabs constantly. `keepalive` lets the request outlive
+  // the page. `visibilitychange` rather than `beforeunload`: it is the one signal
+  // that reliably fires when a tab is closed or backgrounded.
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState !== 'hidden') return;
+    if (!(me && me.authenticated) || patchIsEmpty()) return;
+    clearTimeout(_saveTimer);
+    const { body } = sessionBody();
+    fetch(apiUrl('ref-session'), { method: 'PUT', keepalive: true,
+      headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+      .catch(() => { /* the page is going away; nothing useful to report */ });
+  });
 
   // Reflect the tracked PR in the header. With a PR on file the primary button
   // appends to it and the split caret opens the alternatives (visit the PR, or
@@ -426,8 +668,13 @@
     let send = iris, reassign = false;
     if (clashN) {
       const who = Object.entries(clash).map(([l, v]) => `${v.length} on @${l}`).join(', ');
-      reassign = confirm(`${who}. Move them to @${login}'s queue?\n\n` +
-        `Cancel queues only the ${iris.length - clashN} nobody else holds.`);
+      reassign = await UIDialog.confirm({
+        title: `Move ${clashN} disease(s) to @${login}'s queue?`,
+        detail: `${who} already. Declining queues only the ` +
+                `${iris.length - clashN} nobody else holds.`,
+        confirmLabel: 'Move them',
+        cancelLabel: 'Leave them',
+      });
       if (!reassign) send = iris.filter(i => !(owners[i] && owners[i].login !== login));
     }
     if (!send.length) return;
@@ -440,7 +687,7 @@
       await loadOwners();
       reflectSelection(); renderMatrix();
     } catch (e) {
-      alert('Could not update the review queue: ' + e.message);
+      note('Could not update the review queue: ' + e.message, 'error');
     } finally { btns.forEach(b => { b.disabled = false; }); }
   }
 
@@ -452,7 +699,7 @@
     $('#sel-mine').addEventListener('click', () => addToQueue(me.login, ''));
     $('#sel-assign').addEventListener('click', () => {
       const login = $('#sel-login').value.trim();
-      if (!login) { alert('Enter the curator’s GitHub login.'); return; }
+      if (!login) { note('Enter the curator’s GitHub login.', 'error'); $('#sel-login').focus(); return; }
       addToQueue(login, $('#sel-note').value.trim());
     });
     $('#queue-filter').addEventListener('click', e => {
@@ -467,18 +714,26 @@
   // (see initColGrip) is clamped to half the matrix area and remembered per browser.
   let diseaseW = null;
   const DISEASE_MIN = 150;
-  // body carries a --ui-zoom scale, so pointer coordinates are that much larger than
-  // the CSS pixels the grid track is expressed in — divide before using them as width.
-  const uiZoom = () => Number(getComputedStyle(document.documentElement).getPropertyValue('--ui-zoom')) || 1;
-  const diseaseMax = () => document.querySelector('.body').getBoundingClientRect().width / uiZoom() / 2;
+  // What a database column needs before its header label starts truncating —
+  // ORPHANET is the longest at ~62px.
+  const DB_READABLE = 64;
+  const diseaseMax = () => document.querySelector('.body').getBoundingClientRect().width / 2;
 
   // Column tracks: the disease column plus one equal track per database. The 44px
   // floor is what makes the matrix scroll instead of collapse when the panel opens
   // or the disease column is dragged wide.
+  //
+  // The disease column is the one that gives way. Opening the review panel used to
+  // leave the 413px name column untouched and crush the nine database columns to
+  // 55px each — the column you no longer need (you know which disease you opened)
+  // keeping its width while the columns you are comparing collided. The dragged
+  // width is an upper bound now, not a floor (issue #97).
   function applyGrid() {
     const compact = document.documentElement.dataset.density === 'compact';
     if (diseaseW !== null) diseaseW = Math.max(DISEASE_MIN, Math.min(diseaseMax(), diseaseW));
-    const w = diseaseW === null ? (compact ? 250 : 330) : diseaseW;
+    let w = diseaseW === null ? (compact ? 250 : 330) : diseaseW;
+    const avail = $('#matrix-wrap')?.getBoundingClientRect().width || 0;
+    if (avail) w = Math.max(DISEASE_MIN, Math.min(w, avail - DBS.length * DB_READABLE));
     // The splitter reads --disease-col to place itself on the boundary.
     document.documentElement.style.setProperty('--disease-col', Math.round(w) + 'px');
     document.documentElement.style.setProperty('--grid-cols',
@@ -495,7 +750,7 @@
     const sortTitle = key === NAME_COL ? 'Sort diseases by name'
       : `Sort by ${label}: diseases missing a mapping first`;
     return `<div class="hcol${dir || only ? ' active' : ''}">
-      <button class="hsort" data-sort="${esc(key)}" title="${esc(sortTitle)}">${esc(label)}<span class="harrow">${arrow}</span></button>
+      <button class="hsort" data-sort="${esc(key)}" title="${esc(sortTitle)}"><span class="hlabel">${esc(label)}</span><span class="harrow">${arrow}</span></button>
       ${extra}</div>`;
   }
 
@@ -504,6 +759,14 @@
       headCell(d.key, d.label,
         `<button class="hmiss${missingOnly === d.key ? ' on' : ''}" data-miss="${esc(d.key)}"
            title="Show only the diseases missing a ${esc(d.label)} mapping">○</button>`)).join('');
+    measureHead();
+  }
+
+  // The open strip's disease name sticks below the column header, so it needs the
+  // header's height — which changes with the density and the text size.
+  function measureHead() {
+    const h = $('#mhead').offsetHeight;
+    if (h) document.documentElement.style.setProperty('--mhead-h', h + 'px');
   }
 
   // The disease column sorts by name; the database columns sort by how much of the
@@ -654,6 +917,9 @@
         strip = `<div class="strip">
           <div class="strip-head">
             <span class="strip-title">${esc(r.name)}</span>${aiDot(r)}
+            <button class="strip-copy" data-copy="${esc(r.iri)}"
+              title="Copy a link to this disease — paste it in a second window to compare side by side"
+              aria-label="Copy a link to ${esc(r.name)}">⧉ Copy link</button>
             <span class="strip-id">${esc(r.ari_id || '')}</span>
             <span class="strip-syn">${esc((r.synonyms || []).join(' · '))}</span>
             <span style="flex:1"></span>
@@ -688,7 +954,7 @@
     }
   }
 
-  function toggleRow(iri) { openRow = openRow === iri ? null : iri; renderMatrix(); }
+  function toggleRow(iri) { openRow = openRow === iri ? null : iri; renderMatrix(); reflectHash(); }
 
   // Open one mapping in the side panel, expanding its disease so the strip agrees
   // with what the panel is showing.
@@ -696,7 +962,56 @@
     openRow = iri;
     openPanel(iri, dbkey, id);
     renderMatrix();
+    reflectHash();
   }
+
+  // ------------------------------------------------------------- DEEP LINKS
+  // What is open lives in the fragment, so a disease row — or one disease x
+  // database cell — can be addressed in a URL. Comparing two records side by side
+  // is what this page is for, and there was no way to set that second window up:
+  // the editor has `#/disease/<iri>` and a Copy link button, this page had
+  // nothing (issue #114).
+  //
+  // `#<iri>` opens the row; `#<iri>|<db>|<id>` also opens that cell's panel.
+  // replaceState, not a push: clicking through twenty cells should not bury the
+  // page the curator came from under twenty history entries.
+  function hashFor(iri, dbkey, id) {
+    return '#' + [enc(iri), dbkey, id].filter(x => x != null && x !== '').map(String).join('|');
+  }
+
+  function linkTo(iri, dbkey, id) {
+    return new URL(hashFor(iri, dbkey, id), location.href.split('#')[0]).href;
+  }
+
+  let _hashOurs = '';
+  function reflectHash() {
+    const h = active ? hashFor(active.iri, active.dbkey, active.id)
+            : openRow ? hashFor(openRow)
+            : '';
+    if (h === location.hash) return;
+    _hashOurs = h;
+    history.replaceState(null, '', h || location.pathname + location.search);
+  }
+
+  // Read the fragment and open what it names. Silent when it names a disease that
+  // is not in the matrix — a stale link should not break the page.
+  function applyHash() {
+    const raw = location.hash.replace(/^#/, '');
+    if (!raw) return;
+    const [rawIri, dbkey, id] = raw.split('|');
+    let iri;
+    try { iri = decodeURIComponent(rawIri); } catch (e) { return; }
+    if (!ROWS.some(r => r.iri === iri)) return;
+    if (dbkey && DBMAP[dbkey]) openEntry(iri, dbkey, id || null);
+    else { openRow = iri; renderMatrix(); }
+    document.querySelector(`.mrow[data-iri="${CSS.escape(iri)}"]`)
+      ?.scrollIntoView({ block: 'center' });
+  }
+
+  window.addEventListener('hashchange', () => {
+    if (location.hash === _hashOurs) return;      // our own replaceState
+    applyHash();
+  });
 
   // Step to the next mapping anywhere in the matrix that still needs a verdict.
   function nextOpen() {
@@ -721,7 +1036,7 @@
       return;
     }
     const key = idKey(iri, db, id);
-    if (reviewed[key] === v) delete reviewed[key]; else reviewed[key] = v;
+    setSessionKey('reviewed', key, reviewed[key] === v ? null : v);
     counts(); saveSession(); renderMatrix();
     // Keep the panel's own verdict buttons in step without rebuilding it (which
     // would reload the preview iframe underneath the curator).
@@ -736,7 +1051,7 @@
   // It publishes as an SSSOM NoTermFound row rather than a per-id judgment.
   function setAbsent(iri, dbkey) {
     const key = absentKey(iri, dbkey);
-    if (reviewed[key] === 'none') delete reviewed[key]; else reviewed[key] = 'none';
+    setSessionKey('reviewed', key, reviewed[key] === 'none' ? null : 'none');
     counts(); saveSession(); renderMatrix();
     if (active && active.iri === iri && active.dbkey === dbkey) openPanel(iri, dbkey, active.id);
   }
@@ -845,9 +1160,13 @@
         <button class="btn" id="p-next">Next open mapping</button>
       </div>` : ''}
       ${noneBtn}
+      ${ent ? comparePaneHTML(r, db, ent) : ''}
       ${db.noframe || !ent
         ? ''
-        : `<iframe id="p-frame" src="${esc(db.link(ent.id))}"></iframe>`}
+        : `<details class="p-source">
+             <summary>Full ${esc(db.label)} page</summary>
+             <iframe id="p-frame" loading="lazy" src="${esc(db.link(ent.id))}"></iframe>
+           </details>`}
       <div class="p-foot">${esc(foot)}</div>`;
 
     $('#side').classList.add('open');
@@ -880,8 +1199,14 @@
       });
       $('#panel').querySelectorAll('.p-sib').forEach(s =>
         s.addEventListener('click', () => openEntry(iri, dbkey, s.dataset.sib)));
-      // Look the concept label up after wiring, so nothing waits on it.
+      // Look the concept up after wiring, so nothing waits on it. One request
+      // fills both the small caption and the compare pane.
       if (!ent.pred) ensureLabel(dbkey, ent.id);
+      conceptFor(dbkey, ent.id).then(c => {
+        // Guard against a slow response landing after the curator moved on.
+        if (active && active.iri === iri && active.dbkey === dbkey &&
+            String(active.id) === String(ent.id)) renderCandidate(c, db, ent);
+      });
     }
   }
 
@@ -891,6 +1216,17 @@
     $('#side').classList.remove('open');
     $('#divider').classList.remove('show');
     renderMatrix();
+    reflectHash();
+  }
+
+  // Copy a deep link to the disease. The button says what happened rather than
+  // relying on a toast the curator may have looked away from.
+  function copyLink(btn) {
+    const was = btn.textContent;
+    navigator.clipboard.writeText(linkTo(btn.dataset.copy))
+      .then(() => { btn.textContent = '✓ Copied'; })
+      .catch(() => { btn.textContent = 'Copy failed'; })
+      .finally(() => setTimeout(() => { btn.textContent = was; }, 1600));
   }
 
   // -------------------------------------------------- NEW-SUBTYPE OVERLAY
@@ -911,7 +1247,7 @@
     ov.innerHTML = `
       <div class="so-head"><strong>＋ New subtype</strong><span style="flex:1"></span>
         <button class="btn" id="so-close">✕</button></div>
-      <div class="so-body">
+      <div class="so-body" id="so-body">
         <div class="so-parent-info">Parent disease: <strong>${esc(r.name)}</strong><br>
           Created as a child (subtype) of this disease. Use the reference info on the right to fill the cross-reference ids below.</div>
         <div class="so-field" id="so-existing-wrap" style="display:none"><label>Start from an existing clinical subtype</label>
@@ -965,14 +1301,20 @@
   }
 
   async function submitSubtype(parentIri) {
-    if (!me || !me.authenticated) { alert('Sign in with GitHub first.'); return; }
+    if (!me || !me.authenticated) { note('Sign in with GitHub first.', 'error'); return; }
     const val = id => ($('#' + id)?.value || '').trim();
     const label = val('so-label'), definition = val('so-definition'), defsrc = val('so-defsrc');
     const tissue_iris = [...document.querySelectorAll('#so-tissues input:checked')].map(c => c.value);
-    if (!label)             { alert('Label is required'); return; }
-    if (!definition)        { alert('Definition is required'); return; }
-    if (!defsrc)            { alert('Definition source is required'); return; }
-    if (!tissue_iris.length){ alert('Select at least one target tissue'); return; }
+    // Every failure at once, next to its own field. This used to return on the
+    // first one, so a curator missing four required fields got four separate
+    // 2.6-second messages across four submit attempts (issue #99).
+    const soBody = $('#so-body');
+    const problems = [];
+    if (!label)              problems.push({ id: 'so-label', message: 'Give the subtype a label.' });
+    if (!definition)         problems.push({ id: 'so-definition', message: 'Write a definition.' });
+    if (!defsrc)             problems.push({ id: 'so-defsrc', message: 'Cite where the definition came from — a URL or a PMID.' });
+    if (!tissue_iris.length) problems.push({ id: 'so-tissues', message: 'Choose at least one target tissue.' });
+    if (!UIDialog.showFieldErrors(soBody, problems)) return;
     const editor = val('so-editor') || (me && me.login) || 'curator';
     const data = {
       label, definition, def_source: [defsrc], tissue_iris, parent_iri: parentIri,
@@ -986,9 +1328,9 @@
       ROWS = await api('xrefs');           // refresh so the new subtype appears in the matrix
       closeSubtypeOverlay();
       renderMatrix(); counts();
-      alert('Created subtype: ' + created.name);
+      note('Created subtype: ' + created.name, 'ok');
     } catch (e) {
-      alert('Create failed: ' + e.message);
+      note('Could not create the subtype: ' + e.message, 'error');
       btn.disabled = false; btn.textContent = '＋ Create subtype';
     }
   }
@@ -996,18 +1338,26 @@
   // Save an edit to the panel's target id. The rest of the cell is left alone: the new
   // value replaces just this id, an empty value removes it, and an id that is not on
   // file yet (a prediction, or a first id for a blank cell) is added.
+  //
+  // The single id and what to do with it go to the server, which rebuilds the cell
+  // from what is on file at that moment. This used to send the cell's whole new
+  // contents, computed from the ids this window happened to be holding, so an id a
+  // second window had added since page load was erased with no conflict and no
+  // message (issue #114). A `replace` whose target has gone now fails loudly.
   async function saveId(iri, dbkey, targetId) {
-    if (!me || !me.authenticated) { alert('Sign in with GitHub first.'); return; }
+    if (!me || !me.authenticated) { note('Sign in with GitHub first.', 'error'); return; }
     const r = ROWS.find(x => x.iri === iri);
     if (!r) return;
     const val = $('#p-ids').value.trim();
     const onFile = (r[dbkey] || []).map(String);
-    const list = (targetId != null && onFile.includes(String(targetId))
-      ? onFile.map(x => (x === String(targetId) ? val : x))
-      : onFile.concat(val)).filter(Boolean);
+    const replacing = targetId != null && onFile.includes(String(targetId));
+    const op = replacing ? (val ? 'replace' : 'remove') : 'add';
+    if (op === 'add' && !val) { $('#p-cancel').click(); return; }   // nothing to do
     $('#p-save').disabled = true; $('#p-save').textContent = 'Saving…';
     try {
-      const updated = await api('disease/' + enc(iri), { method: 'PUT', body: { changes: { [dbkey]: list.join(', ') } } });
+      const updated = await api('disease/' + enc(iri) + '/xref', { method: 'POST', body: {
+        db: dbkey, op, value: op === 'remove' ? String(targetId) : val,
+        replaces: replacing ? String(targetId) : '' } });
       const oldIds = r[dbkey] || [];
       const newIds = updated[dbkey] || [];
       r[dbkey] = newIds;
@@ -1016,13 +1366,13 @@
       // stops a just-saved id also publishing as a negative mapping.
       for (const id of newIds) {
         if (oldIds.includes(id)) continue;
-        edited[idKey(iri, dbkey, id)] = true;
-        delete reviewed[idKey(iri, dbkey, id)];
+        setSessionKey('edited', idKey(iri, dbkey, id), true);
+        setSessionKey('reviewed', idKey(iri, dbkey, id), null);
       }
       for (const id of oldIds) {
         if (newIds.includes(id)) continue;
-        delete edited[idKey(iri, dbkey, id)];
-        delete reviewed[idKey(iri, dbkey, id)];
+        setSessionKey('edited', idKey(iri, dbkey, id), null);
+        setSessionKey('reviewed', idKey(iri, dbkey, id), null);
       }
       // The save just credited an id to someone in the authorship ledger, so pull
       // it again rather than guessing — the ledger keeps an id's *first* author.
@@ -1032,7 +1382,7 @@
       // cell doesn't bounce the curator back to the first.
       openPanel(iri, dbkey, newIds.includes(val) ? val : (newIds[0] || null));
       renderMatrix();
-    } catch (e) { alert('Save failed: ' + e.message); $('#p-save').disabled = false; $('#p-save').textContent = 'Save'; }
+    } catch (e) { note('Could not save the id: ' + e.message, 'error'); $('#p-save').disabled = false; $('#p-save').textContent = 'Save'; }
   }
 
   // Publish the review as a pull request. `newPr` true opens a fresh PR carrying
@@ -1043,9 +1393,26 @@
     const keys = publishKeys(newPr);
     if (!keys.size) return;
     const reuse = newPr ? null : sessionBranch;
-    if (newPr && sessionPr &&
-        !confirm('Open a new pull request instead of adding to PR #' + sessionPr.number + '?')) return;
-    const comment = window.prompt('Optional comment for the pull request (what you reviewed/changed):', 'Mappings review');
+    if (newPr && sessionPr && !await UIDialog.confirm({
+        title: 'Start a new submission?',
+        detail: `Your work is currently going into PR #${sessionPr.number}. ` +
+                'A new one carries only the verdicts not already published there.',
+        confirmLabel: 'Start a new one',
+        cancelLabel: 'Keep adding to #' + sessionPr.number,
+      })) return;
+    // A real textarea. This was window.prompt(): single-line, unstyled, easy to
+    // dismiss by accident, and the only place a curator could say what they had
+    // reviewed (issue #118).
+    const comment = await UIDialog.text({
+      title: 'Describe this submission',
+      detail: 'This becomes the pull request description. Optional, but it is what '
+            + 'a reviewer reads first.',
+      label: 'What did you review or change?',
+      value: 'Mappings review',
+      placeholder: 'e.g. Checked every MONDO id for the skin diseases; flagged three that name a broader concept.',
+      confirmLabel: 'Publish',
+      multiline: true,
+    });
     if (comment === null) return;
     // The author lands in the published SSSOM `author_id` column. The server
     // validates an ORCID and refuses a malformed one rather than writing a typo
@@ -1065,12 +1432,15 @@
         confirmed: confirmedList(keys), flagged: flaggedList(keys),
         absent: absentList(keys), author,
         apply_enrichment: applyEnrichment,
+        // Only what the curator left ticked. Sent whenever enrichment is on, so
+        // declining three of eleven proposals no longer means declining all.
+        enrichment_selection: applyEnrichment ? enrichSelection() : null,
         request_id: pendingPublishId,
         branch: reuse, labels: ['edit term', 'sssom'] } });
       pendingPublishId = null;                        // this attempt is settled
       sessionBranch = r.branch;                       // subsequent publishes append to the same PR
       sessionPr = { number: r.pr_number, url: r.pr_url, fork: r.fork };
-      for (const k of keys) published[k] = { pr: r.pr_number, state: keyState(k) };
+      for (const k of keys) setSessionKey('published', k, { pr: r.pr_number, state: keyState(k) });
       // A PR this branch used to feed has been merged or closed, so this work
       // went into a new one. Say which, rather than leaving the header pointing
       // at a number the curator's work is no longer in.
@@ -1085,7 +1455,7 @@
     } catch (e) {
       // pendingPublishId is deliberately kept: the next click retries the SAME
       // attempt, which the server can recognise if the first one actually landed.
-      alert('Publish failed: ' + e.message); reflectPr(); counts();
+      note('Publish failed: ' + e.message, 'error'); reflectPr(); counts();
     }
   }
 
@@ -1115,14 +1485,14 @@
     const move = e => {
       if (!dragging) return;
       const x = (e.touches ? e.touches[0].clientX : e.clientX);
-      diseaseW = (x - $('#matrix-inner').getBoundingClientRect().left) / uiZoom();
+      diseaseW = x - $('#matrix-inner').getBoundingClientRect().left;
       applyGrid();
       e.preventDefault();
     };
     const end = () => {
       if (!dragging) return;
       dragging = false; document.body.classList.remove('dragging');
-      try { localStorage.setItem('refDiseaseW', String(Math.round(diseaseW))); } catch (err) {}
+      setWinPref('refDiseaseW', String(Math.round(diseaseW)));
     };
     const start = e => { dragging = true; document.body.classList.add('dragging'); e.preventDefault(); };
     const grip = $('#colgrip');
@@ -1130,12 +1500,16 @@
     grip.addEventListener('touchstart', start, { passive: false });
     grip.addEventListener('dblclick', () => {
       diseaseW = null; applyGrid();
-      try { localStorage.removeItem('refDiseaseW'); } catch (err) {}
+      try { sessionStorage.removeItem('refDiseaseW'); localStorage.removeItem('refDiseaseW'); }
+      catch (err) { /* storage may be unavailable */ }
     });
     window.addEventListener('mousemove', move); window.addEventListener('touchmove', move, { passive: false });
     window.addEventListener('mouseup', end); window.addEventListener('touchend', end);
-    // A narrower window lowers the half-the-viewport ceiling; applyGrid re-clamps.
-    window.addEventListener('resize', () => { if (diseaseW !== null) applyGrid(); });
+    // Anything that changes the matrix's width re-runs the column budget: the
+    // review panel opening or closing, the divider being dragged, the window
+    // resizing. One observer covers all three, and the width it reports is the
+    // settled one — #side animates its width, so reading it on the click is early.
+    new ResizeObserver(() => { applyGrid(); measureHead(); }).observe($('#matrix-wrap'));
   }
 
   // ------------------------------------------------------- HEADER CONTROLS
@@ -1171,14 +1545,36 @@
   function syncSegs() {
     const th = document.documentElement.dataset.theme || 'light';
     const de = document.documentElement.dataset.density || 'comfortable';
+    const ts = document.documentElement.dataset.textsize || 'standard';
     document.querySelectorAll('#theme button').forEach(b => b.classList.toggle('on', b.dataset.theme === th));
     document.querySelectorAll('#density button').forEach(b => b.classList.toggle('on', b.dataset.density === de));
+    document.querySelectorAll('#textsize button').forEach(b => b.classList.toggle('on', b.dataset.textsize === ts));
     document.querySelectorAll('#queue-filter button').forEach(b => b.classList.toggle('on', b.dataset.queue === queueFilter));
     $('#pref-legend').checked = document.documentElement.dataset.legend !== 'off';
   }
 
   function initControls() {
     initMenus();
+    // ORCID: what lands in the published SSSOM author_id column. Validated on
+    // the way out too, by the server — a typo here is permanent and
+    // unattributable, so a malformed one is refused rather than published.
+    const orcid = $('#pref-orcid');
+    orcid.value = localStorage.getItem('ari_editor_orcid') || '';
+    const saveOrcid = () => {
+      const v = orcid.value.trim();
+      if (v && !/^[0-9]{4}-[0-9]{4}-[0-9]{4}-[0-9]{3}[0-9X]$/.test(v)) {
+        orcid.setAttribute('aria-invalid', 'true');
+        note('An ORCID looks like 0000-0000-0000-0000 (the last character may be X).', 'error');
+        return;
+      }
+      orcid.removeAttribute('aria-invalid');
+      if (v) localStorage.setItem('ari_editor_orcid', v);
+      else localStorage.removeItem('ari_editor_orcid');
+      note(v ? 'Mappings will be attributed to ORCID ' + v : 'Cleared — using your GitHub login.', 'ok');
+    };
+    orcid.addEventListener('change', saveOrcid);
+    orcid.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); saveOrcid(); } });
+
     $('#pref-legend').addEventListener('change', e => {
       const v = e.target.checked ? 'on' : 'off';
       document.documentElement.dataset.legend = v;
@@ -1193,8 +1589,16 @@
     $('#density').addEventListener('click', e => {
       const b = e.target.closest('button'); if (!b) return;
       document.documentElement.dataset.density = b.dataset.density;
-      try { localStorage.setItem('refDensity', b.dataset.density); } catch (err) {}
+      setWinPref('refDensity', b.dataset.density);
       applyGrid(); syncSegs();
+    });
+    // Text size shares one key with the editor, so the choice carries across both
+    // pages rather than being made twice (issue #94).
+    $('#textsize').addEventListener('click', e => {
+      const b = e.target.closest('button'); if (!b) return;
+      document.documentElement.dataset.textsize = b.dataset.textsize;
+      try { localStorage.setItem('ari-textsize', b.dataset.textsize); } catch (err) {}
+      applyGrid(); measureHead(); syncSegs();
     });
     $('#pending-chip').addEventListener('click', () => reflectDrawer('#pending-chip', '#pending-panel'));
     $('#enrich-chip').addEventListener('click', openEnrich);
@@ -1212,6 +1616,8 @@
       if (btn) { setReview(btn.dataset.iri, btn.dataset.db, btn.dataset.id, btn.dataset.v); return; }
       const nb = e.target.closest('.cnone');
       if (nb) { setAbsent(nb.dataset.iri, nb.dataset.db); return; }
+      const cp = e.target.closest('[data-copy]');
+      if (cp) { copyLink(cp); return; }
       const sub = e.target.closest('[data-subtype]');
       if (sub) { openSubtypeOverlay(sub.dataset.subtype); return; }
       const add = e.target.closest('.card-add');
@@ -1227,7 +1633,12 @@
 
   // Who added each id on file. Failure is non-fatal — the frontend lock relaxes,
   // but /api/v2/publish re-checks authorship server-side, so nothing slips through.
+  //
+  // The endpoint requires a session (it is the evidence base for separation of
+  // duties). A signed-out viewer cannot confirm anything, so the ledger would
+  // change nothing for them — don't ask for it and log a 401 on every load.
   async function loadIdAuthors() {
+    if (!(me && me.authenticated)) { idAuthors = {}; return; }
     try { idAuthors = await api('id-authors'); }
     catch (e) { console.warn('Could not load id authorship:', e.message); idAuthors = {}; }
   }
@@ -1269,8 +1680,13 @@
     // Who holds which disease — drives the owner badges and the queue filter.
     await loadOwners();
     reflectPr();
-    diseaseW = Number(localStorage.getItem('refDiseaseW')) || null;
+    // This window's layout. The pre-paint script in index.html sets data-density
+    // too, from the shared default, so the first frame is close — but the value
+    // that stands is this one, read session-first (see winPref).
+    document.documentElement.dataset.density = winPref('refDensity') || 'comfortable';
+    diseaseW = Number(winPref('refDiseaseW')) || null;
     applyGrid(); syncSegs(); renderHead(); renderMatrix(); counts();
+    applyHash();                       // open whatever the URL names
     initDivider(); initColGrip(); initControls(); initQueue();
     $('#filter').addEventListener('input', renderMatrix);
     $('#mhead').addEventListener('click', e => {

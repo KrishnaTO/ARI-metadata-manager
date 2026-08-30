@@ -14,6 +14,100 @@ Two defects found by reading the running app rather than trusting the query: the
 
 252 pytest, 33 `node --test`, ruff clean.
 
+## multi-window-curation
+Closes #114. Partly #11 — see the note at the end.
+
+Comparing two records side by side is the product's core loop and takes two windows. Five things made that unsafe or impossible.
+
+- **Verdicts were clobbered between windows.** The page PUT its *entire* state blob every 500ms and the server wrote it wholesale, so the last window to save replaced the whole document and the other one's verdicts were gone on the next reload. Each window now sends only the keys it changed. Every key is one cell or one id, so the merge is unambiguous; `null` means the curator cleared that verdict, which is the one thing a plain merge cannot express. A failed save puts its keys back without overwriting anything changed since.
+- **`branch` and `pr` are only ever set, never cleared.** Publishing assigns them; a window that loaded before the publish must not send them back to null and leave the header no longer naming the pull request the work is in.
+- **Saving one id rewrote the whole cell.** `saveId()` read the ids it had in memory, spliced the new value in and PUT the joined list back as the field's complete value — so anything another window or another curator had added since page load was erased, with no conflict and no message. A new `POST /api/v2/disease/{iri}/xref` takes the single id and what to do with it (`add` / `replace` / `remove`) and rebuilds the list from what is on file at the moment of the write. A `replace` whose target has gone is **refused**, naming the id, rather than quietly adding a second one — that collision is the thing this endpoint exists to surface.
+- **The review page had no deep link, so the second window could not be set up at all.** What is open now lives in the fragment: `#<iri>` for a disease row, `#<iri>|<db>|<id>` for one disease x database cell. Read on load and on `hashchange`, mirrored with `replaceState` so clicking through twenty cells does not bury the page the curator came from under twenty history entries. A stale link is ignored rather than breaking the page. Verified end to end: pasting a cell URL into a fresh window reopens the row, the strip and the review panel on that id.
+- **A Copy link button sits beside the disease name** in the open review strip — the way to get that URL into the second window (issue #11's placement).
+- **Layout preferences were shared between windows.** Density, the disease-column width and the editor's two column widths lived in `localStorage`, which is per-browser: size a narrow comparison window to fit and the wide one inherited it on its next reload. A window seeds itself from the last value set anywhere and then keeps its own, so a new window still opens with the density the curator prefers and an existing one is never reshaped from elsewhere. Verified with two real windows: A stayed compact across a reload while B set the shared default to comfortable.
+- **Closing a tab mid-edit lost the form silently** — there was no `beforeunload` handler anywhere in `static/`. The field form warns when it is dirty (and only then), keeps a draft as it is typed, and offers it back with its timestamp when the record is reopened. Restoring is exact: all 15 fields round-trip, including the synonym chips, subtype rows and definition-source rows. An explicit Cancel discards the draft, so it is not offered back.
+- The draft is in `localStorage`, not `sessionStorage` as the issue suggests: `sessionStorage` dies with the tab, and the tab closing is the case this exists for. One draft at a time, cleared on save and on cancel.
+- **The review page flushes pending verdicts on `visibilitychange`** with a `keepalive` request, closing the 500ms debounce window in which closing a tab dropped one.
+- **Density is applied by `ref-edits.js`, not the pre-paint script.** That script is inline and `script-src 'self'` blocks inline script outright — confirmed against the running app, where the console reports the violation — so density has in fact been ignored on this page since #133. One owner for the value now.
+
+Twelve new tests: interleaved writes from two windows (the integration test the issue asks for), a cleared verdict surviving the merge, a stale window failing to clear the PR pointer, each id operation, the refused replace, the route with a URL in its path, and the new endpoint in the write-auth boundary set.
+
+245 pytest, 25 `node --test`, ruff clean.
+
+### On #11
+The issue is titled "Add copy trigger beside disease name" and its body reads "if looking to copy some metadata from an existing disease, allow the 'copy' disease button". Those are two different features. This delivers the first — a copy trigger beside the disease name, copying a deep link — because #114 needs exactly that to set up a second window. If what was meant is **cloning another disease's metadata into a new record**, that is a separate feature with its own decisions (which fields carry over, what happens to ids and provenance), so #11 is left open.
+
+## errors-and-dialogs
+Closes #99, #118. **[UI change — needs review]**
+
+Seventeen browser-native dialogs and a 2.6-second toast were the app's entire vocabulary for talking to a curator. Both are replaced by one inline system.
+
+### The seventeen dialogs are gone
+- `static/ref-edits/ref-edits.js` carried **twelve `alert()`, two `confirm()` and one `prompt()`**; the record page added four more `confirm()`. They block the page, land centre-screen over the thing they describe, cannot be styled or read in context by a screen reader, and are disabled outright in some embedded browsers.
+- `static/js/ui-dialog.js` provides `UIDialog.confirm()` and `UIDialog.text()` on the native `<dialog>` element — real focus trapping, an inert backdrop, and Escape to dismiss. Both pages load it.
+- **The pull-request comment gets a real textarea.** It was collected with `window.prompt()`: single-line, unstyled, easy to dismiss by accident, and the only place a curator could say what they had reviewed. It now has a title, an explanation that this becomes the PR description, a four-row field and Ctrl/Cmd+Enter to submit.
+- Every destructive confirm names what it will do — *"Discard your unsaved changes?" / "Discard them" / "Keep editing"* — instead of a bare *"OK / Cancel"*, and focus starts on the safe choice so Enter never destroys anything by reflex.
+- Review-page errors and confirmations now route through the existing `#note` banner, which was previously used only for refusals. Errors persist until dismissed or superseded; confirmations auto-dismiss.
+- **The ORCID has a field.** It was read from `localStorage` with no UI to set it anywhere on the review page, even though it is what lands in the published SSSOM `author_id`. It now sits in the ⚙ preferences popover, validated on entry.
+
+### Form errors are inline, complete and announced
+- **All failures at once.** Both creation forms returned on the *first* failure, so a curator missing four required fields got four separate 2.6-second messages across four submit attempts. `UIDialog.showFieldErrors()` collects every failure, renders a summary with `role="alert"` at the top of the form, and puts each message beside its own field.
+- Each invalid input gets `aria-invalid="true"` and `aria-describedby` pointing at its message; the summary is focused, and each entry links to its field. Typing in a field clears its own error and leaves the others.
+- **There is a live region now** — there was none anywhere in the app, so nothing was ever announced. `toast()` announces politely; failures use `toastError()`, which carries `role="alert"`, persists, and has a dismiss control.
+- **Server failures become sentences.** `Save failed: <err.message>` passed the raw exception through. `explainError()` maps the common cases: an expired session says to sign in again and that the form still holds the changes; a network failure says nothing was saved.
+
+### Verified in the running app
+Confirm resolves `true`/`false` and removes itself; the text dialog returns its value; **Escape resolves rather than hanging**. Submitting the subtype form empty produces a focused *"4 things need fixing"* summary with `role="alert"`, four `aria-invalid` fields and four `aria-describedby` links, and typing in one clears only that one. On the record page the live region announces, the error toast carries `role="alert"` and a dismiss button, and `explainError` returns the mapped sentences.
+
+> **Note on the native `<dialog>` element:** the embedded browser this was tested in never fires the `close` event — not for a `method="dialog"` form submission, and not even for an explicit `close()` call, though it does set `returnValue` and `open = false`. A promise wired to `close` hangs forever and the curator's flow stops dead. `wireDialog()` therefore resolves from the two real exits, the form's `submit` event and Escape, and does not use `close` at all.
+
+232 tests pass; ruff clean.
+
+## mapping-judgment-context
+Closes #96, #117. **[UI change — needs review]**
+
+### The candidate concept is shown, not just named (#96)
+- **Judging a cross-reference means comparing two definitions, and the panel could only show one.** `GET /api/v2/concept/{db}/{id}` already returned the candidate's definition, synonyms and parents — the page fetched all of it and kept only `label`, rendering it as a small grey caption. For `OMOP`, `Orphanet`, `UMLS` and `MeSH` (`noframe: True`, and **44% of every disease's review**) the panel then showed nothing at all about the candidate, so the curator opened a tab and held the ARI definition in working memory — exactly the task this tool exists to prevent.
+- The panel now renders a **side-by-side compare pane**: the ARI record's definition and synonyms on the left, the candidate's definition, synonyms and broader terms on the right, for all nine databases rather than only the embeddable ones. It reuses the existing `conceptCache`, so opening a panel costs the same one request it always did.
+- A hub cross-reference is labelled as such — *"Not MONDO's own record — found via …, which cross-references this id"* — so a weaker claim reads as one.
+- `get_xref_rows()` gains `definition` (one annotation per disease; still O(diseases)) so the left column has something to show.
+- **The embedded source page is now secondary**, in a collapsed `<details>` below the compared text rather than instead of it, and `loading="lazy"`. It costs no height until asked for.
+
+### Enrichment is per-item, and every value says where it came from (#117)
+- **A curator who wanted eight of eleven proposed synonyms had to decline all eleven.** The preview offered one "Apply on publish" checkbox for the whole set. Every proposal now carries its own checkbox, with All/None per group; everything starts ticked, so the default matches the old behaviour and a curator only acts to *decline*.
+- The selection travels to publish as `enrichment_selection`, and `apply_enrichment(..., selected=…)` applies only what was kept. Matching is on the **value**, not an index, so a selection made before an index rebuild cannot silently apply a different proposal — anything no longer proposed is dropped.
+- **Per-value lineage.** `enrich()` entries are now `{"value", "source"}`, the source is shown beside each proposal in the drawer, and every applied value gets a line in a new `ARI_EnrichmentSource` annotation: `ARI_Synonym | <value> | from MONDO:0018747 | <UTC> | <editor>`. The PR body recorded only counts, so six months later nobody could tell whether a synonym came from MONDO, from DOID, or from a human. The annotation travels with the ontology, so the lineage is in the published artefact rather than a sidecar.
+
+### Two regressions from #133, found while testing
+- **The review page had stopped honouring saved theme, density and legend.** Tightening the CSP to `script-src 'self'` silently blocked the inline pre-paint script that applies them — verified: all three settings saved and none applied. Moved to `static/ref-edits/boot.js` and loaded from `<head>`, so the policy needs neither `'unsafe-inline'` nor a hash that would break the moment the script is edited. **Merge note:** `small-laptop-layout` found the same regression independently; its version of the file won the merge because it also carries the text-size preference, and the legend default is `on` again here — the objection in #97 was the legend's 88px cost, which its one-line rebuild answers.
+- **A local edit to a JS or CSS file had no effect until the server restarted.** Assets are now served `immutable` for a year and the cache-busting token was the git commit count, which does not change while developing. The token folds in the newest `static/` mtime, and `run.py` sets `ARI_DEV=1` so it is re-derived per page render locally; production keeps the single startup token rather than walking `static/` on every load.
+- A signed-out visitor no longer triggers a 401 on every load: `/api/v2/id-authors` needs a session since #126, and a signed-out viewer cannot confirm anything, so the ledger is not requested.
+
+### Testing
+16 new tests across `tests/test_enrich_service.py` and `tests/test_enrichment_selection.py` — lineage on synonyms and subtypes, lineage distinguishing two agreeing sources, value-based (not positional) selection matching, declining everything applying nothing, and keeping exactly one synonym. **245 pytest + 25 node pass; ruff clean.**
+
+Verified in the running app: the compare pane fills for a MONDO candidate with both definitions visible, per-item checkboxes tick and untick with the count following, All/None works, theme/density/legend all apply from storage, and the console is clean.
+
+## small-laptop-layout
+Closes #94, #97. Partly #101 (everything but the `01`-`05` numbering, which needs a curator's answer).
+
+- **The app answers to the text size now.** There were **zero `rem` units** in either stylesheet, so raising the font size in the browser's own settings did nothing at all. Page zoom was the only lever left, and it crossed the responsive breakpoints: at 125% on a 1366x768 laptop the disease index became a hidden overlay and the progress meter disappeared, while the seven-symbol legend paragraph kept 18% of the viewport. Doing the thing that made the app readable was the thing that took the navigation away. Every `font-size` in `static/css/styles.css` and the review page's stylesheet is `rem` against a root of `calc(1rem * var(--ui-scale))` — `1rem` on the root element resolves to the *browser's* default, so the reader's own setting is honoured and the app's preference multiplies it.
+- **A Text size preference** (Standard / Large / Larger) sits with Theme in the settings popover on both pages, through one shared `localStorage` key, so the choice is made once. Verified end to end: 13.5 -> 15.5 -> 17.8px, and at 1366x768 with Large the index rail stays docked where zooming to 125% used to hide it.
+- **`body { zoom: 1.25 }` is gone from the review page.** The two pages ran at different effective scales, and the zoom decoupled the media queries from the layout — the file itself noted the thresholds had to sit 25% above the widths they guarded. They are the real widths now (1500/1320/1180 -> 1200/1056/860), and 20.6 diseases fit on a 1366x768 screen instead of the 10.7 measured at 125%.
+- **What the layout gives up under width pressure is reordered.** Status outranks reference material: the glyph legend goes first, the progress meter goes last. Confirmed at four widths.
+- **The legend defaults off and is one line, not a paragraph.** Ten tooltipped keys, 37px / 5.3% of a 700px viewport instead of 88px / 18%.
+- **The index rail collapses by choice, at any width.** Above 1200px the header button docks or hides it and the record takes the width back, remembered per browser; below 1200px, where there is nowhere to dock it, it is the overlay it always was. The mode is driven by the media query's own `change` event, so a text-size change that crosses the threshold is not missed.
+- **The start state offers a way in.** It read "Select a disease from the list to view its record" with no list on screen and nothing to click. It now names both routes and gives each a button.
+- **The disease column is what gives way in the matrix.** With the review panel open at 1366px the 413px name column kept its width while the nine columns being compared were crushed to 55px and `ORPHANET` overflowed into `UMLS`. The dragged width is an upper bound now, not a floor: at 1100px the name column drops 330 -> 150px and the database columns rise off their 44px floor to 61.7px. Header labels truncate with the full name in the tooltip, so they can never collide again.
+- **The open review strip's disease name sticks below the column header**, so the disease being judged stays on screen while its cards scroll. Measured pinning at exactly the header's height, which is re-measured when the density or text size changes.
+- One `ResizeObserver` on the matrix re-runs the column budget for the panel, the divider and the window alike, replacing a `resize` listener that only fired for one of the three.
+- **In the record view, a condensed name-and-definition line pins to the top of the reading column while a deep dive is open** — opening a category used to scroll the definition, the thing you are comparing the detail against, off the top.
+- **The story spine renders only the steps that have content** in read mode. Addison's disease has two of five populated: they get 309.5px each instead of ~124px, which is what broke "Biomarkers & treatments" over three lines. Curate mode still shows all five, where the "+ add" affordances are the point.
+- **The symptom word cloud is opt-in.** It restated the eighteen symptoms listed directly above it, at sizes encoding only the Likelihood column, for 220px of a panel.
+- **Both pre-paint preference scripts are files rather than inline `<script>`.** `script-src 'self'` (tightened in #133) blocks inline script outright, so the review page's saved theme, density and legend were being silently ignored. Confirmed against the live CSP header: `boot.js` runs and the saved theme applies.
+
+232 pytest, 25 `node --test`, ruff clean.
+
 ## split-main-module
 Splits `app/main.py` (1384 lines) into modules. The split itself is behaviour-neutral; it also carries one bug fix, called out at the end.
 

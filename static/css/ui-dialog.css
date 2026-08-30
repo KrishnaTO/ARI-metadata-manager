@@ -1,0 +1,93 @@
+/* Inline dialogs, the live region, and inline form errors — shared by both
+   pages. Replaces seventeen browser-native dialogs (issue #118) and the
+   2.6-second toast that carried every validation failure (issue #99). */
+
+/* Visible to assistive technology, not on screen. The app had no live region
+   at all, so nothing was ever announced. */
+.sr-only {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+}
+
+/* ------------------------------------------------------------------ dialog */
+.ui-dialog {
+  border: 1px solid var(--line, #DCE1E7);
+  border-radius: 10px;
+  padding: 0;
+  max-width: min(30rem, calc(100vw - 32px));
+  background: var(--card, #fff);
+  color: var(--text, #0F2840);
+  box-shadow: 0 12px 40px -12px rgba(0, 0, 0, .45);
+}
+.ui-dialog::backdrop { background: rgba(15, 40, 64, .38); }
+.ui-dialog-form { display: flex; flex-direction: column; gap: 10px; padding: 20px 22px 18px; margin: 0; }
+.ui-dialog-title { font-size: 16px; font-weight: 600; margin: 0; line-height: 1.35; }
+.ui-dialog-detail { font-size: 13.5px; line-height: 1.55; color: var(--mute, #5C6675); margin: 0; }
+.ui-dialog-label { font-size: 12px; font-weight: 600; color: var(--mute, #5C6675); }
+.ui-dialog-input {
+  font: inherit; font-size: 13.5px; width: 100%; box-sizing: border-box;
+  padding: 8px 10px; border-radius: 6px;
+  border: 1px solid var(--line, #DCE1E7);
+  background: var(--paper, #fff); color: inherit; resize: vertical;
+}
+.ui-dialog-input:focus-visible { outline: 2px solid var(--accent, #1B6B50); outline-offset: -1px; }
+.ui-dialog-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 4px; }
+
+.ui-btn {
+  font: inherit; font-size: 13px; padding: 7px 14px; min-height: 32px;
+  border-radius: 6px; cursor: pointer;
+  border: 1px solid var(--line, #DCE1E7);
+  background: var(--card, #fff); color: inherit;
+}
+.ui-btn:hover { border-color: var(--accent, #1B6B50); color: var(--accent, #1B6B50); }
+.ui-btn:focus-visible { outline: 2px solid var(--accent, #1B6B50); outline-offset: 2px; }
+.ui-btn.primary { background: var(--accent, #1B6B50); border-color: var(--accent, #1B6B50); color: #fff; }
+.ui-btn.primary:hover { filter: brightness(1.08); color: #fff; }
+.ui-btn.primary.danger { background: var(--danger, #9E2B22); border-color: var(--danger, #9E2B22); }
+.ui-btn[disabled] { opacity: .5; cursor: not-allowed; }
+
+/* ------------------------------------------------------- inline form errors
+   Validation used to arrive as a 2.6-second toast pinned to the bottom of the
+   viewport, with no connection to the field it described and nothing announced.
+   For a user at high zoom on a small laptop it was very likely missed. */
+.form-errors {
+  border: 1px solid var(--danger, #9E2B22);
+  background: var(--danger-bg, #F4E1DF);
+  border-radius: 6px;
+  padding: 12px 14px;
+  margin: 0 0 14px;
+  font-size: 13.5px;
+}
+.form-errors h3 { font-size: 13.5px; font-weight: 600; margin: 0 0 6px; color: var(--danger, #9E2B22); }
+.form-errors ul { margin: 0; padding-left: 18px; }
+.form-errors li { margin: 2px 0; }
+.form-errors a { color: inherit; }
+
+.field-error {
+  display: block; margin-top: 4px;
+  font-size: 12px; line-height: 1.5;
+  color: var(--danger, #9E2B22);
+}
+[aria-invalid="true"] { border-color: var(--danger, #9E2B22) !important; }
+
+/* An error toast persists and carries a dismiss control, unlike the transient
+   confirmation toast it replaces for failures. */
+.toast.is-error {
+  background: var(--danger, #9E2B22);
+  display: flex; align-items: center; gap: 10px;
+  max-width: min(34rem, calc(100vw - 32px));
+  text-align: left;
+}
+.toast-close {
+  border: 0; background: transparent; color: inherit; cursor: pointer;
+  font-size: 13px; line-height: 1; flex-shrink: 0;
+  min-width: 24px; min-height: 24px;
+  display: inline-flex; align-items: center; justify-content: center;
+  border-radius: 4px;
+}
+.toast-close:hover { background: rgba(255, 255, 255, .18); }
+.toast-close:focus-visible { outline: 2px solid #fff; outline-offset: 1px; }
+
+/* The review page's inline banner, now carrying errors as well as refusals. */
+#note.is-ok { border-left: 3px solid var(--ok-solid, #2F8F6F); }
+#note.is-error { border-left: 3px solid var(--bad-solid, #9E2B22); }
