@@ -294,9 +294,13 @@ body.resizing-cols { cursor: col-resize; user-select: none; }
    the top of the reading column so the definition you are comparing the detail
    against is still on screen (issue #101). */
 .rec-context { display: none; }
+/* The column's top padding moves onto the bar itself, so the bar pins flush to
+   the top of the scrollport — sticky measures from the padding edge, and any
+   padding left here is a gap that scrolled content shows through. */
+.rec-read:has(.right-col.open) { padding-top: 0; }
 .rec-read:has(.right-col.open) .rec-context {
   display: flex; align-items: baseline; gap: 10px; position: sticky; top: 0; z-index: 3;
-  padding: 8px 0 9px; margin-bottom: 14px; background: var(--bg);
+  padding: 14px 0 9px; margin-bottom: 14px; background: var(--bg);
   border-bottom: 1px solid var(--line); }
 .rc-name { flex: none; font-size: 0.8125rem; font-weight: 600; color: var(--ink); }
 .rc-def { min-width: 0; font-size: 0.75rem; color: var(--mute);

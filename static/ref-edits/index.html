@@ -131,7 +131,7 @@
      while the seven-symbol legend paragraph kept 18% of the viewport (issue #94).
      No control is ever dropped. The thresholds are the real layout widths now
      that the page no longer zooms — they used to sit 25% above them. */
-  @media (max-width:1200px) { .legend { display:none; } .progress .plabel { display:none; } }
+  @media (max-width:1200px) { .progress .plabel { display:none; } }
   @media (max-width:1056px) { header h1, header h1 + .tsep { display:none; } }
   @media (max-width:860px)  { .progress, .progress + .tsep { display:none; } }
 
@@ -465,8 +465,12 @@
             border:0; background:none; color:inherit; font:inherit; padding:2px 0; }
   .lg-key:hover, .lg-key:focus-visible { color:var(--text); }
   .lg-key .g { font-family:var(--mono); color:var(--text); }
-  /* Reference material, not a control — off until asked for. */
+  /* Reference material, not a control — off until asked for, and the first thing
+     to go under width pressure. (Defined here rather than with the toolbar's
+     media queries above, which sit earlier in the file and would lose to the
+     display:flex on .legend.) */
   html[data-legend="off"] .legend { display:none; }
+  @media (max-width:1200px) { .legend { display:none; } }
 </style>
 </head>
 <body>

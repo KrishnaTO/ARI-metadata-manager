@@ -123,7 +123,11 @@ document.getElementById('textsize-seg')?.addEventListener('click', e => {
   const btn = document.getElementById('rail-toggle');
   if (!btn) return;
   const KEY = 'ari-rail';
-  const overlay = () => window.matchMedia('(max-width: 1200px)').matches;
+  // The mode flips on this query, so the query itself is what to listen to —
+  // a resize handler would miss a text-size change that crosses the threshold
+  // without resizing the window.
+  const mq = window.matchMedia('(max-width: 1200px)');
+  const overlay = () => mq.matches;
   const shown = () => overlay()
     ? document.body.classList.contains('rail-open')
     : !document.body.classList.contains('rail-hidden');
@@ -156,7 +160,7 @@ document.getElementById('textsize-seg')?.addEventListener('click', e => {
   try { if (localStorage.getItem(KEY) === 'hidden') document.body.classList.add('rail-hidden'); }
   catch (e) { /* storage may be unavailable */ }
   sync();
-  window.addEventListener('resize', sync);
+  mq.addEventListener('change', sync);
 
   btn.addEventListener('click', e => { e.stopPropagation(); setRail(!shown()); });
   // Only the overlay dismisses itself; a docked rail stays where it was put.
