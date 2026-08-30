@@ -384,11 +384,11 @@ function renderDetail(d){
     state.editMode ? cancelFieldEdits() : setMode('curate'));
 
   $('#detail-pane').querySelectorAll('.box').forEach(box => {
-    box.addEventListener('click', () => {
+    box.addEventListener('click', async () => {
       const key = box.dataset.box;
       // Opening a category replaces the disease-field form, so unsaved work in
       // it must be confirmed away first.
-      if (!confirmDiscardEdits()) return;
+      if (!await confirmDiscardEdits()) return;
       if (state.activeBox === key){ closeRightPanel(); return; }
       state.activeBox = key;
       $('#detail-pane').querySelectorAll('.box').forEach(b => b.classList.remove('active'));

@@ -93,14 +93,29 @@
   const addedBy = (iri, db, id) => RM.addedBy(model(), iri, db, id);
   const isOwnAddition = (iri, db, id) => RM.isOwnAddition(model(), iri, db, id);
 
-  // A one-line note under the header, used when an action is refused.
+  // The inline banner under the header. It already existed but was used only
+  // for refusals, while errors and confirmations went to blocking alert()s
+  // (issue #118). Everything routes through it now.
+  //
+  //   note(msg)            a refusal or a neutral notice — auto-dismisses
+  //   note(msg, 'ok')      a confirmation — auto-dismisses
+  //   note(msg, 'error')   a failure — stays until dismissed or superseded
+  //
+  // Errors persist because a message that describes a failed save must not
+  // vanish while the curator is still reading it.
   let _noteTimer = null;
-  function note(msg) {
+  function note(msg, kind) {
     const el = $('#note');
     el.textContent = msg;
+    el.classList.remove('is-ok', 'is-error');
+    if (kind) el.classList.add('is-' + kind);
+    el.setAttribute('role', kind === 'error' ? 'alert' : 'status');
     el.classList.add('open');
     clearTimeout(_noteTimer);
-    _noteTimer = setTimeout(() => el.classList.remove('open'), 6000);
+    if (kind !== 'error') _noteTimer = setTimeout(() => el.classList.remove('open'), 6000);
+    // Announce it too: the banner is visual, and there was no live region
+    // anywhere in the app.
+    UIDialog.announce(msg);
   }
 
   // ------------------------------------------------------------- STATE MODEL
@@ -578,8 +593,13 @@
     let send = iris, reassign = false;
     if (clashN) {
       const who = Object.entries(clash).map(([l, v]) => `${v.length} on @${l}`).join(', ');
-      reassign = confirm(`${who}. Move them to @${login}'s queue?\n\n` +
-        `Cancel queues only the ${iris.length - clashN} nobody else holds.`);
+      reassign = await UIDialog.confirm({
+        title: `Move ${clashN} disease(s) to @${login}'s queue?`,
+        detail: `${who} already. Declining queues only the ` +
+                `${iris.length - clashN} nobody else holds.`,
+        confirmLabel: 'Move them',
+        cancelLabel: 'Leave them',
+      });
       if (!reassign) send = iris.filter(i => !(owners[i] && owners[i].login !== login));
     }
     if (!send.length) return;
@@ -592,7 +612,7 @@
       await loadOwners();
       reflectSelection(); renderMatrix();
     } catch (e) {
-      alert('Could not update the review queue: ' + e.message);
+      note('Could not update the review queue: ' + e.message, 'error');
     } finally { btns.forEach(b => { b.disabled = false; }); }
   }
 
@@ -604,7 +624,7 @@
     $('#sel-mine').addEventListener('click', () => addToQueue(me.login, ''));
     $('#sel-assign').addEventListener('click', () => {
       const login = $('#sel-login').value.trim();
-      if (!login) { alert('Enter the curator’s GitHub login.'); return; }
+      if (!login) { note('Enter the curator’s GitHub login.', 'error'); $('#sel-login').focus(); return; }
       addToQueue(login, $('#sel-note').value.trim());
     });
     $('#queue-filter').addEventListener('click', e => {
@@ -1064,7 +1084,7 @@
     ov.innerHTML = `
       <div class="so-head"><strong>＋ New subtype</strong><span style="flex:1"></span>
         <button class="btn" id="so-close">✕</button></div>
-      <div class="so-body">
+      <div class="so-body" id="so-body">
         <div class="so-parent-info">Parent disease: <strong>${esc(r.name)}</strong><br>
           Created as a child (subtype) of this disease. Use the reference info on the right to fill the cross-reference ids below.</div>
         <div class="so-field" id="so-existing-wrap" style="display:none"><label>Start from an existing clinical subtype</label>
@@ -1118,14 +1138,20 @@
   }
 
   async function submitSubtype(parentIri) {
-    if (!me || !me.authenticated) { alert('Sign in with GitHub first.'); return; }
+    if (!me || !me.authenticated) { note('Sign in with GitHub first.', 'error'); return; }
     const val = id => ($('#' + id)?.value || '').trim();
     const label = val('so-label'), definition = val('so-definition'), defsrc = val('so-defsrc');
     const tissue_iris = [...document.querySelectorAll('#so-tissues input:checked')].map(c => c.value);
-    if (!label)             { alert('Label is required'); return; }
-    if (!definition)        { alert('Definition is required'); return; }
-    if (!defsrc)            { alert('Definition source is required'); return; }
-    if (!tissue_iris.length){ alert('Select at least one target tissue'); return; }
+    // Every failure at once, next to its own field. This used to return on the
+    // first one, so a curator missing four required fields got four separate
+    // 2.6-second messages across four submit attempts (issue #99).
+    const soBody = $('#so-body');
+    const problems = [];
+    if (!label)              problems.push({ id: 'so-label', message: 'Give the subtype a label.' });
+    if (!definition)         problems.push({ id: 'so-definition', message: 'Write a definition.' });
+    if (!defsrc)             problems.push({ id: 'so-defsrc', message: 'Cite where the definition came from — a URL or a PMID.' });
+    if (!tissue_iris.length) problems.push({ id: 'so-tissues', message: 'Choose at least one target tissue.' });
+    if (!UIDialog.showFieldErrors(soBody, problems)) return;
     const editor = val('so-editor') || (me && me.login) || 'curator';
     const data = {
       label, definition, def_source: [defsrc], tissue_iris, parent_iri: parentIri,
@@ -1139,9 +1165,9 @@
       ROWS = await api('xrefs');           // refresh so the new subtype appears in the matrix
       closeSubtypeOverlay();
       renderMatrix(); counts();
-      alert('Created subtype: ' + created.name);
+      note('Created subtype: ' + created.name, 'ok');
     } catch (e) {
-      alert('Create failed: ' + e.message);
+      note('Could not create the subtype: ' + e.message, 'error');
       btn.disabled = false; btn.textContent = '＋ Create subtype';
     }
   }
@@ -1150,7 +1176,7 @@
   // value replaces just this id, an empty value removes it, and an id that is not on
   // file yet (a prediction, or a first id for a blank cell) is added.
   async function saveId(iri, dbkey, targetId) {
-    if (!me || !me.authenticated) { alert('Sign in with GitHub first.'); return; }
+    if (!me || !me.authenticated) { note('Sign in with GitHub first.', 'error'); return; }
     const r = ROWS.find(x => x.iri === iri);
     if (!r) return;
     const val = $('#p-ids').value.trim();
@@ -1185,7 +1211,7 @@
       // cell doesn't bounce the curator back to the first.
       openPanel(iri, dbkey, newIds.includes(val) ? val : (newIds[0] || null));
       renderMatrix();
-    } catch (e) { alert('Save failed: ' + e.message); $('#p-save').disabled = false; $('#p-save').textContent = 'Save'; }
+    } catch (e) { note('Could not save the id: ' + e.message, 'error'); $('#p-save').disabled = false; $('#p-save').textContent = 'Save'; }
   }
 
   // Publish the review as a pull request. `newPr` true opens a fresh PR carrying
@@ -1196,9 +1222,26 @@
     const keys = publishKeys(newPr);
     if (!keys.size) return;
     const reuse = newPr ? null : sessionBranch;
-    if (newPr && sessionPr &&
-        !confirm('Open a new pull request instead of adding to PR #' + sessionPr.number + '?')) return;
-    const comment = window.prompt('Optional comment for the pull request (what you reviewed/changed):', 'Mappings review');
+    if (newPr && sessionPr && !await UIDialog.confirm({
+        title: 'Start a new submission?',
+        detail: `Your work is currently going into PR #${sessionPr.number}. ` +
+                'A new one carries only the verdicts not already published there.',
+        confirmLabel: 'Start a new one',
+        cancelLabel: 'Keep adding to #' + sessionPr.number,
+      })) return;
+    // A real textarea. This was window.prompt(): single-line, unstyled, easy to
+    // dismiss by accident, and the only place a curator could say what they had
+    // reviewed (issue #118).
+    const comment = await UIDialog.text({
+      title: 'Describe this submission',
+      detail: 'This becomes the pull request description. Optional, but it is what '
+            + 'a reviewer reads first.',
+      label: 'What did you review or change?',
+      value: 'Mappings review',
+      placeholder: 'e.g. Checked every MONDO id for the skin diseases; flagged three that name a broader concept.',
+      confirmLabel: 'Publish',
+      multiline: true,
+    });
     if (comment === null) return;
     // The author lands in the published SSSOM `author_id` column. The server
     // validates an ORCID and refuses a malformed one rather than writing a typo
@@ -1241,7 +1284,7 @@
     } catch (e) {
       // pendingPublishId is deliberately kept: the next click retries the SAME
       // attempt, which the server can recognise if the first one actually landed.
-      alert('Publish failed: ' + e.message); reflectPr(); counts();
+      note('Publish failed: ' + e.message, 'error'); reflectPr(); counts();
     }
   }
 
@@ -1340,6 +1383,26 @@
 
   function initControls() {
     initMenus();
+    // ORCID: what lands in the published SSSOM author_id column. Validated on
+    // the way out too, by the server — a typo here is permanent and
+    // unattributable, so a malformed one is refused rather than published.
+    const orcid = $('#pref-orcid');
+    orcid.value = localStorage.getItem('ari_editor_orcid') || '';
+    const saveOrcid = () => {
+      const v = orcid.value.trim();
+      if (v && !/^[0-9]{4}-[0-9]{4}-[0-9]{4}-[0-9]{3}[0-9X]$/.test(v)) {
+        orcid.setAttribute('aria-invalid', 'true');
+        note('An ORCID looks like 0000-0000-0000-0000 (the last character may be X).', 'error');
+        return;
+      }
+      orcid.removeAttribute('aria-invalid');
+      if (v) localStorage.setItem('ari_editor_orcid', v);
+      else localStorage.removeItem('ari_editor_orcid');
+      note(v ? 'Mappings will be attributed to ORCID ' + v : 'Cleared — using your GitHub login.', 'ok');
+    };
+    orcid.addEventListener('change', saveOrcid);
+    orcid.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); saveOrcid(); } });
+
     $('#pref-legend').addEventListener('change', e => {
       const v = e.target.checked ? 'on' : 'off';
       document.documentElement.dataset.legend = v;

@@ -79,12 +79,18 @@
     try {
       let r = await api(url, { method: 'POST', body });
       if (r.needs_confirm) {
-        if (!window.confirm(r.detail + '\n\nDiscard local edits and continue?')) return;
+        if (!await UIDialog.confirm({
+          title: 'Discard your local edits?',
+          detail: r.detail,
+          confirmLabel: 'Discard and continue',
+          cancelLabel: 'Keep them',
+          danger: true,
+        })) return;
         r = await api(url, { method: 'POST', body: { ...body, discard: true } });
       }
       toast('Loaded ' + (r.source_branch || 'branch') + ' — reloading…');
       setTimeout(() => location.reload(), 700);
-    } catch (e) { toast('Failed: ' + e.message); }
+    } catch (e) { toastError(explainError(e, 'Could not switch branch')); }
   }
 
   function bind() {
