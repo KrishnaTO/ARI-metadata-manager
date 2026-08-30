@@ -539,10 +539,7 @@
 <script>
   try { var t = localStorage.getItem('theme'); if (t) document.documentElement.dataset.theme = t;
     else if (matchMedia('(prefers-color-scheme: dark)').matches) document.documentElement.dataset.theme = 'dark';
-    var dens = sessionStorage.getItem('refDensity');
-    if (dens === null) { dens = localStorage.getItem('refDensity');
-      if (dens !== null) sessionStorage.setItem('refDensity', dens); }
-    document.documentElement.dataset.density = dens || 'comfortable';
+    document.documentElement.dataset.density = localStorage.getItem('refDensity') || 'comfortable';
     document.documentElement.dataset.legend = localStorage.getItem('refLegend') || 'on'; } catch(e){}
 </script>
 <script src="review-model.js?v=__ASSETV__"></script>

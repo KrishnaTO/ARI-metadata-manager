@@ -1391,6 +1391,10 @@
     // Who holds which disease — drives the owner badges and the queue filter.
     await loadOwners();
     reflectPr();
+    // This window's layout. The pre-paint script in index.html sets data-density
+    // too, from the shared default, so the first frame is close — but the value
+    // that stands is this one, read session-first (see winPref).
+    document.documentElement.dataset.density = winPref('refDensity') || 'comfortable';
     diseaseW = Number(winPref('refDiseaseW')) || null;
     applyGrid(); syncSegs(); renderHead(); renderMatrix(); counts();
     applyHash();                       // open whatever the URL names
