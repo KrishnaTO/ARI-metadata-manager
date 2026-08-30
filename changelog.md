@@ -1,5 +1,19 @@
 # Changelog
 
+## automation-and-measurement
+Closes #90, #91, #124.
+
+- **A confirmed id now fills the other columns.** Predictions came only from matching a disease's own label or synonyms against the reference indexes, so a disease whose name matched nothing got nothing — even with a MONDO id sitting in its row, and a MONDO term cross-references SNOMED, DOID, NCI, ICD-10, Orphanet, UMLS and MeSH. An id on file is an anchor in its own right now: the term it names supplies its cross-references to every blank cell, with no string matching involved. Across the 214 committed diseases that is **153 candidates reachable no other way, over 51 diseases** — the candidate set goes 378 -> 531.
+- **Every candidate used to look alike.** The grid distinguished "predicted" from "predicted from a synonym" and nothing else, so there was no way to work the easy confirmations first. Each candidate carries a **0-100 score** built from what is already known: which route found it (an id on file beats a label match beats a synonym-only match), how many independent indexes agree, and whether the candidate's own label *is* the disease's label. Three bands, shown on the id and in the review panel, with a tooltip saying what produced the number. On the real data: 291 strong, 223 fair, 17 weak.
+- **`GET /api/v2/stats` and a dashboard at `/stats/`.** `assignments/assignments.log` was the only trace of curation and it is gitignored on one host, so nothing could answer the questions any decision about this tool depends on. Three of the issue's four are answered: judgments per curator per week, which databases stall, and where reviews are abandoned. Everything is derived from stores already on disk — the published mapping set, the id-authorship ledger, the assignment store and the ontology — so there is no network call and it works offline. On the committed data: 442 judgments, UMLS only 19% judged against Orphanet's 38%, Orphanet with no id at all for 174 of 214 diseases, and 964 ids on file that nobody has judged.
+- The fourth question — the share of submissions that merge — is deliberately **not** there. It needs GitHub's pull-request list, which would put a network round trip and an auth requirement on every dashboard load, for a number GitHub's own PR list already shows.
+- **The two-person rule has a workflow.** It was enforced — the ✓ withheld from the adder, re-checked server-side on publish — but nothing routed an id *to* the second curator, so a mapping waited until someone happened to open that row. **"Needs me"** joins the queue scopes, listing ids the ledger attributes to someone else that nobody has judged. An id with no recorded author is excluded: the ledger cannot say whose it is, so the rule does not apply to it, and including it would put every unjudged cell in the matrix into the scope.
+- One id match key now serves both reverse indexes — `concept_service` imports it from `predict_service` instead of keeping its own copy, so the two cannot drift.
+
+Two defects found by reading the running app rather than trusting the query: the dashboard reported "Flagged 0" for every database while 124 flags existed (a flagged id is usually removed from the record, so counting surviving cells reports nothing rejected anywhere — rejections are counted from the judgments now), and the score never reached the card because the review model rebuilds each prediction as a fresh object with a named field list.
+
+252 pytest, 33 `node --test`, ruff clean.
+
 ## split-main-module
 Splits `app/main.py` (1384 lines) into modules. The split itself is behaviour-neutral; it also carries one bug fix, called out at the end.
 
