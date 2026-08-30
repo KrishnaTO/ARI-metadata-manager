@@ -1,19 +1,27 @@
-// Applies the curator's saved display preferences to <html> before the page
-// paints, so there is no flash of the default theme or density.
+// Pre-paint preferences: theme, row density, the glyph legend and the text size.
 //
-// This was an inline <script>. Tightening the Content Security Policy to
-// `script-src 'self'` (when the CDN libraries were vendored) silently blocked
-// it, and the review page began ignoring saved theme, density and legend
-// settings entirely. Kept as a real file so the policy needs no 'unsafe-inline'
-// and no hash that would break the moment this is edited.
+// These four decide what the first frame looks like, so they have to be applied
+// before it is painted — otherwise the page renders light, comfortable and at
+// standard size and then jumps. This ran as an inline <script> until the
+// Content-Security-Policy tightened to `script-src 'self'`, which blocks inline
+// script outright: every saved preference was being silently ignored. It is a
+// file now, so the policy allows it and the preferences work again.
 //
-// Loaded from <head> without defer/async: it must run before first paint.
-try {
-  var t = localStorage.getItem('theme');
-  if (t) document.documentElement.dataset.theme = t;
-  else if (matchMedia('(prefers-color-scheme: dark)').matches) document.documentElement.dataset.theme = 'dark';
-  document.documentElement.dataset.density = localStorage.getItem('refDensity') || 'comfortable';
-  document.documentElement.dataset.legend = localStorage.getItem('refLegend') || 'on';
-} catch (e) {
-  // Private mode, or storage disabled: the CSS defaults are correct anyway.
-}
+// Loaded in <head>, before the stylesheet has anything to say about the body.
+(function () {
+  var root = document.documentElement;
+  var get = function (k) { try { return localStorage.getItem(k); } catch (e) { return null; } };
+
+  var theme = get('theme');
+  if (theme) root.dataset.theme = theme;
+  else if (matchMedia('(prefers-color-scheme: dark)').matches) root.dataset.theme = 'dark';
+
+  root.dataset.density = get('refDensity') || 'comfortable';
+  // On by default. The objection in issue #97 was the cost, not the content: as
+  // a run-on paragraph the legend took 88px — 18% of a zoomed 768px viewport —
+  // on every screen, forever. Rebuilt as a single 37px line it costs 5%, and a
+  // curator who does not yet know what the seven symbols mean should not have
+  // to find a setting to be told (issue #119).
+  root.dataset.legend = get('refLegend') || 'on';
+  root.dataset.textsize = get('ari-textsize') || 'standard';
+})();
