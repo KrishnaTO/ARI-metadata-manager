@@ -1,5 +1,31 @@
 # Changelog
 
+## errors-and-dialogs
+Closes #99, #118. **[UI change — needs review]**
+
+Seventeen browser-native dialogs and a 2.6-second toast were the app's entire vocabulary for talking to a curator. Both are replaced by one inline system.
+
+### The seventeen dialogs are gone
+- `static/ref-edits/ref-edits.js` carried **twelve `alert()`, two `confirm()` and one `prompt()`**; the record page added four more `confirm()`. They block the page, land centre-screen over the thing they describe, cannot be styled or read in context by a screen reader, and are disabled outright in some embedded browsers.
+- `static/js/ui-dialog.js` provides `UIDialog.confirm()` and `UIDialog.text()` on the native `<dialog>` element — real focus trapping, an inert backdrop, and Escape to dismiss. Both pages load it.
+- **The pull-request comment gets a real textarea.** It was collected with `window.prompt()`: single-line, unstyled, easy to dismiss by accident, and the only place a curator could say what they had reviewed. It now has a title, an explanation that this becomes the PR description, a four-row field and Ctrl/Cmd+Enter to submit.
+- Every destructive confirm names what it will do — *"Discard your unsaved changes?" / "Discard them" / "Keep editing"* — instead of a bare *"OK / Cancel"*, and focus starts on the safe choice so Enter never destroys anything by reflex.
+- Review-page errors and confirmations now route through the existing `#note` banner, which was previously used only for refusals. Errors persist until dismissed or superseded; confirmations auto-dismiss.
+- **The ORCID has a field.** It was read from `localStorage` with no UI to set it anywhere on the review page, even though it is what lands in the published SSSOM `author_id`. It now sits in the ⚙ preferences popover, validated on entry.
+
+### Form errors are inline, complete and announced
+- **All failures at once.** Both creation forms returned on the *first* failure, so a curator missing four required fields got four separate 2.6-second messages across four submit attempts. `UIDialog.showFieldErrors()` collects every failure, renders a summary with `role="alert"` at the top of the form, and puts each message beside its own field.
+- Each invalid input gets `aria-invalid="true"` and `aria-describedby` pointing at its message; the summary is focused, and each entry links to its field. Typing in a field clears its own error and leaves the others.
+- **There is a live region now** — there was none anywhere in the app, so nothing was ever announced. `toast()` announces politely; failures use `toastError()`, which carries `role="alert"`, persists, and has a dismiss control.
+- **Server failures become sentences.** `Save failed: <err.message>` passed the raw exception through. `explainError()` maps the common cases: an expired session says to sign in again and that the form still holds the changes; a network failure says nothing was saved.
+
+### Verified in the running app
+Confirm resolves `true`/`false` and removes itself; the text dialog returns its value; **Escape resolves rather than hanging**. Submitting the subtype form empty produces a focused *"4 things need fixing"* summary with `role="alert"`, four `aria-invalid` fields and four `aria-describedby` links, and typing in one clears only that one. On the record page the live region announces, the error toast carries `role="alert"` and a dismiss button, and `explainError` returns the mapped sentences.
+
+> **Note on the native `<dialog>` element:** the embedded browser this was tested in never fires the `close` event — not for a `method="dialog"` form submission, and not even for an explicit `close()` call, though it does set `returnValue` and `open = false`. A promise wired to `close` hangs forever and the curator's flow stops dead. `wireDialog()` therefore resolves from the two real exits, the form's `submit` event and Escape, and does not use `close` at all.
+
+232 tests pass; ruff clean.
+
 ## prune-derivable-columns
 - **The last two redundant columns in the reference data are gone, cutting a further 4.3 MB (24%).** `main-branch-object-pruning` left these because they needed reader changes; this makes them. Indexes 11.52 -> 10.89 MB, subtype edges 6.30 -> 2.64 MB (-58%). `data/2-databases` is now 31.8 MB, down from 38.5 MB before the two passes.
 - **A source's own id column is no longer written.** `mondo.index.tsv` held `MONDO:0005147` in `id` and `0005147` in its own `mondo` column — one value per row, on all 85,354 terms across the five files, and verified to be exactly the `id` with its prefix stripped in every one of them. `predict_service.load_index` now reconstructs it with `xref_registry.normalize_id`, so `by_db` is unchanged and each database still predicts its own ids. `SOURCE_DB` (which index owns which database key) moved from `concept_service` to `xref_registry`, so both readers share one copy instead of `predict_service` importing upward.
