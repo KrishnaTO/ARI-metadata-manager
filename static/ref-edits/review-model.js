@@ -123,6 +123,32 @@
     !!(s.me && s.me.login && addedBy(s, iri, db, id) === s.me.login);
   const mayConfirm = (s, iri, db, id) => !isOwnAddition(s, iri, db, id);
 
+  // The population the two-person rule creates, and had no workflow behind it.
+  //
+  // The rule is enforced — the ✓ is withheld from the adder, and the server
+  // re-checks authorship on publish — but nothing ever routed an id *to* the
+  // second curator. The adder finished, and the mapping waited until someone
+  // happened to open that row (issue #124).
+  //
+  // An id qualifies when the authorship ledger names someone other than the
+  // viewer and nobody has judged it yet. An id with no recorded author is
+  // deliberately excluded: the ledger cannot say whose it is, so the rule does
+  // not apply to it and including it would drown the scope in every unjudged
+  // cell in the matrix.
+  function needsSecondReview(s, r, dbkey, id) {
+    const author = addedBy(s, r.iri, dbkey, id);
+    if (!author) return false;
+    if (s.me && s.me.login && author === s.me.login) return false;
+    return idState(s, r, dbkey, id, null) === 'have';
+  }
+
+  // True when any cell in the disease is waiting on this curator's second pair
+  // of eyes. Predictions never count: nobody added them.
+  function awaitsSecondReviewer(s, r) {
+    return s.DBS.some(db => (r[db.key] || [])
+      .some(id => needsSecondReview(s, r, db.key, id)));
+  }
+
   // ------------------------------------------------------------- publishing
   // Keys a publish covers. A new PR carries this session's pending work only;
   // appending to the tracked PR also re-sends the keys already on it, because
@@ -159,7 +185,7 @@
     idKey, absentKey, keyState, isPending,
     predFor, preJudgmentId, idState, cellEntries, isAbsent, cellState,
     isOpenState, isMissing, cellNeed, isComplete,
-    addedBy, isOwnAddition, mayConfirm,
+    addedBy, isOwnAddition, mayConfirm, needsSecondReview, awaitsSecondReviewer,
     publishKeys, compareByName, compareByColumn,
   };
 

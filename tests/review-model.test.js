@@ -245,3 +245,64 @@ test('name sort reverses on za', () => {
   assert.ok(RM.compareByName(a, b, 'az') < 0);
   assert.ok(RM.compareByName(a, b, 'za') > 0);
 });
+
+// -------------------------------------------- needs a second reviewer (issue #124)
+// The two-person rule was enforced but nothing routed an id *to* the second
+// curator: the adder finished and the mapping waited until someone happened to
+// open that row.
+test('an id another curator added and nobody has judged is waiting on me', () => {
+  const r = disease({ mondo: ['0005147'] });
+  const s = session({ me: { login: 'ana' } });
+  s.idAuthors[RM.idKey(r.iri, 'mondo', '0005147')] = 'ben';
+  assert.equal(RM.needsSecondReview(s, r, 'mondo', '0005147'), true);
+  assert.equal(RM.awaitsSecondReviewer(s, r), true);
+});
+
+test('my own addition is never waiting on me — that is the whole rule', () => {
+  const r = disease({ mondo: ['0005147'] });
+  const s = session({ me: { login: 'ana' } });
+  s.idAuthors[RM.idKey(r.iri, 'mondo', '0005147')] = 'ana';
+  assert.equal(RM.needsSecondReview(s, r, 'mondo', '0005147'), false);
+  assert.equal(RM.awaitsSecondReviewer(s, r), false);
+});
+
+test('an id already judged is not waiting on anyone', () => {
+  const r = disease({ mondo: ['0005147'] });
+  const s = session({ me: { login: 'ana' } });
+  s.idAuthors[RM.idKey(r.iri, 'mondo', '0005147')] = 'ben';
+  s.reviewed[RM.idKey(r.iri, 'mondo', '0005147')] = 'ok';
+  assert.equal(RM.needsSecondReview(s, r, 'mondo', '0005147'), false);
+});
+
+test('a judgment already in the published mappings also settles it', () => {
+  const r = disease({ mondo: ['0005147'] });
+  const s = session({ me: { login: 'ana' } });
+  s.idAuthors[RM.idKey(r.iri, 'mondo', '0005147')] = 'ben';
+  s.mappings['ARI:0000001|MONDO|0005147'] = 'positive';
+  assert.equal(RM.needsSecondReview(s, r, 'mondo', '0005147'), false);
+});
+
+test('an id with no recorded author is nobody to route it to', () => {
+  // The ledger cannot say whose it is, so the rule does not apply — and counting
+  // it would put every unjudged cell in the matrix into the scope.
+  const r = disease({ mondo: ['0005147'] });
+  const s = session({ me: { login: 'ana' } });
+  assert.equal(RM.needsSecondReview(s, r, 'mondo', '0005147'), false);
+  assert.equal(RM.awaitsSecondReviewer(s, r), false);
+});
+
+test('a prediction is not waiting on a second reviewer — nobody added it', () => {
+  const r = disease({ mondo: [] });
+  const s = session({ me: { login: 'ana' } });
+  s.predicted['ARI:0000001|MONDO|0005147'] = { label: 'x', confidence: 'high' };
+  s.idAuthors[RM.idKey(r.iri, 'mondo', '0005147')] = 'ben';
+  assert.equal(RM.awaitsSecondReviewer(s, r), false);
+});
+
+test('one waiting cell is enough for the disease to show in the scope', () => {
+  const r = disease({ mondo: ['1'], snomed: ['2'] });
+  const s = session({ me: { login: 'ana' } });
+  s.idAuthors[RM.idKey(r.iri, 'mondo', '1')] = 'ana';     // mine
+  s.idAuthors[RM.idKey(r.iri, 'snomed', '2')] = 'ben';    // theirs, unjudged
+  assert.equal(RM.awaitsSecondReviewer(s, r), true);
+});

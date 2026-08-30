@@ -32,6 +32,20 @@ async def _index_html():
 # assets and sibling pages relatively (the app is mounted under /ari-editor in
 # production, so root-absolute paths 404), and relative URLs only resolve correctly
 # from the directory form.
+@router.get("/stats", include_in_schema=False)
+async def _stats_page_slash(request: Request):
+    target = request.url.path.rsplit("/", 1)[-1] + "/"
+    if request.url.query:
+        target += "?" + request.url.query
+    return RedirectResponse(target, status_code=308)
+
+
+@router.get("/stats/", include_in_schema=False)
+@router.get("/stats/index.html", include_in_schema=False)
+async def _stats_html():
+    return _render_html("stats/index.html")
+
+
 @router.get("/ref-edits", include_in_schema=False)
 async def _ref_page_slash(request: Request):
     # A relative Location keeps this correct behind the production prefix, which

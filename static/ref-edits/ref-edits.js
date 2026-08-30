@@ -533,8 +533,12 @@
     });
   }
 
+  const awaitsSecondReviewer = r => RM.awaitsSecondReviewer(model(), r);
+
   const inQueueFilter = r => queueFilter === 'all' ? true
-    : queueFilter === 'mine' ? mine(r.iri) : !owners[r.iri];
+    : queueFilter === 'mine' ? mine(r.iri)
+    : queueFilter === 'second' ? awaitsSecondReviewer(r)
+    : !owners[r.iri];
 
   function visibleRows() {
     const q = ($('#filter').value || '').trim().toLowerCase();
@@ -544,6 +548,23 @@
       (r.synonyms || []).some(s => String(s).toLowerCase().includes(q)) ||
       DBS.some(db => cellEntries(r, db.key).some(e => String(e.id).toLowerCase().includes(q))));
     return sortRows(rows);
+  }
+
+  // How much a candidate deserves trust, 0-100 (issue #91). The grid only ever
+  // said "predicted" or "predicted from a synonym", so everything in between
+  // looked alike and there was no way to work the easy ones first. The tooltip
+  // says what produced the number rather than leaving it a bare score.
+  const ROUTE_SAYS = {
+    xref: 'carried by an id already on file for this disease',
+    label: 'this disease’s label is exactly this term’s name',
+    synonym: 'only one of this disease’s synonyms matched',
+  };
+
+  function scoreHtml(pred) {
+    if (!pred || typeof pred.score !== 'number') return '';
+    const why = ROUTE_SAYS[pred.match_field] || 'lexical match';
+    return `<span class="cscore ${esc(pred.band || 'weak')}"
+      title="Match score ${pred.score} of 100 · ${esc(why)}">${pred.score}</span>`;
   }
 
   // One database card in the open row's review strip: the state tag, each id with its
@@ -562,7 +583,7 @@
       const own = isOwnAddition(r.iri, db.key, e.id);
       const author = addedBy(r.iri, db.key, e.id);
       return `<div class="card-id${sel ? ' sel' : ''}${edited[k] ? ' edited' : ''}"${at}${e.pred ? ' data-pred="1"' : ''}>
-        <div class="cid">${esc(e.id)}</div>
+        <div class="cid"><span class="cidtext">${esc(e.id)}</span>${scoreHtml(e.pred)}</div>
         <div class="clabel" data-lk="${esc(labelKey(db.key, e.id))}">${esc(label)}</div>
         ${author ? `<div class="cwho${own ? ' own' : ''}">added by @${esc(author)}</div>` : ''}
         <div class="cacts">
@@ -592,6 +613,9 @@
       return 'Nothing in your review queue yet — tick some diseases under “All” and add them.';
     if (queueFilter === 'unassigned' && !$('#filter').value.trim())
       return 'Every disease is on a curator’s queue.';
+    if (queueFilter === 'second' && !$('#filter').value.trim())
+      return 'Nothing is waiting on you. This scope lists ids another curator added ' +
+        'and nobody has judged — the ones only someone else can confirm.';
     return 'No disease or id matches that filter.';
   }
 
@@ -808,7 +832,8 @@
     $('#panel').innerHTML = `
       <div class="p-head">
         <button class="p-close" id="p-close">✕</button>
-        <div class="p-eyebrow ${st === 'ok' ? 'ok' : (st === 'bad' || absent) ? 'bad' : ''}">${esc(eyebrow)}</div>
+        <div class="p-eyebrow ${st === 'ok' ? 'ok' : (st === 'bad' || absent) ? 'bad' : ''}">${esc(eyebrow)}${
+          ent && ent.pred ? scoreHtml(ent.pred) : ''}</div>
         <div class="p-title">${esc(r.name)}</div>
         <div class="p-sub">${esc(sub)}</div>
       </div>
@@ -1224,7 +1249,9 @@
     try {
       predicted = {};
       for (const p of await api('predictions'))
-        predicted[p.ari_id + '|' + p.prefix + '|' + p.id] = { label: p.object_label, match_field: p.match_field, confidence: p.confidence };
+        predicted[p.ari_id + '|' + p.prefix + '|' + p.id] = {
+          label: p.object_label, match_field: p.match_field, confidence: p.confidence,
+          score: p.score, band: p.band };
     } catch (e) { predicted = {}; }
     await loadIdAuthors();
     // Restore this user's saved review session (verdicts + PR pointer) so a reload

@@ -161,7 +161,8 @@ def test_build_and_reload_predicted_sssom_round_trips():
 def test_to_cells_shape_matches_mappings_endpoint():
     cells = ps.to_cells(ps.predict_for_disease(_disease("Type 1 diabetes mellitus"), [HUB]))
     c = cells[0]
-    assert set(c) == {"ari_id", "prefix", "id", "dbs", "object_label", "match_field", "confidence"}
+    assert set(c) == {"ari_id", "prefix", "id", "dbs", "object_label", "match_field",
+                      "confidence", "score", "band"}
     # SNOMED's prefix backs both snomed and dxcode review columns
     snomed = next(x for x in cells if x["prefix"] == "SNOMEDCT")
     assert set(snomed["dbs"]) == {"snomed", "dxcode"}
@@ -226,3 +227,90 @@ def test_report_flags_the_reported_mis_curated_synonym(base_owl):
     # nothing, so it is a review item, never auto-blocklisted).
     review = [r for r in rows if r[8] == "synonym_only_review"]
     assert all(r[8] != "conflicts_with_label" for r in review)
+
+
+# ------------------------------------------------ cross-references from an id on file
+# Issue #90: once a disease has an id in one database, that term's own
+# cross-references can fill the blank cells with no string matching at all.
+def test_an_id_already_on_file_fills_the_blank_cells():
+    """The disease's name matches nothing; every candidate comes from the anchor."""
+    d = {"ari_id": "ARI:1", "name": "a name matching nothing at all",
+         "synonyms": [], "existing": {"mondo": ["0005147"]}}
+    preds = ps.predict_for_disease(d, [HUB])
+    assert preds, "the id on file should carry cross-references"
+    assert {p["match_field"] for p in preds} == {"xref"}
+    assert "snomed" in {p["db"] for p in preds}
+    # The anchor's own column is not predicted into: it already has an id.
+    assert "mondo" not in {p["db"] for p in preds}
+
+
+def test_the_anchor_route_needs_no_lexical_match_and_the_lexical_route_still_works():
+    lexical = ps.predict_for_disease(_disease("Type 1 diabetes mellitus"), [HUB])
+    assert lexical and {p["match_field"] for p in lexical} == {"label"}
+
+
+def test_a_candidate_found_both_ways_reports_the_stronger_route():
+    d = dict(_disease("Type 1 diabetes mellitus"))
+    d["existing"] = {"mondo": ["0005147"]}
+    preds = ps.predict_for_disease(d, [HUB])
+    snomed = next(p for p in preds if p["db"] == "snomed")
+    assert snomed["match_field"] == "xref"
+    assert {e["match_field"] for e in snomed["evidence"]} == {"label", "xref"}
+
+
+def test_an_id_on_file_for_a_database_outside_the_targets_is_ignored():
+    d = {"ari_id": "ARI:1", "name": "nothing", "synonyms": [],
+         "existing": {"not_a_db": ["1"]}}
+    assert ps.predict_for_disease(d, [HUB]) == []
+
+
+# ------------------------------------------------------------------ match scores
+# Issue #91: the grid said only "predicted" or "predicted from a synonym", so
+# everything in between looked alike.
+def test_the_route_sets_the_floor_of_the_score():
+    base = {"object_label": "x", "subject_label": "y"}
+    xref = ps.score_prediction({**base, "evidence": [{"match_field": "xref", "source": "mondo"}]})
+    label = ps.score_prediction({**base, "evidence": [{"match_field": "label", "source": "mondo"}]})
+    syn = ps.score_prediction({**base, "evidence": [{"match_field": "synonym", "source": "mondo"}]})
+    assert xref > label > syn
+
+
+def test_two_independent_indexes_agreeing_raises_the_score():
+    one = ps.score_prediction({"object_label": "x", "subject_label": "y",
+                               "evidence": [{"match_field": "label", "source": "mondo"}]})
+    two = ps.score_prediction({"object_label": "x", "subject_label": "y",
+                               "evidence": [{"match_field": "label", "source": "mondo"},
+                                            {"match_field": "label", "source": "doid"}]})
+    assert two > one
+    # The same index twice is one source, not corroboration.
+    same = ps.score_prediction({"object_label": "x", "subject_label": "y",
+                                "evidence": [{"match_field": "label", "source": "mondo"},
+                                             {"match_field": "label", "source": "mondo"}]})
+    assert same == one
+
+
+def test_the_candidates_own_label_being_the_disease_label_is_worth_the_most_single_step():
+    same = ps.score_prediction({"object_label": "Graves disease", "subject_label": "Graves' Disease",
+                                "evidence": [{"match_field": "label", "source": "mondo"}]})
+    diff = ps.score_prediction({"object_label": "something else", "subject_label": "Graves' Disease",
+                                "evidence": [{"match_field": "label", "source": "mondo"}]})
+    assert same == diff + ps.LABEL_MATCH_BONUS
+
+
+def test_scores_stay_inside_the_band_boundaries():
+    assert ps.score_band(100) == "strong" and ps.score_band(80) == "strong"
+    assert ps.score_band(79) == "fair" and ps.score_band(55) == "fair"
+    assert ps.score_band(54) == "weak" and ps.score_band(0) == "weak"
+    top = ps.score_prediction({"object_label": "a", "subject_label": "a",
+                               "evidence": [{"match_field": "xref", "source": s}
+                                            for s in ("mondo", "doid", "ncit", "mesh")]})
+    assert top <= 100
+
+
+def test_predictions_come_back_best_first_within_a_column():
+    d = dict(_disease("Type 1 diabetes mellitus"))
+    d["existing"] = {"mondo": ["0005147"]}
+    preds = ps.predict_for_disease(d, [HUB])
+    for db in {p["db"] for p in preds}:
+        scores = [p["score"] for p in preds if p["db"] == db]
+        assert scores == sorted(scores, reverse=True)
