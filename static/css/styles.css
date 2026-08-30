@@ -541,6 +541,9 @@ body.resizing-cols { cursor: col-resize; user-select: none; }
    to a full line of parenthetical prose, which reads as part of the field name
    (issue #98). */
 .field-hint { margin: -2px 0 6px; font-size: 11.5px; line-height: 1.5; color: var(--mute); }
+/* The panel's heading is sticky, so anything scrolled to lands underneath it —
+   including the Write/Preview tabs and the labels an error summary jumps to. */
+.field, .field-group-h { scroll-margin-top: 56px; }
 .field-hint-check { margin: -4px 0 10px 26px; }
 
 /* Named sections, so seventeen fields are not one flat list. */

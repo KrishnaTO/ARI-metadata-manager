@@ -1,5 +1,30 @@
 # Changelog
 
+## speaking-to-curators
+Closes #119, #98.
+
+### The interface stops speaking GitHub
+- **One vocabulary table, `static/js/words.js`.** Publish → **Submit for review**, PR #123 → **Submission 123**, New PR → **Start a new submission**, Source branch → **Working from**. It renames at the UI layer only: nothing in the API, the payloads, the branch names or the pull requests themselves changes, so a maintainer reading the server or GitHub still sees pull requests where pull requests are. Changing the words back, or trying different ones, means editing that one file.
+- **The github.com links move behind an "Advanced" heading** in the submit menu. They land on a diff of RDF/XML, which is not where the primary control should send a clinician.
+
+### There is help now
+- **A `?` in both headers opens one panel**: what the tool is for, what each grid symbol means, why the ✓ is sometimes withheld from you specifically, when "no term" is the right answer rather than a blank cell, what submitting does, and how to get work back after closing the tab. Searching both pages for help, guide, tutorial, onboarding or tour previously returned nothing.
+- **The separation-of-duties refusal is stated where the ✓ would have been**, at body size, and names the curator it is waiting on — it was a withheld button and 11.5px of grey text at the foot of the side panel.
+- **A first scope for a new curator.** Signing in showed 214 rows and no entry point. When a curator has judged nothing and holds no queue, a bar names the emptiest column and offers it in one click: *"Orphanet is missing a mapping for 198 of 214 diseases."*
+
+### Curate mode
+- **It looks like a different mode now** — a warm edge down the record region and a header rule in the same tone, so it is never ambiguous whether you are editing. It was one thin banner, a changed button label and small "+ add" links.
+- **The definition has room to write in.** `rows="2"` over a 56px box was a three-line window onto nine lines of text, edited through an inner scrollbar. It grows to its content (measured: 520px tall, no internal scrolling, for Addison's disease) and has a **Write / Preview** toggle, so nobody is asked to picture markup. The label is *Definition*; the formatting cheatsheet is a hint line.
+- **Seventeen fields are grouped** into Identity / Clinical / Prevalence / Sources & status instead of one flat list.
+- **Long parenthetical labels move to help text under the control.** *"Grouping / umbrella category (collects related diseases; no disease-specific clinical metadata)"* becomes **Umbrella category** with the explanation underneath. Same for obsolete, synonyms, subtypes, definition sources and the editor name.
+- **The opening line is in the curator's terms**: *"Your changes are saved as a proposal and reviewed before they go live. The disease's id cannot be changed."* It read *"IRI / ARI local id is fixed. Saving appends a changelog entry and writes the OWL file."*
+- **Clinical-subtype rows stack** when the column is too narrow for three inputs — roughly thirty characters of a description at a time meant every row was edited blind.
+
+### On the legend
+#119 asks for the glyph legend to default **on**; #97 asked for it **off**. Both are right about their own concern, and they are reconcilable: #97's objection was the 88px seven-symbol paragraph, which PR #140 replaces with a single 37px line of tooltipped keys. At that size it is affordable, so it should default on. On this branch it already does. **When #140 merges, change its `boot.js` default back to `'on'`** — one word.
+
+234 pytest, 25 `node --test`, ruff clean.
+
 ## split-main-module
 Splits `app/main.py` (1384 lines) into modules. The split itself is behaviour-neutral; it also carries one bug fix, called out at the end.
 
