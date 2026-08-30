@@ -54,7 +54,7 @@ ARI-metadata-manager/
 ├── data/2-databases/           # Reference-database indexes (built by fetch_databases.py)
 │   ├── <db>.index.tsv          #   term -> label, synonyms, cross-referenced ids
 │   ├── <db>.details.tsv        #   term -> definition, parent labels (on-demand lookup)
-│   └── <db>.subtypes.tsv       #   direct is_a parent->child edges (OBO sources)
+│   └── <db>.subtypes.tsv       #   direct is_a parent->child edge ids (OBO sources)
 ├── tests/                      # pytest suite for the service layer
 ├── mappings/                   # Accumulated cross-reference judgments (merged into PRs)
 │   ├── ari.sssom.tsv           #   SSSOM exactMatch mappings
@@ -212,7 +212,10 @@ never proposed as its own subtype.
 
 Synonyms come from the same `data/2-databases/<db>.index.tsv` files the predictor uses. Subtypes
 come from companion `<db>.subtypes.tsv` files: one row per direct `is_a` parent→child edge, built
-by `scripts/fetch_databases.py` for the OBO sources (MONDO, DOID, NCIt). That file is the
+by `scripts/fetch_databases.py` for the OBO sources (MONDO, DOID, NCIt). The edge carries ids
+only — each child's *name* is read from that child's own index row, so the two files cannot
+disagree about a label, and a child the indexes do not know is skipped rather than proposed under
+a name nothing else in the app recognises. That file is the
 `details.tsv` sidecar's hierarchy read the other way round — the sidecar answers "what is this
 term a kind of?" for one term and stores parent *labels* for display, while the engine asks the
 inverse across the whole ontology and needs ids, since a label does not identify a term.

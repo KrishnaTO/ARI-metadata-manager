@@ -1,5 +1,13 @@
 # Changelog
 
+## prune-derivable-columns
+- **The last two redundant columns in the reference data are gone, cutting a further 4.3 MB (24%).** `main-branch-object-pruning` left these because they needed reader changes; this makes them. Indexes 11.52 -> 10.89 MB, subtype edges 6.30 -> 2.64 MB (-58%). `data/2-databases` is now 31.8 MB, down from 38.5 MB before the two passes.
+- **A source's own id column is no longer written.** `mondo.index.tsv` held `MONDO:0005147` in `id` and `0005147` in its own `mondo` column — one value per row, on all 85,354 terms across the five files, and verified to be exactly the `id` with its prefix stripped in every one of them. `predict_service.load_index` now reconstructs it with `xref_registry.normalize_id`, so `by_db` is unchanged and each database still predicts its own ids. `SOURCE_DB` (which index owns which database key) moved from `concept_service` to `xref_registry`, so both readers share one copy instead of `predict_service` importing upward.
+- **Subtype edges carry ids only.** `child_label` repeated a name already in that child's index row, at a cost of 3.7 MB across the three OBO sources. `enrich_service.load_subtypes` now takes the loaded indexes and resolves the name from them; `enrich_many` passes the indexes it had already loaded, so nothing is read twice.
+- **That surfaced a real inconsistency: the committed edge files were stale against the committed indexes.** 39 edges (22 distinct children) carried a name MONDO/DOID had since changed — `MONDO:0001315` was still "orthostatic intolerance" against the index's "neurocirculatory asthenia" — and 61 edges pointed at children that are not in any index at all, so a curator could never have opened them. The 39 now read the index's current name, and the 61 unresolvable edges are dropped from the files: 102,889 -> 102,828 edges, with the edge set otherwise identical and every surviving label non-empty and equal to its child's own index label. Resolving from the index makes this class of drift impossible rather than merely fixed.
+- Verified by loading every index before and after through `predict_service.load_index`: `id`, `label` and `by_db` are identical for all 85,354 records. 206 tests pass, including three new ones pinning the own-id round trip through the real reader, the label-free edge format, and `load_subtypes` resolving names from the indexes.
+- `data/2-databases/README.md` now documents the subtype edge files, which it had never described.
+
 ## restore-lost-security-middleware
 Fixes a regression introduced on `main` by the merge of #127.
 
@@ -11,6 +19,20 @@ Fixes a regression introduced on `main` by the merge of #127.
 - 188 tests pass.
 
 > The same silent revert happens when the remaining stacked branches are merged into the new `main`. Each is being re-based on main's `app/main.py` deliberately rather than left to auto-merge.
+## deployment
+Closes #122. Stacked on `security-hardening` (shares `deploy/nginx.conf`).
+
+- **The deploy no longer restarts out from under a curator.** `update.sh` ran `git reset --hard` and restarted on a ten-minute timer whenever the branch moved, with no gate. It now asks `/healthz` first and defers the restart when any curator's working copy is live in memory, so an idle window is found within ten minutes instead of the deploy interrupting someone mid-edit. `ARI_FORCE_RESTART=1` overrides for an urgent fix. (The data loss this used to cause is fixed separately in `data-durability`.)
+- **`GET /healthz`** returns ontology load state, working-copy count, in-memory worlds, session count and version — 503 when the base ontology will not load. No session required and no curation content in the response. nginx has a location block for it with `access_log off`.
+- **The cache-busting scheme finally does something.** Real care went into `__ASSETV__` — one git-derived token, substituted at render, tagging every asset so a deploy busts all of them at once. Then `no_cache_assets` set `Cache-Control: no-cache` on **every** `.js` and `.css` response, so nothing was cached and the token did nothing: every page load re-downloaded all thirteen JS files and the stylesheets, which is the slowest part of opening a record on the laptops this audience uses. HTML still revalidates (it carries the token); an asset *requested with* a version token is immutable by construction and now gets `max-age=31536000, immutable`.
+- **The three CDN libraries are vendored.** SRI pinning is exactly right for integrity but does nothing for *availability*, and hospital, university and pharmaceutical networks block third-party CDNs routinely — the failure mode was a broken pathophysiology graph and word cloud with nothing on screen explaining why. `static/vendor/` holds chart.js 4.5.1, d3 7.9.0 and d3-cloud 1.2.7, **each verified byte-for-byte against the SHA-384 the page already pinned**, so what is committed is exactly what was being served. `static/vendor/README.md` records the versions, upstream URLs and how to check a digest before refreshing one.
+- That removes the CDN exception from the CSP: `script-src` is now `'self'` alone.
+- Fonts still come from Google Fonts. They degrade to the fallback stack rather than breaking a feature, so vendoring them is lower value and larger; the CSP still allows those two origins.
+
+Verified against the running app: all three libraries load from `static/vendor/` with no CDN request and no console errors, `/healthz` returns 200 with the ontology loaded, a versioned asset gets the immutable header and an unversioned one does not, and the record page renders unchanged.
+
+### Still to do by hand — see `OPERATIONS.md`
+`OPERATIONS.md` collects every change across the whole review batch that a pull request cannot make: `SESSION_SECRET` (now required to start), `ALLOWED_LOGINS`, `ASSIGN_ADMINS`, re-authorising the OAuth app at the narrower scope, applying the nginx config, backing up the gitignored operational state (#109), and log retention. Each step has a verification command and a rollback.
 
 ## security-hardening
 Closes #102, #106, #110, #113.
@@ -74,6 +96,50 @@ Closes #103, #104, #107, #108, #120.
 - **Every write goes through one atomic helper.** `app/atomic_store.py` serialises to a temp file in the destination's own directory, fsyncs, and `os.replace()`s it into place — covering the ontology (~1.7MB of RDF/XML written on *every* field edit, item edit, review log and enrichment, previously in place with no backup and no previous version) and the session, provenance, assignment, feedback and ref-session stores.
 - **A corrupt store is no longer read as empty.** Every loader caught `JSONDecodeError` and returned `{}` with a warning — which is not a recovery but a silent reset: the curator sees empty, redoes the work, and the next write replaces the damaged file for good. Present-but-unparseable now raises `StoreCorrupt` with a message naming the file and saying what to do. `.sessions.json` is the deliberate exception: it is regenerable by signing in again, so it still recovers with a warning.
 - 12 new tests in `tests/test_durability.py`, including the two-curator id collision and the archive-not-delete sweep; 161 pass.
+## accessibility-contrast-keyboard
+Closes #95, #100. **[UI change — needs review]**
+
+### Contrast and shape (#95)
+- **The verdict colours meet WCAG AA.** Five of the six states failed the 4.5:1 minimum, three of them badly, so at the shipped glyph size the grid read as an undifferentiated pale wash and you could not see at a glance where the outstanding work was. Only the foregrounds move; the background tints are unchanged. Every ratio was recomputed independently rather than taken from the issue:
+
+  | State | Was | Now | Ratio |
+  |---|---|---|---|
+  | confirmed | `#2F8F6F` (3.41) | `#1B6B50` | **5.52** |
+  | predicted | `#B5841A` (2.92) | `#7D5A0E` | **5.48** |
+  | synonym-only | `#C4A85E` (2.17) | `#6F5A18` | **6.28** |
+  | flagged | `#B7382D` (4.61) | `#9E2B22` | **5.91** |
+  | empty, light | `#C2CAD4` (1.53) | `#5C6675` | **5.37** |
+  | empty, dark | `#3A5170` (1.85) | `#8FA3BC` | **5.82** |
+  | `--mute-soft` on white | `#8A93A2` (3.10) | `#6E7787` | **4.51** |
+
+- **Each state has its own shape, not just its own size.** `●` predicted, `○` synonym-only and `•` on-file differed mainly in *size* at 11px — a discrimination the eye is poor at, and one that left a red-green colour-blind curator with no reliable channel at all. They are now `!`, `?` and `•`, and "no term in database" is `–` rather than `∅`.
+- The `∅` on a column header meant "show what is still missing", a *filter* rather than a verdict, so it is now `○` and no longer collides with the state alphabet. The `Not in <DB>` buttons show the `–` they set.
+- Matrix glyphs step from 11px to 13.5px.
+
+### Keyboard and target size (#100)
+- **The disease index is operable from the keyboard.** Every row was a plain `div` with a click handler — no tabindex, no role, no focus ring — so the rail could not be reached without a mouse and screen readers saw unlabelled containers. The pane is a `role="tree"` of `treeitem` rows with a roving tabindex: ↑↓ move, ←→ collapse and expand, Home/End jump, Enter/Space open, and `:focus-visible` shows a ring. Verified on the running app: 214 rows, exactly one tab stop, arrow keys move focus.
+- **The matrix is operable from the keyboard.** All 1,926 cells are `role="gridcell"` with an accessible name ("Acquired epidermolysis bullosa, SNOMED: confirmed") and a roving tabindex; arrow keys move in both axes, Enter opens the review panel, and `Y`/`N`/`D` apply a verdict by clicking the panel's own buttons — so every rule they enforce, including the separation-of-duties gate, is inherited rather than reimplemented. Arrow movement is also the fastest way for a mouse user to work through the grid.
+- **The search dropdown can be used from the keyboard.** It handled only Enter, which jumped to the full results page, so a keyboard user could never select a suggestion. ↑↓ move through them with `aria-activedescendant` on the input, Enter opens the highlighted one, Escape closes. Enter with nothing highlighted still opens the full results page.
+- **The story-spine categories are real buttons.** Querying the accessibility tree for "Symptoms" returned nothing while the link was plainly on screen; it now reports "Symptoms 18". The UA button chrome is reset so nothing moves visually.
+- **Five targets below the WCAG 2.2 AA 24×24 minimum are padded out** — the remove-synonym × (was 14×14), the copy-the-ARI-id button (17×17, verified now exactly 24×24), the rail filter checkbox (13×13), the matrix row-select checkbox (13×13) and the missing-only column button (~11×11). The icons keep their size; only the hit area grows.
+
+Verified against the running app in both themes: no console errors, matrix and index render correctly, keyboard navigation confirmed by driving the real page.
+## mapping-correctness
+Closes #105, #116.
+
+- **A corrected mapping judgment is no longer silently discarded.** `load_judgments()` keyed its `seen` set on `(ari_id, prefix, id)` and kept whichever row came *first* in the file — which is append order, so the older judgment always won. A curator confirmed a mapping, someone later flagged it as wrong, and the review page went on showing it as confirmed forever; a flagged id looked unjudged to the next person, who might confirm it again. The projection to current state now ranks rows on (not superseded, `mapping_date`, file position) and the most recent judgment wins.
+- **A withdrawn row is marked, not merely outvoted.** `_merge_tsv` appended any row with a new dedup key and marked nothing, so the published set asserted that the same pair both is and is not an exact match with no ordering and no retraction predicate — a downstream consumer could not resolve it either. `_reconcile_judgments()` now writes a `Superseded by the <verdict> judgment of <author> on <date>.` note into the row a reversal replaces, using SSSOM's standard `comment` slot so the file still validates.
+- That also fixes a case the dedup key could not express at all: **re-confirming a mapping after it was flagged** was dropped entirely, because a row with that key already existed, so the flag kept winning no matter how many times the judgment was reversed back. A pair now carries at most two rows — positive and negative — and the live one is refreshed in place.
+- **`author_id` uses a prefix the curie map declares.** `github:` was written into every row and was not in the map, so the CURIE could not be expanded and the file did not validate as SSSOM.
+- **An ORCID is validated before it reaches the published record.** It was read from `localStorage`, never checked for format and never checked against the signed-in identity; a typo in `author_id` is permanent and unattributable. `sssom_service.orcid_curie()` normalises a bare ORCID or an orcid.org URL and refuses anything else, and the publish endpoint runs the supplied author through it.
+- **The licence is disclosed rather than asserted silently.** `MAPPING_LICENSE` (default CC0 1.0, unchanged) is configurable and reported by `GET /api/v2/settings`; the settings panel now names it and links it, so a curator can see the rights declaration being made about their work. **[UI change — needs review]**
+- **Timestamps are UTC with an offset, everywhere.** `feedback_service`, the ontology changelog and the release stamps all used naive `datetime.now()` in server-local time while `id_provenance` wrote UTC, so correlating a changelog entry with the provenance record for the same edit meant knowing the server's timezone, which is recorded nowhere. `mapping_date` also gains a time, which is what lets two judgments made the same afternoon be ordered at all.
+- **`scripts/validate_mappings.py` runs in CI.** It checks that every CURIE prefix used is declared, that no prefix is doubled, that every `mapping_date` parses as ISO-8601 with a timezone, and that no pair carries two live contradictory rows.
+- **`scripts/migrate_mappings.py` brings the published files up to that standard**, and running it found two real defects in the accumulated data:
+  - `ARI:0001012 → icd10cm:720.0` was confirmed on 2026-06-25 and flagged on 2026-07-10, with both rows live and nothing saying which was withdrawn. The older row is now marked superseded. **The current state changes: this mapping reads as flagged, not confirmed.**
+  - `ARI:0003 → MONDO:MONDO:0014523` carried the doubled prefix from before ids were canonicalised. It is now `MONDO:0014523`.
+  - Bare dates widen to midnight UTC, which is what the day-granular value meant.
+- 14 new tests in `tests/test_sssom_service.py` covering the reversal, the reversal-of-a-reversal, the supersession marker, curie-map completeness, timestamp format and ORCID validation; 162 pass.
 
 ## disease-snomed-column-slider
 - **The Disease/SNOMED boundary in the review matrix drags.** A `col-resize` grip sits on the boundary; dragging it sets the matrix's first grid track anywhere between 150px and half the viewport, and a double-click returns it to the density default (330px comfortable, 250px compact). On a small screen the disease names were the first thing to ellipsize, long before the glyph columns became unreadable — this trades glyph width for name width on demand instead of at a fixed ratio.

@@ -29,7 +29,10 @@
   /* neutrals */
   --paper: #F4F6F8; --bone: #E3E8EE; --bg: #FFFFFF;
   --line: #DDE3EA; --line-strong: #C2CAD4;
-  --mute: #5C6675; --mute-soft: #8A93A2;
+  /* --mute-soft carries obsolete rows, tree carets, .ari-chip and secondary
+     search ids. At #8A93A2 it measured 3.10:1 on white — below the AA 4.5:1
+     minimum for text. #6E7787 is 4.51:1. */
+  --mute: #5C6675; --mute-soft: #6E7787;
   /* status */
   --success: #2F8F6F; --success-bg: #E2F1EB;
   --warning: #B5841A; --warning-bg: #F8EFD6;
@@ -213,7 +216,15 @@ body.resizing-cols { cursor: col-resize; user-select: none; }
 .rail-legend-key { display: flex; align-items: center; gap: 8px; }
 /* Bottom-of-list toggle: restrict both tree views to confirmed autoimmune. */
 .rail-filter { display: flex; align-items: center; gap: 6px; margin-left: auto; cursor: pointer; }
-.rail-filter input { margin: 0; accent-color: var(--accent); cursor: pointer; }
+.rail-filter input { margin: 0; accent-color: var(--accent); cursor: pointer;
+  min-width: 24px; min-height: 24px; }
+
+/* Keyboard focus. Tree rows and story-spine categories are now real controls,
+   so they need a ring you can actually see (issue #100). */
+.node-row:focus { outline: none; }
+.node-row:focus-visible,
+.story .box:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; border-radius: 4px; }
+.search-results .node-row.kb-active { background: var(--accent-050); }
 
 /* ------------------------------------------------------------ record shell */
 .detail { flex: 1; min-height: 0; display: flex; flex-direction: column; }
@@ -354,7 +365,10 @@ body.resizing-cols { cursor: col-resize; user-select: none; }
 .story-title { font-size: 12.5px; font-weight: 600; }
 .story-hint { display: none; }
 /* Category lines are the click targets into the deep dive. */
+/* `.box` became a <button> so it is keyboard-reachable and announced; these
+   reset the UA button chrome so it looks exactly as it did (issue #100). */
 .box { display: flex; align-items: baseline; gap: 8px; font-size: 12px; color: var(--mute);
+  width: 100%; text-align: left; background: none; border: 0; font-family: inherit;
   line-height: 1.5; cursor: pointer; padding: 1px 0; transition: color .2s var(--ease); }
 .box:hover { color: var(--ink); }
 .box.active { color: var(--ink); font-weight: 600; }
@@ -501,8 +515,10 @@ body.resizing-cols { cursor: col-resize; user-select: none; }
   background: var(--bg); color: var(--ink); }
 .icon-btn:hover { background: var(--paper); border-color: var(--accent); }
 .icon-btn.danger:hover { background: var(--danger-bg); border-color: var(--danger); color: var(--danger); }
-.copy-btn { border: 0; background: transparent; cursor: pointer; padding: 1px 4px; font-size: 12px;
-  line-height: 1; border-radius: 4px; color: inherit; }
+.copy-btn { border: 0; background: transparent; cursor: pointer; font-size: 12px;
+  line-height: 1; border-radius: 4px; color: inherit;
+  min-width: 24px; min-height: 24px; display: inline-flex; align-items: center;
+  justify-content: center; padding: 0; }
 
 /* Forms */
 .edit-form { padding: 0; }
@@ -526,8 +542,12 @@ body.resizing-cols { cursor: col-resize; user-select: none; }
 .tag-chip { display: inline-flex; align-items: center; gap: 5px; background: var(--accent-050);
   color: var(--accent-strong); border: 1px solid var(--accent-border); padding: 2px 4px 2px 9px;
   border-radius: 4px; font-size: 12.5px; line-height: 1.5; }
+/* WCAG 2.2 AA wants a 24x24 target. The glyph keeps its size; the hit area
+   grows around it, so nothing moves visually (issue #100). */
 .tag-chip-x { border: none; background: transparent; color: inherit; cursor: pointer; font-size: 14px;
-  line-height: 1; padding: 0 3px; border-radius: 50%; opacity: .7; }
+  line-height: 1; border-radius: 50%; opacity: .7;
+  min-width: 24px; min-height: 24px; display: inline-flex; align-items: center;
+  justify-content: center; padding: 0; margin: -4px -4px -4px 0; }
 .tag-chip-x:hover { opacity: 1; }
 .tag-input { flex: 1; min-width: 120px; border: none !important; outline: none; padding: 4px !important;
   font: inherit; background: transparent !important; box-shadow: none !important; color: var(--ink); }

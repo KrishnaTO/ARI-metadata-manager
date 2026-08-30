@@ -551,7 +551,7 @@ async def security_headers(request: Request, call_next):
     response.headers.setdefault(
         "Content-Security-Policy",
         "default-src 'self'; "
-        "script-src 'self' https://cdn.jsdelivr.net; "
+        "script-src 'self'; "                 # the CDN libraries are vendored now
         "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
         "font-src 'self' https://fonts.gstatic.com; "
         "img-src 'self' data:; "
@@ -565,13 +565,52 @@ async def security_headers(request: Request, call_next):
 
 
 @app.middleware("http")
-async def no_cache_assets(request: Request, call_next):
-    """Always revalidate the app's HTML/CSS/JS so edits are picked up on reload."""
+async def cache_policy(request: Request, call_next):
+    """Revalidate the HTML; let versioned assets actually cache.
+
+    Real care went into ``__ASSETV__``: one git-derived token, substituted at
+    render, tagging every asset so a deploy busts all of them at once. Then this
+    middleware set ``no-cache`` on **every** ``.js`` and ``.css`` response, so
+    nothing was cached and the token did nothing — every page load re-downloaded
+    all thirteen JS files and the stylesheets, which is the slowest part of
+    opening a record on the modest laptops this audience uses.
+
+    The HTML carries the token, so it must always be revalidated. An asset
+    *requested with* a version token is immutable by construction: a new deploy
+    changes the token, which changes the URL.
+    """
     response = await call_next(request)
     path = request.url.path
-    if path == "/" or path.endswith((".html", ".css", ".js")):
+    if path == "/" or path.endswith(".html"):
         response.headers["Cache-Control"] = "no-cache, must-revalidate"
+    elif path.endswith((".css", ".js")):
+        response.headers["Cache-Control"] = (
+            "public, max-age=31536000, immutable" if request.url.query.startswith("v=")
+            else "no-cache, must-revalidate")
     return response
+
+
+@app.get("/healthz")
+async def healthz():
+    """Liveness and load state, for nginx and for a human debugging a report.
+
+    Nothing here needs a session: it reports no curation content, only whether
+    the process is serving and how much it is holding."""
+    try:
+        loaded = len(BASE.get_diseases_list())
+    except Exception as e:                     # a failed ontology load is the thing to catch
+        log.error("Health check could not read the base ontology: %s", e)
+        return JSONResponse(status_code=503, content={
+            "ok": False, "detail": "base ontology is not loadable", "version": APP_VERSION})
+    return {
+        "ok": True,
+        "version": APP_VERSION,
+        "diseases": loaded,
+        "working_copies": len(list(USER_DIR.glob("*.owl"))) if USER_DIR.exists() else 0,
+        "worlds_in_memory": len(USER_SVC),
+        "sessions": len(SESSIONS),
+        "github_enabled": GH_ENABLED,
+    }
 
 
 @app.exception_handler(NotFound)
@@ -1008,6 +1047,19 @@ def _remember_publish(login, request_id, result):
     atomic_store.write_json(_publish_log_path(login), done)
 
 
+def _mapping_author(supplied, login: str) -> str:
+    """The ``author_id`` for this curator's mappings.
+
+    Defaults to ``github:<login>``, which the SSSOM curie map now declares. A
+    supplied ORCID (bare or as an orcid.org URL) is normalised to an
+    ``orcid:`` CURIE and rejected if malformed. Anything else is ignored — the
+    author is the signed-in identity, not a free-text field."""
+    supplied = (supplied or "").strip()
+    if not supplied or supplied == f"github:{login}":
+        return f"github:{login}"
+    return sssom_service.orcid_curie(supplied.removeprefix("orcid:"))
+
+
 @app.post("/api/v2/publish")
 async def publish(request: Request, payload: dict = Body(default={})):
     """Commit the current ontology file to GitHub as the signed-in user (PR)."""
@@ -1026,7 +1078,10 @@ async def publish(request: Request, payload: dict = Body(default={})):
     flagged = payload.get("flagged") or []
     # Cells judged to have no term at all in the target database.
     absent = payload.get("absent") or []
-    author = payload.get("author") or f"github:{u['identity']['login']}"
+    # author_id lands in the published SSSOM. An ORCID is validated here rather
+    # than trusted from localStorage: a typo in this column is permanent and
+    # unattributable, and an unexpandable CURIE makes the file fail validation.
+    author = _mapping_author(payload.get("author"), u["identity"]["login"])
     any_review = bool(confirmed or flagged or absent)
 
     # A curator may not confirm a mapping id they added themselves; the frontend
@@ -1195,6 +1250,7 @@ async def get_settings(request: Request):
     return {"github_enabled": GH_ENABLED, "authenticated": bool(u),
             "working_branch": GH_BASE_BRANCH, "source_branch": _source_branch(request),
             "pr_base": _pr_base(request), "dirty": _dirty(request), "branches": branches,
+            "mapping_license": sssom_service.MAPPING_LICENSE,
             "working_copy": working_copy_expiry(_login(request))}
 
 

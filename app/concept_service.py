@@ -50,15 +50,9 @@ from pathlib import Path
 from urllib.parse import quote
 
 from .predict_service import LexicalIndex
-from .xref_registry import BY_KEY, PREFIX
+from .xref_registry import BY_KEY, PREFIX, SOURCE_DB
 
 log = logging.getLogger(__name__)
-
-# Which index ``source`` (file stem) is the *own* index for a target-database key.
-# The db key ``nci`` is served by the ``ncit`` index; the rest match by name. A db
-# absent here (snomed/omop/icd10/umls) has no own index — only hub xrefs.
-SOURCE_DB = {"mondo": "mondo", "doid": "doid", "ncit": "nci",
-             "mesh": "mesh", "orphanet": "orphanet"}
 
 
 def _norm_id(raw: str) -> str:

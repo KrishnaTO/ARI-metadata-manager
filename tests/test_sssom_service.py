@@ -4,7 +4,18 @@ Pure functions, no ontology needed. These encode the biomappings-style contract
 (positive vs. negative judgments, dedup keys) that the reference-review page and
 the publish endpoint both depend on.
 """
+import datetime
+
+import pytest
+
 from app import sssom_service as ss
+
+
+def _rows(sssom_text) -> list[dict]:
+    """The data rows of an SSSOM file, as dicts keyed by the file's own header."""
+    lines = [ln for ln in sssom_text.splitlines() if ln.strip() and not ln.startswith("#")]
+    header = lines[0].split("	")
+    return [dict(zip(header, ln.split("	"))) for ln in lines[1:]]
 
 
 def _confirmed(**kw):
@@ -158,3 +169,120 @@ def test_merge_remaps_rows_written_under_an_older_header():
     assert rows[0].split("\t")[5] == "SNOMEDCT"   # object_source backfilled
     judged = ss.load_judgments(out["sssom"])
     assert [(j["id"], j["judgment"]) for j in judged] == [("12345", "positive")]
+
+
+# ------------------------------------------------- corrections and retraction
+def test_a_correction_wins_over_the_original_judgment():
+    """Issue #105: the reversal case, which was not covered.
+
+    A curator confirms a mapping; someone later flags it as wrong. Both rows are
+    stored (they differ in predicate_modifier), but `load_judgments` keyed only
+    on (ari_id, prefix, id) and kept the FIRST match in file order — which is
+    append order, so the older judgment always won and the correction was
+    silently discarded."""
+    first = ss.build(
+        [{"ari_id": "ARI:0000001", "name": "D", "db": "mondo", "ids": ["0005147"]}],
+        "github:alice")
+    corrected = ss.build(
+        [], "github:bob", first["sssom"], first["equiv"],
+        flagged=[{"ari_id": "ARI:0000001", "name": "D", "db": "mondo", "ids": ["0005147"]}])
+
+    # Both rows survive: the file is an event log, not a mutable current state.
+    body = [line for line in corrected["sssom"].splitlines()
+            if line.startswith("ARI:0000001")]
+    assert len(body) == 2
+
+    # But the projection to current state is the correction.
+    judgments = ss.load_judgments(corrected["sssom"])
+    assert [(j["id"], j["judgment"]) for j in judgments] == [("0005147", "negative")]
+    assert judgments[0]["author"] == "github:bob"
+
+
+def test_the_superseded_row_says_so():
+    """A consumer reading the published file must not have to reimplement the
+    ordering to discover that one of two contradictory rows was withdrawn."""
+    first = ss.build(
+        [{"ari_id": "ARI:0000001", "name": "D", "db": "mondo", "ids": ["0005147"]}],
+        "github:alice")
+    corrected = ss.build(
+        [], "github:bob", first["sssom"], first["equiv"],
+        flagged=[{"ari_id": "ARI:0000001", "name": "D", "db": "mondo", "ids": ["0005147"]}])
+
+    rows = _rows(corrected["sssom"])
+    superseded = [r for r in rows if r["predicate_modifier"] == ""]
+    assert len(superseded) == 1
+    assert "Superseded by the negative judgment of github:bob" in superseded[0]["comment"]
+    # The row that replaced it carries no marker.
+    assert [r for r in rows if r["predicate_modifier"] == "Not"][0]["comment"] == ""
+
+
+def test_a_re_confirmation_is_not_treated_as_a_reversal():
+    first = ss.build(
+        [{"ari_id": "ARI:0000001", "name": "D", "db": "mondo", "ids": ["0005147"]}],
+        "github:alice")
+    again = ss.build(
+        [{"ari_id": "ARI:0000001", "name": "D", "db": "mondo", "ids": ["0005147"]}],
+        "github:bob", first["sssom"], first["equiv"])
+    assert all(r["comment"] == "" for r in _rows(again["sssom"]))
+
+
+def test_a_correction_can_itself_be_reversed():
+    """Three judgments; the newest must win, not the first or the second."""
+    s = ss.build(
+        [{"ari_id": "ARI:0000001", "name": "D", "db": "mondo", "ids": ["0005147"]}],
+        "github:alice")
+    s = ss.build(
+        [], "github:bob", s["sssom"], s["equiv"],
+        flagged=[{"ari_id": "ARI:0000001", "name": "D", "db": "mondo", "ids": ["0005147"]}])
+    s = ss.build(
+        [{"ari_id": "ARI:0000001", "name": "D", "db": "mondo", "ids": ["0005147"]}],
+        "github:cleo", s["sssom"], s["equiv"])
+
+    judgments = ss.load_judgments(s["sssom"])
+    assert [(j["id"], j["judgment"]) for j in judgments] == [("0005147", "positive")]
+
+
+# ------------------------------------------------------- SSSOM file validity
+def test_every_author_prefix_is_declared_in_the_curie_map():
+    out = ss.build(
+        [{"ari_id": "ARI:0000001", "name": "D", "db": "mondo", "ids": ["0005147"]}],
+        "github:alice")
+    declared = {line.split(":")[0].strip("# ").strip()
+                for line in out["sssom"].splitlines()
+                if line.startswith("#   ")}
+    for row in _rows(out["sssom"]):
+        prefix = row["author_id"].partition(":")[0]
+        assert prefix in declared, f"author_id prefix {prefix!r} is not in the curie_map"
+
+
+def test_mapping_dates_are_utc_with_an_offset():
+    out = ss.build(
+        [{"ari_id": "ARI:0000001", "name": "D", "db": "mondo", "ids": ["0005147"]}],
+        "github:alice")
+    date = _rows(out["sssom"])[0]["mapping_date"]
+    parsed = datetime.datetime.fromisoformat(date)
+    assert parsed.tzinfo is not None, f"{date!r} has no timezone"
+    assert parsed.utcoffset() == datetime.timedelta(0)
+
+
+def test_the_licence_is_configurable_rather_than_baked_in(monkeypatch):
+    monkeypatch.setattr(ss, "MAPPING_LICENSE", "https://example.org/licence")
+    out = ss.build(
+        [{"ari_id": "ARI:0000001", "name": "D", "db": "mondo", "ids": ["0005147"]}],
+        "github:alice")
+    assert "# license: https://example.org/licence" in out["sssom"]
+
+
+@pytest.mark.parametrize("value,expected", [
+    ("0000-0002-1825-0097", "orcid:0000-0002-1825-0097"),
+    ("https://orcid.org/0000-0002-1825-0097", "orcid:0000-0002-1825-0097"),
+    ("0000-0002-1825-009X", "orcid:0000-0002-1825-009X"),
+])
+def test_a_valid_orcid_becomes_a_curie(value, expected):
+    assert ss.orcid_curie(value) == expected
+
+
+@pytest.mark.parametrize("value", ["", "alice", "0000-0002-1825", "0000 0002 1825 0097"])
+def test_a_malformed_orcid_is_refused(value):
+    with pytest.raises(ValueError):
+        ss.orcid_curie(value)

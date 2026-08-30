@@ -7,7 +7,7 @@ point it is moved into ``feedback/archive/``; entries flagged ``keep`` survive r
 """
 import logging
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 from . import atomic_store
@@ -19,7 +19,12 @@ MAX_MESSAGE_CHARS = 4000
 
 
 def _now() -> str:
-    return datetime.now().strftime("%Y-%m-%d %H:%M")
+    """UTC, ISO-8601 with an offset.
+
+    This was naive server-local time while `id_provenance` wrote UTC, so
+    correlating a comment with the provenance record for the same edit meant
+    knowing the server's timezone — which is recorded nowhere."""
+    return datetime.now(timezone.utc).isoformat(timespec="seconds")
 
 
 def _checked_message(message) -> str:
@@ -127,7 +132,7 @@ class FeedbackStore:
         retained = [x for x in items if x.get("keep")]
         if expiring:
             self.archive_dir.mkdir(parents=True, exist_ok=True)
-            ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+            ts = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
             dest = self.archive_dir / f"feedback_v{version}_{ts}.json"
             atomic_store.write_json(dest, expiring, indent=2)
             with open(self.log_path, "a", encoding="utf-8") as f:

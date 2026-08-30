@@ -141,7 +141,11 @@
   const aiDot = r => r.autoimmune
     ? '<span class="ai-dot" title="Confirmed autoimmune"></span>' : '';
 
-  const GLYPH = { ok: '✓', bad: '✕', pred: '●', low: '○', have: '•', none: '∅' };
+  // One shape per state. `pred`, `low` and `have` used to be a large, a hollow
+  // and a small circle -- three states differing mainly in SIZE at 11px, which
+  // asks a non-specialist to make a discrimination the eye is poor at, and
+  // leaves a red-green colour-blind curator with no reliable channel at all.
+  const GLYPH = { ok: '✓', bad: '✕', pred: '!', low: '?', have: '•', none: '–' };
   const SUP = { 2: '²', 3: '³', 4: '⁴', 5: '⁵' };
   const TAG = { ok: 'confirmed', bad: 'flagged', pred: 'predicted', low: 'synonym',
                 have: 'on file', none: 'not in database' };
@@ -481,7 +485,9 @@
       'var(--disease-col) repeat(' + DBS.length + ', minmax(44px,1fr))');
   }
 
-  // Header cells carry both column controls: the label sorts, the ∅ button filters.
+  // Header cells carry both column controls: the label sorts, the ○ button
+  // narrows to what is still missing. That is a filter, not a verdict, so it is
+  // deliberately not one of the state glyphs.
   function headCell(key, label, extra) {
     const dir = colSort && colSort.db === key ? colSort.dir : null;
     const only = missingOnly === key;
@@ -497,7 +503,7 @@
     $('#mhead').innerHTML = headCell(NAME_COL, 'Disease', '') + DBS.map(d =>
       headCell(d.key, d.label,
         `<button class="hmiss${missingOnly === d.key ? ' on' : ''}" data-miss="${esc(d.key)}"
-           title="Show only the diseases missing a ${esc(d.label)} mapping">∅</button>`)).join('');
+           title="Show only the diseases missing a ${esc(d.label)} mapping">○</button>`)).join('');
   }
 
   // The disease column sorts by name; the database columns sort by how much of the
@@ -570,7 +576,7 @@
     const absent = st === 'none';
     const noneBtn = (r[db.key] || []).length ? '' :
       `<button class="cnone${absent ? ' on' : ''}" data-none="1" data-iri="${esc(r.iri)}" data-db="${db.key}"
-         title="Record that ${esc(db.label)} has no term for this disease">∅ Not in ${esc(db.label)}</button>`;
+         title="Record that ${esc(db.label)} has no term for this disease">– Not in ${esc(db.label)}</button>`;
     return `<div class="card${st ? ' ' + st : ''}">
       <div class="card-h"><span class="card-db">${esc(db.label)}</span><span class="card-tag${st ? ' ' + st : ''}">${esc(tag)}</span></div>
       ${ids}${entries.length ? '' : '<div class="card-empty">no id yet</div>'}
@@ -603,8 +609,15 @@
         const anyEdited = entries.some(e => edited[idKey(r.iri, db.key, e.id)]);
         const sup = entries.length > 1 ? (SUP[entries.length] || '·' + entries.length) : '';
         const title = entries.length ? entries.map(e => e.id).join(', ') : 'No ' + db.label + ' id';
+        // role + tabindex: every cell was a plain div with a click handler, so
+        // roughly 1,900 of them were unreachable without a mouse and screen
+        // readers saw unlabelled containers. The roving tabindex is set by
+        // primeMatrixTabStop() after each render.
+        const label = `${r.name}, ${db.label}: ${st ? TAG[st] : 'no id'}`;
         return `<div class="mcell${st ? ' ' + st : ''}${sel ? ' sel' : ''}${anyEdited ? ' edited' : ''}"
-          data-iri="${esc(r.iri)}" data-db="${db.key}" title="${esc(title)}"><span>${st ? GLYPH[st] : ''}</span><span class="sup">${sup}</span></div>`;
+          data-iri="${esc(r.iri)}" data-db="${db.key}" title="${esc(title)}"
+          role="gridcell" tabindex="-1" aria-label="${esc(label)}"
+          ><span>${st ? GLYPH[st] : ''}</span><span class="sup">${sup}</span></div>`;
       }).join('');
       let strip = '';
       if (open) {
@@ -644,6 +657,7 @@
         </div>${strip}</div>`;
     }
     $('#matrix').innerHTML = h || `<div class="empty-note">${esc(emptyNote())}</div>`;
+    primeMatrixTabStop();      // exactly one cell stays in the tab order
     if (openRow) {
       const r = ROWS.find(x => x.iri === openRow);
       if (r) fillCardLabels(r);
@@ -784,7 +798,7 @@
     // no id is on file for it.
     const noneBtn = noIdsOnFile
       ? `<div class="p-actions">
-           <button class="btn bad ${absent ? 'on' : ''}" id="p-none">∅ Not in ${esc(db.label)}</button>
+           <button class="btn bad ${absent ? 'on' : ''}" id="p-none">– Not in ${esc(db.label)}</button>
            <span class="muted">${absent
              ? 'Publishes as an SSSOM “no term found” record for ' + esc(db.label) + '.'
              : 'Record that ' + esc(db.label) + ' has no term for this disease.'}</span>
@@ -1008,6 +1022,9 @@
         !confirm('Open a new pull request instead of adding to PR #' + sessionPr.number + '?')) return;
     const comment = window.prompt('Optional comment for the pull request (what you reviewed/changed):', 'Mappings review');
     if (comment === null) return;
+    // The author lands in the published SSSOM `author_id` column. The server
+    // validates an ORCID and refuses a malformed one rather than writing a typo
+    // into a permanent, citable record.
     const orcid = (localStorage.getItem('ari_editor_orcid') || '').trim();
     const author = orcid ? ('orcid:' + orcid) : (me && me.login ? ('github:' + me.login) : 'curator');
     const message = reviewMessage(keys);
@@ -1239,5 +1256,65 @@
     $('#publish-new').addEventListener('click', () => { closeMenus(); publish(true); });
     $('#prlink').addEventListener('click', () => closeMenus());
   }
+  // -------------------------------------------------------------- KEYBOARD
+  // A roving tabindex over the matrix: one cell in the tab order, arrow keys to
+  // move, Enter to open the review panel, and single-key verdicts. Arrow-key
+  // movement is also the fastest way for a mouse user to work through ~1,900
+  // cells (issue #100).
+  function matrixCells(){ return [...$('#matrix').querySelectorAll('.mcell')]; }
+
+  function primeMatrixTabStop(){
+    const cells = matrixCells();
+    if (!cells.length) return;
+    const current = cells.find(c => c.tabIndex === 0) || cells[0];
+    cells.forEach(c => c.tabIndex = c === current ? 0 : -1);
+  }
+
+  function focusCell(cell){
+    if (!cell) return;
+    matrixCells().forEach(c => c.tabIndex = -1);
+    cell.tabIndex = 0;
+    cell.focus();
+    cell.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+  }
+
+  function moveFocus(from, dCol, dRow){
+    const cells = matrixCells();
+    const i = cells.indexOf(from);
+    if (i < 0) return;
+    const cols = DBS.length;
+    const col = i % cols, row = Math.floor(i / cols);
+    const nc = Math.min(cols - 1, Math.max(0, col + dCol));
+    const nr = Math.min(Math.floor((cells.length - 1) / cols), Math.max(0, row + dRow));
+    focusCell(cells[nr * cols + nc]);
+  }
+
+  $('#matrix').addEventListener('keydown', e => {
+    const cell = e.target.closest('.mcell');
+    if (!cell) return;
+    switch (e.key) {
+      case 'ArrowRight': e.preventDefault(); moveFocus(cell, 1, 0); return;
+      case 'ArrowLeft':  e.preventDefault(); moveFocus(cell, -1, 0); return;
+      case 'ArrowDown':  e.preventDefault(); moveFocus(cell, 0, 1); return;
+      case 'ArrowUp':    e.preventDefault(); moveFocus(cell, 0, -1); return;
+      case 'Enter':
+      case ' ':
+        e.preventDefault(); cell.click(); return;
+    }
+    // Single-key verdicts, only once a cell's panel is the active one — the
+    // verdict buttons are the authority, so this just clicks them and inherits
+    // every rule they enforce, including the separation-of-duties gate.
+    const keyed = { y: '#p-ok', n: '#p-bad', d: '#p-none' }[e.key.toLowerCase()];
+    if (keyed && active && active.iri === cell.dataset.iri && active.dbkey === cell.dataset.db){
+      const btn = $(keyed);
+      if (btn && !btn.disabled){ e.preventDefault(); btn.click(); }
+    }
+  });
+
+  $('#matrix').addEventListener('focusin', e => {
+    const cell = e.target.closest('.mcell');
+    if (cell) matrixCells().forEach(c => c.tabIndex = c === cell ? 0 : -1);
+  });
+
   document.addEventListener('DOMContentLoaded', init);
 })();

@@ -316,6 +316,17 @@ network tab:
   You can set it explicitly by adding this to `static/index.html` before `core.js`:
   `<script>window.BASE_PATH='/ari-editor';</script>`
 
+## Operational tasks
+
+Some of the codebase-review fixes need changes **on the server** that a pull
+request cannot make: `SESSION_SECRET` (now required — the app will not start
+without it), `ALLOWED_LOGINS`, `ASSIGN_ADMINS`, re-authorising the OAuth app at
+the narrower `public_repo` scope, applying the nginx headers and rate limits,
+backing up the gitignored operational state, and log retention.
+
+They are written up in order, with verification and rollback for each, in
+**[OPERATIONS.md](OPERATIONS.md)**.
+
 ## Security
 - `.env` is `chmod 600`, git-ignored, never web-served (nginx denies dotfiles).
 - App bound to `127.0.0.1:8001`; only nginx is public; HTTPS via Cloudflare.

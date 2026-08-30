@@ -151,8 +151,12 @@ function boxNote(b){
 }
 function boxHTML(b){
   const active = state.activeBox === b.key ? ' active' : '';
-  return `<div class="box${active}" data-box="${b.key}"><span class="lbl">${esc(b.label)}</span>` +
-    `<span class="count">${esc(boxNote(b))}</span></div>`;
+  // The story-spine categories were plain divs: querying the accessibility tree
+  // for "Symptoms" returned nothing while the link was plainly on screen. They
+  // are buttons now, so they are reachable, announced, and Enter/Space works.
+  return `<button type="button" class="box${active}" data-box="${b.key}"` +
+    ` aria-pressed="${active ? 'true' : 'false'}"><span class="lbl">${esc(b.label)}</span>` +
+    `<span class="count">${esc(boxNote(b))}</span></button>`;
 }
 
 function visibleKeys(grp, boxByKey, isGrouping){
