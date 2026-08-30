@@ -188,8 +188,8 @@ def test_a_correction_wins_over_the_original_judgment():
         flagged=[{"ari_id": "ARI:0000001", "name": "D", "db": "mondo", "ids": ["0005147"]}])
 
     # Both rows survive: the file is an event log, not a mutable current state.
-    body = [l for l in corrected["sssom"].splitlines()
-            if l.startswith("ARI:0000001")]
+    body = [line for line in corrected["sssom"].splitlines()
+            if line.startswith("ARI:0000001")]
     assert len(body) == 2
 
     # But the projection to current state is the correction.

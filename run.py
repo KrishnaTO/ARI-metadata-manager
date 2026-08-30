@@ -5,9 +5,9 @@ Usage:
     python run.py [--port 8001] [--file path/to/ontology.owl]
 """
 import argparse
-import webbrowser
-import sys
 import os
+import sys
+import webbrowser
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent

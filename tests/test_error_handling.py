@@ -39,6 +39,7 @@ def test_feedback_store_refuses_to_read_corrupt_json_as_empty(tmp_path):
     empty one and the comments were gone for good. It now raises so the bytes
     stay on disk (issue #108)."""
     import pytest
+
     from app.atomic_store import StoreCorrupt
 
     store = FeedbackStore(tmp_path / "feedback")

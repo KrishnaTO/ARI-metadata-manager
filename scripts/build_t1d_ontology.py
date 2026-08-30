@@ -10,9 +10,16 @@ Dependencies: owlready2
 """
 import argparse
 from pathlib import Path
+
 from owlready2 import (
-    World, Thing, ObjectProperty, DataProperty, AnnotationProperty,
-    label, comment, seeAlso,
+    AnnotationProperty,
+    DataProperty,
+    ObjectProperty,
+    Thing,
+    World,
+    comment,
+    label,
+    seeAlso,
 )
 
 HERE = Path(__file__).resolve().parent
@@ -820,7 +827,7 @@ def build_ontology(output_path: str):
     # ================================================================ #
     onto.save(file=output_path, format="rdfxml")
     print(f"OK Ontology saved to: {output_path}")
-    print(f"  Disease: Type 1 Diabetes mellitus (T1D_0001) + 2 subtypes")
+    print("  Disease: Type 1 Diabetes mellitus (T1D_0001) + 2 subtypes")
     print(f"  Classes: {len(list(onto.classes()))}")
     print(f"  Individuals: {len(list(onto.individuals()))}")
     print(f"  Object props: {len(list(onto.object_properties()))}")

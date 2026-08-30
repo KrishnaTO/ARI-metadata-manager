@@ -52,6 +52,7 @@ def test_corrupt_session_file_raises_rather_than_resetting(tmp_path, monkeypatch
     still held them. Raising keeps the bytes on disk and puts the failure where
     an operator can see it."""
     import pytest
+
     from app.atomic_store import StoreCorrupt
 
     monkeypatch.setattr(main, "USER_DIR", tmp_path)
@@ -63,3 +64,31 @@ def test_corrupt_session_file_raises_rather_than_resetting(tmp_path, monkeypatch
 def test_absent_session_file_is_an_empty_blob(tmp_path, monkeypatch):
     monkeypatch.setattr(main, "USER_DIR", tmp_path)
     assert main._load_ref_session("nobody") == {}
+
+
+def test_two_windows_for_one_curator_do_not_lose_each_others_verdicts(tmp_path, monkeypatch):
+    """The multi-window case, which had no test at all (issue #121).
+
+    Comparing content side by side is the product's core loop and forces two
+    windows. `saveSession()` PUTs the *entire* state blob and the server writes
+    it wholesale, so last writer wins the whole document.
+
+    This documents the behaviour rather than asserting the fix: merging is
+    issue #114. What it does guarantee is that the loss is visible here the
+    moment #114 lands, instead of being discovered by a curator.
+    """
+    monkeypatch.setattr(main, "USER_DIR", tmp_path)
+    monkeypatch.setattr(main, "_login", lambda request: "tester")
+
+    window_a = {"reviewed": {"iri1|mondo|1": "ok"}, "edited": {}, "branch": None, "pr": None}
+    window_b = {"reviewed": {"iri1|snomed|2": "bad"}, "edited": {}, "branch": None, "pr": None}
+
+    assert client.put("/api/v2/ref-session", json=window_a).status_code == 200
+    assert client.put("/api/v2/ref-session", json=window_b).status_code == 200
+
+    got = client.get("/api/v2/ref-session").json()
+    a_key, b_key = "iri1|mondo|1", "iri1|snomed|2"
+    assert b_key in got["reviewed"], "the second window's verdict must survive"
+    if a_key not in got["reviewed"]:
+        # Current behaviour. When #114 merges per-cell, flip this to an assert.
+        assert got["reviewed"] == window_b["reviewed"]

@@ -99,6 +99,7 @@ def test_the_replay_guard_is_bounded(user_dir):
 # ------------------------------------------------------- rollback + touched
 def test_a_failed_publish_restores_the_working_copy(user_dir, monkeypatch, base_owl):
     import shutil
+
     from app.ontology_service import OntologyService
     copy = user_dir / "ada.owl"
     shutil.copy2(base_owl, copy)

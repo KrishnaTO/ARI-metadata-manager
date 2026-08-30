@@ -44,15 +44,24 @@
   // Both are view-only: nothing here touches verdicts or what gets published.
   let colSort = null, missingOnly = null;
   // reviewed/edited keys: `${iri}|${db}|${id}` (per-ID, not per-cell)
-  const idKey = (iri, db, id) => iri + '|' + db + '|' + id;
+  // The review policy lives in review-model.js as pure functions; this page owns
+  // the mutable state and hands a snapshot of it in. One implementation, and the
+  // one the tests exercise.
+  const RM = globalThis.ReviewModel;
+  const model = () => ({
+    reviewed, edited, published, mappings, predicted, idAuthors,
+    PREFIX, DBS, me, sessionPr,
+  });
+
+  const idKey = RM.idKey;
   // What a key already sits in a pull request as: `key -> {pr, state}`. Keeps
   // published work out of the next publish, so a fresh PR is titled and filled
   // with new verdicts only instead of everything reviewed this session.
   let published = {};
   // A key's publishable state — the verdict, plus a marker when its id was edited.
   // Empty means there is nothing to publish for it.
-  const keyState = k => (reviewed[k] || '') + (edited[k] ? '+e' : '');
-  const isPending = k => !!keyState(k) && (published[k] || {}).state !== keyState(k);
+  const keyState = k => RM.keyState(model(), k);
+  const isPending = k => RM.isPending(model(), k);
   // Pre-existing curated judgments keyed `${ari_id}|${prefix}|${id}` ->
   // 'positive'|'negative', plus 'absent' under the NO_TERM id for a whole cell.
   let mappings = {};
@@ -61,7 +70,7 @@
   let idAuthors = {};
   // SSSOM's "no term found in this database" sentinel — the id a cell-level
   // "not in database" verdict is stored and published under.
-  const NO_TERM = 'NoTermFound';
+  const NO_TERM = RM.NO_TERM;
   // Predicted matches (issue #42) keyed `${ari_id}|${prefix}|${id}` ->
   // {label, match_field, confidence}. From /api/v2/predictions: exact name/synonym
   // hits for blank cells. confidence 'high' = the disease label matched a concept;
@@ -70,27 +79,10 @@
 
   // Predicted candidate ids for a currently-blank (disease, db) cell. Returns
   // [{id, label, match_field, confidence}], skipping any id already flagged negative.
-  function predFor(r, dbkey) {
-    const ari = r.ari_id, prefix = PREFIX[dbkey];
-    if (!ari || !prefix || (r[dbkey] || []).length) return [];
-    const out = [];
-    for (const [k, meta] of Object.entries(predicted)) {
-      const [a, p, id] = k.split('|');
-      if (a === ari && p === prefix && mappings[k] !== 'negative')
-        out.push({ id, label: meta.label, match_field: meta.match_field, confidence: meta.confidence });
-    }
-    return out;
-  }
+  const predFor = (r, dbkey) => RM.predFor(model(), r, dbkey);
 
   // Per-ID pre-judgment from the curated mappings: 'pos' | 'neg' | null.
-  function preJudgmentId(r, dbkey, id) {
-    const ari = r.ari_id, prefix = PREFIX[dbkey];
-    if (!ari || !prefix) return null;
-    const j = mappings[ari + '|' + prefix + '|' + id];
-    if (j === 'positive') return 'pos';
-    if (j === 'negative') return 'neg';
-    return null;
-  }
+  const preJudgmentId = (r, dbkey, id) => RM.preJudgmentId(model(), r, dbkey, id);
 
   const $ = s => document.querySelector(s);
 
@@ -98,8 +90,8 @@
   // Whoever adds a mapping id may not be the one who confirms it, so a second
   // curator always vouches for the match. Flagging or declaring the database
   // empty stays open to everyone — only the ✓ is withheld.
-  const addedBy = (iri, db, id) => idAuthors[idKey(iri, db, id)] || null;
-  const isOwnAddition = (iri, db, id) => !!(me && me.login && addedBy(iri, db, id) === me.login);
+  const addedBy = (iri, db, id) => RM.addedBy(model(), iri, db, id);
+  const isOwnAddition = (iri, db, id) => RM.isOwnAddition(model(), iri, db, id);
 
   // A one-line note under the header, used when an action is refused.
   let _noteTimer = null;
@@ -120,56 +112,29 @@
   //   have  an id on file that nobody has judged yet
   // A cell (not an id) can also be `none` — the curator judged that the database
   // has no term for this disease at all.
-  function idState(r, dbkey, id, pred) {
-    const k = idKey(r.iri, dbkey, id);
-    if (reviewed[k] === 'ok') return 'ok';
-    if (reviewed[k] === 'bad') return 'bad';
-    const pre = preJudgmentId(r, dbkey, id);
-    if (pre === 'pos') return 'ok';
-    if (pre === 'neg') return 'bad';
-    return pred ? (pred.confidence === 'low' ? 'low' : 'pred') : 'have';
-  }
+  const idState = (r, dbkey, id, pred) => RM.idState(model(), r, dbkey, id, pred);
 
   // Everything in one cell: the ids on file, or — for a blank cell — its predictions.
-  function cellEntries(r, dbkey) {
-    const ids = r[dbkey] || [];
-    if (ids.length) return ids.map(id => ({ id, pred: null }));
-    return predFor(r, dbkey).map(p => ({ id: p.id, pred: p }));
-  }
+  const cellEntries = (r, dbkey) => RM.cellEntries(model(), r, dbkey);
 
   // The cell-level "this database has no term for the disease" verdict: this
   // session's, or one already published to the mapping files.
-  const absentKey = (iri, dbkey) => idKey(iri, dbkey, NO_TERM);
-  function isAbsent(r, dbkey) {
-    const k = absentKey(r.iri, dbkey);
-    if (reviewed[k]) return reviewed[k] === 'none';   // this session overrides
-    const prefix = PREFIX[dbkey];
-    return !!(r.ari_id && prefix && mappings[r.ari_id + '|' + prefix + '|' + NO_TERM] === 'absent');
-  }
+  const absentKey = RM.absentKey;
+  const isAbsent = (r, dbkey) => RM.isAbsent(model(), r, dbkey);
 
   // A cell only reads ✓ once every id in it has a verdict, so any unjudged entry wins.
-  function cellState(r, dbkey) {
-    if (isAbsent(r, dbkey)) return 'none';
-    const sts = cellEntries(r, dbkey).map(e => idState(r, dbkey, e.id, e.pred));
-    if (!sts.length) return null;
-    if (sts.includes('pred')) return 'pred';
-    if (sts.includes('low')) return 'low';
-    if (sts.includes('have')) return 'have';
-    if (sts.includes('ok')) return 'ok';
-    return 'bad';
-  }
+  const cellState = (r, dbkey) => RM.cellState(model(), r, dbkey);
 
-  const isOpenState = st => st === 'pred' || st === 'low' || st === 'have';
+  const isOpenState = RM.isOpenState;
   // A database is missing a mapping for a disease until it is either confirmed or
   // declared to have no term for it — a blank, predicted, unjudged or flagged cell
   // all still need a mapping.
-  const isMissing = (r, dbkey) => { const st = cellState(r, dbkey); return st !== 'ok' && st !== 'none'; };
+  const isMissing = (r, dbkey) => RM.isMissing(model(), r, dbkey);
   // How much work a cell still needs, lowest first: blank cells lead, resolved
   // cells trail. Drives the "missing first" column sort.
-  const NEED = { bad: 1, low: 2, pred: 3, have: 4, none: 5, ok: 6 };
-  const cellNeed = (r, dbkey) => NEED[cellState(r, dbkey)] || 0;
+  const cellNeed = (r, dbkey) => RM.cellNeed(model(), r, dbkey);
   // A disease is complete when nothing in its row is still awaiting a verdict.
-  const isComplete = r => DBS.every(db => !isOpenState(cellState(r, db.key)));
+  const isComplete = r => RM.isComplete(model(), r);
 
   // Confirmed autoimmune (diseaseCategory "Autoimmune") — the same teal dot the
   // editor's disease tree carries, so a disease is marked identically on both pages.
@@ -222,14 +187,7 @@
   // Keys a publish covers. A new PR carries this session's pending work only;
   // appending to the tracked PR also re-sends the keys already on it, because the
   // mapping files are rebuilt from the base branch on every publish.
-  function publishKeys(newPr) {
-    const keys = new Set();
-    for (const k of [...Object.keys(reviewed), ...Object.keys(edited)]) if (isPending(k)) keys.add(k);
-    if (!newPr && sessionPr)
-      for (const [k, p] of Object.entries(published))
-        if (p.pr === sessionPr.number && keyState(k)) keys.add(k);
-    return keys;
-  }
+  const publishKeys = newPr => RM.publishKeys(model(), newPr);
 
   // ------------------------------------------------------------- ENRICHMENT
   // Confirming a cross-reference asserts the external term *is* the disease, so
