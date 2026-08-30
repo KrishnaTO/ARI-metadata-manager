@@ -1,5 +1,17 @@
 # Changelog
 
+## restore-lost-security-middleware
+Fixes a regression introduced on `main` by the merge of #127.
+
+- **`main` was red and the background sweep task was broken.** Merging #127 (`data-durability`) resolved `app/main.py` by taking the branch's side of two regions that #126 had just added, silently dropping:
+  - `_sweep_sessions()` — while **leaving its call site** in `_sweep_loop()`. The task raises `NameError` on its first tick, six hours after a deploy, inside a coroutine nobody is watching. Sessions therefore never expire, which was the whole point of #110.
+  - the `security_headers` middleware — so every response lost its CSP, `X-Frame-Options`, `X-Content-Type-Options` and `Referrer-Policy`. The page was framable again and the SRI pinning had no policy behind it.
+- Neither side of that merge conflicted textually, so git reported "Automatic merge went well" and nothing asked for a human. Both are restored verbatim from the merged `security-hardening` branch.
+- **Two guards so a merge cannot do this again quietly.** `test_the_sweep_loop_only_calls_functions_that_exist` asserts the wiring rather than the behaviour — the part a bad three-way merge breaks — and `test_the_security_middleware_is_registered` names the cause, so a failure points straight at it instead of only showing a missing header. Both were checked by removing the code and confirming they fail.
+- 188 tests pass.
+
+> The same silent revert happens when the remaining stacked branches are merged into the new `main`. Each is being re-based on main's `app/main.py` deliberately rather than left to auto-merge.
+
 ## security-hardening
 Closes #102, #106, #110, #113.
 

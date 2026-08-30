@@ -96,3 +96,27 @@ def test_signin_does_not_ask_for_write_access_to_every_repository():
     url = github_service.authorize_url("cid", "https://example.org/cb", "state")
     assert "scope=public_repo+user%3Aemail" in url
     assert "scope=repo" not in url
+
+
+# --------------------------------------------------- merge-regression guard
+def test_the_sweep_loop_only_calls_functions_that_exist():
+    """A merge once dropped `_sweep_sessions` while leaving its call site.
+
+    Nothing caught it at import time — the background task raises `NameError`
+    on its first tick, six hours after a deploy, in a coroutine nobody is
+    watching. This asserts the wiring rather than the behaviour, which is the
+    part a bad three-way merge silently breaks.
+    """
+    for name in ("_sweep_user_data", "_sweep_sessions", "_save_sessions"):
+        assert callable(getattr(main, name, None)), f"main.{name} is missing"
+
+
+def test_the_security_middleware_is_registered():
+    """The headers come from a middleware that a merge can quietly delete;
+    `test_responses_carry_the_baseline_headers` covers the behaviour, and this
+    names the cause so a failure points straight at it."""
+    names = {getattr(m.cls, "__name__", "") for m in main.app.user_middleware}
+    functions = {getattr(m.kwargs.get("dispatch", None), "__name__", "")
+                 for m in main.app.user_middleware}
+    assert "security_headers" in (names | functions), (
+        "the security_headers middleware is not registered on the app")
