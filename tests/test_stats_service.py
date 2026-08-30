@@ -8,11 +8,11 @@ ROWS = [
 ]
 
 JUDGMENTS = [
-    {"ari_id": "ARI:1", "prefix": "MONDO", "id": "0001", "judgment": "positive",
+    {"ari_id": "ARI:1", "prefix": "MONDO", "id": "0001", "dbs": ["mondo"], "judgment": "positive",
      "author": "github:ana", "date": "2026-08-03"},
-    {"ari_id": "ARI:2", "prefix": "MONDO", "id": "0002", "judgment": "negative",
+    {"ari_id": "ARI:2", "prefix": "MONDO", "id": "0002", "dbs": ["mondo"], "judgment": "negative",
      "author": "github:ben", "date": "2026-08-10"},
-    {"ari_id": "ARI:1", "prefix": "SNOMEDCT", "id": "11", "judgment": "positive",
+    {"ari_id": "ARI:1", "prefix": "SNOMEDCT", "id": "11", "dbs": ["snomed"], "judgment": "positive",
      "author": "github:ana", "date": "2026-08-11"},
 ]
 
@@ -25,10 +25,20 @@ def test_coverage_separates_judged_from_merely_on_file():
     cov = st.coverage(ROWS, JUDGMENTS)
     mondo = _db(cov, "mondo")
     assert mondo["with_id"] == 2 and mondo["blank"] == 1
-    assert mondo["confirmed"] == 1 and mondo["flagged"] == 1 and mondo["unjudged"] == 0
+    assert mondo["confirmed"] == 1 and mondo["rejected"] == 1 and mondo["unjudged"] == 0
     # ARI:3's SNOMED id 33 is on file and nobody has judged it — the stall signal.
     snomed = _db(cov, "snomed")
     assert snomed["with_id"] == 2 and snomed["confirmed"] == 1 and snomed["unjudged"] == 1
+
+
+def test_a_rejection_is_counted_even_though_the_id_was_removed():
+    """Flagging a mapping usually removes the id, so counting only surviving ids
+    reports zero rejections everywhere — which is the opposite of the signal."""
+    rows = [{"iri": "d", "ari_id": "ARI:7", "name": "Seven", "mondo": []}]
+    judgments = [{"ari_id": "ARI:7", "prefix": "MONDO", "id": "9", "dbs": ["mondo"],
+                  "judgment": "negative", "author": "github:ana", "date": "2026-08-01"}]
+    mondo = _db(st.coverage(rows, judgments), "mondo")
+    assert mondo["rejected"] == 1 and mondo["with_id"] == 0 and mondo["blank"] == 1
 
 
 def test_a_cell_is_only_confirmed_when_every_id_in_it_is():

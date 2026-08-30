@@ -45,19 +45,40 @@ def _judgment_index(judgments: list[dict]) -> dict[tuple[str, str], dict]:
     return out
 
 
+def _by_db(judgments: list[dict], verdict: str) -> dict[str, set]:
+    """``db key -> {ari_id}`` for every disease with a ``verdict`` in that database.
+
+    Keyed on the judgment's own ``dbs`` rather than on the ids currently in the
+    ontology: a flagged mapping is usually *removed* from the record, so counting
+    only cells that still hold the id reports zero rejections everywhere — which
+    is exactly the signal "is this database worth the effort" needs.
+    """
+    out: dict[str, set] = defaultdict(set)
+    for j in judgments:
+        if j.get("judgment") != verdict:
+            continue
+        for db in (j.get("dbs") or []):
+            out[db].add(j.get("ari_id"))
+    return out
+
+
 def coverage(rows: list[dict], judgments: list[dict]) -> list[dict]:
     """Per database: how many diseases have an id, and how far it has been judged.
 
     A database where ids are on file but few are confirmed is one that is
     stalling — which is not visible from the grid, because a curator only ever
     sees one screen of it at a time.
+
+    Every column counts **diseases**, so they are comparable with each other and
+    with the disease total.
     """
     judged = _judgment_index(judgments)
-    absent_ids = {j.get("ari_id") for j in judgments if j.get("judgment") == "absent"}
+    rejected = _by_db(judgments, "negative")
+    no_term = _by_db(judgments, "absent")
     out = []
     for db in REVIEW_DBS:
         key = db["key"]
-        with_id = confirmed = flagged = unjudged = 0
+        with_id = confirmed = unjudged = 0
         for r in rows:
             ids = [str(i) for i in (r.get(key) or [])]
             if not ids:
@@ -66,15 +87,14 @@ def coverage(rows: list[dict], judgments: list[dict]) -> list[dict]:
             states = {(judged.get((r.get("ari_id"), i)) or {}).get("judgment") for i in ids}
             if states == {"positive"}:
                 confirmed += 1
-            elif "negative" in states:
-                flagged += 1
-            else:
+            elif None in states:
                 unjudged += 1
         out.append({
             "key": key, "label": db.get("label", key),
             "diseases": len(rows), "with_id": with_id,
-            "confirmed": confirmed, "flagged": flagged, "unjudged": unjudged,
-            "no_term": sum(1 for r in rows if r.get("ari_id") in absent_ids and not r.get(key)),
+            "confirmed": confirmed, "unjudged": unjudged,
+            "rejected": len(rejected.get(key, ())),
+            "no_term": len(no_term.get(key, ())),
             "blank": len(rows) - with_id,
         })
     return out

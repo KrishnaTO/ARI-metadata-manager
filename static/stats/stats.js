@@ -42,12 +42,12 @@
   function coverageTable(rows) {
     if (!rows.length) return '<p class="empty">No databases configured.</p>';
     return `<div class="scroll"><table>
-      <thead><tr><th>Database</th><th>Has an id</th><th>Confirmed</th><th>Flagged</th>
-        <th>Awaiting a verdict</th><th>Blank</th><th>Judged</th></tr></thead>
+      <thead><tr><th>Database</th><th>Has an id</th><th>Confirmed</th><th>Rejected</th>
+        <th>No term</th><th>Awaiting a verdict</th><th>No id yet</th><th>Judged</th></tr></thead>
       <tbody>${rows.map(r => {
-        const done = pct(r.confirmed + r.flagged, r.with_id);
+        const done = pct(r.confirmed, r.with_id);
         return `<tr><td>${esc(r.label)}</td><td>${r.with_id}</td><td>${r.confirmed}</td>` +
-          `<td>${r.flagged}</td><td>${r.unjudged}</td><td>${r.blank}</td>` +
+          `<td>${r.rejected}</td><td>${r.no_term}</td><td>${r.unjudged}</td><td>${r.blank}</td>` +
           `<td><span class="bar"><span style="width:${done}%"></span></span>${done}%</td></tr>`;
       }).join('')}</tbody></table></div>`;
   }
@@ -111,7 +111,10 @@
       <section>
         <h2>Where the work is, by database</h2>
         <p class="why">A database with many ids on file and few judged is one that is
-          stalling — which no single screen of the review grid can show.</p>
+          stalling — which no single screen of the review grid can show. Every column
+          counts diseases. <em>Rejected</em> is counted from the judgments rather than
+          from the record: a flagged id is usually removed, so counting surviving ids
+          would report nothing rejected anywhere.</p>
         ${coverageTable(d.coverage || [])}
       </section>
       <section>
