@@ -10,7 +10,17 @@ import logging
 from fastapi import APIRouter, Body, Request
 from fastapi.responses import JSONResponse
 
-from .. import concept_service, config, predict_service, sessions, sssom_service, stores, workspace, xref_registry
+from .. import (
+    concept_service,
+    config,
+    predict_service,
+    sessions,
+    sssom_service,
+    stats_service,
+    stores,
+    workspace,
+    xref_registry,
+)
 from .. import github_service as gh
 
 log = logging.getLogger(__name__)
@@ -77,6 +87,19 @@ async def put_ref_session(request: Request, payload: dict = Body(...)):
     workspace._merge_ref_session(login, payload.get("patch") or {},
                                  payload.get("branch"), payload.get("pr"))
     return {"ok": True}
+
+
+@router.get("/api/v2/stats")
+async def stats(request: Request):
+    """What the curation effort has produced, from the stores already on disk.
+
+    The only trace of curation used to be a gitignored log on one host, so
+    nothing could say how much each curator confirms, which databases stall, or
+    how much work is waiting for its second reviewer (issue #124). Read-only and
+    offline: no network call, so the dashboard loads instantly."""
+    svc = workspace.service_for(request)
+    return stats_service.build(svc.get_xref_rows(), await _mapping_judgments(request),
+                               stores.ID_AUTHORS.authors(), stores.ASSIGNMENTS.assignees())
 
 
 @router.get("/api/v2/xref-databases")

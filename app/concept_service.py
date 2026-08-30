@@ -49,28 +49,15 @@ import logging
 from pathlib import Path
 from urllib.parse import quote
 
-from .predict_service import LexicalIndex
+from .predict_service import LexicalIndex, match_key
 from .xref_registry import BY_KEY, PREFIX, SOURCE_DB
 
 log = logging.getLogger(__name__)
 
 
-def _norm_id(raw: str) -> str:
-    """Fold an id to its within-database match key.
-
-    Strips an optional ``PREFIX:`` (the indexes and the ontology disagree on whether
-    ids carry one — ``MONDO:0016264`` vs ``0016264``), drops leading zeros from a
-    purely numeric remainder, and casefolds the rest so ``ICD10CM:M32.1`` and
-    ``M32.1`` agree. Matching is always keyed by ``(db, _norm_id(id))``, so a bare
-    ``2043`` is only ever compared **within** one database — ``DOID:2043`` can never
-    collide with a MeSH descriptor numbered 2043.
-    """
-    s = raw.strip()
-    if ":" in s:
-        s = s.split(":", 1)[1].strip()
-    if s.isdigit():
-        s = s.lstrip("0") or "0"
-    return s.casefold()
+# The id match key lives in predict_service, which owns the index records both
+# reverse maps are built from; this alias keeps the local reads short.
+_norm_id = match_key
 
 
 def _split_parents(cell: str) -> list[str]:
