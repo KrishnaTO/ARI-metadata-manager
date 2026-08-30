@@ -6,6 +6,7 @@ they (or an admin) may change it.
 from fastapi import APIRouter, Body, Request
 
 from .. import sessions, workspace
+from ..errors import NotFound
 
 router = APIRouter()
 
@@ -24,7 +25,11 @@ def _own_feedback(request: Request, fid: str) -> str:
     login = sessions._require_login(request)
     entry = next((x for x in workspace.BASE.feedback.list() if x.get("id") == fid), None)
     if entry is None:
-        raise KeyError(fid)
+        # NotFound, not a bare KeyError: the global KeyError -> 404 mapping was
+        # removed so that an incidental dictionary bug 500s with a traceback
+        # instead of posing as a 404. This one is a genuine missing entity, and
+        # without the explicit type it started 500ing too.
+        raise NotFound(fid)
     if entry.get("author") != login and not sessions._can_assign_others(login):
         raise ValueError(f"@{login} may only change their own feedback")
     return login

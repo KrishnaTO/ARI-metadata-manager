@@ -73,6 +73,24 @@ def test_your_own_entry_is_editable(as_alice):
     assert as_alice.list()[0]["message"] == "revised"
 
 
+@pytest.mark.parametrize("method,body", [
+    ("PUT", {"message": "rewritten"}),
+    ("DELETE", None),
+])
+def test_an_entry_that_does_not_exist_is_a_404(as_alice, method, body):
+    """Signed in, unknown id — a 404, not a 500.
+
+    `_own_feedback` raised a bare `KeyError`, which was fine while every
+    `KeyError` mapped to a 404. #130 removed that mapping deliberately, so an
+    incidental dictionary bug would 500 with a traceback instead of posing as a
+    404 — and took this genuine missing-entity case down with it. Only the
+    anonymous 401 path was covered, so nothing caught the change.
+    """
+    r = client.request(method, "/api/v2/feedback/fb_does_not_exist", json=body)
+    assert r.status_code == 404
+    assert "fb_does_not_exist" in r.json()["detail"]
+
+
 def test_message_length_is_capped(as_alice):
     r = client.post("/api/v2/feedback",
                     json={"disease": "d", "term": "t", "message": "x" * (MAX_MESSAGE_CHARS + 1)})
