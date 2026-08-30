@@ -1,0 +1,47 @@
+/* The help panel, shared by both pages (issue #119).
+   A right-hand sheet rather than a modal box: it is reference material read
+   alongside the work, not a decision to make. */
+.help-overlay {
+  display: none; position: fixed; inset: 0; z-index: 300;
+  background: rgba(15, 40, 64, .38);
+}
+.help-overlay.open { display: block; }
+
+.help-panel {
+  position: absolute; top: 0; right: 0; bottom: 0; width: min(560px, 94vw);
+  display: flex; flex-direction: column;
+  background: var(--bg, #fff); color: var(--text, #0F2840);
+  border-left: 1px solid var(--line, #DDE3EA);
+  box-shadow: -18px 0 40px -16px rgba(15, 40, 64, .3);
+  animation: help-in .18s cubic-bezier(.22, 1, .36, 1);
+}
+@keyframes help-in { from { transform: translateX(18px); opacity: 0; } to { transform: none; opacity: 1; } }
+
+.help-head {
+  flex: none; display: flex; align-items: center; gap: 12px;
+  padding: 16px 20px; border-bottom: 1px solid var(--line, #DDE3EA);
+}
+.help-head h2 { margin: 0; font-size: 1rem; font-weight: 600; }
+.help-close {
+  margin-left: auto; width: 28px; height: 28px; flex: none;
+  display: inline-flex; align-items: center; justify-content: center;
+  border: 1px solid var(--line-strong, #C2CAD4); border-radius: 6px;
+  background: transparent; color: inherit; cursor: pointer; font-size: .75rem;
+}
+.help-close:hover { border-color: var(--accent, #1F6B7A); color: var(--accent, #1F6B7A); }
+
+.help-body { flex: 1; min-height: 0; overflow: auto; padding: 4px 20px 28px; }
+.help-body section { padding: 18px 0; border-bottom: 1px solid var(--line, #DDE3EA); }
+.help-body section:last-child { border-bottom: 0; }
+.help-body h3 { margin: 0 0 8px; font-size: .8125rem; font-weight: 600; letter-spacing: .01em; }
+.help-body p { margin: 0 0 9px; font-size: .8125rem; line-height: 1.62; color: var(--mute, #5C6675); }
+.help-body p:last-child { margin-bottom: 0; }
+.help-body strong { color: var(--text, #0F2840); }
+
+.help-glyphs { border-collapse: collapse; margin: 2px 0 10px; }
+.help-glyphs td { padding: 5px 0; font-size: .8125rem; line-height: 1.55;
+  color: var(--mute, #5C6675); vertical-align: baseline; }
+.help-glyphs td:first-child {
+  width: 34px; font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: .875rem; color: var(--text, #0F2840); text-align: center;
+}

@@ -40,7 +40,7 @@
     slot.innerHTML = ''; account.innerHTML = '';
     if (ghUser) {
       slot.appendChild(el(`<span class="who"><span class="avatar">${esc(initials(ghUser))}</span>${esc(ghUser.login)}</span>`));
-      const pub = el('<button class="hbtn primary" title="Commit current ontology to GitHub as a pull request">Publish</button>');
+      const pub = el(`<button class="hbtn primary" title="Send your changes for review — nothing goes live until someone accepts them">${Words.publishShort}</button>`);
       pub.addEventListener('click', publish);
       slot.appendChild(pub);
       account.appendChild(el('<div class="menu-sep"></div>'));
@@ -67,12 +67,12 @@
     const disease = state.detail?.name || '';
     const def = disease ? `Update ${disease}` : 'Update ontology';
     const m = el(`<div class="modal-overlay" id="pub-overlay"><div class="modal">
-      <div class="modal-head"><h2>Publish to GitHub</h2><button class="hbtn" id="pub-close">Close</button></div>
+      <div class="modal-head"><h2>${esc(Words.publish)}</h2><button class="hbtn" id="pub-close">Close</button></div>
       <div class="modal-body">
-        <p style="font-size:13px;margin:0 0 10px">Opens a pull request with a summary of your changes (previous &rarr; new values).</p>
+        <p style="font-size:13px;margin:0 0 10px">Your changes are sent as a ${esc(Words.submission)} with a summary of what changed (previous &rarr; new). Nothing goes live until someone reviews and accepts it.</p>
         <div class="field"><label>Commit message / PR title</label><input id="pub-msg" value="${esc(def)}"></div>
         <div class="field"><label>Comments (optional)</label><textarea id="pub-comment" placeholder="Why this change, sources, notes for reviewers..."></textarea></div>
-        <div class="edit-actions" style="margin-top:4px"><button class="hbtn primary" id="pub-go">Open pull request</button>
+        <div class="edit-actions" style="margin-top:4px"><button class="hbtn primary" id="pub-go">${esc(Words.publish)}</button>
           <button class="hbtn" id="pub-cancel">Cancel</button></div>
       </div></div></div>`);
     document.body.appendChild(m);
@@ -83,16 +83,16 @@
     $('#pub-go').addEventListener('click', async () => {
       const message = $('#pub-msg').value.trim();
       const comment = $('#pub-comment').value.trim();
-      $('#pub-go').disabled = true; $('#pub-go').textContent = 'Publishing…';
+      $('#pub-go').disabled = true; $('#pub-go').textContent = Words.publishing;
       try {
         const r = await api('/api/v2/publish', { method: 'POST', body: { disease, message, comment } });
         close();
-        const link = el(`<div class="toast" style="cursor:pointer">PR #${r.pr_number} opened on branch ${esc(r.branch)} — click to open</div>`);
+        const link = el(`<div class="toast" style="cursor:pointer">${esc(Words.submissionName(r.pr_number))} sent for review — click to view it on GitHub</div>`);
         link.addEventListener('click', () => window.open(r.pr_url, '_blank'));
         document.body.appendChild(link); setTimeout(() => link.remove(), 8000);
       } catch (e) {
-        toast('Publish failed: ' + e.message);
-        $('#pub-go').disabled = false; $('#pub-go').textContent = 'Open pull request';
+        toast('Could not send it for review: ' + e.message);
+        $('#pub-go').disabled = false; $('#pub-go').textContent = Words.publish;
       }
     });
   }

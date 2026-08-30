@@ -350,13 +350,15 @@
   // start a fresh one); with none, the primary button opens the first PR alone.
   function reflectPr() {
     if (sessionPr) {
+      // The GitHub link moves behind "Advanced": it lands on a diff of RDF/XML,
+      // which is not where a clinician should be sent by the primary control.
       const pl = $('#prlink');
-      pl.textContent = 'Open PR #' + sessionPr.number + (sessionPr.fork ? ' (from your fork) ↗' : ' ↗');
+      pl.textContent = 'View ' + Words.submissionName(sessionPr.number).toLowerCase() + ' on GitHub ↗';
       pl.href = sessionPr.url;
-      $('#publish').textContent = 'Publish to PR #' + sessionPr.number;
+      $('#publish').textContent = Words.submitLabel(sessionPr);
       $('#publish-split').classList.add('has-pr');
     } else {
-      $('#publish').textContent = 'Publish review';
+      $('#publish').textContent = Words.publish;
       $('#publish-split').classList.remove('has-pr');
       closeMenus();
     }
@@ -585,6 +587,36 @@
     </div>`;
   }
 
+  // A new curator signs in to 214 rows with nothing to say where to begin. When
+  // they have judged nothing and hold no queue, offer one scope to start from —
+  // the emptiest column, which is where the work actually is (issue #119).
+  function reflectFirstRun() {
+    const bar = $('#firstrun');
+    const fresh = !Object.keys(reviewed).length && !mineCount() &&
+                  !missingOnly && queueFilter === 'all' && !$('#filter').value.trim();
+    bar.classList.toggle('open', fresh && !!ROWS.length);
+    if (!fresh || !ROWS.length) return;
+    const db = emptiestDb();
+    if (!db) { bar.classList.remove('open'); return; }
+    bar.innerHTML = `<span>New here? The gaps are the work. ` +
+      `<strong>${esc(db.label)}</strong> is missing a mapping for ` +
+      `${ROWS.filter(r => isMissing(r, db.key)).length} of ${ROWS.length} diseases.</span>` +
+      `<button class="btn" data-firstrun="${esc(db.key)}">Start with ${esc(db.label)}</button>` +
+      `<button class="btn" data-firstrun-help="1">How this works</button>`;
+  }
+
+  const mineCount = () => ROWS.filter(r => mine(r.iri)).length;
+
+  // The review column with the most diseases still missing a mapping.
+  function emptiestDb() {
+    let best = null, most = 0;
+    for (const db of DBS) {
+      const n = ROWS.filter(r => isMissing(r, db.key)).length;
+      if (n > most) { most = n; best = db; }
+    }
+    return best;
+  }
+
   function emptyNote() {
     if (missingOnly && !$('#filter').value.trim())
       return 'Every disease in view already has a ' + ((DBMAP[missingOnly] || {}).label || missingOnly) + ' mapping.';
@@ -657,6 +689,7 @@
         </div>${strip}</div>`;
     }
     $('#matrix').innerHTML = h || `<div class="empty-note">${esc(emptyNote())}</div>`;
+    reflectFirstRun();
     primeMatrixTabStop();      // exactly one cell stays in the tab order
     if (openRow) {
       const r = ROWS.find(x => x.iri === openRow);
@@ -790,10 +823,16 @@
 
     // Whoever adds an id may not confirm it, so the ✓ is withheld from its author
     // and the panel says why rather than leaving a dead button.
+    // The rule is correct and entirely non-obvious, and it was communicated by a
+    // withheld button and 11.5px of grey text at the foot of the panel (issue #119).
+    // It is stated where the ✓ would have been, at body size, and names the person
+    // it is waiting on — the ledger already knows who that is.
     const ownNote = own
-      ? `<div class="p-lock">You added this id, so another curator has to confirm it.
-           You can still flag it as wrong.</div>`
-      : author ? `<div class="p-note">Added by @${esc(author)}.</div>` : '';
+      ? `<div class="p-lock"><strong>Waiting for a second curator.</strong>
+           You added this id, so someone else has to confirm it — a mapping other
+           people rely on is always vouched for by two. You can still reject it, or
+           record that ${esc(db.label)} has no term for this disease.</div>`
+      : author ? `<div class="p-note">Added by @${esc(author)} — confirming it is yours to do.</div>` : '';
     // "No term in this database" is a verdict about the cell, offered only while
     // no id is on file for it.
     const noneBtn = noIdsOnFile
@@ -1019,7 +1058,8 @@
     if (!keys.size) return;
     const reuse = newPr ? null : sessionBranch;
     if (newPr && sessionPr &&
-        !confirm('Open a new pull request instead of adding to PR #' + sessionPr.number + '?')) return;
+        !confirm('Start a separate submission instead of adding to ' +
+                 Words.submissionName(sessionPr.number).toLowerCase() + '?')) return;
     const comment = window.prompt('Optional comment for the pull request (what you reviewed/changed):', 'Mappings review');
     if (comment === null) return;
     // The author lands in the published SSSOM `author_id` column. The server
@@ -1170,6 +1210,12 @@
       document.documentElement.dataset.density = b.dataset.density;
       try { localStorage.setItem('refDensity', b.dataset.density); } catch (err) {}
       applyGrid(); syncSegs();
+    });
+    $('#help-btn').addEventListener('click', () => Help.open());
+    $('#firstrun').addEventListener('click', e => {
+      const b = e.target.closest('[data-firstrun]');
+      if (b) { toggleMissingOnly(b.dataset.firstrun); return; }
+      if (e.target.closest('[data-firstrun-help]')) Help.open();
     });
     $('#pending-chip').addEventListener('click', () => reflectDrawer('#pending-chip', '#pending-panel'));
     $('#enrich-chip').addEventListener('click', openEnrich);

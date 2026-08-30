@@ -21,6 +21,7 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@200;300;400;500;600;700&family=IBM+Plex+Serif:wght@400&display=swap">
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link rel="stylesheet" href="css/styles.css?v=__ASSETV__">
+<link rel="stylesheet" href="css/help.css?v=__ASSETV__">
 </head>
 <body>
 <!-- One 56px bar: identity · search · the Read/Curate mode switch · account.
@@ -43,8 +44,11 @@
   </div>
   <!-- Relative href: the app is mounted under a path prefix in production. -->
   <a id="matrix-link" class="hbtn" href="ref-edits/" title="Open the cross-reference review matrix">Cross-references</a>
-  <!-- GitHub identity and publish control (injected by js/github.js). -->
+  <!-- GitHub identity and submit control (injected by js/github.js). -->
   <span id="gh-slot"></span>
+  <button id="help-btn" class="iconbtn" aria-label="How this works" title="How this works">
+    <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.6 9.2a2.5 2.5 0 1 1 3.3 2.4c-.6.2-.9.7-.9 1.3v.6"/><path d="M12 17h.01"/></svg>
+  </button>
   <div class="menuwrap">
     <button id="settings-btn" class="iconbtn" aria-expanded="false" aria-label="Settings and preferences" title="Settings and preferences">
       <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.6 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
@@ -105,6 +109,8 @@
 </footer>
 
 <!-- App modules — classic scripts, loaded in dependency order (shared global scope) -->
+<script src="js/words.js?v=__ASSETV__"></script>
+<script src="js/help.js?v=__ASSETV__"></script>
 <script src="js/core.js?v=__ASSETV__"></script>
 <script src="js/trees.js?v=__ASSETV__"></script>
 <script src="js/detail.js?v=__ASSETV__"></script>

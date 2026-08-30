@@ -57,6 +57,8 @@ document.getElementById('theme-seg')?.addEventListener('click', e => {
 });
 initTheme();
 
+document.getElementById('help-btn')?.addEventListener('click', () => Help.open());
+
 // ------------------------------------------------------------ TOOLBAR MENU
 // The preferences popover closes on an outside click and on Escape, keeping the button's
 // aria-expanded in step. A click inside adjusts a preference, so it stays open;
