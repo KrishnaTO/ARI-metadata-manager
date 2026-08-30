@@ -306,3 +306,15 @@ test('one waiting cell is enough for the disease to show in the scope', () => {
   s.idAuthors[RM.idKey(r.iri, 'snomed', '2')] = 'ben';    // theirs, unjudged
   assert.equal(RM.awaitsSecondReviewer(s, r), true);
 });
+
+test('a prediction carries its match score through to the card (issue #91)', () => {
+  const r = disease({ mondo: [] });
+  const s = session();
+  s.predicted['ARI:0000001|MONDO|0005147'] =
+    { label: 'type 1 diabetes mellitus', match_field: 'xref', confidence: 'high',
+      score: 97, band: 'strong' };
+  const [entry] = RM.cellEntries(s, r, 'mondo');
+  assert.equal(entry.pred.score, 97);
+  assert.equal(entry.pred.band, 'strong');
+  assert.equal(entry.pred.match_field, 'xref');
+});

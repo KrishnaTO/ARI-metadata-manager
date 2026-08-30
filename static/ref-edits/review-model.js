@@ -36,7 +36,8 @@
     for (const [k, meta] of Object.entries(s.predicted)) {
       const [a, p, id] = k.split('|');
       if (a === ari && p === prefix && s.mappings[k] !== 'negative')
-        out.push({ id, label: meta.label, match_field: meta.match_field, confidence: meta.confidence });
+        out.push({ id, label: meta.label, match_field: meta.match_field,
+                   confidence: meta.confidence, score: meta.score, band: meta.band });
     }
     return out;
   }
