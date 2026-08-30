@@ -67,9 +67,11 @@ NCIT_DISEASE_SEMANTIC_TYPES = {
 # the reader can never drift. Falls back to a sys.path tweak when run as a script.
 try:
     from app.predict_service import INDEX_COLS, TARGET_DBS
+    from app.xref_registry import SOURCE_DB
 except ModuleNotFoundError:
     sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
     from app.predict_service import INDEX_COLS, TARGET_DBS
+    from app.xref_registry import SOURCE_DB
 
 # OBO xref / id prefix (upper-cased, before the first colon or date suffix) ->
 # target-database key. Ontologies spell the same database several ways
@@ -393,10 +395,15 @@ def write_index(db: str, rows: list[dict]) -> Path:
     column reads as "this source cross-references nothing there" — which is what it
     means. ``INDEX_COLS`` stays the full canonical order: it is the column
     *vocabulary*, and a hand-supplied index may still carry all of it.
+
+    The column holding the source's *own* id is dropped too: it only repeats the
+    ``id`` column with the prefix stripped, which ``load_index`` reconstructs with
+    ``normalize_id``. That is one value per row across every term in the file.
     """
     out = DATA_DIR / f"{db}.index.tsv"
+    own = SOURCE_DB.get(db)          # rebuilt from the id column by load_index
     xrefs = [{col: ";".join(_unique(r.get(col, []))) for col in TARGET_DBS} for r in rows]
-    cols = [c for c in TARGET_DBS if any(x[c] for x in xrefs)]
+    cols = [c for c in TARGET_DBS if c != own and any(x[c] for x in xrefs)]
     with open(out, "w", encoding="utf-8", newline="") as f:
         f.write("\t".join(INDEX_COLS[:3] + cols) + "\n")
         for r, x in zip(rows, xrefs):
@@ -432,8 +439,11 @@ def write_details(db: str, rows: list[dict]) -> Path:
 # parent *labels* for display; the enrichment engine asks the inverse — "what are
 # this term's children?" — across the whole ontology, and needs ids, since a label
 # does not identify a term. Inverting the sidecar would mean matching on labels, so
-# the edges are written out here instead. Read by ``app/enrich_service``.
-SUBTYPE_COLS = ["parent_id", "child_id", "child_label"]
+# does not identify a term. Inverting the sidecar would mean matching on labels, so
+# the edges are written out here instead. The child's *label* is not written: it is
+# already in that child's index row, and enrich_service resolves it from there.
+# Read by ``app/enrich_service``.
+SUBTYPE_COLS = ["parent_id", "child_id"]
 
 
 def write_subtypes(db: str, rows: list[dict]) -> tuple[Path, int]:
@@ -444,19 +454,19 @@ def write_subtypes(db: str, rows: list[dict]) -> tuple[Path, int]:
     itself a kept term are emitted, so a confirmed cross-reference always resolves
     against a real index record. Returns the path written and the number of edges.
     """
-    label_of = {r["id"]: r.get("label", "") for r in rows if r.get("id")}
-    edges: list[tuple[str, str, str]] = []
+    kept = {r["id"] for r in rows if r.get("id")}
+    edges: list[tuple[str, str]] = []
     for r in rows:
         child_id = r.get("id", "")
         for parent_id in r.get("parent_ids", []):
-            if parent_id in label_of:      # skip parents pruned from the index
-                edges.append((parent_id, child_id, r.get("label", "")))
+            if parent_id in kept:          # skip parents pruned from the index
+                edges.append((parent_id, child_id))
     edges.sort()
     out = DATA_DIR / f"{db}.subtypes.tsv"
     with open(out, "w", encoding="utf-8", newline="") as f:
         f.write("\t".join(SUBTYPE_COLS) + "\n")
-        for parent_id, child_id, child_label in edges:
-            f.write("\t".join((parent_id, child_id, _clean_cell(child_label))) + "\n")
+        for edge in edges:
+            f.write("\t".join(edge) + "\n")
     return out, len(edges)
 
 

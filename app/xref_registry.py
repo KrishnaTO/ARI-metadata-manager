@@ -87,6 +87,14 @@ XREF_DATABASES = [
 
 BY_KEY = {d["key"]: d for d in XREF_DATABASES}
 
+# Which reference index (``data/2-databases/<source>.index.tsv``, keyed by file stem)
+# is the *own* index for a target-database key: the one whose every term carries that
+# database's id in its own ``id`` column. The db key ``nci`` is served by the ``ncit``
+# index; the rest match by name. A db absent here (snomed/omop/icd10/umls) has no own
+# index — it is only ever reached through another source's cross-references.
+SOURCE_DB = {"mondo": "mondo", "doid": "doid", "ncit": "nci",
+             "mesh": "mesh", "orphanet": "orphanet"}
+
 # db key -> object-CURIE prefix (SSSOM). Order preserved from the list above.
 PREFIX = {d["key"]: d["prefix"] for d in XREF_DATABASES}
 

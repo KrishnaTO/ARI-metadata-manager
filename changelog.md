@@ -1,5 +1,13 @@
 # Changelog
 
+## prune-derivable-columns
+- **The last two redundant columns in the reference data are gone, cutting a further 4.3 MB (24%).** `main-branch-object-pruning` left these because they needed reader changes; this makes them. Indexes 11.52 -> 10.89 MB, subtype edges 6.30 -> 2.64 MB (-58%). `data/2-databases` is now 31.8 MB, down from 38.5 MB before the two passes.
+- **A source's own id column is no longer written.** `mondo.index.tsv` held `MONDO:0005147` in `id` and `0005147` in its own `mondo` column — one value per row, on all 85,354 terms across the five files, and verified to be exactly the `id` with its prefix stripped in every one of them. `predict_service.load_index` now reconstructs it with `xref_registry.normalize_id`, so `by_db` is unchanged and each database still predicts its own ids. `SOURCE_DB` (which index owns which database key) moved from `concept_service` to `xref_registry`, so both readers share one copy instead of `predict_service` importing upward.
+- **Subtype edges carry ids only.** `child_label` repeated a name already in that child's index row, at a cost of 3.7 MB across the three OBO sources. `enrich_service.load_subtypes` now takes the loaded indexes and resolves the name from them; `enrich_many` passes the indexes it had already loaded, so nothing is read twice.
+- **That surfaced a real inconsistency: the committed edge files were stale against the committed indexes.** 39 edges (22 distinct children) carried a name MONDO/DOID had since changed — `MONDO:0001315` was still "orthostatic intolerance" against the index's "neurocirculatory asthenia" — and 61 edges pointed at children that are not in any index at all, so a curator could never have opened them. The 39 now read the index's current name, and the 61 unresolvable edges are dropped from the files: 102,889 -> 102,828 edges, with the edge set otherwise identical and every surviving label non-empty and equal to its child's own index label. Resolving from the index makes this class of drift impossible rather than merely fixed.
+- Verified by loading every index before and after through `predict_service.load_index`: `id`, `label` and `by_db` are identical for all 85,354 records. 206 tests pass, including three new ones pinning the own-id round trip through the real reader, the label-free edge format, and `load_subtypes` resolving names from the indexes.
+- `data/2-databases/README.md` now documents the subtype edge files, which it had never described.
+
 ## restore-lost-security-middleware
 Fixes a regression introduced on `main` by the merge of #127.
 

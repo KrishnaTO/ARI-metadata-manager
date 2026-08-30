@@ -143,11 +143,25 @@ def test_write_index_omits_columns_this_source_never_fills(tmp_path, monkeypatch
     # column is a tab per row and nothing else. predict_service reads by name, so an
     # absent column is simply a database this source cross-references nothing in.
     monkeypatch.setattr(fd, "DATA_DIR", tmp_path)
-    rows = [{"id": "MESH:D1", "label": "a", "synonyms": [], "mesh": ["D1"]},
-            {"id": "MESH:D2", "label": "b", "synonyms": [], "mesh": ["D2"]}]
-    lines = fd.write_index("mesh", rows).read_text(encoding="utf-8").splitlines()
-    assert lines[0].split("\t") == fd.INDEX_COLS[:3] + ["mesh"]
-    assert lines[1] == "MESH:D1\ta\t\tD1"
+    rows = [{"id": "MONDO:1", "label": "a", "synonyms": [], "mondo": ["1"], "nci": ["C1"]},
+            {"id": "MONDO:2", "label": "b", "synonyms": [], "mondo": ["2"], "nci": []}]
+    lines = fd.write_index("mondo", rows).read_text(encoding="utf-8").splitlines()
+    assert lines[0].split("\t") == fd.INDEX_COLS[:3] + ["nci"]     # no snomed/omop/icd10/...
+    assert lines[1] == "MONDO:1\ta\t\tC1"
+
+
+def test_write_index_omits_the_column_that_only_repeats_the_id(tmp_path, monkeypatch):
+    # A source's own column held its own id with the prefix stripped -- one value per
+    # row, across every term in the file. load_index rebuilds it from `id`, so the
+    # round trip must still put the own id in by_db or predictions for that database
+    # would vanish. MeSH fills nothing else, so its index loses every target column.
+    monkeypatch.setattr(fd, "DATA_DIR", tmp_path)
+    out = fd.write_index("mesh", [{"id": "MESH:D1", "label": "a", "synonyms": [], "mesh": ["D1"]}])
+    assert out.read_text(encoding="utf-8").splitlines()[0].split("\t") == fd.INDEX_COLS[:3]
+
+    from app.predict_service import load_index
+    rec = load_index(out, "mesh").records[0]
+    assert rec["by_db"] == {"mesh": ["D1"]}
 
 
 def test_write_index_drops_synonyms_that_only_echo_the_label(tmp_path, monkeypatch):
@@ -209,8 +223,9 @@ def test_write_subtypes_inverts_edges_and_skips_pruned_parents(tmp_path, monkeyp
     assert n == 2                                    # MONDO:404 is not a kept term
     lines = out.read_text(encoding="utf-8").strip().splitlines()
     assert lines[0].split("\t") == fd.SUBTYPE_COLS
-    assert lines[1:] == ["MONDO:1\tMONDO:2\tchild a", "MONDO:1\tMONDO:3\tchild b"]
-
+    # No child_label column: enrich_service resolves the name from the child's own
+    # index row, so the edge file cannot disagree with the index about a label.
+    assert lines[1:] == ["MONDO:1\tMONDO:2", "MONDO:1\tMONDO:3"]
 
 def test_subtype_columns_match_enrich_service():
     # The writer must emit exactly the columns the enrichment engine reads.

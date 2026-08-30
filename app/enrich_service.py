@@ -43,33 +43,44 @@ from .predict_service import (
     normalize,
 )
 
-# Columns of a per-database subtype TSV (must match scripts/fetch_databases.py).
-SUBTYPE_COLS = ["parent_id", "child_id", "child_label"]
+# Columns of a per-database subtype TSV (must match scripts/fetch_databases.py). The
+# child's label is not among them: it is already in that child's index row, and
+# repeating it here cost 3.7 MB across the three OBO sources.
+SUBTYPE_COLS = ["parent_id", "child_id"]
 
 
 # ------------------------------------------------------------------ subtype index
-def load_subtypes(index_dir: str | Path = DEFAULT_INDEX_DIR) -> dict[str, list[dict]]:
+def load_subtypes(indexes: list[LexicalIndex],
+                  index_dir: str | Path = DEFAULT_INDEX_DIR) -> dict[str, list[dict]]:
     """Load every ``*.subtypes.tsv`` into ``{parent_curie: [{"id", "label"}]}``.
 
     Parent/child ids are full CURIEs (``MONDO:0005147``), which are globally unique
     across sources, so one flat map serves every database. Missing directory or
     files -> empty map.
+
+    A child's **label is not in the file** — it is already in that child's own index
+    row, and ``write_subtypes`` only emits edges whose endpoints are kept terms, so
+    ``indexes`` always has it. Resolving it here rather than storing it twice keeps
+    the edge files 3.7 MB smaller and makes a relabelled term impossible to
+    disagree with itself. A child the loaded indexes do not know resolves to "",
+    which :func:`enrich` already skips.
     """
     index_dir = Path(index_dir)
     out: dict[str, list[dict]] = {}
     if not index_dir.is_dir():
         return out
+    label_of = {rec["id"]: rec.get("label", "") for idx in indexes for rec in idx.records}
     seen: set[tuple[str, str]] = set()
     for path in sorted(index_dir.glob("*.subtypes.tsv")):
         try:
             with open(path, encoding="utf-8", newline="") as f:
-                for row in csv.DictReader(f, delimiter="\t"):
+                for row in csv.DictReader(f, delimiter="	"):
                     parent, child = row.get("parent_id", ""), row.get("child_id", "")
                     if not parent or not child or (parent, child) in seen:
                         continue
                     seen.add((parent, child))
                     out.setdefault(parent, []).append(
-                        {"id": child, "label": row.get("child_label", "")})
+                        {"id": child, "label": label_of.get(child, "")})
         except (OSError, csv.Error):
             continue
     return out
@@ -195,7 +206,7 @@ def enrich_many(diseases: list[dict], confirmed_by_iri: dict[str, list[dict]],
     if indexes is None:
         indexes = get_indexes(index_dir)
     if subtypes is None:
-        subtypes = load_subtypes(index_dir)
+        subtypes = load_subtypes(indexes, index_dir)
     if blocklist is None:
         blocklist = load_synonym_blocklist(blocklist_path)
     id_index = build_id_index(indexes)

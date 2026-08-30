@@ -32,7 +32,7 @@ import re
 import unicodedata
 from pathlib import Path
 
-from .xref_registry import PREFIX, XREF_DATABASES
+from .xref_registry import PREFIX, SOURCE_DB, XREF_DATABASES, normalize_id
 
 # Target database keys, in registry order. ``omop`` has no free index source, so it
 # never gets a prediction unless the user supplies an OMOP index (handled generically
@@ -121,6 +121,12 @@ def load_index(path: str | Path, source: str | None = None) -> LexicalIndex:
     """
     path = Path(path)
     src = source or path.stem.split(".")[0]
+    # The index's own id is its ``id`` column, so the column repeating it is not
+    # written (see fetch_databases.write_index) and is reconstructed here instead.
+    # ``own`` is None for a source with no SOURCE_DB entry — a user-supplied index
+    # for a database none of the built-in sources owns — whose own column, if it
+    # has one, is then simply read like any other.
+    own = SOURCE_DB.get(src)
     idx = LexicalIndex(src, path=path)
     with open(path, encoding="utf-8", newline="") as f:
         reader = csv.DictReader(f, delimiter="\t")
@@ -128,6 +134,10 @@ def load_index(path: str | Path, source: str | None = None) -> LexicalIndex:
             by_db: dict[str, list[str]] = {}
             for db in TARGET_DBS:
                 ids = _split_ids(row.get(db, ""))
+                if db == own:
+                    own_id = normalize_id(own, row.get("id", ""))
+                    if own_id and own_id not in ids:
+                        ids = [own_id] + ids
                 if ids:
                     by_db[db] = ids
             synonyms = _split_synonyms(row.get("synonyms", ""))

@@ -16,6 +16,7 @@ which a curator then verifies and confirms.
 | `mesh.index.tsv`  | [MeSH](https://www.nlm.nih.gov/mesh/) (NLM, public domain) | `raw/mesh_desc2026.xml` | yes |
 | `orphanet.index.tsv` | [Orphanet](https://www.orphadata.com/) (CC BY 4.0) | `raw/orphanet_product1.xml` | yes |
 | `<db>.details.tsv` | definitions + parents for each index above | same `raw/` dump | yes (sidecar, loaded on demand) |
+| `<db>.subtypes.tsv` | direct `is_a` parent->child edges (OBO sources only) | same `raw/` dump | yes (read by the enrichment engine) |
 | `raw/` | downloaded release dumps | — | no (git-ignored, large) |
 
 `ncit`, `mesh` and `orphanet` are filtered to disease terms so the indexes stay
@@ -46,6 +47,10 @@ Two things are deliberately *not* in the file:
   `predict_service` reads columns by name, so an absent column reads as "this
   source cross-references nothing there", which is what it means. A hand-supplied
   index may still carry the full set.
+* **The column repeating the term's own id.** A source's own column (`mondo` in
+  `mondo.index.tsv`) held nothing but its `id` with the prefix stripped — one value
+  per row, on every term in the file. `load_index` reconstructs it with
+  `xref_registry.normalize_id`, so it is no longer written.
 * **`omim`.** OMIM is no longer a review column or a prediction target (see
   `app/xref_registry`), so nothing reads it out of an index. `parse_obo` still
   harvests it, so restoring the column is a `review: True` flip plus a rebuild.
@@ -75,7 +80,7 @@ lazily — the prediction hot path never parses them.
 The split is deliberate: folding definitions into the index would roughly **double**
 its size (measured before the column/synonym pruning above: 13.9 MB → 32.2 MB) while slowing
 every prediction load for data prediction never uses. As a sidecar the indexes stay
-~11.5 MB and the ~18 MB of
+~10.9 MB and the ~18 MB of
 details load only when a curator opens the compare pane — and only the sidecar for
 the database being looked up (a DOID lookup costs ~8 MB resident, not the ~52 MB all
 five would). This matters on the small hosted instance; see `DEPLOY.md`.
@@ -98,6 +103,26 @@ cross-reference provenance and `details_available: false`.
 | `orphanet.details.tsv` | ~2.8 MB |
 | `doid.details.tsv` | ~2.4 MB |
 | `mesh.details.tsv` | ~1.3 MB |
+
+### Subtype edges — `<db>.subtypes.tsv`
+
+The OBO sources (MONDO, DOID, NCIt) also get an edge file, one row per direct
+`is_a` parent->child link:
+
+```
+parent_id	child_id
+```
+
+Both are full CURIEs, so one flat map serves every database. This is the details
+sidecar's hierarchy read the other way round: the sidecar answers "what is this term
+a kind of?" for the one term a curator is looking at, while `app/enrich_service` asks
+the inverse — "what are this term's children?" — across the whole ontology, to propose
+them as clinical subtypes of a confirmed disease.
+
+The edge carries **no label**. A child's name is already in that child's own index
+row, so repeating it here cost 3.7 MB and let the two files disagree whenever a term
+was renamed between rebuilds — they did, for 22 terms. `enrich_service` resolves the
+name from the index instead, and skips a child the loaded indexes do not know.
 
 ## Coverage of the ten target databases
 
