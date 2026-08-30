@@ -987,6 +987,19 @@ def _remember_publish(login, request_id, result):
     atomic_store.write_json(_publish_log_path(login), done)
 
 
+def _mapping_author(supplied, login: str) -> str:
+    """The ``author_id`` for this curator's mappings.
+
+    Defaults to ``github:<login>``, which the SSSOM curie map now declares. A
+    supplied ORCID (bare or as an orcid.org URL) is normalised to an
+    ``orcid:`` CURIE and rejected if malformed. Anything else is ignored — the
+    author is the signed-in identity, not a free-text field."""
+    supplied = (supplied or "").strip()
+    if not supplied or supplied == f"github:{login}":
+        return f"github:{login}"
+    return sssom_service.orcid_curie(supplied.removeprefix("orcid:"))
+
+
 @app.post("/api/v2/publish")
 async def publish(request: Request, payload: dict = Body(default={})):
     """Commit the current ontology file to GitHub as the signed-in user (PR)."""
@@ -1005,7 +1018,10 @@ async def publish(request: Request, payload: dict = Body(default={})):
     flagged = payload.get("flagged") or []
     # Cells judged to have no term at all in the target database.
     absent = payload.get("absent") or []
-    author = payload.get("author") or f"github:{u['identity']['login']}"
+    # author_id lands in the published SSSOM. An ORCID is validated here rather
+    # than trusted from localStorage: a typo in this column is permanent and
+    # unattributable, and an unexpandable CURIE makes the file fail validation.
+    author = _mapping_author(payload.get("author"), u["identity"]["login"])
     any_review = bool(confirmed or flagged or absent)
 
     # A curator may not confirm a mapping id they added themselves; the frontend
@@ -1163,6 +1179,7 @@ async def get_settings(request: Request):
     return {"github_enabled": GH_ENABLED, "authenticated": bool(u),
             "working_branch": GH_BASE_BRANCH, "source_branch": _source_branch(request),
             "pr_base": _pr_base(request), "dirty": _dirty(request), "branches": branches,
+            "mapping_license": sssom_service.MAPPING_LICENSE,
             "working_copy": working_copy_expiry(_login(request))}
 
 

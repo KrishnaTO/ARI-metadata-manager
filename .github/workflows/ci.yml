@@ -23,6 +23,10 @@ jobs:
         run: python -c "import app.main; print('app.main imported OK')"
       - name: Tests
         run: pytest -q
+      - name: Validate the published mapping set
+        # Undeclared CURIE prefixes, doubled prefixes, timestamps with no
+        # timezone, and contradictory judgments with nothing marked superseded.
+        run: python scripts/validate_mappings.py
 
   lint:
     # Advisory for now: runs ruff and prints every finding to the log, but
