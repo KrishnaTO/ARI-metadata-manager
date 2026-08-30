@@ -729,9 +729,11 @@ async def apply_xref_op(request: Request, iri: str, payload: dict = Body(...)):
     ``op`` is add / replace / remove. The whole point is that the client sends
     the single id rather than the cell's new contents: the list is rebuilt from
     what is on file at the moment of the write, so a second window that added an
-    id to the same cell no longer has it silently erased (issue #114)."""
-    if not _login(request):
-        raise HTTPException(status_code=401, detail="Sign in with GitHub first")
+    id to the same cell no longer has it silently erased (issue #114).
+
+    Write access is gated by ``service_for(..., write=True)`` like every other
+    write endpoint, rather than by a login check here — that would also refuse
+    the offline deployments that run with GitHub integration switched off."""
     svc = service_for(request, write=True)
     before = svc.get_xrefs(iri)
     r = svc.apply_xref_op(iri, payload.get("db", ""), payload.get("op", ""),

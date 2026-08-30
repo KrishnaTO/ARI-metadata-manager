@@ -92,3 +92,39 @@ def test_unknown_database_and_operation_are_refused(service):
         service.apply_xref_op(iri, "omim", "clobber", value="x")
     with pytest.raises(Invalid, match="add needs an id"):
         service.apply_xref_op(iri, "omim", "add", value="   ")
+
+
+# ---------------------------------------------------------------- the route
+def test_the_endpoint_is_reachable_with_an_iri_in_the_path(service, monkeypatch):
+    """The route is ``/api/v2/disease/{iri:path}/xref``, and the iri is a URL.
+
+    A greedy `:path` segment followed by a literal suffix is easy to get wrong,
+    and the failure mode is a 404 that looks like a client bug.
+    """
+    from fastapi.testclient import TestClient
+
+    import app.main as main
+
+    monkeypatch.setattr(main, "service_for", lambda request, write=False: service)
+    client = TestClient(main.app)
+
+    iri = _first_disease_with_no_omim(service)
+    r = client.post(f"/api/v2/disease/{iri}/xref",
+                    json={"db": "omim", "op": "add", "value": "654321", "editor": "tester"})
+    assert r.status_code == 200, r.text
+    assert service.get_xrefs(iri)["omim"] == ["654321"]
+
+
+def test_a_refused_replace_comes_back_as_a_400_with_the_reason(service, monkeypatch):
+    from fastapi.testclient import TestClient
+
+    import app.main as main
+
+    monkeypatch.setattr(main, "service_for", lambda request, write=False: service)
+    client = TestClient(main.app)
+
+    iri = _first_disease_with_no_omim(service)
+    r = client.post(f"/api/v2/disease/{iri}/xref",
+                    json={"db": "omim", "op": "replace", "value": "1", "replaces": "999"})
+    assert r.status_code == 400
+    assert "no longer on file" in r.json()["detail"]
