@@ -8,6 +8,8 @@ import pytest
 from fastapi.testclient import TestClient
 
 import app.main as main
+from app import config, sessions, workspace
+from app.routes import auth as auth_routes
 
 client = TestClient(main.app)
 
@@ -22,7 +24,7 @@ client = TestClient(main.app)
     "",
 ])
 def test_offsite_redirect_targets_are_refused(nxt):
-    assert main._safe_next(nxt) == "/"
+    assert auth_routes._safe_next(nxt) == "/"
 
 
 @pytest.mark.parametrize("nxt", [
@@ -32,7 +34,7 @@ def test_offsite_redirect_targets_are_refused(nxt):
     "/search?q=addison",
 ])
 def test_same_origin_paths_are_kept(nxt):
-    assert main._safe_next(nxt) == nxt
+    assert auth_routes._safe_next(nxt) == nxt
 
 
 # ---------------------------------------------------------- security headers
@@ -48,15 +50,15 @@ def test_responses_carry_the_baseline_headers():
 
 # --------------------------------------------------------------- session TTL
 def test_expired_sessions_are_swept(monkeypatch, tmp_path):
-    monkeypatch.setattr(main, "SESSIONS_FILE", tmp_path / ".sessions.json")
-    monkeypatch.setattr(main, "SESSION_TTL_DAYS", 30)
+    monkeypatch.setattr(config, "SESSIONS_FILE", tmp_path / ".sessions.json")
+    monkeypatch.setattr(config, "SESSION_TTL_DAYS", 30)
     fresh = {"token": "t", "identity": {"login": "new"}, "created": time.time()}
     old = {"token": "t", "identity": {"login": "old"}, "created": time.time() - 31 * 86400}
-    monkeypatch.setattr(main, "SESSIONS", {"a": fresh, "b": old})
+    monkeypatch.setattr(sessions, "SESSIONS", {"a": fresh, "b": old})
 
-    main._sweep_sessions()
+    sessions._sweep_sessions()
 
-    assert list(main.SESSIONS) == ["a"]
+    assert list(sessions.SESSIONS) == ["a"]
 
 
 def test_the_session_file_is_created_owner_only(monkeypatch, tmp_path):
@@ -64,10 +66,10 @@ def test_the_session_file_is_created_owner_only(monkeypatch, tmp_path):
     import os
     import stat
     path = tmp_path / ".sessions.json"
-    monkeypatch.setattr(main, "SESSIONS_FILE", path)
-    monkeypatch.setattr(main, "SESSIONS", {"a": {"token": "secret"}})
+    monkeypatch.setattr(config, "SESSIONS_FILE", path)
+    monkeypatch.setattr(sessions, "SESSIONS", {"a": {"token": "secret"}})
 
-    main._save_sessions()
+    sessions._save_sessions()
 
     assert path.exists()
     if os.name != "nt":         # Windows does not model POSIX mode bits
@@ -78,11 +80,11 @@ def test_the_session_file_is_created_owner_only(monkeypatch, tmp_path):
 def test_quoted_env_values_lose_their_quotes(monkeypatch, tmp_path):
     env = tmp_path / ".env"
     env.write_text('SESSION_SECRET="abc123"\nGITHUB_OWNER=plain\nQUOTED_SINGLE=\'xyz\'\n')
-    monkeypatch.setattr(main, "__file__", str(tmp_path / "app" / "main.py"))
+    monkeypatch.setattr(config, "__file__", str(tmp_path / "app" / "config.py"))
     for k in ("SESSION_SECRET", "GITHUB_OWNER", "QUOTED_SINGLE"):
         monkeypatch.delenv(k, raising=False)
 
-    main._load_dotenv()
+    config._load_dotenv()
 
     import os
     assert os.environ["SESSION_SECRET"] == "abc123"
@@ -102,13 +104,16 @@ def test_signin_does_not_ask_for_write_access_to_every_repository():
 def test_the_sweep_loop_only_calls_functions_that_exist():
     """A merge once dropped `_sweep_sessions` while leaving its call site.
 
-    Nothing caught it at import time — the background task raises `NameError`
-    on its first tick, six hours after a deploy, in a coroutine nobody is
-    watching. This asserts the wiring rather than the behaviour, which is the
-    part a bad three-way merge silently breaks.
+    Nothing caught it at import time — the background task raises on its first
+    tick, six hours after a deploy, in a coroutine nobody is watching. The call
+    sites are in `main`'s lifespan and the definitions are in the modules that
+    own the state, so this asserts the wiring across that boundary rather than
+    the behaviour, which is the part a bad three-way merge silently breaks.
     """
-    for name in ("_sweep_user_data", "_sweep_sessions", "_save_sessions"):
-        assert callable(getattr(main, name, None)), f"main.{name} is missing"
+    for mod, name in ((workspace, "_sweep_user_data"),
+                      (sessions, "_sweep_sessions"),
+                      (sessions, "_save_sessions")):
+        assert callable(getattr(mod, name, None)), f"{mod.__name__}.{name} is missing"
 
 
 def test_the_security_middleware_is_registered():

@@ -104,8 +104,9 @@ def test_the_endpoint_is_reachable_with_an_iri_in_the_path(service, monkeypatch)
     from fastapi.testclient import TestClient
 
     import app.main as main
+    from app import workspace
 
-    monkeypatch.setattr(main, "service_for", lambda request, write=False: service)
+    monkeypatch.setattr(workspace, "service_for", lambda request, write=False: service)
     client = TestClient(main.app)
 
     iri = _first_disease_with_no_omim(service)
@@ -119,8 +120,9 @@ def test_a_refused_replace_comes_back_as_a_400_with_the_reason(service, monkeypa
     from fastapi.testclient import TestClient
 
     import app.main as main
+    from app import workspace
 
-    monkeypatch.setattr(main, "service_for", lambda request, write=False: service)
+    monkeypatch.setattr(workspace, "service_for", lambda request, write=False: service)
     client = TestClient(main.app)
 
     iri = _first_disease_with_no_omim(service)

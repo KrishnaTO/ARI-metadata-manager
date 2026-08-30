@@ -8,7 +8,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 import app.main as main
-from app import id_provenance
+from app import config, id_provenance, sessions, stores
 
 client = TestClient(main.app)
 
@@ -16,7 +16,7 @@ client = TestClient(main.app)
 @pytest.fixture
 def ledger(tmp_path, monkeypatch):
     store = id_provenance.IdAuthorStore(tmp_path / "provenance")
-    monkeypatch.setattr(main, "ID_AUTHORS", store)
+    monkeypatch.setattr(stores, "ID_AUTHORS", store)
     return store
 
 
@@ -40,7 +40,7 @@ def test_anonymous_edits_record_nothing(ledger):
 
 def test_id_authors_endpoint_serves_the_ledger(ledger, monkeypatch):
     ledger.record("iri:1", {}, {"snomed": ["1"]}, "ada")
-    monkeypatch.setattr(main, "_login", lambda request: "ada")
+    monkeypatch.setattr(sessions, "_login", lambda request: "ada")
     r = client.get("/api/v2/id-authors")
     assert r.status_code == 200
     assert r.json() == {"iri:1|snomed|1": "ada"}
@@ -55,8 +55,8 @@ def test_id_authors_endpoint_needs_a_session(ledger):
 
 def test_publish_refuses_confirming_your_own_id(ledger, monkeypatch):
     ledger.record("iri:1", {}, {"snomed": ["1"]}, "ada")
-    monkeypatch.setattr(main, "GH_ENABLED", True)
-    monkeypatch.setattr(main, "_user", lambda request: {"token": "t", "identity": {"login": "ada"}})
+    monkeypatch.setattr(config, "GH_ENABLED", True)
+    monkeypatch.setattr(sessions, "_user", lambda request: {"token": "t", "identity": {"login": "ada"}})
     r = client.post("/api/v2/publish", json={
         "confirmed": [{"ari_id": "ARI:1", "iri": "iri:1", "name": "D", "db": "snomed", "ids": ["1"]}]})
     assert r.status_code == 400

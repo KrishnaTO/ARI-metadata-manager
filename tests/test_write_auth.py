@@ -13,6 +13,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 import app.main as main
+from app import config, sessions, workspace
 
 client = TestClient(main.app)
 
@@ -41,8 +42,8 @@ def github_on(monkeypatch):
     these tests drive the real app, and `create_release` in particular would
     otherwise version the real file and leave a snapshot in `releases/`.
     """
-    monkeypatch.setattr(main, "GH_ENABLED", True)
-    monkeypatch.setattr(main, "_login", lambda request: None)
+    monkeypatch.setattr(config, "GH_ENABLED", True)
+    monkeypatch.setattr(sessions, "_login", lambda request: None)
 
     reached = []
 
@@ -50,7 +51,7 @@ def github_on(monkeypatch):
         reached.append(login)
         raise AssertionError("write gate let an anonymous request through to user_service()")
 
-    monkeypatch.setattr(main, "user_service", _tripwire)
+    monkeypatch.setattr(workspace, "user_service", _tripwire)
     return reached
 
 
@@ -70,12 +71,12 @@ def test_reads_stay_open_to_anonymous_callers(github_on):
 
 def test_writes_are_ungated_when_github_is_off(monkeypatch):
     """Local/offline use has no identity to demand, so the gate stands down."""
-    monkeypatch.setattr(main, "GH_ENABLED", False)
-    monkeypatch.setattr(main, "_login", lambda request: None)
+    monkeypatch.setattr(config, "GH_ENABLED", False)
+    monkeypatch.setattr(sessions, "_login", lambda request: None)
     sentinel = object()
-    monkeypatch.setattr(main, "user_service", lambda login, create=False: sentinel)
+    monkeypatch.setattr(workspace, "user_service", lambda login, create=False: sentinel)
 
     class _Req:
         pass
 
-    assert main.service_for(_Req(), write=True) is sentinel
+    assert workspace.service_for(_Req(), write=True) is sentinel
