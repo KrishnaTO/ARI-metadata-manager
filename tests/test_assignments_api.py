@@ -9,6 +9,7 @@ from fastapi.testclient import TestClient
 
 import app.main as main
 from app import assignment_service as asv
+from app import config, sessions, stores
 
 client = TestClient(main.app)
 
@@ -16,10 +17,10 @@ client = TestClient(main.app)
 @pytest.fixture
 def signed_in(tmp_path, monkeypatch):
     """A signed-in curator writing to a throwaway assignment store."""
-    monkeypatch.setattr(main, "ASSIGNMENTS", asv.AssignmentStore(tmp_path / "assignments"))
-    monkeypatch.setattr(main, "ASSIGN_ADMINS", [])
-    monkeypatch.setattr(main, "_login", lambda request: "tester")
-    return main.ASSIGNMENTS
+    monkeypatch.setattr(stores, "ASSIGNMENTS", asv.AssignmentStore(tmp_path / "assignments"))
+    monkeypatch.setattr(config, "ASSIGN_ADMINS", [])
+    monkeypatch.setattr(sessions, "_login", lambda request: "tester")
+    return stores.ASSIGNMENTS
 
 
 def test_anonymous_cannot_assign():
@@ -36,20 +37,20 @@ def test_self_assign_defaults_to_the_caller(signed_in):
 
 
 def test_self_assign_works_even_when_an_allow_list_is_set(signed_in, monkeypatch):
-    monkeypatch.setattr(main, "ASSIGN_ADMINS", ["lead"])
+    monkeypatch.setattr(config, "ASSIGN_ADMINS", ["lead"])
     assert client.post("/api/v2/assignments", json={"iris": ["a"]}).status_code == 200
     assert client.post("/api/v2/assignments",
                        json={"login": "tester", "iris": ["b"]}).status_code == 200
 
 
 def test_assigning_to_another_curator_needs_the_allow_list(signed_in, monkeypatch):
-    monkeypatch.setattr(main, "ASSIGN_ADMINS", ["lead"])
+    monkeypatch.setattr(config, "ASSIGN_ADMINS", ["lead"])
     r = client.post("/api/v2/assignments", json={"login": "someone", "iris": ["a"]})
     assert r.status_code == 400
     assert "only change their own" in r.json()["detail"]
     assert signed_in.owner_of("a") is None
 
-    monkeypatch.setattr(main, "ASSIGN_ADMINS", ["tester"])
+    monkeypatch.setattr(config, "ASSIGN_ADMINS", ["tester"])
     assert client.post("/api/v2/assignments",
                        json={"login": "someone", "iris": ["a"]}).status_code == 200
     assert signed_in.owner_of("a") == "someone"
@@ -73,7 +74,7 @@ def test_unassign_is_scoped_to_your_own_queue(signed_in, monkeypatch):
     assert client.request("DELETE", "/api/v2/assignments",
                           json={"iris": ["a"]}).json()["iris"] == ["b"]
 
-    monkeypatch.setattr(main, "ASSIGN_ADMINS", ["lead"])
+    monkeypatch.setattr(config, "ASSIGN_ADMINS", ["lead"])
     r = client.request("DELETE", "/api/v2/assignments",
                        json={"login": "someone", "iris": ["c"]})
     assert r.status_code == 400

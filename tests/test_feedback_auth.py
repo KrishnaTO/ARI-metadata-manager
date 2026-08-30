@@ -8,6 +8,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 import app.main as main
+from app import config, sessions, workspace
 from app.feedback_service import MAX_MESSAGE_CHARS, FeedbackStore
 
 client = TestClient(main.app)
@@ -17,14 +18,14 @@ client = TestClient(main.app)
 def store(tmp_path, monkeypatch):
     """A throwaway feedback store on the real app, nobody signed in."""
     fs = FeedbackStore(tmp_path)
-    monkeypatch.setattr(main.BASE, "feedback", fs)
-    monkeypatch.setattr(main, "_login", lambda request: None)
+    monkeypatch.setattr(workspace.BASE, "feedback", fs)
+    monkeypatch.setattr(sessions, "_login", lambda request: None)
     return fs
 
 
 @pytest.fixture
 def as_alice(store, monkeypatch):
-    monkeypatch.setattr(main, "_login", lambda request: "alice")
+    monkeypatch.setattr(sessions, "_login", lambda request: "alice")
     return store
 
 
@@ -56,8 +57,8 @@ def test_author_comes_from_the_session_not_the_body(as_alice):
 
 def test_another_curators_entry_cannot_be_edited_or_deleted(as_alice, monkeypatch):
     entry = as_alice.add("d", "t", "alice's note", author="alice")
-    monkeypatch.setattr(main, "_login", lambda request: "mallory")
-    monkeypatch.setattr(main, "ASSIGN_ADMINS", ["admin"])   # mallory is not an admin
+    monkeypatch.setattr(sessions, "_login", lambda request: "mallory")
+    monkeypatch.setattr(config, "ASSIGN_ADMINS", ["admin"])   # mallory is not an admin
 
     assert client.put(f"/api/v2/feedback/{entry['id']}",
                       json={"message": "rewritten"}).status_code == 400
