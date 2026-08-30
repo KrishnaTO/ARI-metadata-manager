@@ -33,6 +33,14 @@ function curateHint(){
   if (!state.detail) return 'Select a disease to edit it';
   return 'Edit this record';
 }
+// The symptom word cloud is opt-in (see the settings popover). Default off: it
+// restates the symptom list immediately above it, at sizes that encode only the
+// likelihood already in that table, and costs ~220px of a panel on the screens
+// that can least afford it (issue #101).
+function wordCloudOn(){
+  try { return localStorage.getItem('ari-wordcloud') === 'on'; } catch (e) { return false; }
+}
+
 // Keep the record's edit button in step with sign-in state. It is rendered with
 // the record, so this only matters when sign-in resolves after a record is up.
 function syncCurateAccess(){
@@ -224,9 +232,55 @@ function parseDefSrc(str) {
   return cites;
 }
 
+// A transient confirmation: "Saved", "Copied", "Item deleted".
+//
+// Reserved for confirmations now. Failures used to come through here too — a
+// 2.6-second message at the bottom of the viewport, unconnected to whatever
+// caused it and announced to nobody, which a user working at high zoom on a
+// small laptop was very likely to miss entirely (issue #99). Errors go to
+// UIDialog.showFieldErrors (for a form) or toastError (for everything else).
 function toast(msg){
   const t = document.createElement('div'); t.className = 'toast'; t.textContent = msg;
   document.body.appendChild(t); setTimeout(() => t.remove(), 2600);
+  UIDialog.announce(msg);        // there was no live region anywhere in the app
+}
+
+// A failure. Stays until dismissed or replaced: a message describing something
+// that did not happen must not disappear while it is still being read.
+let _errorToast = null;
+function toastError(msg){
+  _errorToast?.remove();
+  const t = document.createElement('div');
+  t.className = 'toast is-error';
+  t.setAttribute('role', 'alert');
+  t.textContent = msg;
+  const close = document.createElement('button');
+  close.className = 'toast-close';
+  close.type = 'button';
+  close.setAttribute('aria-label', 'Dismiss');
+  close.textContent = '✕';
+  close.addEventListener('click', () => { t.remove(); _errorToast = null; });
+  t.appendChild(close);
+  document.body.appendChild(t);
+  _errorToast = t;
+}
+
+// Turn a server failure into a sentence that says what to do next. The raw
+// exception text was passed straight through ("Save failed: <err.message>"),
+// which for the common cases said nothing actionable.
+function explainError(err, fallback){
+  const msg = (err && err.message) || '';
+  if (/401|sign in/i.test(msg))
+    return 'Your sign-in has expired. Sign in again, then retry — your changes are still in the form.';
+  if (/403/.test(msg))
+    return 'You do not have permission to do that.';
+  if (/404|not found/i.test(msg))
+    return 'That record no longer exists — it may have been removed or renamed. Reload the page.';
+  if (/failed to fetch|networkerror|load failed/i.test(msg))
+    return 'Could not reach the server. Check your connection and try again — nothing was saved.';
+  if (/^5[0-9][0-9]/.test(msg) || /internal server/i.test(msg))
+    return 'The server hit an error. Nothing was saved; try again, and tell an administrator if it persists.';
+  return msg ? `${fallback}: ${msg}` : fallback;
 }
 
 // Copy text to the clipboard with a toast confirmation. Falls back to a hidden
@@ -248,8 +302,8 @@ function fallbackCopy(text, ok){
     document.body.appendChild(ta); ta.focus(); ta.select();
     const done = document.execCommand('copy');
     ta.remove();
-    done ? ok() : toast('Copy failed');
-  } catch (e){ toast('Copy failed'); }
+    done ? ok() : toastError('Could not copy — select the text and copy it manually.');
+  } catch (e){ toastError('Could not copy — select the text and copy it manually.'); }
 }
 function showLoading(sel){ $(sel).innerHTML = '<div class="loading">Loading...</div>'; }
 

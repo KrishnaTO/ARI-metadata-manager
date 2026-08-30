@@ -169,16 +169,47 @@ function xrefReadonlyHTML(d){
 }
 
 // Disease-level field editor (opens in the right panel, like the item editors)
-async function openDiseaseFieldEditor(d){
+// A saved draft, shaped like the record so the form builders below can take it
+// unchanged. Three list fields are stored flat and have to be read back:
+// subtypes are "Name - description | iri", def-sources are "label; url" (which
+// parseDefSrc already understands), and pubmed is emptied because the draft's
+// def_source list already holds everything the form collected.
+function draftAsRecord(d, fields){
+  const subs = (fields.clinical_subtypes || []).map(raw => {
+    const [main, link] = String(raw).split(' | ');
+    const [name, ...rest] = String(main).split(' - ');
+    return { name: name.trim(), description: rest.join(' - ').trim(), link_iri: (link || '').trim() };
+  });
+  return { ...d,
+    name: fields.name, definition: fields.definition,
+    synonyms: fields.synonyms || [], clinical_subtypes_parsed: subs,
+    disease_category: [fields.disease_category], evidence_quality: [fields.evidence_quality],
+    prevalence_per_100k: [fields.prevalence_per_100k], prevalence_value: [fields.prevalence_value],
+    incidence_rate: [fields.incidence_rate], demographic_bias: [fields.demographic_bias],
+    age_range: [fields.age_range], prevalence_desc: [fields.prevalence_desc],
+    def_source: fields.def_source || [], pubmed: [],
+    obsolete: fields.obsolete === 'true', is_grouping: fields.is_grouping === 'true' };
+}
+
+// `draft` builds the form from a recovered draft instead of from the record.
+async function openDiseaseFieldEditor(record, draft){
   const diseases = await _ndDiseases();
+  const d = draft ? draftAsRecord(record, draft) : record;
+  const pending = draft ? null : draftFor(record.iri);
   state.activeBox = '__fields__';
   $('#right-col').classList.add('open');
   $('#detail-pane').querySelectorAll('.box').forEach(b => b.classList.remove('active'));
-  let html = `<h2><span class="panel-title">Edit fields: ${esc(d.name)}</span>`+
+  let html = `<h2><span class="panel-title">Edit fields: ${esc(record.name)}</span>`+
     `<button class="hbtn primary save-fields-btn">Save changes</button>`+
     `<button class="close-btn" onclick="cancelFieldEdits()">Cancel</button></h2>
     <div class="edit-form">
     <p class="panel-desc">IRI / ARI local id is fixed. Saving appends a changelog entry and writes the OWL file.</p>`;
+  if (pending){
+    html += `<div class="draft-banner" role="status"><span>Unsaved changes to this record were kept from ` +
+      `${esc(new Date(pending.at).toLocaleString())}.</span>` +
+      `<button class="hbtn" id="draft-restore">Restore them</button>` +
+      `<button class="hbtn" id="draft-discard">Discard</button></div>`;
+  }
   html += fieldText('f_name', 'Label', d.name);
   html += fieldArea('f_definition', 'Definition (markdown)', d.definition);
   html += `<div class="field"><label>Synonyms <span style="font-weight:400;text-transform:none;font-size:11px;color:var(--muted)">(one chip each — press Enter or ; to add)</span></label>` +
@@ -218,9 +249,26 @@ async function openDiseaseFieldEditor(d){
     $('#f_defsrc_list').insertAdjacentHTML('beforeend', defSrcRowHtml('', '')));
   wireTagEditor('#f_synonyms');
   wireSubtypeAdd($('#right-panel-content'), diseases, d.iri);
-  _fieldsBaseline = JSON.stringify(collectDiseaseFields());
+  $('#draft-restore')?.addEventListener('click', () =>
+    openDiseaseFieldEditor(record, draftFor(record.iri).fields));
+  $('#draft-discard')?.addEventListener('click', () => {
+    clearDraft();
+    openDiseaseFieldEditor(record);
+  });
+  // A restored draft is unsaved work by definition, so its baseline is a value the
+  // form can never collect — every dirty check downstream then agrees.
+  _fieldsBaseline = draft ? RESTORED_DRAFT : JSON.stringify(collectDiseaseFields());
+  // Keep the draft current as the curator types, so a closed tab loses at most the
+  // last keystroke. Bound to the form, which is rebuilt on every open, so the
+  // listener cannot stack up across openings.
+  $('#right-panel-content .edit-form')?.addEventListener('input', () => {
+    clearTimeout(_draftTimer);
+    _draftTimer = setTimeout(saveDraft, 800);
+  });
   revealDeepDive();
 }
+let _draftTimer = null;
+const RESTORED_DRAFT = '"restored-draft"';
 
 // ---- unsaved-change guard for the disease-field form
 // The form's values as the API wants them. Shared by the save call and the
@@ -245,6 +293,43 @@ function collectDiseaseFields(){
 }
 let _fieldsBaseline = '';
 
+// ---- unsaved work survives leaving the page
+// `confirmDiscardEdits` is thorough about in-app navigation but cannot see a tab
+// close, a reload, or a click on an external cross-reference link — which is
+// exactly what curating against another database does, constantly. There was no
+// beforeunload handler anywhere in static/ (issue #114).
+//
+// The draft is kept in localStorage, not sessionStorage: sessionStorage dies with
+// the tab, and the tab closing is the case this exists for. One draft at a time,
+// cleared on save and on an explicit cancel, so it cannot accumulate.
+const DRAFT_KEY = 'ari-field-draft';
+
+function saveDraft(){
+  if (!fieldsDirty()) { clearDraft(); return; }
+  try {
+    localStorage.setItem(DRAFT_KEY, JSON.stringify({
+      iri: state.activeIri, at: Date.now(), fields: collectDiseaseFields() }));
+  } catch (e) { /* storage may be unavailable or full */ }
+}
+
+function clearDraft(){
+  try { localStorage.removeItem(DRAFT_KEY); } catch (e) { /* ignore */ }
+}
+
+// The stored draft for `iri`, if it is for this record and still differs from it.
+function draftFor(iri){
+  let d;
+  try { d = JSON.parse(localStorage.getItem(DRAFT_KEY) || 'null'); } catch (e) { return null; }
+  return d && d.iri === iri && d.fields ? d : null;
+}
+
+window.addEventListener('beforeunload', e => {
+  if (!fieldsDirty()) return;
+  saveDraft();
+  e.preventDefault();
+  e.returnValue = '';            // the UA shows its own wording; any value opts in
+});
+
 // True only when the field form is the panel's current content and differs from
 // how it opened. The baseline is cleared on save and on cancel, so a stale one
 // can never make an untouched record look edited.
@@ -253,19 +338,29 @@ function fieldsDirty(){
   return JSON.stringify(collectDiseaseFields()) !== _fieldsBaseline;
 }
 
-// Ask before throwing away edits. Returns false if the curator backs out.
-function confirmDiscardEdits(){
+// Ask before throwing away edits. Resolves false if the curator backs out.
+// Async because it is an inline dialog now rather than a blocking
+// window.confirm() (issue #118) — both call sites await it.
+async function confirmDiscardEdits(){
   if (!fieldsDirty()) return true;
-  return window.confirm('Discard your unsaved changes to this record?');
+  return UIDialog.confirm({
+    title: 'Discard your unsaved changes?',
+    detail: 'The edits you have made to this record have not been saved, and '
+          + 'leaving now loses them.',
+    confirmLabel: 'Discard them',
+    cancelLabel: 'Keep editing',
+    danger: true,
+  });
 }
 window.confirmDiscardEdits = confirmDiscardEdits;
 
 // The one way out of editing: Cancel, and the record header's "Done editing"
 // both land here, so edit mode and the form can never disagree about whether a
 // record is being curated.
-function cancelFieldEdits(){
-  if (!confirmDiscardEdits()) return;
+async function cancelFieldEdits(){
+  if (!await confirmDiscardEdits()) return;
   _fieldsBaseline = '';
+  clearDraft();                  // discarded on purpose — do not offer it back
   setMode('read');
 }
 window.cancelFieldEdits = cancelFieldEdits;
@@ -281,6 +376,7 @@ async function saveEdits(){
     });
     state.detail = updated;
     _fieldsBaseline = '';
+    clearDraft();
     closeRightPanel();
     renderDetail(updated);
     renderTab();
@@ -295,7 +391,7 @@ async function saveEdits(){
       toast('Saved — changelog updated');
     }
   } catch (err){
-    toast('Save failed: ' + err.message);
+    toastError(explainError(err, 'Could not save your changes'));
     saveBtns.forEach(b => { b.disabled = false; b.textContent = 'Save changes'; });
   }
 }
@@ -397,7 +493,7 @@ async function saveItem(category, item){
     afterItemChange(updated, category);
     toast(item ? 'Item updated' : 'Item added');
   } catch (err){
-    toast('Save failed: ' + err.message);
+    toastError(explainError(err, 'Could not save your changes'));
     $('#item-save').disabled = false; $('#item-save').textContent = 'Save';
   }
 }
@@ -526,10 +622,17 @@ async function saveNewDisease() {
   const def_source = _collectDefSrcs('nd_defsrc_list');
   const tissue_iris = [...document.querySelectorAll('#nd_tissues input:checked')].map(c => c.value);
 
-  if (!lbl)               { toast('Label is required'); return; }
-  if (!defn)              { toast('Definition is required'); return; }
-  if (!def_source.length) { toast('At least one definition source is required'); return; }
-  if (!tissue_iris.length){ toast('Select at least one target tissue'); return; }
+  // Every failure at once, inline next to its field. This returned on the first
+  // one, so a curator missing all four got four separate 2.6-second toasts
+  // across four submit attempts, each pinned to the bottom of the viewport and
+  // unconnected to the field it described (issue #99).
+  const form = $('#nd-overlay') || document.body;
+  const problems = [];
+  if (!lbl)                problems.push({ id: 'nd_label', message: 'Give the disease a name.' });
+  if (!defn)               problems.push({ id: 'nd_definition', message: 'Write a definition.' });
+  if (!def_source.length)  problems.push({ id: 'nd_defsrc_list', message: 'Cite at least one source for the definition.' });
+  if (!tissue_iris.length) problems.push({ id: 'nd_tissues', message: 'Choose at least one target tissue.' });
+  if (!UIDialog.showFieldErrors(form, problems)) return;
 
   state.editor = v('#nd_editor') || 'curator';
   const data = {
@@ -562,7 +665,7 @@ async function saveNewDisease() {
     await init();
     await selectDisease(created.iri);
   } catch (err) {
-    toast('Create failed: ' + err.message);
+    toastError(explainError(err, 'Could not create the disease'));
     btn.disabled = false; btn.textContent = 'Create disease';
   }
 }
@@ -571,13 +674,19 @@ async function saveNewDisease() {
 $('#new-disease-btn')?.addEventListener('click', () => openNewDiseaseModal());
 
 async function deleteItem(category, item){
-  if (!confirm(`Delete “${item.name}”? This removes it from the ontology.`)) return;
+  if (!await UIDialog.confirm({
+    title: `Delete “${item.name}”?`,
+    detail: 'This removes it from the ontology. The change is saved as a proposal '
+          + 'and reviewed before it goes live.',
+    confirmLabel: 'Delete it',
+    danger: true,
+  })) return;
   try {
     const updated = await api(`/api/v2/item/${encodeURIComponent(item.iri)}`, {
       method:'DELETE', body:{ category, disease: state.activeIri, editor: state.editor }});
     afterItemChange(updated, category);
     toast('Item deleted');
-  } catch (err){ toast('Delete failed: ' + err.message); }
+  } catch (err){ toastError(explainError(err, 'Could not delete that item')); }
 }
 
 function afterItemChange(updated, category){

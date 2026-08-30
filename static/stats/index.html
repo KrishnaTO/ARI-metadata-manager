@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ARI · Curation dashboard</title>
+<link rel="icon" href="../favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+<!-- Vendored, like the other pages: hospital and university networks block CDNs. -->
+<script src="../vendor/chart.umd.min.js?v=__ASSETV__"></script>
+<script src="boot.js?v=__ASSETV__"></script>
+<style>
+  /* Deliberately a small, self-contained page. It shares the palette with the
+     other two but not their layout: nothing here is a curation surface, so it
+     borrows no shell, no rail and no toolbar. */
+  :root {
+    --surface:#fff; --band:#FAFBFC; --head:#EAEEF2; --line:#DDE3EA; --line-strong:#C2CAD4;
+    --text:#0F2840; --mute:#5C6675; --faint:#6E7787;
+    --accent:#1F6B7A; --accent-fg:#fff;
+    --ok:#2F8F6F; --warn:#B5841A; --bad:#B7382D;
+    --sans:'IBM Plex Sans',system-ui,-apple-system,sans-serif;
+    --mono:'IBM Plex Mono',ui-monospace,monospace;
+  }
+  html[data-theme="dark"] {
+    --surface:#0F2840; --band:#0C2438; --head:#0C2438; --line:#1F3A58; --line-strong:#1F3A58;
+    --text:#E3E8EE; --mute:#8A93A2; --faint:#8A93A2;
+    --accent:#9DD3D6; --accent-fg:#081A2C;
+    --ok:#6FC5A3; --warn:#E0B45C; --bad:#E58279;
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; font:400 14px/1.55 var(--sans); color:var(--text); background:var(--band); }
+  a { color:var(--accent); }
+  header { display:flex; align-items:center; gap:12px; padding:0 20px; height:52px;
+           background:var(--surface); border-bottom:1px solid var(--line); }
+  header h1 { margin:0; font:600 15px var(--sans); }
+  .spacer { flex:1; }
+  .back { display:inline-flex; align-items:center; justify-content:center; width:28px; height:28px;
+          border:1px solid var(--line-strong); border-radius:6px; color:var(--text); text-decoration:none; }
+  .back:hover { border-color:var(--accent); color:var(--accent); }
+  .stamp { font:400 11.5px var(--mono); color:var(--faint); }
+  main { max-width:1180px; margin:0 auto; padding:20px; display:grid; gap:16px; }
+
+  .cards { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:12px; }
+  .card { background:var(--surface); border:1px solid var(--line); border-radius:10px; padding:14px 16px; }
+  .card .n { font:600 30px/1.1 var(--sans); letter-spacing:-.02em; }
+  .card .k { font:600 10px var(--sans); letter-spacing:.1em; text-transform:uppercase; color:var(--faint); }
+  .card .sub { margin-top:4px; font-size:12px; color:var(--mute); }
+  .card.warn .n { color:var(--warn); }
+  .card.bad .n  { color:var(--bad); }
+
+  section { background:var(--surface); border:1px solid var(--line); border-radius:10px; padding:16px; }
+  section h2 { margin:0 0 4px; font:600 13px var(--sans); }
+  section .why { margin:0 0 14px; font-size:12.5px; color:var(--mute); max-width:70ch; }
+  .chart { position:relative; height:260px; }
+
+  table { width:100%; border-collapse:collapse; font-size:13px; }
+  th, td { text-align:right; padding:7px 8px; border-bottom:1px solid var(--line); }
+  th:first-child, td:first-child { text-align:left; }
+  th { font:600 10px var(--sans); letter-spacing:.08em; text-transform:uppercase; color:var(--faint); }
+  td.who { font-family:var(--mono); font-size:12px; }
+  tbody tr:last-child td { border-bottom:0; }
+  .bar { display:block; height:5px; border-radius:99px; background:var(--head); overflow:hidden; }
+  .bar span { display:block; height:100%; background:var(--ok); }
+  .empty { color:var(--mute); font-size:13px; padding:8px 0; }
+  .scroll { overflow-x:auto; }
+</style>
+</head>
+<body>
+<header>
+  <a class="back" href="../" title="Back to the editor" aria-label="Back to the editor">←</a>
+  <h1>Curation dashboard</h1>
+  <span class="spacer"></span>
+  <span class="stamp" id="stamp"></span>
+</header>
+<main id="main">
+  <p class="empty">Loading…</p>
+</main>
+<script src="stats.js?v=__ASSETV__"></script>
+</body>
+</html>

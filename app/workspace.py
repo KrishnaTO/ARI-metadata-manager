@@ -142,6 +142,41 @@ def _save_ref_session(login, data: dict):
     atomic_store.write_json(_ref_session_path(login), data)
 
 
+# The three per-key maps in a review session. Every entry is one cell or one id,
+# so two windows editing different cells merge with no ambiguity at all.
+REF_SESSION_MAPS = ("reviewed", "edited", "published")
+
+
+def _merge_ref_session(login, patch: dict, branch, pr) -> dict:
+    """Fold one window's changes into the stored session.
+
+    The page used to PUT the *entire* state blob every 500ms and this wrote it
+    wholesale, so the last window to save replaced the whole document and any
+    verdict recorded in the other one vanished on the next reload (issue #114).
+    A patch carries only the keys that changed; ``None`` means the curator
+    cleared that verdict, which is the one thing a plain merge cannot express.
+
+    ``branch`` and ``pr`` are only ever set, never cleared: publishing is what
+    assigns them, and a background save from a window that loaded before the
+    publish must not reset them to null.
+    """
+    cur = _load_ref_session(login)
+    for name in REF_SESSION_MAPS:
+        target = dict(cur.get(name) or {})
+        for key, value in (patch.get(name) or {}).items():
+            if value is None:
+                target.pop(key, None)
+            else:
+                target[key] = value
+        cur[name] = target
+    if branch:
+        cur["branch"] = branch
+    if pr:
+        cur["pr"] = pr
+    _save_ref_session(login, cur)
+    return cur
+
+
 def _clear_ref_session(login):
     try:
         _ref_session_path(login).unlink()

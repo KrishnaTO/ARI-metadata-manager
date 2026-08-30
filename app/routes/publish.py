@@ -183,7 +183,10 @@ async def publish(request: Request, payload: dict = Body(default={})):
     if any_review:
         svc.log_xref_review(confirmed, flagged, editor=login, absent=absent)
         if apply_enrich:
-            got = svc.apply_enrichment(confirmed, editor=login)
+            # Per-item selection from the preview drawer; absent means "all",
+            # which is what the single all-or-nothing checkbox used to mean.
+            got = svc.apply_enrichment(confirmed, editor=login,
+                                       selected=payload.get("enrichment_selection"))
             if got["diseases"]:
                 enrich_note = (f"## Enrichment\n\nFolded confirmed cross-references into "
                                f"{got['diseases']} disease(s): +{got['synonyms_added']} "
