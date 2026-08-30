@@ -129,7 +129,10 @@ async def create_disease(request: Request, payload: dict = Body(...)):
     r = svc.create_disease(data, editor=editor)
     stores.ID_AUTHORS.record(r["iri"], {}, svc.get_xrefs(r["iri"]), sessions._login(request))
     workspace._mark_dirty(request)
-    workspace._touch(request, r["iri"])
+    # The parent gains a changelog entry naming the subtype, so it is part of this
+    # session's work too — without this the pull request describes the child and
+    # says nothing about the record it was split out of (issue #24).
+    workspace._touch(request, r["iri"], data.get("parent_iri"))
     return r
 
 

@@ -165,9 +165,13 @@
   #sel-others.on { display:flex; }
 
   /* Note bar — says why an action was refused (e.g. confirming your own id). */
-  #note { display:none; padding:9px 16px; font-size:12px; flex-shrink:0;
+  #note { display:none; padding:9px 16px; font-size:12px; line-height:1.55; flex-shrink:0;
           background:var(--bad-bg); color:var(--bad-fg); border-bottom:1px solid var(--bad-solid); }
   #note.open { display:block; }
+  /* The same bar carries confirmations as well as refusals — a subtype being
+     created is not an error, and colouring it like one said it was. */
+  #note.ok { background:var(--ok-bg); color:var(--ok-fg); border-bottom-color:var(--ok-solid); }
+  #note a { color:inherit; }
 
   /* Pending drawer — this session's unpublished verdicts, grouped by disease. */
   #pending-panel { display:none; padding:12px 16px; border-bottom:1px solid var(--line);

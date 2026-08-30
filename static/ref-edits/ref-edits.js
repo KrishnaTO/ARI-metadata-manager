@@ -98,6 +98,7 @@
   function note(msg) {
     const el = $('#note');
     el.textContent = msg;
+    el.classList.remove('ok');
     el.classList.add('open');
     clearTimeout(_noteTimer);
     _noteTimer = setTimeout(() => el.classList.remove('open'), 6000);
@@ -961,7 +962,12 @@
       ROWS = await api('xrefs');           // refresh so the new subtype appears in the matrix
       closeSubtypeOverlay();
       renderMatrix(); counts();
-      alert('Created subtype: ' + created.name);
+      // Creating a subtype here writes it to this curator's working copy — it does
+      // not open a pull request, and nothing said so: the old message was
+      // "Created subtype: X" and left the curator to guess whether it had been
+      // submitted (issue #24). Say what happened, and where to submit it.
+      const parent = ROWS.find(x => x.iri === parentIri);
+      subtypeNote(created, parent);
     } catch (e) {
       alert('Create failed: ' + e.message);
       btn.disabled = false; btn.textContent = '＋ Create subtype';
@@ -1062,6 +1068,25 @@
       // attempt, which the server can recognise if the first one actually landed.
       alert('Publish failed: ' + e.message); reflectPr(); counts();
     }
+  }
+
+  // What creating a subtype actually did, and what is left to do. The record is
+  // in this session's working copy along with everything else, so it goes out
+  // with the next submission from the editor — no redirect needed, which is the
+  // point: a curator can carry on reviewing and submit later.
+  function subtypeNote(created, parent) {
+    const el = $('#note');
+    const editorUrl = new URL('../#/disease/' + enc(created.iri), location.href).href;
+    el.innerHTML =
+      `<strong>${esc(created.name)}</strong> created` +
+      (parent ? ` as a clinical subtype of <strong>${esc(parent.name)}</strong>` : '') +
+      ` (${esc(created.ari_id || '')}). It is in your working copy, and both records ` +
+      `now carry a changelog entry saying so. It goes out with your next submission — ` +
+      `<a href="${esc(editorUrl)}" target="_blank" rel="noopener">open it in the editor</a> ` +
+      `to fill in the rest or submit.`;
+    el.classList.add('open', 'ok');
+    clearTimeout(_noteTimer);
+    _noteTimer = setTimeout(() => el.classList.remove('open', 'ok'), 14000);
   }
 
   // Draggable splitter — adjust side-panel width on all screens (mouse + touch).

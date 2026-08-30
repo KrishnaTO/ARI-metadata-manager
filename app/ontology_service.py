@@ -844,6 +844,7 @@ class OntologyService:
 
         # Parent disease (object property)
         parent_iri = str(data.get("parent_iri", "")).strip()
+        parent = None
         if parent_iri:
             par_prop = self.world[base + "hasParentDisease"]
             parent = self.world[parent_iri]
@@ -882,7 +883,15 @@ class OntologyService:
                         except (ValueError, TypeError):
                             pass
 
-        self._append_changelog(new_d, editor, f"Created: {lbl}")
+        # Name the disease this was started from, on both records. "Created: X"
+        # alone left no trace of where a subtype came from — not on the child, and
+        # nothing at all on the parent, so a curator opening the parent could not
+        # see that a subtype had been split out of it (issue #24).
+        parent_label = self._get_label(parent) if parent is not None else ""
+        self._append_changelog(new_d, editor, f"Created: {lbl}" +
+                               (f" — clinical subtype of {parent_label}" if parent_label else ""))
+        if parent is not None:
+            self._append_changelog(parent, editor, f"Added clinical subtype: {lbl} ({ari_id})")
         self._save()
         return self.get_disease_detail(new_d.iri)
 
