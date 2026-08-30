@@ -10,6 +10,7 @@ import time
 from collections import OrderedDict
 from contextlib import asynccontextmanager
 from pathlib import Path
+from urllib.parse import urlsplit, urlunsplit
 
 from fastapi import Body, FastAPI, HTTPException, Request
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, StreamingResponse
@@ -42,7 +43,10 @@ def _load_dotenv():
             if not line or line.startswith("#") or "=" not in line:
                 continue
             k, v = line.split("=", 1)
-            os.environ.setdefault(k.strip(), v.strip())
+            v = v.strip()
+            if len(v) >= 2 and v[0] == v[-1] and v[0] in "\"'":
+                v = v[1:-1]          # SESSION_SECRET="abc" must not load the quotes
+            os.environ.setdefault(k.strip(), v)
 
 
 _load_dotenv()
@@ -62,6 +66,7 @@ async def lifespan(app: FastAPI):
     async def _sweep_loop():
         while True:
             _sweep_user_data()
+            _sweep_sessions()
             await asyncio.sleep(6 * 3600)   # every 6 hours
     task = asyncio.create_task(_sweep_loop())
     try:
@@ -200,12 +205,34 @@ def reload_base():
     global BASE
     BASE = OntologyService(ONTOLOGY_FILE)
 
+def _session_secret() -> str:
+    """The cookie signing key.
+
+    A per-process random key signs every curator out on each restart — and the
+    deploy timer restarts every ten minutes — while their tokens accumulate in
+    the session store forever. So it is required wherever sign-in is enabled.
+    """
+    secret = os.environ.get("SESSION_SECRET", "")
+    if secret:
+        return secret
+    if GH_ENABLED:
+        raise RuntimeError(
+            "SESSION_SECRET is required when GitHub sign-in is configured. "
+            "Generate one with `python -c \"import secrets; print(secrets.token_hex(32))\"` "
+            "and set it in .env — otherwise every restart signs all curators out."
+        )
+    return secrets.token_hex(32)      # sign-in disabled: local read-only use
+
+
 app.add_middleware(
     SessionMiddleware,
-    secret_key=os.environ.get("SESSION_SECRET", secrets.token_hex(32)),
+    secret_key=_session_secret(),
     same_site="lax",
     https_only=APP_BASE_URL.startswith("https"),
 )
+
+# Sign-ins older than this are swept by the same loop that sweeps working copies.
+SESSION_TTL_DAYS = int(os.environ.get("SESSION_TTL_DAYS", "30"))
 
 
 def _user(request: Request):
@@ -304,9 +331,16 @@ ASSIGN_ADMINS = [s.strip() for s in os.environ.get("ASSIGN_ADMINS", "").split(",
 
 
 def _require_login(request: Request) -> str:
+    """The signed-in curator, or a 401.
+
+    401 rather than a bare ValueError (which the global handler turns into a
+    400): "you are not signed in" is a different thing from "your request was
+    malformed", and the client shows a sign-in prompt for one and an error for
+    the other. Matches ``service_for(write=True)``.
+    """
     login = _login(request)
     if not login:
-        raise ValueError("Sign in with GitHub to use your review queue")
+        raise HTTPException(status_code=401, detail="Sign in with GitHub to do this")
     return login
 
 
@@ -486,6 +520,50 @@ def working_copy_expiry(login: str) -> dict | None:
     }
 
 
+def _sweep_sessions():
+    """Drop sign-ins older than the TTL.
+
+    Sessions only ever left this store on an explicit logout, so it grew into a
+    file of long-lived GitHub tokens for everyone who had ever signed in.
+    """
+    if SESSION_TTL_DAYS <= 0 or not SESSIONS:
+        return
+    cutoff = time.time() - SESSION_TTL_DAYS * 86400
+    stale = [sid for sid, v in SESSIONS.items() if v.get("created", 0) < cutoff]
+    for sid in stale:
+        SESSIONS.pop(sid, None)
+    if stale:
+        log.info("Swept %d session(s) older than %d days", len(stale), SESSION_TTL_DAYS)
+        _save_sessions()
+
+
+@app.middleware("http")
+async def security_headers(request: Request, call_next):
+    """Baseline response headers.
+
+    Set in the app rather than only in nginx so a local or non-nginx deployment
+    is covered too, and so the policy lives next to the markup it constrains.
+    """
+    response = await call_next(request)
+    response.headers.setdefault("X-Content-Type-Options", "nosniff")
+    response.headers.setdefault("X-Frame-Options", "DENY")
+    response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
+    response.headers.setdefault(
+        "Content-Security-Policy",
+        "default-src 'self'; "
+        "script-src 'self' https://cdn.jsdelivr.net; "
+        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
+        "font-src 'self' https://fonts.gstatic.com; "
+        "img-src 'self' data:; "
+        "connect-src 'self'; "
+        "frame-src https:; "          # the review panel embeds source databases
+        "frame-ancestors 'none'; "
+        "base-uri 'self'; "
+        "form-action 'self'",
+    )
+    return response
+
+
 @app.middleware("http")
 async def no_cache_assets(request: Request, call_next):
     """Always revalidate the app's HTML/CSS/JS so edits are picked up on reload."""
@@ -609,11 +687,17 @@ async def releases_list(request: Request):
 
 @app.post("/api/v2/releases")
 async def create_release(request: Request, payload: dict = Body(default={})):
-    """Admin action: cut a versioned release snapshot of the ontology."""
+    """Admin action: cut a versioned release snapshot of the ontology.
+
+    Cutting a release also archives every non-kept feedback entry, so this is
+    gated on ``ASSIGN_ADMINS`` rather than on merely being signed in."""
+    login = _require_login(request)
+    if not _can_assign_others(login):
+        raise ValueError(f"@{login} is not an administrator; releases are cut by "
+                         f"{', '.join('@' + a for a in ASSIGN_ADMINS)}")
     version = payload.get("version", "")
     notes = payload.get("notes", "")
-    editor = payload.get("editor", "admin")
-    return service_for(request, write=True).create_release(version=version, notes=notes, editor=editor)
+    return service_for(request, write=True).create_release(version=version, notes=notes, editor=login)
 
 
 @app.get("/api/v2/xrefs")
@@ -663,11 +747,13 @@ async def mappings(request: Request):
 
 
 @app.get("/api/v2/id-authors")
-async def id_authors():
+async def id_authors(request: Request):
     """Which curator added each cross-reference id: ``"<iri>|<db>|<id>" -> login``.
 
     The review page uses this to separate duties — the curator who added an id
-    may not also confirm the mapping it stands for."""
+    may not also confirm the mapping it stands for. It is the evidence base for
+    that boundary, so it needs a session."""
+    _require_login(request)
     return ID_AUTHORS.authors()
 
 
@@ -738,23 +824,43 @@ async def feedback_list(disease: str = ""):
     return BASE.feedback.list(disease or None)
 
 
+def _own_feedback(request: Request, fid: str) -> str:
+    """The caller, having checked they may edit this entry.
+
+    Feedback is attributable curator commentary, so an entry is editable by its
+    own author or by an admin — never by whoever names themselves in the body.
+    """
+    login = _require_login(request)
+    entry = next((x for x in BASE.feedback.list() if x.get("id") == fid), None)
+    if entry is None:
+        raise KeyError(fid)
+    if entry.get("author") != login and not _can_assign_others(login):
+        raise ValueError(f"@{login} may only change their own feedback")
+    return login
+
+
 @app.post("/api/v2/feedback")
-async def feedback_add(payload: dict = Body(...)):
-    """Add feedback for a term. Body: {disease, term, message, keep, author}."""
+async def feedback_add(request: Request, payload: dict = Body(...)):
+    """Add feedback for a term. Body: {disease, term, message, keep}.
+
+    The author is the signed-in curator; it is never taken from the payload."""
+    login = _require_login(request)
     return BASE.feedback.add(
         payload.get("disease", ""), payload.get("term", ""), payload.get("message", ""),
-        keep=payload.get("keep", False), author=payload.get("author", "anonymous"))
+        keep=payload.get("keep", False), author=login)
 
 
 @app.put("/api/v2/feedback/{fid}")
-async def feedback_update(fid: str, payload: dict = Body(...)):
-    """Edit feedback. Body: {message?, keep?, author?}."""
+async def feedback_update(request: Request, fid: str, payload: dict = Body(...)):
+    """Edit your own feedback. Body: {message?, keep?}."""
+    _own_feedback(request, fid)
     return BASE.feedback.update(fid, message=payload.get("message"),
-                                   keep=payload.get("keep"), author=payload.get("author"))
+                                   keep=payload.get("keep"))
 
 
 @app.delete("/api/v2/feedback/{fid}")
-async def feedback_delete(fid: str):
+async def feedback_delete(request: Request, fid: str):
+    _own_feedback(request, fid)
     return BASE.feedback.delete(fid)
 
 
@@ -793,8 +899,18 @@ async def me(request: Request):
 
 
 def _safe_next(nxt: str) -> str:
-    """Only allow same-origin relative paths (avoid open redirects)."""
-    return nxt if nxt.startswith("/") and not nxt.startswith("//") else "/"
+    """Only allow same-origin relative paths (avoid open redirects).
+
+    Prefix-matching on "/" is not enough: browsers normalise backslashes to
+    forward slashes, so a backslash-prefixed path reads as a protocol-relative
+    URL and leaves the site. Parse it and require an empty scheme and netloc.
+    """
+    if not nxt or "\\" in nxt or not nxt.startswith("/"):
+        return "/"
+    parts = urlsplit(nxt)
+    if parts.scheme or parts.netloc:
+        return "/"
+    return urlunsplit(("", "", parts.path, parts.query, parts.fragment)) or "/"
 
 
 @app.get("/auth/github")
@@ -817,8 +933,13 @@ async def auth_callback(request: Request, code: str = "", state: str = ""):
     identity = await gh.get_identity(token)
     if ALLOWED_LOGINS and identity["login"] not in ALLOWED_LOGINS:
         return JSONResponse(status_code=403, content={"detail": f"@{identity['login']} is not allowed"})
+    if not ALLOWED_LOGINS:
+        # No allow-list means anyone with repo access can sign in. That is the
+        # dev default; in production it should at least be visible in the log.
+        log.warning("Sign-in by @%s with ALLOWED_LOGINS unset — any GitHub user "
+                    "with repo access can sign in", identity["login"])
     sid = secrets.token_urlsafe(24)
-    SESSIONS[sid] = {"token": token, "identity": identity}
+    SESSIONS[sid] = {"token": token, "identity": identity, "created": time.time()}
     _save_sessions()
     request.session["sid"] = sid
     request.session.pop("oauth_state", None)

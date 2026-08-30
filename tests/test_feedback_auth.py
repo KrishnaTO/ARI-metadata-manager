@@ -8,7 +8,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 import app.main as main
-from app.feedback_service import FeedbackStore, MAX_MESSAGE_CHARS
+from app.feedback_service import MAX_MESSAGE_CHARS, FeedbackStore
 
 client = TestClient(main.app)
 
