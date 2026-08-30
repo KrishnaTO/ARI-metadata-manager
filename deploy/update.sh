@@ -27,9 +27,27 @@ fi
 git checkout --quiet "$BRANCH"
 git reset --hard --quiet "origin/$BRANCH"
 after="$(git rev-parse HEAD)"
-if [ "$before" != "$after" ]; then
-  sudo systemctl restart ari-mm           # only restart when the branch actually changed
-  echo "Updated to origin/$BRANCH @ $(git rev-parse --short HEAD); restarted."
-else
+if [ "$before" = "$after" ]; then
   echo "Already up to date (@ $(git rev-parse --short HEAD)); no restart."
+  exit 0
 fi
+
+# Do not restart out from under a curator who has unpublished work in flight.
+# A restart drops the in-memory per-user services; the working copies on disk
+# survive it, but the curator loses their in-progress request and their review
+# session's unsaved tail. This defers the restart to the next timer tick, so an
+# idle window is found within ten minutes rather than the deploy interrupting
+# someone mid-edit. Set ARI_FORCE_RESTART=1 to override for an urgent fix.
+if [ "${ARI_FORCE_RESTART:-0}" != "1" ] && command -v curl >/dev/null 2>&1; then
+  health="$(curl -fsS --max-time 5 http://127.0.0.1:8001/healthz 2>/dev/null || true)"
+  # worlds_in_memory > 0 means at least one curator has edited since the last
+  # restart. jq is not assumed; this reads the one field with sed.
+  worlds="$(printf '%s' "$health" | sed -n 's/.*"worlds_in_memory":[[:space:]]*\([0-9]*\).*/\1/p')"
+  if [ -n "$worlds" ] && [ "$worlds" -gt 0 ]; then
+    echo "Code updated to $(git rev-parse --short HEAD), but $worlds curator working"          "cop(ies) are live — deferring the restart to the next run." >&2
+    exit 0
+  fi
+fi
+
+sudo systemctl restart ari-mm
+echo "Updated to origin/$BRANCH @ $(git rev-parse --short HEAD); restarted."

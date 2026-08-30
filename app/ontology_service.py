@@ -5,7 +5,7 @@ import logging
 import re
 import shutil
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 import types
 
@@ -911,7 +911,7 @@ class OntologyService:
         was recorded nowhere while the caller still reported success. It is
         declared on demand, the same way every other annotation writer here does.
         """
-        ts = datetime.now().strftime("%Y-%m-%d %H:%M")
+        ts = datetime.now(timezone.utc).isoformat(timespec="seconds")
         clog = self._ensure_annotation_property("ARI_ChangeLog")
         clog[disease_e] = list(clog[disease_e]) + [f"{ts} | {editor} | {msg}"]
 
@@ -1175,8 +1175,8 @@ class OntologyService:
         """Snapshot the current ontology into releases/, stamp the version onto every
         disease, and record a per-disease changelog entry."""
         version = version.strip() or self._next_version()
-        ts_human = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        ts_file = datetime.now().strftime("%Y%m%d_%H%M%S")
+        ts_human = datetime.now(timezone.utc).isoformat(timespec="seconds")
+        ts_file = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
 
         # Stamp version + changelog onto every disease before snapshotting
         base = self.base
