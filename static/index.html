@@ -33,7 +33,7 @@
   </a>
   <div class="search-wrap">
     <svg class="search-icon" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M16.5 16.5 21 21"/></svg>
-    <input id="search" placeholder="Search diseases, synonyms, codes" autocomplete="off">
+    <input id="search" role="combobox" aria-expanded="false" aria-controls="search-results" aria-autocomplete="list" placeholder="Search diseases, synonyms, codes" autocomplete="off">
     <div id="search-results" class="dropdown hidden"></div>
   </div>
   <!-- Relative href: the app is mounted under a path prefix in production. -->
@@ -67,7 +67,7 @@
       <button class="tab active" data-view="alphabetical">A–Z</button>
       <button class="tab" data-view="tissue">Tissue</button>
     </div>
-    <div class="pane" id="tree-pane"><div class="loading">Loading...</div></div>
+    <div class="pane" id="tree-pane" role="tree" aria-label="Disease index"><div class="loading">Loading...</div></div>
     <div class="rail-legend">
       <span class="rail-legend-key"><span class="ai-dot"></span>Confirmed autoimmune</span>
       <label class="rail-filter" title="Show only diseases confirmed autoimmune">
