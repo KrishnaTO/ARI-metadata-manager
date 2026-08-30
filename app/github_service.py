@@ -19,6 +19,68 @@ API = "https://api.github.com"
 log = logging.getLogger(__name__)
 
 
+def _is_fork_of(response, owner: str, repo: str) -> bool:
+    """Whether ``response`` describes the user's fork of ``owner/repo``.
+
+    Matching on the repository *name* alone is not enough — plenty of people own
+    an unrelated repo called the same thing."""
+    if response.status_code != 200:
+        return False
+    j = response.json()
+    parent = (j.get("parent") or {}).get("full_name", "")
+    return bool(j.get("fork")) and parent.lower() == f"{owner}/{repo}".lower()
+
+
+# GitHub failures a retry can actually clear: a secondary rate limit, an abuse
+# throttle, or a transient 5xx. Anything else is a real answer and is raised.
+_RETRYABLE = {403, 429, 500, 502, 503, 504}
+_MAX_ATTEMPTS = 4
+
+
+async def _get(client, url, **kw):
+    """GET with exponential backoff, honouring Retry-After.
+
+    Reads are idempotent, so retrying one is always safe. A secondary rate limit
+    used to surface as `Publish failed: You have exceeded a secondary rate
+    limit` in an alert(), with no retry and nothing the curator could do.
+    """
+    for attempt in range(_MAX_ATTEMPTS):
+        r = await client.get(url, **kw)
+        if r.status_code not in _RETRYABLE or attempt == _MAX_ATTEMPTS - 1:
+            return r
+        delay = float(r.headers.get("Retry-After") or 2 ** attempt)
+        log.warning("GitHub %s on %s; retrying in %.0fs (attempt %d/%d)",
+                    r.status_code, url, delay, attempt + 1, _MAX_ATTEMPTS)
+        await asyncio.sleep(min(delay, 30))
+    return r
+
+
+def explain(status: int, message: str) -> str:
+    """A GitHub failure as a sentence a curator can act on.
+
+    The raw API message reached an `alert()` unchanged, which for the common
+    failures said nothing about what to do next.
+    """
+    m = (message or "").lower()
+    if "secondary rate limit" in m or status == 429:
+        return ("GitHub is rate-limiting this account. Your work is saved — wait a "
+                "minute and publish again.")
+    if status == 401:
+        return "Your GitHub sign-in has expired. Sign out and back in, then publish again."
+    if status == 403 and "rate limit" in m:
+        return ("GitHub's hourly API limit for this account is used up. Your work is "
+                "saved — try again after the hour turns.")
+    if status == 403:
+        return ("GitHub refused the change — you may not have write access to this "
+                "repository. Your work is saved.")
+    if status == 404:
+        return ("GitHub could not find the repository or branch this publishes to. "
+                "Your work is saved; tell an administrator.")
+    if status in (500, 502, 503, 504):
+        return "GitHub is having trouble right now. Your work is saved — try again shortly."
+    return message or f"GitHub returned {status}."
+
+
 def slugify(text: str) -> str:
     s = re.sub(r"[^a-z0-9]+", "-", (text or "").lower()).strip("-")
     return (s or "disease")[:60]
@@ -73,6 +135,28 @@ async def get_identity(token: str) -> dict:
             "email": email, "avatar": user.get("avatar_url", "")}
 
 
+async def _catch_up(client, c_owner: str, c_repo: str, branch: str,
+                    base_branch: str, base_sha: str) -> None:
+    """Merge ``base_sha`` into ``branch`` when upstream has moved on.
+
+    Refuses on a conflict rather than guessing: a curator has to be told, and
+    resolving someone's ontology merge silently is not something to attempt.
+    """
+    r = await client.post(f"{API}/repos/{c_owner}/{c_repo}/merges", json={
+        "base": branch, "head": base_sha,
+        "commit_message": f"Merge {base_branch} into {branch}",
+    })
+    if r.status_code == 204:
+        return                                  # already contains the base
+    if r.status_code == 409:
+        raise ValueError(
+            f"'{branch}' conflicts with {base_branch}, which has moved since this "
+            f"review started. Start a new submission — your verdicts are saved.")
+    if r.status_code >= 300:
+        raise ValueError(explain(r.status_code, (r.json() or {}).get("message", "")))
+    log.info("Merged %s into %s before committing", base_branch, branch)
+
+
 async def publish_file(*, token: str, owner: str, repo: str, base_branch: str, pr_body: str = "",
                        extra_files: dict = None, path: str, content_bytes: bytes,
                        disease_name: str, message: str, identity: dict,
@@ -92,22 +176,32 @@ async def publish_file(*, token: str, owner: str, repo: str, base_branch: str, p
 
     async with httpx.AsyncClient(timeout=30, headers=_headers(token)) as c:
         # Where can this user push? Upstream if collaborator, else their fork.
-        info = await c.get(f"{API}/repos/{owner}/{repo}")
+        info = await _get(c, f"{API}/repos/{owner}/{repo}")
         can_push = bool(info.json().get("permissions", {}).get("push")) if info.status_code == 200 else False
 
         if can_push:
             c_owner, c_repo = owner, repo
         else:
             login = identity["login"]
-            fk = await c.get(f"{API}/repos/{login}/{repo}")
-            if fk.status_code == 404:
+            fk = await _get(c, f"{API}/repos/{login}/{repo}")
+            if not _is_fork_of(fk, owner, repo):
+                # A 200 here used to be taken as "the fork exists", so a curator
+                # who happened to own an unrelated repository of the same name
+                # got their branch and commits pushed into it.
+                if fk.status_code == 200:
+                    raise ValueError(
+                        f"You already own a repository called {login}/{repo}, and it is not a "
+                        f"fork of {owner}/{repo}. Rename it, or ask for push access to the "
+                        f"main repository, and try again.")
+                log.info("Creating @%s's fork of %s/%s — GitHub takes about 30 "
+                         "seconds the first time", login, owner, repo)
                 cr = await c.post(f"{API}/repos/{owner}/{repo}/forks")
                 if cr.status_code >= 300:
                     raise ValueError(f"Could not fork {owner}/{repo}: {cr.json().get('message')}")
                 for _ in range(15):                       # forks are async; wait for it
                     await asyncio.sleep(2)
-                    fk = await c.get(f"{API}/repos/{login}/{repo}")
-                    if fk.status_code == 200:
+                    fk = await _get(c, f"{API}/repos/{login}/{repo}")
+                    if _is_fork_of(fk, owner, repo):
                         break
                 else:
                     raise ValueError("Your fork is still being created — try publishing again in a moment.")
@@ -115,34 +209,39 @@ async def publish_file(*, token: str, owner: str, repo: str, base_branch: str, p
             c_owner, c_repo = fj["owner"]["login"], fj["name"]
 
         # Base sha always comes from UPSTREAM so the branch is current even on a stale fork.
-        base = (await c.get(f"{API}/repos/{owner}/{repo}/git/ref/heads/{base_branch}")).json()
+        base = (await _get(c, f"{API}/repos/{owner}/{repo}/git/ref/heads/{base_branch}")).json()
         if "object" not in base:
             raise ValueError(f"Base branch '{base_branch}' not found: {base.get('message')}")
         base_sha = base["object"]["sha"]
 
         branch = None
         if reuse_branch:
-            ref = await c.get(f"{API}/repos/{c_owner}/{c_repo}/git/ref/heads/{reuse_branch}")
+            ref = await _get(c, f"{API}/repos/{c_owner}/{c_repo}/git/ref/heads/{reuse_branch}")
             if ref.status_code == 200 and "object" in ref.json():
                 branch = reuse_branch
+                # base_sha was only ever used to *create* a branch, so a reused
+                # one was built on its own tip however far upstream had moved.
+                # A long review session then produced a PR whose diff carried
+                # unrelated drift. Merge the base in first.
+                await _catch_up(c, c_owner, c_repo, branch, base_branch, base_sha)
         if not branch:
             branch = f"edit/{identity['login']}/{slugify(disease_name)}-{int(time.time())}"
             r = await c.post(f"{API}/repos/{c_owner}/{c_repo}/git/refs",
                              json={"ref": f"refs/heads/{branch}", "sha": base_sha})
             if r.status_code >= 300:
-                raise ValueError(f"Could not create branch: {r.json().get('message')}")
+                raise ValueError(explain(r.status_code, r.json().get("message", "")))
         head_label = f"{c_owner}:{branch}"
 
         # Commit the ontology + any extra files (mapping tables) as a single
         # commit via the git data API, rather than one PUT /contents per file.
         files = {path: content_bytes, **(extra_files or {})}
 
-        tip = await c.get(f"{API}/repos/{c_owner}/{c_repo}/git/ref/heads/{branch}")
+        tip = await _get(c, f"{API}/repos/{c_owner}/{c_repo}/git/ref/heads/{branch}")
         if tip.status_code != 200 or "object" not in tip.json():
             raise ValueError(f"Could not read branch tip: {tip.json().get('message')}")
         parent_sha = tip.json()["object"]["sha"]
 
-        parent_commit = (await c.get(f"{API}/repos/{c_owner}/{c_repo}/git/commits/{parent_sha}")).json()
+        parent_commit = (await _get(c, f"{API}/repos/{c_owner}/{c_repo}/git/commits/{parent_sha}")).json()
         base_tree_sha = parent_commit["tree"]["sha"]
 
         tree_entries = []
@@ -151,14 +250,14 @@ async def publish_file(*, token: str, owner: str, repo: str, base_branch: str, p
                 "content": base64.b64encode(fbytes).decode(), "encoding": "base64",
             })
             if blob.status_code >= 300:
-                raise ValueError(f"Blob creation failed for {fpath}: {blob.json().get('message')}")
+                raise ValueError(explain(blob.status_code, blob.json().get("message", "")))
             tree_entries.append({"path": fpath, "mode": "100644", "type": "blob", "sha": blob.json()["sha"]})
 
         tree = await c.post(f"{API}/repos/{c_owner}/{c_repo}/git/trees", json={
             "base_tree": base_tree_sha, "tree": tree_entries,
         })
         if tree.status_code >= 300:
-            raise ValueError(f"Tree creation failed: {tree.json().get('message')}")
+            raise ValueError(explain(tree.status_code, tree.json().get("message", "")))
 
         commit = await c.post(f"{API}/repos/{c_owner}/{c_repo}/git/commits", json={
             "message": message or f"Update {disease_name}",
@@ -166,18 +265,24 @@ async def publish_file(*, token: str, owner: str, repo: str, base_branch: str, p
             "author": _author(), "committer": _author(),
         })
         if commit.status_code >= 300:
-            raise ValueError(f"Commit failed: {commit.json().get('message')}")
+            raise ValueError(explain(commit.status_code, commit.json().get("message", "")))
 
         upd = await c.patch(f"{API}/repos/{c_owner}/{c_repo}/git/refs/heads/{branch}", json={
             "sha": commit.json()["sha"],
         })
         if upd.status_code >= 300:
-            raise ValueError(f"Could not update branch: {upd.json().get('message')}")
+            raise ValueError(explain(upd.status_code, upd.json().get("message", "")))
 
-        # PR is always opened/looked up on UPSTREAM; head may be a fork (owner:branch)
-        found = await c.get(f"{API}/repos/{owner}/{repo}/pulls",
-                            params={"head": head_label, "state": "open"})
-        prs = found.json() if found.status_code == 200 else []
+        # PR is always opened/looked up on UPSTREAM; head may be a fork (owner:branch).
+        # `state: all`, not `open`: a tracked PR that had been merged or closed
+        # was invisible here, so a *new* PR was opened while the client's
+        # sessionPr still pointed at the old number and the header still read
+        # "Publish to PR #N" — the curator could not tell where their work went.
+        found = await _get(c, f"{API}/repos/{owner}/{repo}/pulls",
+                           params={"head": head_label, "state": "all"})
+        all_prs = found.json() if found.status_code == 200 else []
+        prs = [p for p in all_prs if p.get("state") == "open"]
+        closed = [p for p in all_prs if p.get("state") != "open"]
         if prs:
             prj = prs[0]
             if message:
@@ -189,7 +294,7 @@ async def publish_file(*, token: str, owner: str, repo: str, base_branch: str, p
                 "body": pr_body or f"Edit to **{disease_name}** by @{identity['login']}.",
             })
             if pr.status_code >= 300:
-                raise ValueError(f"PR creation failed: {pr.json().get('message')}")
+                raise ValueError(explain(pr.status_code, pr.json().get("message", "")))
             prj = pr.json()
 
         # apply labels on the upstream PR (best effort; outside contributors can't label)
@@ -201,7 +306,13 @@ async def publish_file(*, token: str, owner: str, repo: str, base_branch: str, p
                          json={"labels": labels})
         except Exception as e:
             log.debug("Could not apply PR labels (best-effort; outside contributors cannot label): %s", e)
-    return {"branch": branch, "pr_number": prj["number"], "pr_url": prj["html_url"], "fork": (not can_push)}
+    # `superseded` names a merged/closed PR this branch used to feed, so the
+    # client can replace a stale pointer instead of silently tracking the wrong one.
+    superseded = ([{"number": p["number"], "url": p["html_url"],
+                    "merged": bool(p.get("merged_at"))} for p in closed]
+                  if not prs and closed else [])
+    return {"branch": branch, "pr_number": prj["number"], "pr_url": prj["html_url"],
+            "fork": (not can_push), "superseded": superseded}
 
 
 async def list_branches(token: str | None, owner: str, repo: str) -> list[str]:
