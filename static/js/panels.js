@@ -160,8 +160,11 @@ function renderSymptoms(d, panel){
       `<td>${esc(first(s.description))}</td><td class="src">${hpoLink} ${src}</td></tr>`;
   }
   html += `</tbody></table>`;
-  html += `<div class="section-label">Symptom word cloud</div><div class="chart-container" id="wordcloud-container"><svg class="wordcloud" id="wordcloud"></svg></div>`;
+  if (wordCloudOn()){
+    html += `<div class="section-label">Symptom word cloud</div><div class="chart-container" id="wordcloud-container"><svg class="wordcloud" id="wordcloud"></svg></div>`;
+  }
   panel.innerHTML = html;
+  if (!wordCloudOn()) return;
 
   const words = d.symptoms.filter(s=>!s.obsolete).map(s => {
     const l = (first(s.likelihood)||'').toLowerCase();

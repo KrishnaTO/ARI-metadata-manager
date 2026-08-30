@@ -467,18 +467,26 @@
   // (see initColGrip) is clamped to half the matrix area and remembered per browser.
   let diseaseW = null;
   const DISEASE_MIN = 150;
-  // body carries a --ui-zoom scale, so pointer coordinates are that much larger than
-  // the CSS pixels the grid track is expressed in — divide before using them as width.
-  const uiZoom = () => Number(getComputedStyle(document.documentElement).getPropertyValue('--ui-zoom')) || 1;
-  const diseaseMax = () => document.querySelector('.body').getBoundingClientRect().width / uiZoom() / 2;
+  // What a database column needs before its header label starts truncating —
+  // ORPHANET is the longest at ~62px.
+  const DB_READABLE = 64;
+  const diseaseMax = () => document.querySelector('.body').getBoundingClientRect().width / 2;
 
   // Column tracks: the disease column plus one equal track per database. The 44px
   // floor is what makes the matrix scroll instead of collapse when the panel opens
   // or the disease column is dragged wide.
+  //
+  // The disease column is the one that gives way. Opening the review panel used to
+  // leave the 413px name column untouched and crush the nine database columns to
+  // 55px each — the column you no longer need (you know which disease you opened)
+  // keeping its width while the columns you are comparing collided. The dragged
+  // width is an upper bound now, not a floor (issue #97).
   function applyGrid() {
     const compact = document.documentElement.dataset.density === 'compact';
     if (diseaseW !== null) diseaseW = Math.max(DISEASE_MIN, Math.min(diseaseMax(), diseaseW));
-    const w = diseaseW === null ? (compact ? 250 : 330) : diseaseW;
+    let w = diseaseW === null ? (compact ? 250 : 330) : diseaseW;
+    const avail = $('#matrix-wrap')?.getBoundingClientRect().width || 0;
+    if (avail) w = Math.max(DISEASE_MIN, Math.min(w, avail - DBS.length * DB_READABLE));
     // The splitter reads --disease-col to place itself on the boundary.
     document.documentElement.style.setProperty('--disease-col', Math.round(w) + 'px');
     document.documentElement.style.setProperty('--grid-cols',
@@ -495,7 +503,7 @@
     const sortTitle = key === NAME_COL ? 'Sort diseases by name'
       : `Sort by ${label}: diseases missing a mapping first`;
     return `<div class="hcol${dir || only ? ' active' : ''}">
-      <button class="hsort" data-sort="${esc(key)}" title="${esc(sortTitle)}">${esc(label)}<span class="harrow">${arrow}</span></button>
+      <button class="hsort" data-sort="${esc(key)}" title="${esc(sortTitle)}"><span class="hlabel">${esc(label)}</span><span class="harrow">${arrow}</span></button>
       ${extra}</div>`;
   }
 
@@ -504,6 +512,14 @@
       headCell(d.key, d.label,
         `<button class="hmiss${missingOnly === d.key ? ' on' : ''}" data-miss="${esc(d.key)}"
            title="Show only the diseases missing a ${esc(d.label)} mapping">○</button>`)).join('');
+    measureHead();
+  }
+
+  // The open strip's disease name sticks below the column header, so it needs the
+  // header's height — which changes with the density and the text size.
+  function measureHead() {
+    const h = $('#mhead').offsetHeight;
+    if (h) document.documentElement.style.setProperty('--mhead-h', h + 'px');
   }
 
   // The disease column sorts by name; the database columns sort by how much of the
@@ -1090,7 +1106,7 @@
     const move = e => {
       if (!dragging) return;
       const x = (e.touches ? e.touches[0].clientX : e.clientX);
-      diseaseW = (x - $('#matrix-inner').getBoundingClientRect().left) / uiZoom();
+      diseaseW = x - $('#matrix-inner').getBoundingClientRect().left;
       applyGrid();
       e.preventDefault();
     };
@@ -1109,8 +1125,11 @@
     });
     window.addEventListener('mousemove', move); window.addEventListener('touchmove', move, { passive: false });
     window.addEventListener('mouseup', end); window.addEventListener('touchend', end);
-    // A narrower window lowers the half-the-viewport ceiling; applyGrid re-clamps.
-    window.addEventListener('resize', () => { if (diseaseW !== null) applyGrid(); });
+    // Anything that changes the matrix's width re-runs the column budget: the
+    // review panel opening or closing, the divider being dragged, the window
+    // resizing. One observer covers all three, and the width it reports is the
+    // settled one — #side animates its width, so reading it on the click is early.
+    new ResizeObserver(() => { applyGrid(); measureHead(); }).observe($('#matrix-wrap'));
   }
 
   // ------------------------------------------------------- HEADER CONTROLS
@@ -1146,8 +1165,10 @@
   function syncSegs() {
     const th = document.documentElement.dataset.theme || 'light';
     const de = document.documentElement.dataset.density || 'comfortable';
+    const ts = document.documentElement.dataset.textsize || 'standard';
     document.querySelectorAll('#theme button').forEach(b => b.classList.toggle('on', b.dataset.theme === th));
     document.querySelectorAll('#density button').forEach(b => b.classList.toggle('on', b.dataset.density === de));
+    document.querySelectorAll('#textsize button').forEach(b => b.classList.toggle('on', b.dataset.textsize === ts));
     document.querySelectorAll('#queue-filter button').forEach(b => b.classList.toggle('on', b.dataset.queue === queueFilter));
     $('#pref-legend').checked = document.documentElement.dataset.legend !== 'off';
   }
@@ -1170,6 +1191,14 @@
       document.documentElement.dataset.density = b.dataset.density;
       try { localStorage.setItem('refDensity', b.dataset.density); } catch (err) {}
       applyGrid(); syncSegs();
+    });
+    // Text size shares one key with the editor, so the choice carries across both
+    // pages rather than being made twice (issue #94).
+    $('#textsize').addEventListener('click', e => {
+      const b = e.target.closest('button'); if (!b) return;
+      document.documentElement.dataset.textsize = b.dataset.textsize;
+      try { localStorage.setItem('ari-textsize', b.dataset.textsize); } catch (err) {}
+      applyGrid(); measureHead(); syncSegs();
     });
     $('#pending-chip').addEventListener('click', () => reflectDrawer('#pending-chip', '#pending-panel'));
     $('#enrich-chip').addEventListener('click', openEnrich);

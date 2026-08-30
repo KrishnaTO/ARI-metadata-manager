@@ -11,15 +11,30 @@ function mountDeepDive(){
   ($('#deep-dive-slot') || $('#layout')).appendChild(DEEP_DIVE);
 }
 
-// The start state: nothing selected, just the index rail and a prompt. Reached
-// from the wordmark and from a Back navigation past the first disease.
+// The start state: nothing selected, just the index rail and a way in. Reached
+// on first load, from the wordmark, and from a Back navigation past the first
+// disease.
+//
+// It used to read "Select a disease from the list to view its record" — which on
+// a small laptop, where the index is an overlay and the rail can be unpinned, was
+// pointing at a list that was not on screen and offering nothing to click
+// (issue #94). Both routes in are buttons now.
 function showStartPage(){
   state.activeIri = null;
   state.detail = null;
   setMode('read');
   closeRightPanel();
   $('#tree-pane').querySelectorAll('.selected').forEach(el => el.classList.remove('selected'));
-  $('#detail-pane').innerHTML = '<div class="empty-state">Select a disease from the list to view its record.</div>';
+  $('#detail-pane').innerHTML = `<div class="empty-state start-state">
+    <h2>No disease open</h2>
+    <p>Open one from the index, or search by name, synonym or code.</p>
+    <div class="start-actions">
+      <button class="btn primary" id="start-index">Open the disease index</button>
+      <button class="btn" id="start-search">Search diseases</button>
+    </div>
+  </div>`;
+  $('#start-index')?.addEventListener('click', () => showDiseaseIndex());
+  $('#start-search')?.addEventListener('click', () => $('#search')?.focus());
   mountDeepDive();
   syncCurateAccess();
 }
@@ -141,6 +156,14 @@ function citationsHTML(d){
   return html + byline + '</div>';
 }
 
+// The opening sentence of a definition, as plain text — the pinned context line
+// has one line to work with, so markdown and the rest of the paragraph go.
+function firstSentence(text){
+  const flat = String(text).replace(/[*_`#>]/g, '').replace(/\s+/g, ' ').trim();
+  const end = flat.search(/\.\s|\.$/);
+  return end > 0 ? flat.slice(0, end + 1) : flat;
+}
+
 // ---------------------------------------------------------- story spine
 // One column per numbered STORY_GROUPS entry; the category lines inside it are
 // the click targets into the deep dive (keyed by data-box).
@@ -176,17 +199,25 @@ function storyHTML(d, boxByKey){
     return `<div class="story record-only"><div class="story-step">` +
       keys.map(k => boxHTML(boxByKey[k])).join('') + `</div></div>`;
   }
-  let html = '<div class="story">';
+  // The spine reserved five equal columns whether or not they had content: for a
+  // record with three empty steps that left ~124px each for the two that had
+  // something to say, enough to break "Biomarkers & treatments" over three lines
+  // (issue #101). In read mode an empty step is not rendered and the populated
+  // ones divide the full width. Curate mode keeps all five — the "+ add"
+  // affordances in an empty step are the whole point there.
+  const steps = [];
   for (const grp of STORY_GROUPS){
     if (!grp.num) continue;                       // the Record step lives in the sidebar
     const keys = visibleKeys(grp, boxByKey, false);
+    if (!keys.length && !state.editMode) continue;
     const active = keys.includes(state.activeBox) ? ' active' : '';
-    html += `<div class="story-step${active}" title="${esc(grp.hint)}">` +
+    steps.push(`<div class="story-step${active}" title="${esc(grp.hint)}">` +
       `<div class="story-head"><span class="story-num">${String(grp.num).padStart(2, '0')}</span>` +
       `<span class="story-title">${esc(grp.title)}</span></div>` +
-      keys.map(k => boxHTML(boxByKey[k])).join('') + `</div>`;
+      keys.map(k => boxHTML(boxByKey[k])).join('') + `</div>`);
   }
-  return html + '</div>';
+  if (!steps.length) return '';
+  return `<div class="story" style="--story-n:${steps.length}">${steps.join('')}</div>`;
 }
 
 // ------------------------------------------------------------------ sidebar
@@ -302,6 +333,15 @@ function renderDetail(d){
   }
 
   html += `<div class="rec-body"><div class="rec-read">`;
+  // Opening a category scrolls the definition off the top and puts the deep-dive
+  // card where it was — so the thing you are comparing the detail against is
+  // exactly what disappears. This condensed line sticks to the top of the reading
+  // column while a deep dive is open, and is hidden the rest of the time
+  // (issue #101).
+  if (d.definition){
+    html += `<div class="rec-context" aria-hidden="true"><span class="rc-name">${esc(d.name)}</span>` +
+      `<span class="rc-def">${esc(firstSentence(d.definition))}</span></div>`;
+  }
   if (d.definition) html += `<div class="definition">${mdToHtml(d.definition)}</div>`;
   html += citationsHTML(d);
   if (d.is_grouping){
