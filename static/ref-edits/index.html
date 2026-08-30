@@ -298,6 +298,12 @@
   .strip { border-top:2px solid var(--rail); border-bottom:2px solid var(--rail); background:var(--band); }
   .strip-head { display:flex; align-items:center; gap:12px; padding:14px 16px 10px; flex-wrap:wrap; }
   .strip-title { font:600 16px var(--sans); color:var(--text); }
+  /* Copy a deep link to this disease — the way to open the same record in a second
+     window, which is what side-by-side comparison needs (issues #11, #114). */
+  .strip-copy { border:1px solid var(--line-strong); background:transparent; color:var(--mute);
+                border-radius:6px; padding:3px 9px; font:400 11px var(--sans); cursor:pointer;
+                min-height:24px; white-space:nowrap; }
+  .strip-copy:hover { border-color:var(--accent); color:var(--accent); }
   .strip-id { font:400 11px var(--mono); color:var(--faint); }
   .strip-syn { font-size:11px; color:var(--mute); }
   .strip-sum { font-size:11.5px; color:var(--mute); }
@@ -533,7 +539,10 @@
 <script>
   try { var t = localStorage.getItem('theme'); if (t) document.documentElement.dataset.theme = t;
     else if (matchMedia('(prefers-color-scheme: dark)').matches) document.documentElement.dataset.theme = 'dark';
-    document.documentElement.dataset.density = localStorage.getItem('refDensity') || 'comfortable';
+    var dens = sessionStorage.getItem('refDensity');
+    if (dens === null) { dens = localStorage.getItem('refDensity');
+      if (dens !== null) sessionStorage.setItem('refDensity', dens); }
+    document.documentElement.dataset.density = dens || 'comfortable';
     document.documentElement.dataset.legend = localStorage.getItem('refLegend') || 'on'; } catch(e){}
 </script>
 <script src="review-model.js?v=__ASSETV__"></script>

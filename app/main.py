@@ -405,6 +405,41 @@ def _save_ref_session(login, data: dict):
     atomic_store.write_json(_ref_session_path(login), data)
 
 
+# The three per-key maps in a review session. Every entry is one cell or one id,
+# so two windows editing different cells merge with no ambiguity at all.
+REF_SESSION_MAPS = ("reviewed", "edited", "published")
+
+
+def _merge_ref_session(login, patch: dict, branch, pr) -> dict:
+    """Fold one window's changes into the stored session.
+
+    The page used to PUT the *entire* state blob every 500ms and this wrote it
+    wholesale, so the last window to save replaced the whole document and any
+    verdict recorded in the other one vanished on the next reload (issue #114).
+    A patch carries only the keys that changed; ``None`` means the curator
+    cleared that verdict, which is the one thing a plain merge cannot express.
+
+    ``branch`` and ``pr`` are only ever set, never cleared: publishing is what
+    assigns them, and a background save from a window that loaded before the
+    publish must not reset them to null.
+    """
+    cur = _load_ref_session(login)
+    for name in REF_SESSION_MAPS:
+        target = dict(cur.get(name) or {})
+        for key, value in (patch.get(name) or {}).items():
+            if value is None:
+                target.pop(key, None)
+            else:
+                target[key] = value
+        cur[name] = target
+    if branch:
+        cur["branch"] = branch
+    if pr:
+        cur["pr"] = pr
+    _save_ref_session(login, cur)
+    return cur
+
+
 def _clear_ref_session(login):
     try:
         _ref_session_path(login).unlink()
@@ -687,6 +722,27 @@ async def update_disease(request: Request, iri: str, payload: dict = Body(...)):
     return r
 
 
+@app.post("/api/v2/disease/{iri:path}/xref")
+async def apply_xref_op(request: Request, iri: str, payload: dict = Body(...)):
+    """Apply one cross-reference id change. Body: {db, op, value, replaces}.
+
+    ``op`` is add / replace / remove. The whole point is that the client sends
+    the single id rather than the cell's new contents: the list is rebuilt from
+    what is on file at the moment of the write, so a second window that added an
+    id to the same cell no longer has it silently erased (issue #114)."""
+    if not _login(request):
+        raise HTTPException(status_code=401, detail="Sign in with GitHub first")
+    svc = service_for(request, write=True)
+    before = svc.get_xrefs(iri)
+    r = svc.apply_xref_op(iri, payload.get("db", ""), payload.get("op", ""),
+                          value=payload.get("value", ""), replaces=payload.get("replaces", ""),
+                          editor=payload.get("editor", "user"))
+    ID_AUTHORS.record(iri, before, svc.get_xrefs(iri), _login(request))
+    _mark_dirty(request)
+    _touch(request, iri)
+    return r
+
+
 @app.post("/api/v2/disease/{iri:path}/item")
 async def add_item(request: Request, iri: str, payload: dict = Body(...)):
     """Add a data item to a disease. Body: {category, values:{...}, editor}."""
@@ -756,12 +812,17 @@ async def get_ref_session(request: Request):
 
 @app.put("/api/v2/ref-session")
 async def put_ref_session(request: Request, payload: dict = Body(...)):
-    """Persist the signed-in user's cross-reference review session. The body is
-    the frontend-owned state blob ({reviewed, edited, published, branch, pr})."""
+    """Merge one window's changes into the signed-in user's review session.
+
+    Body: ``{patch: {reviewed, edited, published}, branch, pr}``, where a patch
+    value of ``null`` clears that key. Comparing two records side by side is the
+    product's core loop and takes two windows, so these writes have to merge
+    rather than overwrite — see ``_merge_ref_session``."""
     login = _login(request)
     if not login:
         return JSONResponse(status_code=401, content={"detail": "Sign in with GitHub first"})
-    _save_ref_session(login, payload)
+    _merge_ref_session(login, payload.get("patch") or {},
+                       payload.get("branch"), payload.get("pr"))
     return {"ok": True}
 
 

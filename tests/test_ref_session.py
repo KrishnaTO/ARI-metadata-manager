@@ -9,9 +9,21 @@ import app.main as main
 
 client = TestClient(main.app)
 
+# A window sends only what it changed, so the body is a patch. `null` clears a
+# key — the one thing a plain merge cannot express.
 SAMPLE = {
+    "patch": {
+        "reviewed": {"iri1|mondo|123": "ok", "iri1|umls|C1": "bad"},
+        "edited": {"iri1|mondo|123": True},
+    },
+    "branch": "edit/tester/mappings-review-1",
+    "pr": {"number": 7, "url": "https://example/pr/7", "fork": False},
+}
+
+STORED = {
     "reviewed": {"iri1|mondo|123": "ok", "iri1|umls|C1": "bad"},
     "edited": {"iri1|mondo|123": True},
+    "published": {},
     "branch": "edit/tester/mappings-review-1",
     "pr": {"number": 7, "url": "https://example/pr/7", "fork": False},
 }
@@ -37,7 +49,7 @@ def test_signed_in_round_trip(tmp_path, monkeypatch):
     assert client.put("/api/v2/ref-session", json=SAMPLE).status_code == 200
     got = client.get("/api/v2/ref-session")
     assert got.status_code == 200
-    assert got.json() == SAMPLE
+    assert got.json() == STORED
 
     # Resetting the user (branch switch / fetch) drops the saved session.
     main._reset_user("tester")
@@ -67,28 +79,71 @@ def test_absent_session_file_is_an_empty_blob(tmp_path, monkeypatch):
 
 
 def test_two_windows_for_one_curator_do_not_lose_each_others_verdicts(tmp_path, monkeypatch):
-    """The multi-window case, which had no test at all (issue #121).
+    """The multi-window case (issues #121, #114).
 
     Comparing content side by side is the product's core loop and forces two
-    windows. `saveSession()` PUTs the *entire* state blob and the server writes
-    it wholesale, so last writer wins the whole document.
-
-    This documents the behaviour rather than asserting the fix: merging is
-    issue #114. What it does guarantee is that the loss is visible here the
-    moment #114 lands, instead of being discovered by a curator.
+    windows. The page used to PUT the *entire* state blob and the server wrote it
+    wholesale, so the last writer replaced the whole document and the other
+    window's verdicts were gone on the next reload. Each window now sends only
+    what it changed, and the writes interleave.
     """
     monkeypatch.setattr(main, "USER_DIR", tmp_path)
     monkeypatch.setattr(main, "_login", lambda request: "tester")
 
-    window_a = {"reviewed": {"iri1|mondo|1": "ok"}, "edited": {}, "branch": None, "pr": None}
-    window_b = {"reviewed": {"iri1|snomed|2": "bad"}, "edited": {}, "branch": None, "pr": None}
+    window_a = {"patch": {"reviewed": {"iri1|mondo|1": "ok"}}}
+    window_b = {"patch": {"reviewed": {"iri1|snomed|2": "bad"}}}
 
     assert client.put("/api/v2/ref-session", json=window_a).status_code == 200
     assert client.put("/api/v2/ref-session", json=window_b).status_code == 200
 
+    reviewed = client.get("/api/v2/ref-session").json()["reviewed"]
+    assert reviewed == {"iri1|mondo|1": "ok", "iri1|snomed|2": "bad"}
+
+
+def test_interleaved_writes_from_two_windows_all_survive(tmp_path, monkeypatch):
+    """Ten alternating saves, as two windows working the matrix side by side."""
+    monkeypatch.setattr(main, "USER_DIR", tmp_path)
+    monkeypatch.setattr(main, "_login", lambda request: "tester")
+
+    expected = {}
+    for i in range(5):
+        for window, db in (("a", "mondo"), ("b", "snomed")):
+            key = f"iri{i}|{db}|{window}"
+            expected[key] = "ok"
+            assert client.put("/api/v2/ref-session",
+                              json={"patch": {"reviewed": {key: "ok"}}}).status_code == 200
+
+    assert client.get("/api/v2/ref-session").json()["reviewed"] == expected
+
+
+def test_a_cleared_verdict_is_removed_not_merged_back(tmp_path, monkeypatch):
+    """Un-judging a cell has to survive the merge, or a verdict can never be undone."""
+    monkeypatch.setattr(main, "USER_DIR", tmp_path)
+    monkeypatch.setattr(main, "_login", lambda request: "tester")
+
+    client.put("/api/v2/ref-session", json={"patch": {"reviewed": {"k1": "ok", "k2": "bad"}}})
+    client.put("/api/v2/ref-session", json={"patch": {"reviewed": {"k1": None}}})
+
+    assert client.get("/api/v2/ref-session").json()["reviewed"] == {"k2": "bad"}
+
+
+def test_a_stale_window_cannot_clear_the_pull_request_pointer(tmp_path, monkeypatch):
+    """One window publishes; the other still has pr=null and saves a verdict.
+
+    Last-writer-wins on the PR pointer would send the published work's PR number
+    back to null, and the header would stop naming the pull request the curator's
+    verdicts are in. Publishing sets these; nothing else may unset them.
+    """
+    monkeypatch.setattr(main, "USER_DIR", tmp_path)
+    monkeypatch.setattr(main, "_login", lambda request: "tester")
+
+    pr = {"number": 12, "url": "https://example/pr/12", "fork": False}
+    client.put("/api/v2/ref-session",
+               json={"patch": {"published": {"k1": {"pr": 12}}}, "branch": "edit/tester/x", "pr": pr})
+    client.put("/api/v2/ref-session",
+               json={"patch": {"reviewed": {"k2": "ok"}}, "branch": None, "pr": None})
+
     got = client.get("/api/v2/ref-session").json()
-    a_key, b_key = "iri1|mondo|1", "iri1|snomed|2"
-    assert b_key in got["reviewed"], "the second window's verdict must survive"
-    if a_key not in got["reviewed"]:
-        # Current behaviour. When #114 merges per-cell, flip this to an assert.
-        assert got["reviewed"] == window_b["reviewed"]
+    assert got["pr"] == pr
+    assert got["branch"] == "edit/tester/x"
+    assert got["reviewed"] == {"k2": "ok"}

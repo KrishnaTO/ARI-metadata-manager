@@ -607,6 +607,14 @@ body.resizing-cols { cursor: col-resize; user-select: none; }
 .release-item .v { font-weight: 600; color: var(--accent-strong); }
 .release-item .meta { color: var(--mute); }
 
+/* Offered when the field form is reopened with unsaved work kept from a closed
+   tab or a reload (issue #114). */
+.draft-banner { display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  margin: 0 0 14px; padding: 9px 12px; border: 1px solid #E8DBB4; border-radius: 8px;
+  background: var(--warning-bg); color: #6b4f10; font-size: 12.5px; line-height: 1.5; }
+[data-theme="dark"] .draft-banner { border-color: rgba(255,255,255,.14); color: var(--warning); }
+.draft-banner span { flex: 1; min-width: 180px; }
+
 .loading { display: flex; align-items: center; justify-content: center; height: 100%; color: var(--mute); padding: 24px; }
 .empty-state { text-align: center; color: var(--mute); padding: 72px 24px; font-size: 13.5px; }
 .toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: var(--ink-deep);
