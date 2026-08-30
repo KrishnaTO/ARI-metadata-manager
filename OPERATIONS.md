@@ -97,9 +97,15 @@ Until they do, the old broad tokens remain valid and remain in `.sessions.json`.
 Deleting that file forces everyone to sign in again but does **not** revoke the
 tokens on GitHub's side — only the curator can do that, at the link above.
 
-> If the ontology repository is private, `public_repo` is not enough and sign-in
-> will fail. In that case keep `repo` and move to a GitHub App scoped to the one
-> repository instead; that is the durable fix either way.
+> **Checked 2026-08-29:** `KrishnaTO/ARI` — the repository `GITHUB_REPO` points
+> at, and the one the publish flow forks and commits to — is public, as is
+> `KrishnaTO/ARI-metadata-manager`. So `public_repo` covers everything the app
+> does and there is nothing further to decide here.
+>
+> If either is ever made private, `public_repo` stops being enough and sign-in
+> will fail. The fix then is a **GitHub App** with an installation scoped to the
+> single repository, not a return to `repo` — that also gives short-lived tokens
+> and a real revocation story, which is the durable answer either way.
 
 ---
 
@@ -263,10 +269,15 @@ It must print `ari.sssom.tsv is valid.` CI runs the same check on every pull
 request, so this should never fail; if it does, something merged around the gate.
 
 **Note for curators:** that migration changes one live judgment.
-`ARI:0001012 → icd10cm:720.0` was confirmed on 2026-06-25 and flagged on
-2026-07-10, with both rows live and nothing marking either as withdrawn. It now
-reads as **flagged**, which is what the later judgment said. Tell whoever owns
-that mapping.
+`ARI:0001012 → icd10cm:720.0` (ankylosing spondylitis) was confirmed on
+2026-06-25 and flagged on 2026-07-10, with both rows live and nothing marking
+either as withdrawn — so the review page had gone on showing it as confirmed.
+It now reads as **flagged**, which is what the later judgment said.
+
+**Ratified 2026-08-29:** taking the later judgment is the agreed resolution. No
+action needed on the server; this is recorded so the change of state is not a
+surprise to whoever next opens that row. The superseded row says so in its own
+`comment` column, so the history is legible in the file itself.
 
 ---
 
