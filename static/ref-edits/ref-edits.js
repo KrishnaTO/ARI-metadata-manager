@@ -1049,6 +1049,9 @@
         !confirm('Open a new pull request instead of adding to PR #' + sessionPr.number + '?')) return;
     const comment = window.prompt('Optional comment for the pull request (what you reviewed/changed):', 'Mappings review');
     if (comment === null) return;
+    // The author lands in the published SSSOM `author_id` column. The server
+    // validates an ORCID and refuses a malformed one rather than writing a typo
+    // into a permanent, citable record.
     const orcid = (localStorage.getItem('ari_editor_orcid') || '').trim();
     const author = orcid ? ('orcid:' + orcid) : (me && me.login ? ('github:' + me.login) : 'curator');
     const message = reviewMessage(keys);

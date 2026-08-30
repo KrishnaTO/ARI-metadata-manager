@@ -511,6 +511,50 @@ def working_copy_expiry(login: str) -> dict | None:
     }
 
 
+def _sweep_sessions():
+    """Drop sign-ins older than the TTL.
+
+    Sessions only ever left this store on an explicit logout, so it grew into a
+    file of long-lived GitHub tokens for everyone who had ever signed in.
+    """
+    if SESSION_TTL_DAYS <= 0 or not SESSIONS:
+        return
+    cutoff = time.time() - SESSION_TTL_DAYS * 86400
+    stale = [sid for sid, v in SESSIONS.items() if v.get("created", 0) < cutoff]
+    for sid in stale:
+        SESSIONS.pop(sid, None)
+    if stale:
+        log.info("Swept %d session(s) older than %d days", len(stale), SESSION_TTL_DAYS)
+        _save_sessions()
+
+
+@app.middleware("http")
+async def security_headers(request: Request, call_next):
+    """Baseline response headers.
+
+    Set in the app rather than only in nginx so a local or non-nginx deployment
+    is covered too, and so the policy lives next to the markup it constrains.
+    """
+    response = await call_next(request)
+    response.headers.setdefault("X-Content-Type-Options", "nosniff")
+    response.headers.setdefault("X-Frame-Options", "DENY")
+    response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
+    response.headers.setdefault(
+        "Content-Security-Policy",
+        "default-src 'self'; "
+        "script-src 'self' https://cdn.jsdelivr.net; "
+        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
+        "font-src 'self' https://fonts.gstatic.com; "
+        "img-src 'self' data:; "
+        "connect-src 'self'; "
+        "frame-src https:; "          # the review panel embeds source databases
+        "frame-ancestors 'none'; "
+        "base-uri 'self'; "
+        "form-action 'self'",
+    )
+    return response
+
+
 @app.middleware("http")
 async def no_cache_assets(request: Request, call_next):
     """Always revalidate the app's HTML/CSS/JS so edits are picked up on reload."""
@@ -888,6 +932,74 @@ async def logout(request: Request):
     return {"ok": True}
 
 
+def _restore_working_copy(login, svc, snapshot: bytes):
+    """Put ``login``'s working copy back to ``snapshot`` after a failed publish."""
+    try:
+        atomic_store.write_bytes(svc.path, snapshot, mode=0o644)
+        USER_SVC.pop(login, None)        # reload from the restored bytes on next use
+        log.info("Rolled @%s's working copy back after a failed publish", login)
+    except OSError as e:
+        # Losing the rollback is worse than the original failure, so say so
+        # loudly rather than swallowing it.
+        log.error("Could not roll @%s's working copy back after a failed publish "
+                  "(%s); the changelog entries for this attempt are still applied "
+                  "and republishing will repeat them", login, e)
+
+
+def _clear_touched(login):
+    """Forget which diseases this curator has edited, after a successful publish.
+
+    ``USER_TOUCHED`` accumulated every disease IRI a curator touched for the life
+    of the process and scoped the change summary in every subsequent PR body, so
+    the second and later pull requests of a session described changes that had
+    already been published. Only ``_reset_user()`` cleared it."""
+    USER_TOUCHED.pop(login, None)
+
+
+PUBLISH_KEEP = 20        # recent publishes remembered per curator
+
+
+def _publish_log_path(login) -> Path:
+    return USER_DIR / f"{login}.publishes.json"
+
+
+def _remembered_publish(login, request_id):
+    """The result of a publish already completed under ``request_id``.
+
+    If the commit and PR succeed but the *response* is lost — a proxy timeout, a
+    closed laptop, a flaky connection — the client shows "Publish failed", the
+    curator publishes again, and a second commit lands carrying the same
+    judgments. Nothing on either side detected the repeat.
+    """
+    if not request_id:
+        return None
+    return atomic_store.read_json(_publish_log_path(login), {}).get(request_id)
+
+
+def _remember_publish(login, request_id, result):
+    if not request_id:
+        return
+    done = atomic_store.read_json(_publish_log_path(login), {})
+    done[request_id] = result
+    # Keep the tail; this is a short-window replay guard, not an audit trail.
+    if len(done) > PUBLISH_KEEP:
+        done = dict(list(done.items())[-PUBLISH_KEEP:])
+    atomic_store.write_json(_publish_log_path(login), done)
+
+
+def _mapping_author(supplied, login: str) -> str:
+    """The ``author_id`` for this curator's mappings.
+
+    Defaults to ``github:<login>``, which the SSSOM curie map now declares. A
+    supplied ORCID (bare or as an orcid.org URL) is normalised to an
+    ``orcid:`` CURIE and rejected if malformed. Anything else is ignored — the
+    author is the signed-in identity, not a free-text field."""
+    supplied = (supplied or "").strip()
+    if not supplied or supplied == f"github:{login}":
+        return f"github:{login}"
+    return sssom_service.orcid_curie(supplied.removeprefix("orcid:"))
+
+
 @app.post("/api/v2/publish")
 async def publish(request: Request, payload: dict = Body(default={})):
     """Commit the current ontology file to GitHub as the signed-in user (PR)."""
@@ -906,7 +1018,10 @@ async def publish(request: Request, payload: dict = Body(default={})):
     flagged = payload.get("flagged") or []
     # Cells judged to have no term at all in the target database.
     absent = payload.get("absent") or []
-    author = payload.get("author") or f"github:{u['identity']['login']}"
+    # author_id lands in the published SSSOM. An ORCID is validated here rather
+    # than trusted from localStorage: a typo in this column is permanent and
+    # unattributable, and an unexpandable CURIE makes the file fail validation.
+    author = _mapping_author(payload.get("author"), u["identity"]["login"])
     any_review = bool(confirmed or flagged or absent)
 
     # A curator may not confirm a mapping id they added themselves; the frontend
@@ -914,6 +1029,15 @@ async def publish(request: Request, payload: dict = Body(default={})):
     own = ID_AUTHORS.authors()
     login = u["identity"]["login"]
     source_branch = _source_branch(request)     # this curator's baseline, not a global
+
+    # A retry of a publish that actually succeeded returns the original result
+    # rather than committing the same judgments twice.
+    request_id = (payload.get("request_id") or "").strip()[:64]
+    already = _remembered_publish(login, request_id)
+    if already is not None:
+        log.info("Publish %s by @%s already completed; returning the first result",
+                 request_id, login)
+        return {**already, "repeated": True}
     for c in confirmed:
         for ident in (c.get("ids") or []):
             if own.get(f"{c.get('iri')}|{c.get('db')}|{ident}") == login:
@@ -930,6 +1054,12 @@ async def publish(request: Request, payload: dict = Body(default={})):
     # this user's working ontology, mirroring how field edits are handled.
     svc = service_for(request, write=True) if any_review else service_for(request)
     enrich_note = ""
+    # The changelog entries and the enrichment are applied to the working copy
+    # *before* the eight GitHub calls that publish it, so any failure among them
+    # used to leave the entries applied: the curator saw "Publish failed",
+    # clicked again, and the changelog and enrichment were written a second
+    # time. Snapshot first and roll back on failure.
+    rollback = svc.path.read_bytes() if any_review else None
     if any_review:
         svc.log_xref_review(confirmed, flagged, editor=login, absent=absent)
         if apply_enrich:
@@ -997,11 +1127,19 @@ async def publish(request: Request, payload: dict = Body(default={})):
     parts.append("## Changes\n\n" + summary)
     pr_body = "\n\n".join(parts)
 
-    result = await gh.publish_file(
-        token=u["token"], owner=GH_OWNER, repo=GH_REPO, base_branch=_pr_base(request),
-        path=GH_ONTOLOGY_PATH, content_bytes=content, disease_name=disease,
-        message=message, identity=u["identity"], pr_body=pr_body, extra_files=extra_files,
-        reuse_branch=reuse_branch, labels=(labels + ["sssom"] if (any_review and "sssom" not in labels) else labels))
+    try:
+        result = await gh.publish_file(
+            token=u["token"], owner=GH_OWNER, repo=GH_REPO, base_branch=_pr_base(request),
+            path=GH_ONTOLOGY_PATH, content_bytes=content, disease_name=disease,
+            message=message, identity=u["identity"], pr_body=pr_body, extra_files=extra_files,
+            reuse_branch=reuse_branch, labels=(labels + ["sssom"] if (any_review and "sssom" not in labels) else labels))
+    except Exception:
+        if rollback is not None:
+            _restore_working_copy(login, svc, rollback)
+        raise
+
+    _remember_publish(login, request_id, result)
+    _clear_touched(login)        # published; later PRs must not re-describe this work
     return result
 
 
@@ -1041,6 +1179,7 @@ async def get_settings(request: Request):
     return {"github_enabled": GH_ENABLED, "authenticated": bool(u),
             "working_branch": GH_BASE_BRANCH, "source_branch": _source_branch(request),
             "pr_base": _pr_base(request), "dirty": _dirty(request), "branches": branches,
+            "mapping_license": sssom_service.MAPPING_LICENSE,
             "working_copy": working_copy_expiry(_login(request))}
 
 

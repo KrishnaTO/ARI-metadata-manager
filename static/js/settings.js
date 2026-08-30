@@ -38,6 +38,11 @@
           <input id="set-orcid" placeholder="0000-0000-0000-0000"></div>
         <div class="edit-actions" style="margin:4px 0 14px"><button class="hbtn" id="set-orcid-save">Save ORCID</button></div>
 
+        <div class="section-label">Licence</div>
+        <p style="font-size:13px;margin:0 0 14px">Cross-reference mappings you publish are released under
+          <a href="${esc(s.mapping_license || '')}" target="_blank" rel="noopener">${esc(licenceName(s.mapping_license))}</a>.
+          This is recorded in the published mapping files.</p>
+
         <div class="section-label">Export</div>
         <div class="edit-actions" style="margin-top:4px"><button class="hbtn" id="set-export">&#128202; Export current data to Excel</button></div>
         ${note}
@@ -58,6 +63,16 @@
       if (typeof resolveEditor === 'function') resolveEditor();
       toast(v ? ('Edits will be attributed to ORCID ' + v) : 'ORCID cleared — using GitHub name');
     });
+  }
+
+  // A readable name for the licence URL the server reports, so the disclosure is
+  // a sentence rather than a bare link. Unknown URLs show as themselves.
+  function licenceName(url){
+    const known = {
+      'https://creativecommons.org/publicdomain/zero/1.0/': 'CC0 1.0 (public domain dedication)',
+      'https://creativecommons.org/licenses/by/4.0/': 'CC BY 4.0',
+    };
+    return known[url] || url || 'a licence the server has not reported';
   }
 
   async function doFetch(url, body) {

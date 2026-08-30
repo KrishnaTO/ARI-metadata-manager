@@ -1,5 +1,17 @@
 # Changelog
 
+## restore-lost-security-middleware
+Fixes a regression introduced on `main` by the merge of #127.
+
+- **`main` was red and the background sweep task was broken.** Merging #127 (`data-durability`) resolved `app/main.py` by taking the branch's side of two regions that #126 had just added, silently dropping:
+  - `_sweep_sessions()` — while **leaving its call site** in `_sweep_loop()`. The task raises `NameError` on its first tick, six hours after a deploy, inside a coroutine nobody is watching. Sessions therefore never expire, which was the whole point of #110.
+  - the `security_headers` middleware — so every response lost its CSP, `X-Frame-Options`, `X-Content-Type-Options` and `Referrer-Policy`. The page was framable again and the SRI pinning had no policy behind it.
+- Neither side of that merge conflicted textually, so git reported "Automatic merge went well" and nothing asked for a human. Both are restored verbatim from the merged `security-hardening` branch.
+- **Two guards so a merge cannot do this again quietly.** `test_the_sweep_loop_only_calls_functions_that_exist` asserts the wiring rather than the behaviour — the part a bad three-way merge breaks — and `test_the_security_middleware_is_registered` names the cause, so a failure points straight at it instead of only showing a missing header. Both were checked by removing the code and confirming they fail.
+- 188 tests pass.
+
+> The same silent revert happens when the remaining stacked branches are merged into the new `main`. Each is being re-based on main's `app/main.py` deliberately rather than left to auto-merge.
+
 ## security-hardening
 Closes #102, #106, #110, #113.
 
@@ -34,6 +46,22 @@ Closes #103, #104, #107, #108, #120.
 - **Every write goes through one atomic helper.** `app/atomic_store.py` serialises to a temp file in the destination's own directory, fsyncs, and `os.replace()`s it into place — covering the ontology (~1.7MB of RDF/XML written on *every* field edit, item edit, review log and enrichment, previously in place with no backup and no previous version) and the session, provenance, assignment, feedback and ref-session stores.
 - **A corrupt store is no longer read as empty.** Every loader caught `JSONDecodeError` and returned `{}` with a warning — which is not a recovery but a silent reset: the curator sees empty, redoes the work, and the next write replaces the damaged file for good. Present-but-unparseable now raises `StoreCorrupt` with a message naming the file and saying what to do. `.sessions.json` is the deliberate exception: it is regenerable by signing in again, so it still recovers with a warning.
 - 12 new tests in `tests/test_durability.py`, including the two-curator id collision and the archive-not-delete sweep; 161 pass.
+## mapping-correctness
+Closes #105, #116.
+
+- **A corrected mapping judgment is no longer silently discarded.** `load_judgments()` keyed its `seen` set on `(ari_id, prefix, id)` and kept whichever row came *first* in the file — which is append order, so the older judgment always won. A curator confirmed a mapping, someone later flagged it as wrong, and the review page went on showing it as confirmed forever; a flagged id looked unjudged to the next person, who might confirm it again. The projection to current state now ranks rows on (not superseded, `mapping_date`, file position) and the most recent judgment wins.
+- **A withdrawn row is marked, not merely outvoted.** `_merge_tsv` appended any row with a new dedup key and marked nothing, so the published set asserted that the same pair both is and is not an exact match with no ordering and no retraction predicate — a downstream consumer could not resolve it either. `_reconcile_judgments()` now writes a `Superseded by the <verdict> judgment of <author> on <date>.` note into the row a reversal replaces, using SSSOM's standard `comment` slot so the file still validates.
+- That also fixes a case the dedup key could not express at all: **re-confirming a mapping after it was flagged** was dropped entirely, because a row with that key already existed, so the flag kept winning no matter how many times the judgment was reversed back. A pair now carries at most two rows — positive and negative — and the live one is refreshed in place.
+- **`author_id` uses a prefix the curie map declares.** `github:` was written into every row and was not in the map, so the CURIE could not be expanded and the file did not validate as SSSOM.
+- **An ORCID is validated before it reaches the published record.** It was read from `localStorage`, never checked for format and never checked against the signed-in identity; a typo in `author_id` is permanent and unattributable. `sssom_service.orcid_curie()` normalises a bare ORCID or an orcid.org URL and refuses anything else, and the publish endpoint runs the supplied author through it.
+- **The licence is disclosed rather than asserted silently.** `MAPPING_LICENSE` (default CC0 1.0, unchanged) is configurable and reported by `GET /api/v2/settings`; the settings panel now names it and links it, so a curator can see the rights declaration being made about their work. **[UI change — needs review]**
+- **Timestamps are UTC with an offset, everywhere.** `feedback_service`, the ontology changelog and the release stamps all used naive `datetime.now()` in server-local time while `id_provenance` wrote UTC, so correlating a changelog entry with the provenance record for the same edit meant knowing the server's timezone, which is recorded nowhere. `mapping_date` also gains a time, which is what lets two judgments made the same afternoon be ordered at all.
+- **`scripts/validate_mappings.py` runs in CI.** It checks that every CURIE prefix used is declared, that no prefix is doubled, that every `mapping_date` parses as ISO-8601 with a timezone, and that no pair carries two live contradictory rows.
+- **`scripts/migrate_mappings.py` brings the published files up to that standard**, and running it found two real defects in the accumulated data:
+  - `ARI:0001012 → icd10cm:720.0` was confirmed on 2026-06-25 and flagged on 2026-07-10, with both rows live and nothing saying which was withdrawn. The older row is now marked superseded. **The current state changes: this mapping reads as flagged, not confirmed.**
+  - `ARI:0003 → MONDO:MONDO:0014523` carried the doubled prefix from before ids were canonicalised. It is now `MONDO:0014523`.
+  - Bare dates widen to midnight UTC, which is what the day-granular value meant.
+- 14 new tests in `tests/test_sssom_service.py` covering the reversal, the reversal-of-a-reversal, the supersession marker, curie-map completeness, timestamp format and ORCID validation; 162 pass.
 
 ## disease-snomed-column-slider
 - **The Disease/SNOMED boundary in the review matrix drags.** A `col-resize` grip sits on the boundary; dragging it sets the matrix's first grid track anywhere between 150px and half the viewport, and a double-click returns it to the density default (330px comfortable, 250px compact). On a small screen the disease names were the first thing to ellipsize, long before the glyph columns became unreadable — this trades glyph width for name width on demand instead of at a fixed ratio.
