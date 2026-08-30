@@ -34,7 +34,20 @@ ARI-metadata-manager/
 ├── DEPLOY.md                   # AWS Lightsail + nginx + Cloudflare SSL deployment guide
 │
 ├── app/                        # ── Backend (FastAPI) ──
-│   ├── main.py                 #   Routes, OAuth/session, per-user services, publish, settings
+│   ├── main.py                 #   App assembly: middleware, health, error handlers, routers
+│   ├── config.py               #   Every setting read at startup (env vars, paths, versions)
+│   ├── sessions.py             #   Server-side token store; who the caller is and may do
+│   ├── workspace.py            #   Per-curator working copies: branch, edits, sweep, expiry
+│   ├── stores.py               #   The assignment + id-provenance ledger singletons
+│   ├── routes/                 #   Endpoints, grouped by the page they serve:
+│   │   ├── ontology.py         #     Disease records: trees, indexes, edits, releases
+│   │   ├── review.py           #     /ref-edits matrix: xrefs, mappings, predictions, session
+│   │   ├── feedback.py         #     Per-term curator commentary
+│   │   ├── auth.py             #     GitHub OAuth round trip, identity, open PRs
+│   │   ├── publish.py          #     Commit + pull request, replay guard, rollback
+│   │   ├── settings.py         #     Source/PR branch selection, fetch, .xlsx export
+│   │   ├── assignments.py      #     Review queue
+│   │   └── pages.py            #     The two HTML pages (asset-token injection)
 │   ├── ontology_service.py     #   owlready2 read/edit layer (one World per working copy)
 │   ├── schema.py               #   Editable data-item field schema (drives forms + writes)
 │   ├── xref_registry.py        #   Single source of truth for cross-reference databases
@@ -148,7 +161,8 @@ which never leaves the server. `app/github_service.py` owns this logic.
 Each signed-in editor edits an isolated copy of the ontology at `.user-data/<login>.owl`
 (its own owlready2 World), so one editor's unpublished changes never leak into another's view
 or into the shared baseline. A startup background task sweeps idle copies older than
-`USER_DATA_TTL_DAYS` (default 14) to bound disk use. Defined in `app/main.py`.
+`USER_DATA_TTL_DAYS` (default 14) to bound disk use. Defined in `app/config.py`,
+swept by `app/workspace.py`.
 
 ### Cross-reference review → SSSOM
 The `ref-edits` subpage lays out every disease against its database cross-references

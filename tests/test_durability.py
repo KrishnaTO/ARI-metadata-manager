@@ -7,11 +7,11 @@ Covers issues #103 (a restart discarded then overwrote unpublished work),
 import json
 import shutil
 import time
+from collections import OrderedDict
 
 import pytest
 
-import app.main as main
-from app import atomic_store
+from app import atomic_store, config, workspace
 from app.id_allocator import IdAllocator
 from app.ontology_service import OntologyService
 
@@ -44,11 +44,11 @@ def user_dir(tmp_path, monkeypatch, base_owl):
     shutil.copy2(base_owl, onto)
     udir = tmp_path / ".user-data"
     udir.mkdir()
-    monkeypatch.setattr(main, "ONTOLOGY_FILE", str(onto))
-    monkeypatch.setattr(main, "USER_DIR", udir)
-    monkeypatch.setattr(main, "USER_ARCHIVE_DIR", udir / "archive")
-    monkeypatch.setattr(main, "USER_SVC", main.OrderedDict())
-    monkeypatch.setattr(main, "USER_DIRTY", set())
+    monkeypatch.setattr(config, "ONTOLOGY_FILE", str(onto))
+    monkeypatch.setattr(config, "USER_DIR", udir)
+    monkeypatch.setattr(config, "USER_ARCHIVE_DIR", udir / "archive")
+    monkeypatch.setattr(workspace, "USER_SVC", OrderedDict())
+    monkeypatch.setattr(workspace, "USER_DIRTY", set())
     return udir
 
 
@@ -56,47 +56,47 @@ def test_a_restart_neither_hides_nor_overwrites_a_working_copy(user_dir):
     """The bug: USER_SVC is in-memory only and nothing rehydrated it, so after a
     restart reads fell through to BASE and the next write copied the pristine
     base over the curator's file."""
-    svc = main.user_service("ada", create=True)
+    svc = workspace.user_service("ada", create=True)
     iri = svc.get_diseases_list()[0]["iri"]
     svc.update_disease(iri, {"disease_category": "EDITED-BEFORE-RESTART"}, editor="ada")
     copy = user_dir / "ada.owl"
     size_before = copy.stat().st_size
 
-    main.USER_SVC.clear()                       # the restart
+    workspace.USER_SVC.clear()                       # the restart
 
     # A read finds the working copy, not BASE.
-    after = main.user_service("ada")
+    after = workspace.user_service("ada")
     assert after.get_disease_detail(iri)["disease_category"] == ["EDITED-BEFORE-RESTART"]
     # And the write path does not copy over it.
-    main.USER_SVC.clear()
-    again = main.user_service("ada", create=True)
+    workspace.USER_SVC.clear()
+    again = workspace.user_service("ada", create=True)
     assert again.get_disease_detail(iri)["disease_category"] == ["EDITED-BEFORE-RESTART"]
     assert copy.stat().st_size == size_before
 
 
 def test_in_memory_worlds_are_bounded(user_dir, monkeypatch):
-    monkeypatch.setattr(main, "MAX_LOADED_WORLDS", 2)
+    monkeypatch.setattr(config, "MAX_LOADED_WORLDS", 2)
     for login in ("a", "b", "c"):
-        main.user_service(login, create=True)
-    assert len(main.USER_SVC) <= 2
+        workspace.user_service(login, create=True)
+    assert len(workspace.USER_SVC) <= 2
     # Every working copy is still on disk; only the in-memory world was evicted.
     assert {p.stem for p in user_dir.glob("*.owl")} == {"a", "b", "c"}
 
 
 # --------------------------------------------------------------- #120 sweep
 def test_idle_work_with_unpublished_changes_is_archived_not_deleted(user_dir, monkeypatch):
-    monkeypatch.setattr(main, "USER_DATA_TTL_DAYS", 14)
-    svc = main.user_service("ada", create=True)
+    monkeypatch.setattr(config, "USER_DATA_TTL_DAYS", 14)
+    svc = workspace.user_service("ada", create=True)
     iri = svc.get_diseases_list()[0]["iri"]
     svc.update_disease(iri, {"disease_category": "UNPUBLISHED"}, editor="ada")
-    main.USER_SVC.clear()
-    main.USER_DIRTY.clear()                     # the restart forgot she was dirty
+    workspace.USER_SVC.clear()
+    workspace.USER_DIRTY.clear()                     # the restart forgot she was dirty
     copy = user_dir / "ada.owl"
     old = time.time() - 30 * 86400
     import os
     os.utime(copy, (old, old))
 
-    main._sweep_user_data()
+    workspace._sweep_user_data()
 
     assert not copy.exists()
     archived = list((user_dir / "archive").glob("ada.*.owl"))
@@ -105,25 +105,25 @@ def test_idle_work_with_unpublished_changes_is_archived_not_deleted(user_dir, mo
 
 
 def test_an_untouched_idle_copy_is_removed(user_dir, monkeypatch):
-    monkeypatch.setattr(main, "USER_DATA_TTL_DAYS", 14)
-    main.user_service("bob", create=True)       # created, never edited
-    main.USER_SVC.clear()
+    monkeypatch.setattr(config, "USER_DATA_TTL_DAYS", 14)
+    workspace.user_service("bob", create=True)       # created, never edited
+    workspace.USER_SVC.clear()
     copy = user_dir / "bob.owl"
     import os
     old = time.time() - 30 * 86400
     os.utime(copy, (old, old))
 
-    main._sweep_user_data()
+    workspace._sweep_user_data()
 
     assert not copy.exists()
     assert not list((user_dir / "archive").glob("bob.*.owl"))
 
 
 def test_expiry_is_reportable_while_the_copy_is_still_recoverable(user_dir, monkeypatch):
-    monkeypatch.setattr(main, "USER_DATA_TTL_DAYS", 14)
-    assert main.working_copy_expiry("nobody") is None
-    main.user_service("ada", create=True)
-    info = main.working_copy_expiry("ada")
+    monkeypatch.setattr(config, "USER_DATA_TTL_DAYS", 14)
+    assert workspace.working_copy_expiry("nobody") is None
+    workspace.user_service("ada", create=True)
+    info = workspace.working_copy_expiry("ada")
     assert info["ttl_days"] == 14
     assert 12 <= info["days_left"] <= 14
 
@@ -161,9 +161,9 @@ def test_allocation_is_audited(tmp_path):
 
 # ---------------------------------------------------------- #107 source branch
 def test_source_branch_is_per_curator(user_dir):
-    assert main._branch_state("ada")["source_branch"] == main.GH_BASE_BRANCH
-    main._set_branch_state("ada", source_branch="edit/ada/thing", pr_base="edit/ada/thing")
-    assert main._branch_state("ada")["source_branch"] == "edit/ada/thing"
+    assert workspace._branch_state("ada")["source_branch"] == config.GH_BASE_BRANCH
+    workspace._set_branch_state("ada", source_branch="edit/ada/thing", pr_base="edit/ada/thing")
+    assert workspace._branch_state("ada")["source_branch"] == "edit/ada/thing"
     # Bob is untouched, and so is the anonymous default.
-    assert main._branch_state("bob")["source_branch"] == main.GH_BASE_BRANCH
-    assert main._branch_state(None)["source_branch"] == main.GH_BASE_BRANCH
+    assert workspace._branch_state("bob")["source_branch"] == config.GH_BASE_BRANCH
+    assert workspace._branch_state(None)["source_branch"] == config.GH_BASE_BRANCH
