@@ -1,5 +1,25 @@
 # Changelog
 
+## small-laptop-layout
+Closes #94, #97. Partly #101 (everything but the `01`-`05` numbering, which needs a curator's answer).
+
+- **The app answers to the text size now.** There were **zero `rem` units** in either stylesheet, so raising the font size in the browser's own settings did nothing at all. Page zoom was the only lever left, and it crossed the responsive breakpoints: at 125% on a 1366x768 laptop the disease index became a hidden overlay and the progress meter disappeared, while the seven-symbol legend paragraph kept 18% of the viewport. Doing the thing that made the app readable was the thing that took the navigation away. Every `font-size` in `static/css/styles.css` and the review page's stylesheet is `rem` against a root of `calc(1rem * var(--ui-scale))` — `1rem` on the root element resolves to the *browser's* default, so the reader's own setting is honoured and the app's preference multiplies it.
+- **A Text size preference** (Standard / Large / Larger) sits with Theme in the settings popover on both pages, through one shared `localStorage` key, so the choice is made once. Verified end to end: 13.5 -> 15.5 -> 17.8px, and at 1366x768 with Large the index rail stays docked where zooming to 125% used to hide it.
+- **`body { zoom: 1.25 }` is gone from the review page.** The two pages ran at different effective scales, and the zoom decoupled the media queries from the layout — the file itself noted the thresholds had to sit 25% above the widths they guarded. They are the real widths now (1500/1320/1180 -> 1200/1056/860), and 20.6 diseases fit on a 1366x768 screen instead of the 10.7 measured at 125%.
+- **What the layout gives up under width pressure is reordered.** Status outranks reference material: the glyph legend goes first, the progress meter goes last. Confirmed at four widths.
+- **The legend defaults off and is one line, not a paragraph.** Ten tooltipped keys, 37px / 5.3% of a 700px viewport instead of 88px / 18%.
+- **The index rail collapses by choice, at any width.** Above 1200px the header button docks or hides it and the record takes the width back, remembered per browser; below 1200px, where there is nowhere to dock it, it is the overlay it always was. The mode is driven by the media query's own `change` event, so a text-size change that crosses the threshold is not missed.
+- **The start state offers a way in.** It read "Select a disease from the list to view its record" with no list on screen and nothing to click. It now names both routes and gives each a button.
+- **The disease column is what gives way in the matrix.** With the review panel open at 1366px the 413px name column kept its width while the nine columns being compared were crushed to 55px and `ORPHANET` overflowed into `UMLS`. The dragged width is an upper bound now, not a floor: at 1100px the name column drops 330 -> 150px and the database columns rise off their 44px floor to 61.7px. Header labels truncate with the full name in the tooltip, so they can never collide again.
+- **The open review strip's disease name sticks below the column header**, so the disease being judged stays on screen while its cards scroll. Measured pinning at exactly the header's height, which is re-measured when the density or text size changes.
+- One `ResizeObserver` on the matrix re-runs the column budget for the panel, the divider and the window alike, replacing a `resize` listener that only fired for one of the three.
+- **In the record view, a condensed name-and-definition line pins to the top of the reading column while a deep dive is open** — opening a category used to scroll the definition, the thing you are comparing the detail against, off the top.
+- **The story spine renders only the steps that have content** in read mode. Addison's disease has two of five populated: they get 309.5px each instead of ~124px, which is what broke "Biomarkers & treatments" over three lines. Curate mode still shows all five, where the "+ add" affordances are the point.
+- **The symptom word cloud is opt-in.** It restated the eighteen symptoms listed directly above it, at sizes encoding only the Likelihood column, for 220px of a panel.
+- **Both pre-paint preference scripts are files rather than inline `<script>`.** `script-src 'self'` (tightened in #133) blocks inline script outright, so the review page's saved theme, density and legend were being silently ignored. Confirmed against the live CSP header: `boot.js` runs and the saved theme applies.
+
+232 pytest, 25 `node --test`, ruff clean.
+
 ## split-main-module
 Splits `app/main.py` (1384 lines) into modules. The split itself is behaviour-neutral; it also carries one bug fix, called out at the end.
 

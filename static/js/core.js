@@ -33,6 +33,14 @@ function curateHint(){
   if (!state.detail) return 'Select a disease to edit it';
   return 'Edit this record';
 }
+// The symptom word cloud is opt-in (see the settings popover). Default off: it
+// restates the symptom list immediately above it, at sizes that encode only the
+// likelihood already in that table, and costs ~220px of a panel on the screens
+// that can least afford it (issue #101).
+function wordCloudOn(){
+  try { return localStorage.getItem('ari-wordcloud') === 'on'; } catch (e) { return false; }
+}
+
 // Keep the record's edit button in step with sign-in state. It is rendered with
 // the record, so this only matters when sign-in resolves after a record is up.
 function syncCurateAccess(){
