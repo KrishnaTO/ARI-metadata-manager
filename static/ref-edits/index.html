@@ -346,6 +346,12 @@
                 position:sticky; top:var(--mhead-h,34px); z-index:1;
                 background:var(--band); border-bottom:1px solid var(--line); }
   .strip-title { font:600 1rem var(--sans); color:var(--text); }
+  /* Copy a deep link to this disease — the way to open the same record in a second
+     window, which is what side-by-side comparison needs (issues #11, #114). */
+  .strip-copy { border:1px solid var(--line-strong); background:transparent; color:var(--mute);
+                border-radius:6px; padding:3px 9px; font:400 0.6875rem var(--sans); cursor:pointer;
+                min-height:24px; white-space:nowrap; }
+  .strip-copy:hover { border-color:var(--accent); color:var(--accent); }
   .strip-id { font:400 0.6875rem var(--mono); color:var(--faint); }
   .strip-syn { font-size:0.6875rem; color:var(--mute); }
   .strip-sum { font-size:0.7188rem; color:var(--mute); }

@@ -12,7 +12,7 @@ from pathlib import Path
 from owlready2 import AnnotationProperty, World, comment, destroy_entity, label
 
 from . import xref_registry
-from .errors import NotFound
+from .errors import Invalid, NotFound
 from .feedback_service import FeedbackStore
 from .id_allocator import IdAllocator
 from .schema import CATEGORIES, SEEALSO_IRI
@@ -709,6 +709,46 @@ class OntologyService:
         "prevalence_per_100k": ("data", "prevalencePer100k", float),
         "prevalence_value":  ("data", "prevalenceValue", float),
     }
+
+    def apply_xref_op(self, iri: str, db: str, op: str, value: str = "",
+                      replaces: str = "", editor: str = "user") -> dict:
+        """Apply one cross-reference id change against the *current* stored ids.
+
+        The review page used to read the ids it had in memory, splice the new
+        value in, and PUT the joined list back as the field's whole value — so
+        anything another window or another curator had added to that cell since
+        the page loaded was erased, with no conflict and no message. The client
+        sends the single id and what to do with it now, and the list is rebuilt
+        here from what is actually on file.
+
+        ``replace`` refuses when the id it is replacing is no longer there: that
+        means someone else changed it, and quietly adding the new value instead
+        would hide the collision this method exists to surface. ``remove`` is
+        idempotent — an id that is already gone is the outcome asked for.
+        """
+        if db not in self.XREF_SUFFIXES:
+            raise Invalid(f"{db} is not a cross-reference database")
+        current = _split_csv(self._get_annotation(self._entity(iri), self.base + self.XREF_SUFFIXES[db]))
+        value, replaces = str(value).strip(), str(replaces).strip()
+
+        if op == "add":
+            if not value:
+                raise Invalid("add needs an id")
+            new = current if value in current else current + [value]
+        elif op == "replace":
+            if not value:
+                raise Invalid("replace needs an id")
+            if replaces not in current:
+                raise Invalid(
+                    f"{replaces} is no longer on file for {db} — it was changed or removed "
+                    "somewhere else. Reload the page to see the current ids.")
+            new = [value if x == replaces else x for x in current]
+        elif op == "remove":
+            new = [x for x in current if x != value]
+        else:
+            raise Invalid(f"{op} is not one of add, replace, remove")
+
+        return self.update_disease(iri, {db: ", ".join(new)}, editor=editor)
 
     def update_disease(self, iri: str, changes: dict, editor: str = "user") -> dict:
         """Apply ``changes``, reporting anything that could not be stored.

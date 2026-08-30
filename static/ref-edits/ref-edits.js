@@ -15,6 +15,36 @@
     return r.json();
   }
 
+  // ------------------------------------------------------- WINDOW PREFERENCES
+  // Layout is per-window; identity-ish preferences (theme, text size) are not.
+  //
+  // Density and the disease-column width lived in localStorage, which is shared
+  // by every window of the browser. Open a narrow comparison window beside a wide
+  // one, size it to fit, and the wide window inherited the change on its next
+  // reload — in a workflow whose whole point is two differently-shaped windows
+  // (issue #114).
+  //
+  // A window seeds itself from the last value set anywhere and then keeps its
+  // own: sessionStorage is read first and seeded from localStorage on first use,
+  // so a new window still opens with the density the curator prefers, and an
+  // existing one is never reshaped by a change made somewhere else.
+  function winPref(key) {
+    try {
+      const own = sessionStorage.getItem(key);
+      if (own !== null) return own;
+      const shared = localStorage.getItem(key);
+      if (shared !== null) sessionStorage.setItem(key, shared);
+      return shared;
+    } catch (e) { return null; }
+  }
+
+  function setWinPref(key, value) {
+    try {
+      sessionStorage.setItem(key, value);       // this window, from now on
+      localStorage.setItem(key, value);         // and the default for the next one
+    } catch (e) { /* storage may be unavailable */ }
+  }
+
   // The database columns (labels, link/search URL builders, object-curie prefixes)
   // are all built from the shared registry served by /api/v2/xref-databases
   // (app/xref_registry.py) — the single source of truth, so the PREFIX map here
@@ -497,20 +527,65 @@
   }
 
   // Persist this signed-in user's review session (verdicts, edited-id markers and
-  // the PR pointer) to the server so a page reload resumes where they left off.
-  // Debounced; anonymous users keep review state in-memory only (no persistence).
+  // the PR pointer) to the server so a page reload resumes their work.
+  //
+  // Only what *this window* changed is sent. The whole state blob used to go up
+  // on every save and the server wrote it wholesale, so comparing two records
+  // side by side — which is the product's core loop, and takes two windows —
+  // meant the last window to save replaced the whole document and the other
+  // one's verdicts were gone on the next reload (issue #114). Every key here is
+  // one cell or one id, so the merge is unambiguous; `null` is the one thing a
+  // plain merge cannot express, and means the curator cleared that verdict.
+  const emptyPatch = () => ({ reviewed: {}, edited: {}, published: {} });
+  let patch = emptyPatch();
+
+  function setSessionKey(name, key, value) {
+    const map = { reviewed, edited, published }[name];
+    if (value === null) delete map[key]; else map[key] = value;
+    patch[name][key] = value;
+  }
+
+  const patchIsEmpty = () => Object.values(patch).every(m => !Object.keys(m).length);
+
+  // A failed save puts its keys back, without overwriting anything changed since.
+  function requeue(sent) {
+    for (const name of Object.keys(sent))
+      for (const [k, v] of Object.entries(sent[name]))
+        if (!(k in patch[name])) patch[name][k] = v;
+  }
+
+  function sessionBody() {
+    const sent = patch;
+    patch = emptyPatch();
+    return { sent, body: { patch: sent, branch: sessionBranch, pr: sessionPr } };
+  }
+
   let _saveTimer = null;
   function saveSession(immediate) {
     if (!(me && me.authenticated)) return;
     clearTimeout(_saveTimer);
     const put = () => {
-      const reviewedClean = {};
-      for (const [k, v] of Object.entries(reviewed)) if (v) reviewedClean[k] = v;
-      api('ref-session', { method: 'PUT', body: { reviewed: reviewedClean, edited, published, branch: sessionBranch, pr: sessionPr } })
-        .catch(e => console.warn('Could not save review session:', e.message));
+      if (patchIsEmpty() && !immediate) return;
+      const { sent, body } = sessionBody();
+      api('ref-session', { method: 'PUT', body })
+        .catch(e => { requeue(sent); console.warn('Could not save review session:', e.message); });
     };
     if (immediate) put(); else _saveTimer = setTimeout(put, 500);
   }
+
+  // The debounce is a 500ms window in which closing the tab loses a verdict, and
+  // this workflow closes tabs constantly. `keepalive` lets the request outlive
+  // the page. `visibilitychange` rather than `beforeunload`: it is the one signal
+  // that reliably fires when a tab is closed or backgrounded.
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState !== 'hidden') return;
+    if (!(me && me.authenticated) || patchIsEmpty()) return;
+    clearTimeout(_saveTimer);
+    const { body } = sessionBody();
+    fetch(apiUrl('ref-session'), { method: 'PUT', keepalive: true,
+      headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+      .catch(() => { /* the page is going away; nothing useful to report */ });
+  });
 
   // Reflect the tracked PR in the header. With a PR on file the primary button
   // appends to it and the split caret opens the alternatives (visit the PR, or
@@ -818,6 +893,9 @@
         strip = `<div class="strip">
           <div class="strip-head">
             <span class="strip-title">${esc(r.name)}</span>${aiDot(r)}
+            <button class="strip-copy" data-copy="${esc(r.iri)}"
+              title="Copy a link to this disease — paste it in a second window to compare side by side"
+              aria-label="Copy a link to ${esc(r.name)}">⧉ Copy link</button>
             <span class="strip-id">${esc(r.ari_id || '')}</span>
             <span class="strip-syn">${esc((r.synonyms || []).join(' · '))}</span>
             <span style="flex:1"></span>
@@ -852,7 +930,7 @@
     }
   }
 
-  function toggleRow(iri) { openRow = openRow === iri ? null : iri; renderMatrix(); }
+  function toggleRow(iri) { openRow = openRow === iri ? null : iri; renderMatrix(); reflectHash(); }
 
   // Open one mapping in the side panel, expanding its disease so the strip agrees
   // with what the panel is showing.
@@ -860,7 +938,56 @@
     openRow = iri;
     openPanel(iri, dbkey, id);
     renderMatrix();
+    reflectHash();
   }
+
+  // ------------------------------------------------------------- DEEP LINKS
+  // What is open lives in the fragment, so a disease row — or one disease x
+  // database cell — can be addressed in a URL. Comparing two records side by side
+  // is what this page is for, and there was no way to set that second window up:
+  // the editor has `#/disease/<iri>` and a Copy link button, this page had
+  // nothing (issue #114).
+  //
+  // `#<iri>` opens the row; `#<iri>|<db>|<id>` also opens that cell's panel.
+  // replaceState, not a push: clicking through twenty cells should not bury the
+  // page the curator came from under twenty history entries.
+  function hashFor(iri, dbkey, id) {
+    return '#' + [enc(iri), dbkey, id].filter(x => x != null && x !== '').map(String).join('|');
+  }
+
+  function linkTo(iri, dbkey, id) {
+    return new URL(hashFor(iri, dbkey, id), location.href.split('#')[0]).href;
+  }
+
+  let _hashOurs = '';
+  function reflectHash() {
+    const h = active ? hashFor(active.iri, active.dbkey, active.id)
+            : openRow ? hashFor(openRow)
+            : '';
+    if (h === location.hash) return;
+    _hashOurs = h;
+    history.replaceState(null, '', h || location.pathname + location.search);
+  }
+
+  // Read the fragment and open what it names. Silent when it names a disease that
+  // is not in the matrix — a stale link should not break the page.
+  function applyHash() {
+    const raw = location.hash.replace(/^#/, '');
+    if (!raw) return;
+    const [rawIri, dbkey, id] = raw.split('|');
+    let iri;
+    try { iri = decodeURIComponent(rawIri); } catch (e) { return; }
+    if (!ROWS.some(r => r.iri === iri)) return;
+    if (dbkey && DBMAP[dbkey]) openEntry(iri, dbkey, id || null);
+    else { openRow = iri; renderMatrix(); }
+    document.querySelector(`.mrow[data-iri="${CSS.escape(iri)}"]`)
+      ?.scrollIntoView({ block: 'center' });
+  }
+
+  window.addEventListener('hashchange', () => {
+    if (location.hash === _hashOurs) return;      // our own replaceState
+    applyHash();
+  });
 
   // Step to the next mapping anywhere in the matrix that still needs a verdict.
   function nextOpen() {
@@ -885,7 +1012,7 @@
       return;
     }
     const key = idKey(iri, db, id);
-    if (reviewed[key] === v) delete reviewed[key]; else reviewed[key] = v;
+    setSessionKey('reviewed', key, reviewed[key] === v ? null : v);
     counts(); saveSession(); renderMatrix();
     // Keep the panel's own verdict buttons in step without rebuilding it (which
     // would reload the preview iframe underneath the curator).
@@ -900,7 +1027,7 @@
   // It publishes as an SSSOM NoTermFound row rather than a per-id judgment.
   function setAbsent(iri, dbkey) {
     const key = absentKey(iri, dbkey);
-    if (reviewed[key] === 'none') delete reviewed[key]; else reviewed[key] = 'none';
+    setSessionKey('reviewed', key, reviewed[key] === 'none' ? null : 'none');
     counts(); saveSession(); renderMatrix();
     if (active && active.iri === iri && active.dbkey === dbkey) openPanel(iri, dbkey, active.id);
   }
@@ -1064,6 +1191,17 @@
     $('#side').classList.remove('open');
     $('#divider').classList.remove('show');
     renderMatrix();
+    reflectHash();
+  }
+
+  // Copy a deep link to the disease. The button says what happened rather than
+  // relying on a toast the curator may have looked away from.
+  function copyLink(btn) {
+    const was = btn.textContent;
+    navigator.clipboard.writeText(linkTo(btn.dataset.copy))
+      .then(() => { btn.textContent = '✓ Copied'; })
+      .catch(() => { btn.textContent = 'Copy failed'; })
+      .finally(() => setTimeout(() => { btn.textContent = was; }, 1600));
   }
 
   // -------------------------------------------------- NEW-SUBTYPE OVERLAY
@@ -1175,18 +1313,26 @@
   // Save an edit to the panel's target id. The rest of the cell is left alone: the new
   // value replaces just this id, an empty value removes it, and an id that is not on
   // file yet (a prediction, or a first id for a blank cell) is added.
+  //
+  // The single id and what to do with it go to the server, which rebuilds the cell
+  // from what is on file at that moment. This used to send the cell's whole new
+  // contents, computed from the ids this window happened to be holding, so an id a
+  // second window had added since page load was erased with no conflict and no
+  // message (issue #114). A `replace` whose target has gone now fails loudly.
   async function saveId(iri, dbkey, targetId) {
     if (!me || !me.authenticated) { note('Sign in with GitHub first.', 'error'); return; }
     const r = ROWS.find(x => x.iri === iri);
     if (!r) return;
     const val = $('#p-ids').value.trim();
     const onFile = (r[dbkey] || []).map(String);
-    const list = (targetId != null && onFile.includes(String(targetId))
-      ? onFile.map(x => (x === String(targetId) ? val : x))
-      : onFile.concat(val)).filter(Boolean);
+    const replacing = targetId != null && onFile.includes(String(targetId));
+    const op = replacing ? (val ? 'replace' : 'remove') : 'add';
+    if (op === 'add' && !val) { $('#p-cancel').click(); return; }   // nothing to do
     $('#p-save').disabled = true; $('#p-save').textContent = 'Saving…';
     try {
-      const updated = await api('disease/' + enc(iri), { method: 'PUT', body: { changes: { [dbkey]: list.join(', ') } } });
+      const updated = await api('disease/' + enc(iri) + '/xref', { method: 'POST', body: {
+        db: dbkey, op, value: op === 'remove' ? String(targetId) : val,
+        replaces: replacing ? String(targetId) : '' } });
       const oldIds = r[dbkey] || [];
       const newIds = updated[dbkey] || [];
       r[dbkey] = newIds;
@@ -1195,13 +1341,13 @@
       // stops a just-saved id also publishing as a negative mapping.
       for (const id of newIds) {
         if (oldIds.includes(id)) continue;
-        edited[idKey(iri, dbkey, id)] = true;
-        delete reviewed[idKey(iri, dbkey, id)];
+        setSessionKey('edited', idKey(iri, dbkey, id), true);
+        setSessionKey('reviewed', idKey(iri, dbkey, id), null);
       }
       for (const id of oldIds) {
         if (newIds.includes(id)) continue;
-        delete edited[idKey(iri, dbkey, id)];
-        delete reviewed[idKey(iri, dbkey, id)];
+        setSessionKey('edited', idKey(iri, dbkey, id), null);
+        setSessionKey('reviewed', idKey(iri, dbkey, id), null);
       }
       // The save just credited an id to someone in the authorship ledger, so pull
       // it again rather than guessing — the ledger keeps an id's *first* author.
@@ -1269,7 +1415,7 @@
       pendingPublishId = null;                        // this attempt is settled
       sessionBranch = r.branch;                       // subsequent publishes append to the same PR
       sessionPr = { number: r.pr_number, url: r.pr_url, fork: r.fork };
-      for (const k of keys) published[k] = { pr: r.pr_number, state: keyState(k) };
+      for (const k of keys) setSessionKey('published', k, { pr: r.pr_number, state: keyState(k) });
       // A PR this branch used to feed has been merged or closed, so this work
       // went into a new one. Say which, rather than leaving the header pointing
       // at a number the curator's work is no longer in.
@@ -1321,7 +1467,7 @@
     const end = () => {
       if (!dragging) return;
       dragging = false; document.body.classList.remove('dragging');
-      try { localStorage.setItem('refDiseaseW', String(Math.round(diseaseW))); } catch (err) {}
+      setWinPref('refDiseaseW', String(Math.round(diseaseW)));
     };
     const start = e => { dragging = true; document.body.classList.add('dragging'); e.preventDefault(); };
     const grip = $('#colgrip');
@@ -1329,7 +1475,8 @@
     grip.addEventListener('touchstart', start, { passive: false });
     grip.addEventListener('dblclick', () => {
       diseaseW = null; applyGrid();
-      try { localStorage.removeItem('refDiseaseW'); } catch (err) {}
+      try { sessionStorage.removeItem('refDiseaseW'); localStorage.removeItem('refDiseaseW'); }
+      catch (err) { /* storage may be unavailable */ }
     });
     window.addEventListener('mousemove', move); window.addEventListener('touchmove', move, { passive: false });
     window.addEventListener('mouseup', end); window.addEventListener('touchend', end);
@@ -1417,7 +1564,7 @@
     $('#density').addEventListener('click', e => {
       const b = e.target.closest('button'); if (!b) return;
       document.documentElement.dataset.density = b.dataset.density;
-      try { localStorage.setItem('refDensity', b.dataset.density); } catch (err) {}
+      setWinPref('refDensity', b.dataset.density);
       applyGrid(); syncSegs();
     });
     // Text size shares one key with the editor, so the choice carries across both
@@ -1444,6 +1591,8 @@
       if (btn) { setReview(btn.dataset.iri, btn.dataset.db, btn.dataset.id, btn.dataset.v); return; }
       const nb = e.target.closest('.cnone');
       if (nb) { setAbsent(nb.dataset.iri, nb.dataset.db); return; }
+      const cp = e.target.closest('[data-copy]');
+      if (cp) { copyLink(cp); return; }
       const sub = e.target.closest('[data-subtype]');
       if (sub) { openSubtypeOverlay(sub.dataset.subtype); return; }
       const add = e.target.closest('.card-add');
@@ -1504,8 +1653,13 @@
     // Who holds which disease — drives the owner badges and the queue filter.
     await loadOwners();
     reflectPr();
-    diseaseW = Number(localStorage.getItem('refDiseaseW')) || null;
+    // This window's layout. The pre-paint script in index.html sets data-density
+    // too, from the shared default, so the first frame is close — but the value
+    // that stands is this one, read session-first (see winPref).
+    document.documentElement.dataset.density = winPref('refDensity') || 'comfortable';
+    diseaseW = Number(winPref('refDiseaseW')) || null;
     applyGrid(); syncSegs(); renderHead(); renderMatrix(); counts();
+    applyHash();                       // open whatever the URL names
     initDivider(); initColGrip(); initControls(); initQueue();
     $('#filter').addEventListener('input', renderMatrix);
     $('#mhead').addEventListener('click', e => {
