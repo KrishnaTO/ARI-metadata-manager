@@ -523,6 +523,12 @@ body.resizing-cols { cursor: col-resize; user-select: none; }
 .pr-banner-item:hover { text-decoration: underline; }
 .pr-banner-item .pr-num { font-family: var(--font-mono); font-weight: 600; color: var(--accent-strong); }
 .pr-banner-item .pr-author { color: var(--mute); }
+/* Curate mode is a state the record itself shows, not just a banner: a warm edge
+   down the record region, so it is never ambiguous whether you are editing. */
+.detail.curating .rec-body { box-shadow: inset 4px 0 0 var(--warning); background: rgba(181,132,26,.035); }
+[data-theme="dark"] .detail.curating .rec-body { background: rgba(224,180,92,.05); }
+.detail.curating .rec-head { border-bottom-color: var(--warning); }
+
 .edit-banner { margin: 16px 56px 0; padding: 11px 14px; border: 1px solid #E8DBB4; border-radius: 8px;
   background: var(--warning-bg); color: #6b4f10; font-size: 0.7812rem; display: flex; align-items: center;
   gap: 10px; flex-wrap: wrap; }
@@ -573,6 +579,34 @@ body.resizing-cols { cursor: col-resize; user-select: none; }
   transition: border-color .2s var(--ease), box-shadow .2s var(--ease); }
 .field input:focus, .field textarea:focus, .field select:focus { border-color: var(--accent); box-shadow: var(--focus); }
 .field textarea { resize: vertical; min-height: 56px; }
+/* Explanation under the control rather than inside its label: several labels ran
+   to a full line of parenthetical prose, which reads as part of the field name
+   (issue #98). */
+.field-hint { margin: -2px 0 6px; font-size: 11.5px; line-height: 1.5; color: var(--mute); }
+/* The panel's heading is sticky, so anything scrolled to lands underneath it —
+   including the Write/Preview tabs and the labels an error summary jumps to. */
+.field, .field-group-h { scroll-margin-top: 56px; }
+.field-hint-check { margin: -4px 0 10px 26px; }
+
+/* Named sections, so seventeen fields are not one flat list. */
+.field-group { margin-bottom: 22px; }
+.field-group-h { margin: 0 0 12px; padding-bottom: 6px; font-size: 11px; font-weight: 600;
+  letter-spacing: .12em; text-transform: uppercase; color: var(--mute);
+  border-bottom: 1px solid var(--line); }
+
+/* The definition is the record's most important prose and was edited through a
+   three-line window. Write / Preview, and a box that grows to its content. */
+.def-tabs { display: flex; align-items: center; gap: 4px; margin-bottom: 6px; }
+.def-tab { padding: 3px 10px; border: 1px solid transparent; border-radius: 4px;
+  font-size: 11.5px; font-weight: 500; color: var(--mute); }
+.def-tab:hover { color: var(--ink); }
+.def-tab.on { background: var(--bg); border-color: var(--line-strong); color: var(--ink); font-weight: 600; }
+.def-hint { margin: 0 0 0 auto; font-family: var(--font-mono); font-size: 10.5px; }
+.def-field textarea { min-height: 150px; line-height: 1.6; }
+.def-preview { min-height: 150px; padding: 10px 12px; border: 1px solid var(--line);
+  border-radius: 6px; background: var(--paper); font-size: 13px; line-height: 1.65; }
+.def-preview > :first-child { margin-top: 0; }
+.def-preview > :last-child { margin-bottom: 0; }
 .field select option { background: var(--bg); color: var(--ink); }
 .field-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 12px; }
 .field-row { display: flex; align-items: center; gap: 8px; }
@@ -594,6 +628,15 @@ body.resizing-cols { cursor: col-resize; user-select: none; }
 .tag-input { flex: 1; min-width: 120px; border: none !important; outline: none; padding: 4px !important;
   font: inherit; background: transparent !important; box-shadow: none !important; color: var(--ink); }
 .def-src-row, .subtype-row { display: flex; gap: 5px; margin-bottom: 5px; align-items: center; }
+/* In the deep-dive panel the reading column is far too narrow for three inputs
+   side by side — roughly thirty characters of a description at a time, so every
+   row was edited blind. Below 600px they stack and each gets the full width. */
+@media (max-width: 1400px) {
+  .right-col .subtype-row { flex-wrap: wrap; padding-bottom: 8px; border-bottom: 1px solid var(--line); }
+  .right-col .subtype-row .f_sub_name { flex: 1 1 100%; }
+  .right-col .subtype-row .f_sub_desc { flex: 1 1 100%; }
+  .right-col .subtype-row .f_sub_link { flex: 1 1 auto; }
+}
 .def-src-row input, .subtype-row input, .subtype-row select { min-width: 0; padding: 6px 9px;
   border: 1px solid var(--line-strong); border-radius: 4px; font: inherit; font-size: 0.75rem;
   background: var(--bg); color: var(--ink); outline: none; }

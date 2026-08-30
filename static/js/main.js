@@ -57,6 +57,7 @@ document.getElementById('theme-seg')?.addEventListener('click', e => {
 });
 initTheme();
 
+document.getElementById('help-btn')?.addEventListener('click', () => Help.open());
 // ------------------------------------------------------------- TEXT SIZE
 // One key, shared with the cross-reference matrix, so the choice is made once.
 // js/boot.js applies it before the first paint; this keeps the control in step.

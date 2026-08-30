@@ -324,12 +324,17 @@ function renderDetail(d){
   const boxByKey = {};
   for (const b of boxDefs(d)) boxByKey[b.key] = b;
 
-  let html = `<div class="detail${d.obsolete ? ' obsolete' : ''}">`;
+  // Curate mode looked almost exactly like read mode: one thin banner, a changed
+  // button label, and small "+ add" links. Nothing in the record itself said it
+  // was editable (issue #98). The record region carries the state now.
+  let html = `<div class="detail${d.obsolete ? ' obsolete' : ''}${state.editMode ? ' curating' : ''}">`;
   html += recordHeadHTML(d);
   // Populated asynchronously with any open PRs whose branch targets this disease.
   html += `<div id="disease-pr-banner"></div>`;
   if (state.editMode){
-    html += `<div class="edit-banner"><strong>Curate mode</strong> &mdash; the disease fields are open below; pick a category in the story to add / edit / delete its data items.</div>`;
+    html += `<div class="edit-banner"><strong>You are editing this record.</strong> ` +
+      `The fields are open below; pick a category in the story to add, change or remove ` +
+      `its data. Nothing is sent for review until you choose to.</div>`;
   }
 
   html += `<div class="rec-body"><div class="rec-read">`;

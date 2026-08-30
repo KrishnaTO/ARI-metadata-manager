@@ -149,8 +149,39 @@ function setMode(mode){
 function fieldText(id, label, value){
   return `<div class="field"><label>${label}</label><input id="${id}" value="${esc(value)}"></div>`;
 }
-function fieldArea(id, label, value){
-  return `<div class="field"><label>${label}</label><textarea id="${id}">${esc(value)}</textarea></div>`;
+function fieldArea(id, label, value, hint){
+  return `<div class="field"><label>${label}</label>` +
+    (hint ? `<p class="field-hint">${hint}</p>` : '') +
+    `<textarea id="${id}">${esc(value)}</textarea></div>`;
+}
+
+// The definition is the most important prose in the record and it was edited
+// through a three-line window onto nine lines of text — `rows="2"` over a 56px
+// box, with an inner scrollbar (issue #98). This grows to fit what is in it, and
+// offers a preview instead of asking a clinician to picture the markup.
+function definitionFieldHtml(value){
+  return `<div class="field def-field">
+    <label for="f_definition">Definition</label>
+    <div class="def-tabs" role="tablist">
+      <button type="button" class="def-tab on" data-def-tab="write" role="tab" aria-selected="true">Write</button>
+      <button type="button" class="def-tab" data-def-tab="preview" role="tab" aria-selected="false">Preview</button>
+      <span class="field-hint def-hint">**bold** &middot; *italic* &middot; - bullet &middot; [text](https://…)</span>
+    </div>
+    <textarea id="f_definition" rows="8">${esc(value)}</textarea>
+    <div class="def-preview" hidden></div>
+  </div>`;
+}
+
+// Grow a textarea to its content, so nothing important is behind an inner
+// scrollbar. Capped, or a long definition pushes every other field off screen.
+function autoGrow(el, max = 520){
+  if (!el) return;
+  const fit = () => {
+    el.style.height = 'auto';
+    el.style.height = Math.min(max, el.scrollHeight + 2) + 'px';
+  };
+  el.addEventListener('input', fit);
+  fit();
 }
 
 // Read-only database cross-references block for the disease-field editor. These
@@ -203,44 +234,61 @@ async function openDiseaseFieldEditor(record, draft){
     `<button class="hbtn primary save-fields-btn">Save changes</button>`+
     `<button class="close-btn" onclick="cancelFieldEdits()">Cancel</button></h2>
     <div class="edit-form">
-    <p class="panel-desc">IRI / ARI local id is fixed. Saving appends a changelog entry and writes the OWL file.</p>`;
+    <p class="panel-desc">Your changes are saved as a proposal and reviewed before they go live.
+      The disease's id cannot be changed, and every save is recorded in the record's history.</p>`;
   if (pending){
     html += `<div class="draft-banner" role="status"><span>Unsaved changes to this record were kept from ` +
       `${esc(new Date(pending.at).toLocaleString())}.</span>` +
       `<button class="hbtn" id="draft-restore">Restore them</button>` +
       `<button class="hbtn" id="draft-discard">Discard</button></div>`;
   }
+  html += `<div class="field-group"><h3 class="field-group-h">Identity</h3>`;
   html += fieldText('f_name', 'Label', d.name);
-  html += fieldArea('f_definition', 'Definition (markdown)', d.definition);
-  html += `<div class="field"><label>Synonyms <span style="font-weight:400;text-transform:none;font-size:11px;color:var(--muted)">(one chip each — press Enter or ; to add)</span></label>` +
+  html += definitionFieldHtml(d.definition);
+  html += `<div class="field"><label>Synonyms</label>` +
+    `<p class="field-hint">Other names for the same disease. One per chip — press Enter or ; to add.</p>` +
     tagEditorHtml('f_synonyms', d.synonyms) + `</div>`;
-  html += `<div class="field"><label>Clinical subtypes <span style="font-weight:400;text-transform:none;font-size:11px;color:var(--muted)">(each optionally links to an existing disease)</span></label>` +
+  html += `<div class="field"><label>Clinical subtypes</label>` +
+    `<p class="field-hint">Forms of this disease. Each can link to an existing record.</p>` +
     subtypeListHtml('f_sub_list', diseases, d.iri, d.clinical_subtypes_parsed) + `</div>`;
+  html += `</div><div class="field-group"><h3 class="field-group-h">Clinical</h3>`;
   html += '<div class="field-grid">';
   html += fieldText('f_disease_category', 'Category', first(d.disease_category));
   html += fieldText('f_evidence_quality', 'Evidence quality', first(d.evidence_quality));
+  html += fieldText('f_demographic_bias', 'Demographic bias', first(d.demographic_bias));
+  html += fieldText('f_age_range', 'Age range', first(d.age_range));
+  html += '</div>';
+  html += `</div><div class="field-group"><h3 class="field-group-h">Prevalence</h3>`;
+  html += '<div class="field-grid">';
   html += fieldText('f_prevalence_per_100k', 'Prevalence /100k', first(d.prevalence_per_100k));
   html += fieldText('f_prevalence_value', 'Estimated cases', first(d.prevalence_value));
   html += fieldText('f_incidence_rate', 'Incidence rate', first(d.incidence_rate));
   html += '</div>';
+  html += fieldArea('f_prevalence_desc', 'Prevalence description', first(d.prevalence_desc));
+  html += `</div><div class="field-group"><h3 class="field-group-h">Sources &amp; status</h3>`;
   // Database cross-references are curated on the dedicated reference-review page,
   // so they are shown here read-only with a link out rather than edited inline.
   html += xrefReadonlyHTML(d);
-  html += fieldText('f_demographic_bias', 'Demographic bias', first(d.demographic_bias));
-  html += fieldText('f_age_range', 'Age range', first(d.age_range));
-  html += fieldArea('f_prevalence_desc', 'Prevalence description', first(d.prevalence_desc));
   // Structured def-source editor: parse existing citations into URL + label rows
   const _dsCites = [];
   for (const s of (d.def_source || [])) for (const c of parseDefSrc(String(s))) _dsCites.push(c);
   const _dsShown = new Set(_dsCites.map(c => c.url).filter(Boolean));
   for (const p of (d.pubmed || [])) { const u = String(p||'').trim(); if (u && !_dsShown.has(u)) _dsCites.push({text:'',url:u}); }
   if (!_dsCites.length) _dsCites.push({text:'',url:''});
-  html += `<div class="field"><label>Definition sources <span style="font-weight:400;text-transform:none;font-size:11px;color:var(--muted)">(URL required for each; label optional)</span></label>` +
+  html += `<div class="field"><label>Where the definition came from</label>` +
+    `<p class="field-hint">A URL for each. A label is optional.</p>` +
     `<div id="f_defsrc_list">${_dsCites.map(c => defSrcRowHtml(c.text, c.url)).join('')}</div>` +
     `<button type="button" class="hbtn" id="f_defsrc_add" style="font-size:11px;margin-top:3px">Add source</button></div>`;
-  html += `<div class="field field-row"><input type="checkbox" id="f_is_grouping" ${d.is_grouping?'checked':''}><label style="margin:0">Grouping / umbrella category <span style="font-weight:400;text-transform:none;font-size:11px;color:var(--muted)">(collects related diseases; no disease-specific clinical metadata)</span></label></div>`;
-  html += `<div class="field field-row"><input type="checkbox" id="f_obsolete" ${d.obsolete?'checked':''}><label style="margin:0">Mark as obsolete</label></div>`;
-  html += `<div class="field"><label>Editor name</label><input id="f_editor" value="${esc(state.editor)}"></div>`;
+  html += `<div class="field field-row"><input type="checkbox" id="f_is_grouping" ${d.is_grouping?'checked':''}>` +
+    `<label style="margin:0">Umbrella category</label></div>` +
+    `<p class="field-hint field-hint-check">Collects related diseases. No symptoms, antibodies or other clinical detail is tracked on an umbrella.</p>`;
+  html += `<div class="field field-row"><input type="checkbox" id="f_obsolete" ${d.obsolete?'checked':''}>` +
+    `<label style="margin:0">No longer in use</label></div>` +
+    `<p class="field-hint field-hint-check">The record stays and keeps its id, marked obsolete.</p>`;
+  html += `<div class="field"><label>Your name</label>` +
+    `<p class="field-hint">Recorded against this change in the record's history.</p>` +
+    `<input id="f_editor" value="${esc(state.editor)}"></div>`;
+  html += `</div>`;
   html += `<div class="edit-actions"><button class="hbtn primary save-fields-btn">Save changes</button>
     <button class="hbtn" onclick="cancelFieldEdits()">Cancel</button></div></div>`;
   $('#right-panel-content').innerHTML = html;
@@ -249,6 +297,7 @@ async function openDiseaseFieldEditor(record, draft){
     $('#f_defsrc_list').insertAdjacentHTML('beforeend', defSrcRowHtml('', '')));
   wireTagEditor('#f_synonyms');
   wireSubtypeAdd($('#right-panel-content'), diseases, d.iri);
+  wireDefinitionEditor();
   $('#draft-restore')?.addEventListener('click', () =>
     openDiseaseFieldEditor(record, draftFor(record.iri).fields));
   $('#draft-discard')?.addEventListener('click', () => {
@@ -269,6 +318,27 @@ async function openDiseaseFieldEditor(record, draft){
 }
 let _draftTimer = null;
 const RESTORED_DRAFT = '"restored-draft"';
+
+// Write / Preview, and a definition box that grows to what is in it.
+function wireDefinitionEditor(){
+  const box = $('#f_definition');
+  if (!box) return;
+  autoGrow(box);
+  const preview = document.querySelector('.def-preview');
+  const tabs = [...document.querySelectorAll('.def-tab')];
+  tabs.forEach(tab => tab.addEventListener('click', () => {
+    const showPreview = tab.dataset.defTab === 'preview';
+    tabs.forEach(t => {
+      const on = t === tab;
+      t.classList.toggle('on', on);
+      t.setAttribute('aria-selected', String(on));
+    });
+    if (showPreview) preview.innerHTML = mdToHtml(box.value) || '<p class="field-hint">Nothing written yet.</p>';
+    preview.hidden = !showPreview;
+    box.hidden = showPreview;
+    if (!showPreview) box.focus();
+  }));
+}
 
 // ---- unsaved-change guard for the disease-field form
 // The form's values as the API wants them. Shared by the save call and the
