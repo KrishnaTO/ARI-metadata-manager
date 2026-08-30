@@ -6,6 +6,7 @@ GET/PUT endpoints and the auth boundary (anonymous users get no persistence)."""
 from fastapi.testclient import TestClient
 
 import app.main as main
+from app import config, sessions, workspace
 
 client = TestClient(main.app)
 
@@ -30,8 +31,8 @@ def test_anonymous_put_is_rejected():
 
 
 def test_signed_in_round_trip(tmp_path, monkeypatch):
-    monkeypatch.setattr(main, "USER_DIR", tmp_path)
-    monkeypatch.setattr(main, "_login", lambda request: "tester")
+    monkeypatch.setattr(config, "USER_DIR", tmp_path)
+    monkeypatch.setattr(sessions, "_login", lambda request: "tester")
 
     # Save, then read it straight back.
     assert client.put("/api/v2/ref-session", json=SAMPLE).status_code == 200
@@ -40,7 +41,7 @@ def test_signed_in_round_trip(tmp_path, monkeypatch):
     assert got.json() == SAMPLE
 
     # Resetting the user (branch switch / fetch) drops the saved session.
-    main._reset_user("tester")
+    workspace._reset_user("tester")
     assert client.get("/api/v2/ref-session").json() == {}
 
 
@@ -55,15 +56,15 @@ def test_corrupt_session_file_raises_rather_than_resetting(tmp_path, monkeypatch
 
     from app.atomic_store import StoreCorrupt
 
-    monkeypatch.setattr(main, "USER_DIR", tmp_path)
+    monkeypatch.setattr(config, "USER_DIR", tmp_path)
     (tmp_path / "tester.refsession.json").write_text("{not json", encoding="utf-8")
     with pytest.raises(StoreCorrupt):
-        main._load_ref_session("tester")
+        workspace._load_ref_session("tester")
 
 
 def test_absent_session_file_is_an_empty_blob(tmp_path, monkeypatch):
-    monkeypatch.setattr(main, "USER_DIR", tmp_path)
-    assert main._load_ref_session("nobody") == {}
+    monkeypatch.setattr(config, "USER_DIR", tmp_path)
+    assert workspace._load_ref_session("nobody") == {}
 
 
 def test_two_windows_for_one_curator_do_not_lose_each_others_verdicts(tmp_path, monkeypatch):
@@ -77,8 +78,8 @@ def test_two_windows_for_one_curator_do_not_lose_each_others_verdicts(tmp_path, 
     issue #114. What it does guarantee is that the loss is visible here the
     moment #114 lands, instead of being discovered by a curator.
     """
-    monkeypatch.setattr(main, "USER_DIR", tmp_path)
-    monkeypatch.setattr(main, "_login", lambda request: "tester")
+    monkeypatch.setattr(config, "USER_DIR", tmp_path)
+    monkeypatch.setattr(sessions, "_login", lambda request: "tester")
 
     window_a = {"reviewed": {"iri1|mondo|1": "ok"}, "edited": {}, "branch": None, "pr": None}
     window_b = {"reviewed": {"iri1|snomed|2": "bad"}, "edited": {}, "branch": None, "pr": None}
