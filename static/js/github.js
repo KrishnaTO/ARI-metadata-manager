@@ -63,13 +63,47 @@
     }
   }
 
-  function publish() {
+  // What is in this pull request, listed. The dialog used to show a free-text
+  // title box and nothing else: a curator could not see which diseases their
+  // submission carried, and the default title named whichever record happened to
+  // be on screen — so three edits published under the name of one of them, and a
+  // brand-new disease read as an update (issue #25).
+  function changeListHtml(pending) {
+    const changes = (pending && pending.changes) || [];
+    if (pending && pending.unavailable) {
+      return `<p class="pub-note">The list of changed diseases is unavailable — the ` +
+        `source branch could not be read. Your changes still publish in full.</p>`;
+    }
+    if (!changes.length) {
+      return `<p class="pub-note">No disease changes found against ` +
+        `<code>${esc(pending?.source_branch || 'the source branch')}</code>. ` +
+        `Cross-reference verdicts are published from the review page.</p>`;
+    }
+    const rows = changes.map(c => {
+      const what = c.removed ? 'removed'
+        : c.is_new ? 'new disease'
+        : c.fields.map(f => f.label).join(', ');
+      return `<li><span class="pub-d">${esc(c.name)}</span>` +
+        `<span class="pub-id">${esc(c.ari_id)}</span>` +
+        `<span class="pub-w">${esc(what)}</span></li>`;
+    }).join('');
+    return `<div class="field"><label>In this submission (${changes.length})</label>
+      <ul class="pub-list">${rows}</ul>
+      <p class="pub-note">Everything you have changed goes in together — a pull request
+        carries the whole ontology file, so diseases cannot be published separately.</p></div>`;
+  }
+
+  async function publish() {
+    let pending = null;
+    try { pending = await api('/api/v2/pending-changes'); }
+    catch (e) { console.warn('Could not list pending changes:', e.message); }
+    const def = (pending && pending.title) || 'Update ontology';
     const disease = state.detail?.name || '';
-    const def = disease ? `Update ${disease}` : 'Update ontology';
     const m = el(`<div class="modal-overlay" id="pub-overlay"><div class="modal">
       <div class="modal-head"><h2>Publish to GitHub</h2><button class="hbtn" id="pub-close">Close</button></div>
       <div class="modal-body">
         <p style="font-size:13px;margin:0 0 10px">Opens a pull request with a summary of your changes (previous &rarr; new values).</p>
+        ${changeListHtml(pending)}
         <div class="field"><label>Commit message / PR title</label><input id="pub-msg" value="${esc(def)}"></div>
         <div class="field"><label>Comments (optional)</label><textarea id="pub-comment" placeholder="Why this change, sources, notes for reviewers..."></textarea></div>
         <div class="edit-actions" style="margin-top:4px"><button class="hbtn primary" id="pub-go">Open pull request</button>

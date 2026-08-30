@@ -63,6 +63,63 @@ def _mapping_author(supplied, login: str) -> str:
     return sssom_service.orcid_curie(supplied.removeprefix("orcid:"))
 
 
+async def _baseline_service(request, u):
+    """The source branch's ontology, as a service, or None when it cannot be read.
+
+    Both the pending-changes list and the pull-request summary compare against
+    this. The caller is responsible for deleting ``service.path``.
+    """
+    import tempfile
+    data = await gh.get_file_at(u["token"], config.GH_OWNER, config.GH_REPO,
+                                config.GH_ONTOLOGY_PATH, workspace._source_branch(request))
+    tf = tempfile.NamedTemporaryFile(suffix=".owl", delete=False)
+    tf.write(data)
+    tf.close()
+    return OntologyService(tf.name)
+
+
+@router.get("/api/v2/pending-changes")
+async def pending_changes(request: Request):
+    """The diseases this curator has changed, and what changed in each.
+
+    The publish dialog offered a free-text title box and nothing else, so a
+    curator opening a pull request could not see which diseases it carried, and
+    the default title named whichever record happened to be on screen (issue
+    #25). ``title`` is generated from the list.
+
+    Empty for an anonymous user, and empty — rather than an error — when the
+    source branch cannot be read, so the dialog degrades to what it did before
+    instead of refusing to open.
+    """
+    u = sessions._user(request) if config.GH_ENABLED else None
+    login = sessions._login(request)
+    if not u or not login:
+        return {"changes": [], "title": "Update ontology", "source_branch": ""}
+    touched = workspace.USER_TOUCHED.get(login)
+    baseline = None
+    try:
+        baseline = await _baseline_service(request, u)
+        changes = diff_service.list_changes(workspace.service_for(request), baseline, touched)
+    except Exception as e:
+        log.warning("Could not list pending changes against the source branch: %s", e)
+        return {"changes": [], "title": "Update ontology",
+                "source_branch": workspace._source_branch(request),
+                "unavailable": True}
+    finally:
+        if baseline is not None:
+            _discard(baseline.path)
+    return {"changes": changes, "title": diff_service.title_for(changes),
+            "source_branch": workspace._source_branch(request)}
+
+
+def _discard(path):
+    import os as _os
+    try:
+        _os.unlink(path)
+    except OSError as e:
+        log.debug("Could not remove temp baseline %s: %s", path, e)
+
+
 @router.post("/api/v2/publish")
 async def publish(request: Request, payload: dict = Body(default={})):
     """Commit the current ontology file to GitHub as the signed-in user (PR)."""

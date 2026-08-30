@@ -1,5 +1,20 @@
 # Changelog
 
+## publish-flow
+Closes #24. Partly #25 — see the note at the end.
+
+- **The publish dialog now says what the submission carries.** It offered a free-text title box and nothing else, so opening a pull request meant guessing which diseases were in it. `GET /api/v2/pending-changes` lists the diseases changed against the source branch with what changed in each, and the dialog shows that list.
+- **The title is generated from that list.** It was `Update <whichever record is on screen>`, so three edits published under the name of one of them and a brand-new disease read as an update. Now: `Add X`, `Update A and B`, `Update 3 diseases`, `Add X; update A and B`.
+- That comparison already existed inside `build_change_summary`, which built markdown directly. It is `list_changes` now and the summary renders its result, so the dialog's list, the generated title and the pull-request body cannot describe the same submission three different ways.
+- **Creating a clinical subtype leaves a trace on both records.** The changelog said only `Created: <label>` — nothing about which disease it had been split out of, and nothing at all on the parent, so a curator opening the parent could not see a subtype had come from it. Both entries name the other now, and the pull-request summary reads *"new clinical subtype of X"* on the child.
+- **The confirmation says what actually happened.** It was a bare `alert('Created subtype: X')`, leaving the curator to guess whether it had been submitted. It now says the record is in their working copy, that both changelogs record it, that it goes out with the next submission, and links to it in the editor — which is also the answer to #24's third question: no redirect is needed, because carrying on reviewing and submitting later is already what happens.
+- The relationship is reported on the child rather than the parent because that is where it lives: the parent gains only a changelog entry, and no field diff reports those for any edit.
+
+### On #25
+The other half of #25 — choosing which diseases go into a pull request — is **not** implemented, and the dialog says so where a curator would look for it. A publish commits the whole ontology file, so diseases cannot be carried separately without making the publish unit smaller than the file, which is a much larger change. A control that appeared to exclude a disease while publishing it anyway would be worse than not having one, so the dialog states the constraint instead. The title generation the issue also asks for is done.
+
+246 pytest, 25 `node --test`, ruff clean.
+
 ## automation-and-measurement
 Closes #90, #91, #124.
 

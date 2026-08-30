@@ -1328,7 +1328,12 @@
       ROWS = await api('xrefs');           // refresh so the new subtype appears in the matrix
       closeSubtypeOverlay();
       renderMatrix(); counts();
-      note('Created subtype: ' + created.name, 'ok');
+      // Creating a subtype here writes it to this curator's working copy — it does
+      // not open a pull request, and nothing said so: the old message was
+      // "Created subtype: X" and left the curator to guess whether it had been
+      // submitted (issue #24). Say what happened, and where to submit it.
+      const parent = ROWS.find(x => x.iri === parentIri);
+      subtypeNote(created, parent);
     } catch (e) {
       note('Could not create the subtype: ' + e.message, 'error');
       btn.disabled = false; btn.textContent = '＋ Create subtype';
@@ -1457,6 +1462,31 @@
       // attempt, which the server can recognise if the first one actually landed.
       note('Publish failed: ' + e.message, 'error'); reflectPr(); counts();
     }
+  }
+
+  // What creating a subtype actually did, and what is left to do. The record is
+  // in this session's working copy along with everything else, so it goes out
+  // with the next submission from the editor — no redirect needed, which is the
+  // point: a curator can carry on reviewing and submit later.
+  function subtypeNote(created, parent) {
+    const el = $('#note');
+    const editorUrl = new URL('../#/disease/' + enc(created.iri), location.href).href;
+    el.innerHTML =
+      `<strong>${esc(created.name)}</strong> created` +
+      (parent ? ` as a clinical subtype of <strong>${esc(parent.name)}</strong>` : '') +
+      ` (${esc(created.ari_id || '')}). It is in your working copy, and both records ` +
+      `now carry a changelog entry saying so. It goes out with your next submission — ` +
+      `<a href="${esc(editorUrl)}" target="_blank" rel="noopener">open it in the editor</a> ` +
+      `to fill in the rest or submit.`;
+    // Same banner as note(), but the message carries a link, so it sets innerHTML
+    // rather than text. It still has to leave the element in the state note()
+    // would: the success class, a status role, and the message announced.
+    el.classList.remove('is-error');
+    el.classList.add('open', 'is-ok');
+    el.setAttribute('role', 'status');
+    UIDialog.announce(el.textContent);
+    clearTimeout(_noteTimer);
+    _noteTimer = setTimeout(() => el.classList.remove('open', 'is-ok'), 14000);
   }
 
   // Draggable splitter — adjust side-panel width on all screens (mouse + touch).
