@@ -141,3 +141,21 @@ def test_enrich_many_skips_diseases_without_confirmations():
     out = es.enrich_many(diseases, {"iri:t1d": [{"db": "mondo", "ids": ["0005147"]}]},
                          indexes=[HUB], subtypes=SUBTYPES, blocklist={})
     assert set(out) == {"iri:t1d"}
+
+
+# --------------------------------------------------------------- subtype file loading
+def test_load_subtypes_resolves_child_labels_from_the_indexes(tmp_path):
+    # The edge file carries ids only; the name of each child comes from that child's
+    # own index row, so the two can never disagree about a label. A child the indexes
+    # do not know resolves to "" -- which enrich() already skips -- rather than
+    # silently proposing a subtype under a name nothing else in the app recognises.
+    (tmp_path / "mondo.subtypes.tsv").write_text(
+        "	".join(es.SUBTYPE_COLS) + "\n"
+        "MONDO:0005147	MONDO:0011899\n"
+        "MONDO:0005147	MONDO:0099999\n", encoding="utf-8")
+    idx = _index(("MONDO:0011899", "type 1 diabetes mellitus 2", [], {"mondo": ["0011899"]}))
+
+    got = es.load_subtypes([idx], tmp_path)
+    assert got == {"MONDO:0005147": [{"id": "MONDO:0011899", "label": "type 1 diabetes mellitus 2"},
+                                     {"id": "MONDO:0099999", "label": ""}]}
+
