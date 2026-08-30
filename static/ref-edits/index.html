@@ -7,6 +7,9 @@
 <!-- Relative, like every other link on this page: the app is mounted under a path
      prefix in production (/ari-editor), so a root-absolute href 404s there. -->
 <link rel="icon" href="../favicon.svg" type="image/svg+xml">
+<!-- Before first paint: applies saved theme/density/legend, so there is no
+     flash of the defaults. Must not be deferred. -->
+<script src="boot.js?v=__ASSETV__"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
@@ -192,6 +195,25 @@
   .en-group .en-label { font:600 10px var(--sans); letter-spacing:.08em; text-transform:uppercase;
                         color:var(--mute); display:block; margin-bottom:4px; }
   .en-chips { display:flex; flex-wrap:wrap; gap:4px; }
+  /* ---- per-item enrichment selection (#117) ----
+     The preview used to offer one all-or-nothing checkbox, so a curator who
+     wanted eight of eleven proposed synonyms had to decline all eleven. Every
+     proposal now carries its own box and the term it came from. */
+  .en-grouphead { display:flex; align-items:center; gap:8px; margin-bottom:5px; }
+  .en-all { border:1px solid var(--line); background:var(--card); color:var(--mute);
+            font:500 10px/1 var(--mono); letter-spacing:.05em; text-transform:uppercase;
+            padding:4px 7px; border-radius:3px; cursor:pointer; min-height:24px; }
+  .en-all:hover { color:var(--accent); border-color:var(--accent); }
+  .en-items { list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:2px; }
+  .en-item > label { display:flex; align-items:baseline; gap:7px; cursor:pointer;
+                     padding:3px 4px; border-radius:3px; }
+  .en-item > label:hover { background:var(--have-bg); }
+  .en-item input { flex-shrink:0; accent-color:var(--accent); cursor:pointer;
+                   width:13px; height:13px; padding:5.5px; box-sizing:content-box;
+                   background-clip:content-box; margin:-5.5px 0 -5.5px -5.5px; }
+  .en-val { font-size:12px; line-height:1.5; color:var(--text); }
+  .en-item .en-src { margin-left:auto; flex-shrink:0; font:400 10.5px var(--mono);
+                     color:var(--mute); }
   .en-syn { font:400 11.5px var(--sans); background:var(--ok-bg); color:var(--ok-fg);
             border-radius:99px; padding:2px 9px; }
   .en-subs { list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:3px; }
@@ -408,7 +430,40 @@
   .p-lock { margin:12px 16px 0; padding:8px 10px; border-radius:6px; font-size:11.5px; line-height:1.5;
             background:var(--bad-bg); color:var(--bad-fg); border:1px solid var(--bad-solid); }
   .p-foot { padding:10px 16px; border-top:1px solid var(--line); font-size:11px; color:var(--mute); background:var(--head); }
-  #p-frame { flex:1 0 auto; width:100%; min-height:300px; border:0; background:#fff; }
+  /* ---- compare pane: the ARI record beside the candidate concept (#96) ----
+     Judging a mapping means comparing two definitions. Four of the nine review
+     databases block embedding, so for 44% of every disease's review the panel
+     could show nothing about the candidate at all -- even though the endpoint
+     already returned its definition, synonyms and parents. */
+  .cmp { display:grid; grid-template-columns:1fr 1fr; gap:1px; background:var(--line);
+         border-top:1px solid var(--line); border-bottom:1px solid var(--line); }
+  @media (max-width:640px) { .cmp { grid-template-columns:1fr; } }
+  .cmp-col { background:var(--card); padding:12px 14px 14px; min-width:0; }
+  .cmp-head { font:600 10px/1.4 var(--mono); letter-spacing:.07em; text-transform:uppercase;
+              color:var(--mute); margin-bottom:6px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .cmp-name { font:600 13.5px/1.35 var(--sans); color:var(--text); margin-bottom:10px; }
+  .cmp-label { font:600 9.5px/1.4 var(--mono); letter-spacing:.08em; text-transform:uppercase;
+               color:var(--mute); margin:10px 0 4px; }
+  .cmp-def { font-size:12.5px; line-height:1.55; color:var(--text);
+             max-height:11.5em; overflow-y:auto; overscroll-behavior:contain; }
+  .cmp-chips { display:flex; flex-wrap:wrap; gap:4px; }
+  .cmp-chip { font-size:11px; line-height:1.5; padding:1px 6px; border-radius:3px;
+              background:var(--have-bg); color:var(--text); border:1px solid var(--line); }
+  .cmp-more { font-size:11px; color:var(--mute); align-self:center; cursor:help; }
+  .cmp-none { font-size:12px; color:var(--mute); font-style:italic; }
+  .cmp-loading { font-size:12px; color:var(--mute); }
+  .cmp-via { font-size:11px; line-height:1.5; color:var(--pred-fg); background:var(--pred-bg);
+             border-radius:3px; padding:5px 7px; margin-bottom:8px; }
+
+  /* The embedded source page is a secondary affordance now, below the compared
+     text rather than instead of it -- and collapsed, so it costs no height until
+     the curator asks for it. */
+  .p-source { border-top:1px solid var(--line); }
+  .p-source > summary { padding:9px 16px; font-size:11.5px; color:var(--mute);
+                        cursor:pointer; user-select:none; }
+  .p-source > summary:hover { color:var(--accent); }
+  .p-source[open] > summary { border-bottom:1px solid var(--line); }
+  #p-frame { display:block; width:100%; height:340px; border:0; background:#fff; }
 
   /* -------------------------------------------------- new-subtype overlay */
   #subtype-overlay { display:none; position:absolute; top:0; left:0; bottom:0; background:var(--surface); z-index:10;
@@ -530,12 +585,6 @@
   <span class="ai-dot" style="display:inline-block;vertical-align:middle"></span> after a disease name marks it confirmed autoimmune.
   The curator who added an id cannot confirm it — another curator has to.
 </div>
-<script>
-  try { var t = localStorage.getItem('theme'); if (t) document.documentElement.dataset.theme = t;
-    else if (matchMedia('(prefers-color-scheme: dark)').matches) document.documentElement.dataset.theme = 'dark';
-    document.documentElement.dataset.density = localStorage.getItem('refDensity') || 'comfortable';
-    document.documentElement.dataset.legend = localStorage.getItem('refLegend') || 'on'; } catch(e){}
-</script>
 <script src="review-model.js?v=__ASSETV__"></script>
 <script src="ref-edits.js?v=__ASSETV__"></script>
 </body>

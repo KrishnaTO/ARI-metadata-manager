@@ -1,5 +1,30 @@
 # Changelog
 
+## mapping-judgment-context
+Closes #96, #117. **[UI change — needs review]**
+
+### The candidate concept is shown, not just named (#96)
+- **Judging a cross-reference means comparing two definitions, and the panel could only show one.** `GET /api/v2/concept/{db}/{id}` already returned the candidate's definition, synonyms and parents — the page fetched all of it and kept only `label`, rendering it as a small grey caption. For `OMOP`, `Orphanet`, `UMLS` and `MeSH` (`noframe: True`, and **44% of every disease's review**) the panel then showed nothing at all about the candidate, so the curator opened a tab and held the ARI definition in working memory — exactly the task this tool exists to prevent.
+- The panel now renders a **side-by-side compare pane**: the ARI record's definition and synonyms on the left, the candidate's definition, synonyms and broader terms on the right, for all nine databases rather than only the embeddable ones. It reuses the existing `conceptCache`, so opening a panel costs the same one request it always did.
+- A hub cross-reference is labelled as such — *"Not MONDO's own record — found via …, which cross-references this id"* — so a weaker claim reads as one.
+- `get_xref_rows()` gains `definition` (one annotation per disease; still O(diseases)) so the left column has something to show.
+- **The embedded source page is now secondary**, in a collapsed `<details>` below the compared text rather than instead of it, and `loading="lazy"`. It costs no height until asked for.
+
+### Enrichment is per-item, and every value says where it came from (#117)
+- **A curator who wanted eight of eleven proposed synonyms had to decline all eleven.** The preview offered one "Apply on publish" checkbox for the whole set. Every proposal now carries its own checkbox, with All/None per group; everything starts ticked, so the default matches the old behaviour and a curator only acts to *decline*.
+- The selection travels to publish as `enrichment_selection`, and `apply_enrichment(..., selected=…)` applies only what was kept. Matching is on the **value**, not an index, so a selection made before an index rebuild cannot silently apply a different proposal — anything no longer proposed is dropped.
+- **Per-value lineage.** `enrich()` entries are now `{"value", "source"}`, the source is shown beside each proposal in the drawer, and every applied value gets a line in a new `ARI_EnrichmentSource` annotation: `ARI_Synonym | <value> | from MONDO:0018747 | <UTC> | <editor>`. The PR body recorded only counts, so six months later nobody could tell whether a synonym came from MONDO, from DOID, or from a human. The annotation travels with the ontology, so the lineage is in the published artefact rather than a sidecar.
+
+### Two regressions from #133, found while testing
+- **The review page had stopped honouring saved theme, density and legend.** Tightening the CSP to `script-src 'self'` silently blocked the inline pre-paint script that applies them — verified: all three settings saved and none applied. Moved to `static/ref-edits/boot.js` and loaded from `<head>`, so the policy needs neither `'unsafe-inline'` nor a hash that would break the moment the script is edited.
+- **A local edit to a JS or CSS file had no effect until the server restarted.** Assets are now served `immutable` for a year and the cache-busting token was the git commit count, which does not change while developing. The token folds in the newest `static/` mtime, and `run.py` sets `ARI_DEV=1` so it is re-derived per page render locally; production keeps the single startup token rather than walking `static/` on every load.
+- A signed-out visitor no longer triggers a 401 on every load: `/api/v2/id-authors` needs a session since #126, and a signed-out viewer cannot confirm anything, so the ledger is not requested.
+
+### Testing
+16 new tests across `tests/test_enrich_service.py` and `tests/test_enrichment_selection.py` — lineage on synonyms and subtypes, lineage distinguishing two agreeing sources, value-based (not positional) selection matching, declining everything applying nothing, and keeping exactly one synonym. **245 pytest + 25 node pass; ruff clean.**
+
+Verified in the running app: the compare pane fills for a MONDO candidate with both definitions visible, per-item checkboxes tick and untick with the count following, All/None works, theme/density/legend all apply from storage, and the console is clean.
+
 ## prune-derivable-columns
 - **The last two redundant columns in the reference data are gone, cutting a further 4.3 MB (24%).** `main-branch-object-pruning` left these because they needed reader changes; this makes them. Indexes 11.52 -> 10.89 MB, subtype edges 6.30 -> 2.64 MB (-58%). `data/2-databases` is now 31.8 MB, down from 38.5 MB before the two passes.
 - **A source's own id column is no longer written.** `mondo.index.tsv` held `MONDO:0005147` in `id` and `0005147` in its own `mondo` column — one value per row, on all 85,354 terms across the five files, and verified to be exactly the `id` with its prefix stripped in every one of them. `predict_service.load_index` now reconstructs it with `xref_registry.normalize_id`, so `by_db` is unchanged and each database still predicts its own ids. `SOURCE_DB` (which index owns which database key) moved from `concept_service` to `xref_registry`, so both readers share one copy instead of `predict_service` importing upward.

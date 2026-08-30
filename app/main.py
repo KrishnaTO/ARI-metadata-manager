@@ -106,19 +106,39 @@ def _asset_version() -> str:
 
     The HTML pages tag all their js/css with `?v=__ASSETV__`, which is replaced
     with this token when the page is served. One value busts every asset at once,
-    so there are no fragile per-file `?v=N` numbers to bump (and merge-conflict)."""
+    so there are no fragile per-file `?v=N` numbers to bump (and merge-conflict).
+
+    The commit count alone was enough while every asset response carried
+    ``no-cache``. Now that a versioned asset is served ``immutable`` for a year,
+    it is not: editing a file without committing leaves the token unchanged, so
+    a browser that has already seen it will not fetch the edit for a year. The
+    newest mtime under ``static/`` is folded in, which changes the moment a file
+    is saved and is stable across a deploy that did not touch the file.
+    """
     root = Path(__file__).resolve().parent.parent
+    parts = []
     try:
         n = subprocess.check_output(["git", "-C", str(root), "rev-list", "--count", "HEAD"],
                                     text=True, stderr=subprocess.DEVNULL).strip()
         if n:
-            return n
+            parts.append(n)
     except (OSError, subprocess.SubprocessError) as e:
-        log.debug("Could not derive asset version from git, using time fallback: %s", e)
-    return str(int(time.time()))   # fallback: bust on each restart
+        log.debug("Could not derive asset version from git, using mtime alone: %s", e)
+    try:
+        newest = max((f.stat().st_mtime_ns for f in STATIC_DIR.rglob("*")
+                      if f.is_file() and f.suffix in (".js", ".css", ".html")), default=0)
+        if newest:
+            parts.append(format(newest // 1_000_000_000, "x"))   # second resolution is plenty
+    except OSError as e:
+        log.debug("Could not stat static assets for the version token: %s", e)
+    return "-".join(parts) or str(int(time.time()))   # last resort: bust on each restart
 
 
 ASSET_VERSION = _asset_version()
+
+# Set by run.py, the local launcher. Only affects how often the asset token is
+# re-derived; nothing about what is served.
+DEV_MODE = os.environ.get("ARI_DEV") == "1"
 
 # ----------------------------------------------------------------- GitHub config
 GH_CLIENT_ID = os.environ.get("GITHUB_CLIENT_ID", "")
@@ -1123,7 +1143,10 @@ async def publish(request: Request, payload: dict = Body(default={})):
     if any_review:
         svc.log_xref_review(confirmed, flagged, editor=login, absent=absent)
         if apply_enrich:
-            got = svc.apply_enrichment(confirmed, editor=login)
+            # Per-item selection from the preview drawer; absent means "all",
+            # which is what the single all-or-nothing checkbox used to mean.
+            got = svc.apply_enrichment(confirmed, editor=login,
+                                       selected=payload.get("enrichment_selection"))
             if got["diseases"]:
                 enrich_note = (f"## Enrichment\n\nFolded confirmed cross-references into "
                                f"{got['diseases']} disease(s): +{got['synonyms_added']} "
@@ -1380,9 +1403,17 @@ def _render_html(rel_path: str) -> HTMLResponse:
     """Serve an app HTML page with the `__ASSETV__` asset token substituted.
 
     The page is marked no-cache so it is always revalidated: it must be fresh to
-    carry the current deploy's token, which is what busts the (cacheable) assets."""
+    carry the current deploy's token, which is what busts the (cacheable) assets.
+
+    In development the token is re-derived per render. Assets are now served
+    ``immutable`` for a year, so a token fixed at startup means editing a JS or
+    CSS file has no effect until the server is restarted — and for a frontend-only
+    edit there is otherwise no reason to restart at all. Production keeps the
+    single startup token: re-deriving it walks ``static/`` on every page load.
+    """
     html = (STATIC_DIR / rel_path).read_text(encoding="utf-8")
-    return HTMLResponse(html.replace("__ASSETV__", ASSET_VERSION),
+    token = _asset_version() if DEV_MODE else ASSET_VERSION
+    return HTMLResponse(html.replace("__ASSETV__", token),
                         headers={"Cache-Control": "no-cache, must-revalidate"})
 
 
