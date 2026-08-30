@@ -8,6 +8,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 import app.main as main
+from app import config, workspace
 from app.errors import Invalid, NotFound
 
 client = TestClient(main.app)
@@ -86,7 +87,7 @@ def test_an_incidental_key_error_is_not_dressed_up_as_a_404(monkeypatch):
     def _boom(request):
         raise KeyError("some_internal_key")
 
-    monkeypatch.setattr(main, "service_for", _boom)
+    monkeypatch.setattr(workspace, "service_for", _boom)
     with pytest.raises(KeyError):
         client.get("/api/v2/diseases")
 
@@ -113,5 +114,5 @@ def test_predictions_are_cached_until_the_ontology_changes(service, monkeypatch)
 def test_the_version_carries_the_sha_the_readme_documents():
     import re
     # 2.<count> (<sha>, <date>) — or the 2.x fallback outside a git checkout.
-    assert main.APP_VERSION == "2.x" or re.fullmatch(
-        r"2\.\d+ \([0-9a-f]{7,}, \d{4}-\d{2}-\d{2}\)", main.APP_VERSION)
+    assert config.APP_VERSION == "2.x" or re.fullmatch(
+        r"2\.\d+ \([0-9a-f]{7,}, \d{4}-\d{2}-\d{2}\)", config.APP_VERSION)
