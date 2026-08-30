@@ -38,11 +38,19 @@ def test_anonymous_edits_record_nothing(ledger):
     assert ledger.authors() == {}
 
 
-def test_id_authors_endpoint_serves_the_ledger(ledger):
+def test_id_authors_endpoint_serves_the_ledger(ledger, monkeypatch):
     ledger.record("iri:1", {}, {"snomed": ["1"]}, "ada")
+    monkeypatch.setattr(main, "_login", lambda request: "ada")
     r = client.get("/api/v2/id-authors")
     assert r.status_code == 200
     assert r.json() == {"iri:1|snomed|1": "ada"}
+
+
+def test_id_authors_endpoint_needs_a_session(ledger):
+    """The ledger is the evidence base for separation of duties, so it is not
+    handed to anonymous callers."""
+    ledger.record("iri:1", {}, {"snomed": ["1"]}, "ada")
+    assert client.get("/api/v2/id-authors").status_code == 401
 
 
 def test_publish_refuses_confirming_your_own_id(ledger, monkeypatch):

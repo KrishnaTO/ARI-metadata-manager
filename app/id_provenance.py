@@ -11,10 +11,11 @@ Only the first author of an id is kept: re-adding an id someone else already
 added does not move authorship, so a curator cannot unlock their own mapping by
 removing and re-entering it.
 """
-import json
 import logging
 from datetime import datetime, timezone
 from pathlib import Path
+
+from . import atomic_store
 
 log = logging.getLogger(__name__)
 
@@ -31,13 +32,12 @@ class IdAuthorStore:
         self.path = self.dir / "id-authors.json"
 
     def _load(self) -> dict:
-        if not self.path.exists():
-            return {}
-        try:
-            return json.loads(self.path.read_text(encoding="utf-8"))
-        except (json.JSONDecodeError, OSError) as e:
-            log.warning("Could not read the id-authorship ledger %s: %s", self.path, e)
-            return {}
+        """The ledger, or ``{}`` on a first run.
+
+        A corrupt ledger raises rather than reading as empty: this is the
+        evidence base for separation of duties, and an empty one silently lets
+        curators confirm their own mappings."""
+        return atomic_store.read_json(self.path, {})
 
     def authors(self) -> dict:
         """``"<iri>|<db>|<id>" -> login`` for every recorded id."""
@@ -63,6 +63,5 @@ class IdAuthorStore:
                 data[k] = {"login": login, "at": at}
                 added += 1
         if added:
-            self.dir.mkdir(parents=True, exist_ok=True)
-            self.path.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
+            atomic_store.write_json(self.path, data, indent=2)
         return added

@@ -131,9 +131,35 @@ def test_parse_orphanet_xml_exact_refs_only(tmp_path):
 
 
 def test_index_columns_match_predict_service():
-    # The writer must emit exactly the columns predict_service reads.
+    # INDEX_COLS is the shared column *vocabulary*: the writer emits a subset of it
+    # (see test_write_index_omits_columns_this_source_never_fills) and the reader
+    # looks columns up by name, so the two lists must still agree on names and order.
     from app import predict_service as ps
     assert fd.INDEX_COLS == ps.INDEX_COLS
+
+
+def test_write_index_omits_columns_this_source_never_fills(tmp_path, monkeypatch):
+    # Every source leaves most of the ten target columns empty, and an always-empty
+    # column is a tab per row and nothing else. predict_service reads by name, so an
+    # absent column is simply a database this source cross-references nothing in.
+    monkeypatch.setattr(fd, "DATA_DIR", tmp_path)
+    rows = [{"id": "MESH:D1", "label": "a", "synonyms": [], "mesh": ["D1"]},
+            {"id": "MESH:D2", "label": "b", "synonyms": [], "mesh": ["D2"]}]
+    lines = fd.write_index("mesh", rows).read_text(encoding="utf-8").splitlines()
+    assert lines[0].split("\t") == fd.INDEX_COLS[:3] + ["mesh"]
+    assert lines[1] == "MESH:D1\ta\t\tD1"
+
+
+def test_write_index_drops_synonyms_that_only_echo_the_label(tmp_path, monkeypatch):
+    # NCIt repeats the term's own name as its first synonym on nearly every row.
+    # Both the matcher and the enrichment engine walk [label] + synonyms and keep the
+    # first spelling of each key, so an echo can never match anything the label does
+    # not already match. Punctuation/accent variants are different names and stay.
+    monkeypatch.setattr(fd, "DATA_DIR", tmp_path)
+    rows = [{"id": "NCIT:C1", "label": "Vessel Disease", "synonyms": [
+        "Vessel Disease", "VESSEL DISEASE", "Sjögren Disease", "Sjogren Disease"]}]
+    lines = fd.write_index("ncit", rows).read_text(encoding="utf-8").splitlines()
+    assert lines[1].split("\t")[2] == "Sjögren Disease | Sjogren Disease"
 
 
 # ------------------------------------------------------------------- hierarchy

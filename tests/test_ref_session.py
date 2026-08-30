@@ -44,7 +44,22 @@ def test_signed_in_round_trip(tmp_path, monkeypatch):
     assert client.get("/api/v2/ref-session").json() == {}
 
 
-def test_corrupt_session_file_is_ignored(tmp_path, monkeypatch):
+def test_corrupt_session_file_raises_rather_than_resetting(tmp_path, monkeypatch):
+    """A half-written session used to read as empty.
+
+    That is a silent reset, not a recovery: the curator's verdicts appear to
+    have vanished, they re-judge, and the next save overwrites the file that
+    still held them. Raising keeps the bytes on disk and puts the failure where
+    an operator can see it."""
+    import pytest
+    from app.atomic_store import StoreCorrupt
+
     monkeypatch.setattr(main, "USER_DIR", tmp_path)
     (tmp_path / "tester.refsession.json").write_text("{not json", encoding="utf-8")
-    assert main._load_ref_session("tester") == {}
+    with pytest.raises(StoreCorrupt):
+        main._load_ref_session("tester")
+
+
+def test_absent_session_file_is_an_empty_blob(tmp_path, monkeypatch):
+    monkeypatch.setattr(main, "USER_DIR", tmp_path)
+    assert main._load_ref_session("nobody") == {}
