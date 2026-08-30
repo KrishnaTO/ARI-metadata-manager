@@ -187,6 +187,76 @@
     for (const db of DBS) for (const id of (r[db.key] || [])) ensureLabel(db.key, id);
   }
 
+  // ---------------------------------------------------------- COMPARE PANE
+  // Judging a cross-reference means comparing two definitions. The endpoint
+  // already returns the candidate's definition, synonyms and parents — the panel
+  // used to fetch all of it and keep only `label`, so for the four databases that
+  // block embedding (OMOP, Orphanet, UMLS, MeSH — 44% of every disease's review)
+  // it showed nothing about the candidate at all, and the curator opened a tab
+  // and held the ARI definition in working memory (issue #96).
+
+  const MAX_SYNONYMS_SHOWN = 8;
+
+  function synonymChips(list) {
+    const all = (list || []).filter(Boolean);
+    if (!all.length) return '<span class="cmp-none">none recorded</span>';
+    const shown = all.slice(0, MAX_SYNONYMS_SHOWN);
+    const rest = all.length - shown.length;
+    return shown.map(x => `<span class="cmp-chip">${esc(x)}</span>`).join('') +
+      (rest > 0 ? `<span class="cmp-more" title="${esc(all.slice(MAX_SYNONYMS_SHOWN).join(', '))}">+${rest} more</span>` : '');
+  }
+
+  function comparePaneHTML(r, db, ent) {
+    // Left: the ARI record. Right: a placeholder the async lookup fills in, so
+    // nothing blocks on the network.
+    return `<div class="cmp">
+      <div class="cmp-col">
+        <div class="cmp-head">ARI &middot; ${esc(r.ari_id || '')}</div>
+        <div class="cmp-name">${esc(r.name)}</div>
+        <div class="cmp-label">Definition</div>
+        <div class="cmp-def">${r.definition ? esc(r.definition) : '<span class="cmp-none">none recorded</span>'}</div>
+        <div class="cmp-label">Synonyms</div>
+        <div class="cmp-chips">${synonymChips(r.synonyms)}</div>
+      </div>
+      <div class="cmp-col" id="cmp-candidate">
+        <div class="cmp-head">${esc(db.label)}${ent ? ' &middot; ' + esc(ent.id) : ''}</div>
+        <div class="cmp-loading">Looking up the candidate concept…</div>
+      </div>
+    </div>`;
+  }
+
+  function renderCandidate(c, db, ent) {
+    const col = $('#cmp-candidate');
+    if (!col) return;
+    const head = `<div class="cmp-head">${esc(db.label)} &middot; ${esc(ent.id)}</div>`;
+    if (!c || !c.found) {
+      col.innerHTML = head + `<div class="cmp-none" style="margin-top:8px">
+        This id is not in the downloaded ${esc(db.label)} index, so there is nothing to
+        compare against here. Open it at the source to check it.</div>`;
+      return;
+    }
+    // A hub cross-reference is a weaker claim than the database's own term, and
+    // the curator should be able to see which they are looking at.
+    const via = (!c.direct && (c.via || []).length)
+      ? `<div class="cmp-via">Not ${esc(db.label)}'s own record — found via
+           ${c.via.map(v => esc(v)).join(', ')}, which cross-references this id.</div>`
+      : '';
+    const defn = c.definition
+      ? esc(c.definition)
+      : `<span class="cmp-none">${esc(c.note || 'no definition in the downloaded index')}</span>`;
+    const parents = (c.parents || []).length
+      ? `<div class="cmp-label">Broader terms</div>
+         <div class="cmp-chips">${(c.parents || []).map(x => `<span class="cmp-chip">${esc(x)}</span>`).join('')}</div>`
+      : '';
+    col.innerHTML = head + via +
+      `<div class="cmp-name">${esc(c.label || '(unnamed)')}</div>
+       <div class="cmp-label">Definition</div>
+       <div class="cmp-def">${defn}</div>
+       <div class="cmp-label">Synonyms</div>
+       <div class="cmp-chips">${synonymChips(c.synonyms)}</div>
+       ${parents}`;
+  }
+
   // Session cache of concept lookups, keyed `${db}|${id}`. Labels are decoration —
   // nothing waits on them, and a failed lookup just leaves the id unlabelled.
   const conceptCache = {};
@@ -211,32 +281,114 @@
   // the additions from the confirmed list at publish time, so this can't go stale.
   let applyEnrichment = false;
 
+  // What the curator has ticked, as {iri: {synonyms: Set, subtypes: Set}}.
+  // Everything starts ticked, so the default matches the old all-or-nothing
+  // behaviour and a curator only has to act to *decline* something.
+  let enrichPick = {};
+  let enrichData = {};
+
+  function enrichSelection() {
+    // The publish payload: plain arrays of the values still ticked.
+    const out = {};
+    for (const iri of Object.keys(enrichPick)) {
+      out[iri] = {
+        synonyms: [...enrichPick[iri].synonyms],
+        subtypes: [...enrichPick[iri].subtypes],
+      };
+    }
+    return out;
+  }
+
+  function enrichCount() {
+    return Object.values(enrichPick)
+      .reduce((n, p) => n + p.synonyms.size + p.subtypes.size, 0);
+  }
+
+  function enrichItemHTML(iri, kind, entry, i) {
+    // `entry` is {value, source} — the source is what makes this a curated
+    // record rather than an aggregated one (#117), so it is always shown.
+    const id = `en-${kind}-${i}`;
+    const on = enrichPick[iri] && enrichPick[iri][kind].has(entry.value);
+    // A subtype value reads "<name> - subtype of <disease> (<CURIE>)"; show the
+    // name plainly, since the source is displayed separately.
+    const m = kind === 'subtypes' && entry.value.match(/^(.*) - subtype of .* \(([^)]+)\)$/);
+    const shown = m ? m[1] : entry.value;
+    return `<li class="en-item">
+      <label>
+        <input type="checkbox" id="${id}" ${on ? 'checked' : ''}
+               data-iri="${esc(iri)}" data-kind="${kind}" data-value="${esc(entry.value)}">
+        <span class="en-val">${esc(shown)}</span>
+        <span class="en-src" title="Proposed from this term">${esc(entry.source || '')}</span>
+      </label></li>`;
+  }
+
   function renderEnrich(data) {
-    const iris = Object.keys(data || {});
-    const total = iris.reduce((n, i) => n + data[i].synonyms.length + data[i].subtypes.length, 0);
+    enrichData = data || {};
+    const iris = Object.keys(enrichData);
+    // Rebuild the selection, keeping any box the curator already unticked.
+    const prev = enrichPick;
+    enrichPick = {};
+    for (const iri of iris) {
+      const had = prev[iri];
+      enrichPick[iri] = {
+        synonyms: new Set((enrichData[iri].synonyms || [])
+          .map(e => e.value).filter(v => !had || had.synonyms.has(v))),
+        subtypes: new Set((enrichData[iri].subtypes || [])
+          .map(e => e.value).filter(v => !had || had.subtypes.has(v))),
+      };
+    }
+    const total = iris.reduce(
+      (n, i) => n + enrichData[i].synonyms.length + enrichData[i].subtypes.length, 0);
+
+    let i = 0;
     $('#enrich-list').innerHTML = !iris.length
       ? '<div class="pending-row"><span class="muted">Nothing new to add — the confirmed'
         + ' cross-references resolve to terms whose names and subtypes these diseases already'
         + ' carry, or to ids too coarse to identify a single concept.</span></div>'
       : iris.map(iri => {
-          const d = data[iri], r = ROWS.find(x => x.iri === iri);
-          const syn = !d.synonyms.length ? '' :
-            `<div class="en-group"><span class="en-label">+${d.synonyms.length} synonym(s)</span>
-              <div class="en-chips">${d.synonyms.map(s => `<span class="en-syn">${esc(s)}</span>`).join('')}</div></div>`;
-          // Each subtype reads "<name> - subtype of <disease> (<CURIE>)"; show the
-          // name plainly and the source CURIE as provenance.
-          const sub = !d.subtypes.length ? '' :
-            `<div class="en-group"><span class="en-label">+${d.subtypes.length} clinical subtype(s)</span>
-              <ul class="en-subs">${d.subtypes.map(s => {
-                const m = s.match(/^(.*) - subtype of .* \(([^)]+)\)$/);
-                return `<li>${esc(m ? m[1] : s)} <span class="en-src">${esc(m ? m[2] : '')}</span></li>`;
-              }).join('')}</ul></div>`;
-          return `<div class="en-disease"><h4>${esc((r && r.name) || iri)}</h4>${syn}${sub}</div>`;
+          const d = enrichData[iri], r = ROWS.find(x => x.iri === iri);
+          const group = (kind, label) => !d[kind].length ? '' :
+            `<div class="en-group">
+               <div class="en-grouphead">
+                 <span class="en-label">${d[kind].length} ${label}</span>
+                 <button class="en-all" data-iri="${esc(iri)}" data-kind="${kind}" data-on="0">None</button>
+                 <button class="en-all" data-iri="${esc(iri)}" data-kind="${kind}" data-on="1">All</button>
+               </div>
+               <ul class="en-items">${d[kind].map(e => enrichItemHTML(iri, kind, e, i++)).join('')}</ul>
+             </div>`;
+          return `<div class="en-disease"><h4>${esc((r && r.name) || iri)}</h4>` +
+                 group('synonyms', 'synonym(s)') + group('subtypes', 'clinical subtype(s)') + '</div>';
         }).join('');
-    $('#enrich-chip').title = `${iris.length} disease(s) · ${total} addition(s) proposed`;
+
+    // One handler for the list rather than one per checkbox.
+    $('#enrich-list').querySelectorAll('input[type=checkbox]').forEach(cb =>
+      cb.addEventListener('change', () => {
+        const set = enrichPick[cb.dataset.iri][cb.dataset.kind];
+        if (cb.checked) set.add(cb.dataset.value); else set.delete(cb.dataset.value);
+        reflectEnrichCount(total);
+      }));
+    $('#enrich-list').querySelectorAll('.en-all').forEach(b =>
+      b.addEventListener('click', () => {
+        const on = b.dataset.on === '1';
+        const iri = b.dataset.iri, kind = b.dataset.kind;
+        enrichPick[iri][kind] = new Set(on ? enrichData[iri][kind].map(e => e.value) : []);
+        $('#enrich-list').querySelectorAll(
+          `input[data-iri="${CSS.escape(iri)}"][data-kind="${kind}"]`).forEach(cb => { cb.checked = on; });
+        reflectEnrichCount(total);
+      }));
+
     $('#en-apply').disabled = !iris.length;
     if (!iris.length && applyEnrichment) { applyEnrichment = false; $('#en-apply').checked = false; }
-    $('#enrich-dot').classList.toggle('live', applyEnrichment);
+    reflectEnrichCount(total);
+  }
+
+  function reflectEnrichCount(total) {
+    const picked = enrichCount();
+    const n = Object.keys(enrichData).length;
+    $('#enrich-chip').title = n
+      ? `${n} disease(s) · ${picked} of ${total} proposed addition(s) selected`
+      : 'No additions proposed';
+    $('#enrich-dot').classList.toggle('live', applyEnrichment && picked > 0);
   }
 
   // Open or close a drawer from its toolbar toggle, keeping the toggle's pressed
@@ -487,18 +639,26 @@
   // (see initColGrip) is clamped to half the matrix area and remembered per browser.
   let diseaseW = null;
   const DISEASE_MIN = 150;
-  // body carries a --ui-zoom scale, so pointer coordinates are that much larger than
-  // the CSS pixels the grid track is expressed in — divide before using them as width.
-  const uiZoom = () => Number(getComputedStyle(document.documentElement).getPropertyValue('--ui-zoom')) || 1;
-  const diseaseMax = () => document.querySelector('.body').getBoundingClientRect().width / uiZoom() / 2;
+  // What a database column needs before its header label starts truncating —
+  // ORPHANET is the longest at ~62px.
+  const DB_READABLE = 64;
+  const diseaseMax = () => document.querySelector('.body').getBoundingClientRect().width / 2;
 
   // Column tracks: the disease column plus one equal track per database. The 44px
   // floor is what makes the matrix scroll instead of collapse when the panel opens
   // or the disease column is dragged wide.
+  //
+  // The disease column is the one that gives way. Opening the review panel used to
+  // leave the 413px name column untouched and crush the nine database columns to
+  // 55px each — the column you no longer need (you know which disease you opened)
+  // keeping its width while the columns you are comparing collided. The dragged
+  // width is an upper bound now, not a floor (issue #97).
   function applyGrid() {
     const compact = document.documentElement.dataset.density === 'compact';
     if (diseaseW !== null) diseaseW = Math.max(DISEASE_MIN, Math.min(diseaseMax(), diseaseW));
-    const w = diseaseW === null ? (compact ? 250 : 330) : diseaseW;
+    let w = diseaseW === null ? (compact ? 250 : 330) : diseaseW;
+    const avail = $('#matrix-wrap')?.getBoundingClientRect().width || 0;
+    if (avail) w = Math.max(DISEASE_MIN, Math.min(w, avail - DBS.length * DB_READABLE));
     // The splitter reads --disease-col to place itself on the boundary.
     document.documentElement.style.setProperty('--disease-col', Math.round(w) + 'px');
     document.documentElement.style.setProperty('--grid-cols',
@@ -515,7 +675,7 @@
     const sortTitle = key === NAME_COL ? 'Sort diseases by name'
       : `Sort by ${label}: diseases missing a mapping first`;
     return `<div class="hcol${dir || only ? ' active' : ''}">
-      <button class="hsort" data-sort="${esc(key)}" title="${esc(sortTitle)}">${esc(label)}<span class="harrow">${arrow}</span></button>
+      <button class="hsort" data-sort="${esc(key)}" title="${esc(sortTitle)}"><span class="hlabel">${esc(label)}</span><span class="harrow">${arrow}</span></button>
       ${extra}</div>`;
   }
 
@@ -524,6 +684,14 @@
       headCell(d.key, d.label,
         `<button class="hmiss${missingOnly === d.key ? ' on' : ''}" data-miss="${esc(d.key)}"
            title="Show only the diseases missing a ${esc(d.label)} mapping">○</button>`)).join('');
+    measureHead();
+  }
+
+  // The open strip's disease name sticks below the column header, so it needs the
+  // header's height — which changes with the density and the text size.
+  function measureHead() {
+    const h = $('#mhead').offsetHeight;
+    if (h) document.documentElement.style.setProperty('--mhead-h', h + 'px');
   }
 
   // The disease column sorts by name; the database columns sort by how much of the
@@ -840,9 +1008,13 @@
         <button class="btn" id="p-next">Next open mapping</button>
       </div>` : ''}
       ${noneBtn}
+      ${ent ? comparePaneHTML(r, db, ent) : ''}
       ${db.noframe || !ent
         ? ''
-        : `<iframe id="p-frame" src="${esc(db.link(ent.id))}"></iframe>`}
+        : `<details class="p-source">
+             <summary>Full ${esc(db.label)} page</summary>
+             <iframe id="p-frame" loading="lazy" src="${esc(db.link(ent.id))}"></iframe>
+           </details>`}
       <div class="p-foot">${esc(foot)}</div>`;
 
     $('#side').classList.add('open');
@@ -875,8 +1047,14 @@
       });
       $('#panel').querySelectorAll('.p-sib').forEach(s =>
         s.addEventListener('click', () => openEntry(iri, dbkey, s.dataset.sib)));
-      // Look the concept label up after wiring, so nothing waits on it.
+      // Look the concept up after wiring, so nothing waits on it. One request
+      // fills both the small caption and the compare pane.
       if (!ent.pred) ensureLabel(dbkey, ent.id);
+      conceptFor(dbkey, ent.id).then(c => {
+        // Guard against a slow response landing after the curator moved on.
+        if (active && active.iri === iri && active.dbkey === dbkey &&
+            String(active.id) === String(ent.id)) renderCandidate(c, db, ent);
+      });
     }
   }
 
@@ -1083,6 +1261,9 @@
         confirmed: confirmedList(keys), flagged: flaggedList(keys),
         absent: absentList(keys), author,
         apply_enrichment: applyEnrichment,
+        // Only what the curator left ticked. Sent whenever enrichment is on, so
+        // declining three of eleven proposals no longer means declining all.
+        enrichment_selection: applyEnrichment ? enrichSelection() : null,
         request_id: pendingPublishId,
         branch: reuse, labels: ['edit term', 'sssom'] } });
       pendingPublishId = null;                        // this attempt is settled
@@ -1133,7 +1314,7 @@
     const move = e => {
       if (!dragging) return;
       const x = (e.touches ? e.touches[0].clientX : e.clientX);
-      diseaseW = (x - $('#matrix-inner').getBoundingClientRect().left) / uiZoom();
+      diseaseW = x - $('#matrix-inner').getBoundingClientRect().left;
       applyGrid();
       e.preventDefault();
     };
@@ -1152,8 +1333,11 @@
     });
     window.addEventListener('mousemove', move); window.addEventListener('touchmove', move, { passive: false });
     window.addEventListener('mouseup', end); window.addEventListener('touchend', end);
-    // A narrower window lowers the half-the-viewport ceiling; applyGrid re-clamps.
-    window.addEventListener('resize', () => { if (diseaseW !== null) applyGrid(); });
+    // Anything that changes the matrix's width re-runs the column budget: the
+    // review panel opening or closing, the divider being dragged, the window
+    // resizing. One observer covers all three, and the width it reports is the
+    // settled one — #side animates its width, so reading it on the click is early.
+    new ResizeObserver(() => { applyGrid(); measureHead(); }).observe($('#matrix-wrap'));
   }
 
   // ------------------------------------------------------- HEADER CONTROLS
@@ -1189,8 +1373,10 @@
   function syncSegs() {
     const th = document.documentElement.dataset.theme || 'light';
     const de = document.documentElement.dataset.density || 'comfortable';
+    const ts = document.documentElement.dataset.textsize || 'standard';
     document.querySelectorAll('#theme button').forEach(b => b.classList.toggle('on', b.dataset.theme === th));
     document.querySelectorAll('#density button').forEach(b => b.classList.toggle('on', b.dataset.density === de));
+    document.querySelectorAll('#textsize button').forEach(b => b.classList.toggle('on', b.dataset.textsize === ts));
     document.querySelectorAll('#queue-filter button').forEach(b => b.classList.toggle('on', b.dataset.queue === queueFilter));
     $('#pref-legend').checked = document.documentElement.dataset.legend !== 'off';
   }
@@ -1234,6 +1420,14 @@
       try { localStorage.setItem('refDensity', b.dataset.density); } catch (err) {}
       applyGrid(); syncSegs();
     });
+    // Text size shares one key with the editor, so the choice carries across both
+    // pages rather than being made twice (issue #94).
+    $('#textsize').addEventListener('click', e => {
+      const b = e.target.closest('button'); if (!b) return;
+      document.documentElement.dataset.textsize = b.dataset.textsize;
+      try { localStorage.setItem('ari-textsize', b.dataset.textsize); } catch (err) {}
+      applyGrid(); measureHead(); syncSegs();
+    });
     $('#pending-chip').addEventListener('click', () => reflectDrawer('#pending-chip', '#pending-panel'));
     $('#enrich-chip').addEventListener('click', openEnrich);
     $('#en-apply').addEventListener('change', e => {
@@ -1265,7 +1459,12 @@
 
   // Who added each id on file. Failure is non-fatal — the frontend lock relaxes,
   // but /api/v2/publish re-checks authorship server-side, so nothing slips through.
+  //
+  // The endpoint requires a session (it is the evidence base for separation of
+  // duties). A signed-out viewer cannot confirm anything, so the ledger would
+  // change nothing for them — don't ask for it and log a 401 on every load.
   async function loadIdAuthors() {
+    if (!(me && me.authenticated)) { idAuthors = {}; return; }
     try { idAuthors = await api('id-authors'); }
     catch (e) { console.warn('Could not load id authorship:', e.message); idAuthors = {}; }
   }

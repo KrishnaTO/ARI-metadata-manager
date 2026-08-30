@@ -132,8 +132,14 @@ def enrich(disease: dict, confirmed: list[dict],
     ``disease`` = ``{"ari_id", "name", "synonyms": [...], "clinical_subtypes": [...]}``
     (the disease's *current* values). ``confirmed`` is that disease's confirmed
     cross-references, each ``{"db", "ids": [...]}`` (flagged/negative mappings must
-    not be passed in). Returns ``{"synonyms": [str, ...], "subtypes": [str, ...]}``
+    not be passed in). Returns ``{"synonyms": [...], "subtypes": [...]}``
     of *new* values only — nothing already present, blocklisted, or duplicated.
+
+    Each entry is ``{"value": str, "source": "<PREFIX>:<id>"}``: this tool's
+    output feeds clinical vocabularies, and per-value lineage is the difference
+    between a curated record and an aggregated one. Six months on it must be
+    possible to say whether a synonym came from MONDO, from DOID, or from a
+    human (issue #117).
     """
     name = disease.get("name", "")
     name_norm = normalize(name)
@@ -154,22 +160,22 @@ def enrich(disease: dict, confirmed: list[dict],
                     seen_rec.add(rec["id"])
                     records.append(rec)
 
-    new_syn: list[str] = []
+    new_syn: list[dict] = []
     for rec in records:
         for cand in [rec.get("label", "")] + list(rec.get("synonyms") or []):
             key = normalize(cand)
             if not key or key in have_syn or key in blocked:
                 continue
             have_syn.add(key)
-            new_syn.append(cand.strip())
+            new_syn.append({"value": cand.strip(), "source": rec["id"]})
 
     # A disease is never its own subtype. When a confirmed mapping points at a
     # broader concept, that concept's children include the disease itself (and its
     # siblings), so skip any child that names the disease or one of its synonyms.
     identity = {name_norm} | {normalize(s) for s in (disease.get("synonyms") or [])} \
-        | {normalize(s) for s in new_syn}
+        | {normalize(s["value"]) for s in new_syn}
 
-    new_sub: list[str] = []
+    new_sub: list[dict] = []
     for rec in records:
         for child in subtypes.get(rec["id"], []):
             child_label = (child.get("label") or "").strip()
@@ -177,7 +183,8 @@ def enrich(disease: dict, confirmed: list[dict],
             if not child_label or key in have_sub or key in identity:
                 continue
             have_sub.add(key)
-            new_sub.append(f"{child_label} - subtype of {name} ({child['id']})")
+            new_sub.append({"value": f"{child_label} - subtype of {name} ({child['id']})",
+                            "source": rec["id"]})
 
     return {"synonyms": new_syn, "subtypes": new_sub}
 

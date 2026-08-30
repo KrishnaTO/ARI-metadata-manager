@@ -66,18 +66,38 @@ def _asset_version() -> str:
 
     The HTML pages tag all their js/css with `?v=__ASSETV__`, which is replaced
     with this token when the page is served. One value busts every asset at once,
-    so there are no fragile per-file `?v=N` numbers to bump (and merge-conflict)."""
+    so there are no fragile per-file `?v=N` numbers to bump (and merge-conflict).
+
+    The commit count alone was enough while every asset response carried
+    ``no-cache``. Now that a versioned asset is served ``immutable`` for a year,
+    it is not: editing a file without committing leaves the token unchanged, so
+    a browser that has already seen it will not fetch the edit for a year. The
+    newest mtime under ``static/`` is folded in, which changes the moment a file
+    is saved and is stable across a deploy that did not touch the file.
+    """
+    parts = []
     try:
         n = subprocess.check_output(["git", "-C", str(ROOT), "rev-list", "--count", "HEAD"],
                                     text=True, stderr=subprocess.DEVNULL).strip()
         if n:
-            return n
+            parts.append(n)
     except (OSError, subprocess.SubprocessError) as e:
-        log.debug("Could not derive asset version from git, using time fallback: %s", e)
-    return str(int(time.time()))   # fallback: bust on each restart
+        log.debug("Could not derive asset version from git, using mtime alone: %s", e)
+    try:
+        newest = max((f.stat().st_mtime_ns for f in STATIC_DIR.rglob("*")
+                      if f.is_file() and f.suffix in (".js", ".css", ".html")), default=0)
+        if newest:
+            parts.append(format(newest // 1_000_000_000, "x"))   # second resolution is plenty
+    except OSError as e:
+        log.debug("Could not stat static assets for the version token: %s", e)
+    return "-".join(parts) or str(int(time.time()))   # last resort: bust on each restart
 
 
 ASSET_VERSION = _asset_version()
+
+# Set by run.py, the local launcher. Only affects how often the asset token is
+# re-derived; nothing about what is served.
+DEV_MODE = os.environ.get("ARI_DEV") == "1"
 
 # ----------------------------------------------------------------- GitHub config
 GH_CLIENT_ID = os.environ.get("GITHUB_CLIENT_ID", "")

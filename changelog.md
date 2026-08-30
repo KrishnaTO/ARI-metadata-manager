@@ -26,6 +26,51 @@ Confirm resolves `true`/`false` and removes itself; the text dialog returns its 
 
 232 tests pass; ruff clean.
 
+## mapping-judgment-context
+Closes #96, #117. **[UI change — needs review]**
+
+### The candidate concept is shown, not just named (#96)
+- **Judging a cross-reference means comparing two definitions, and the panel could only show one.** `GET /api/v2/concept/{db}/{id}` already returned the candidate's definition, synonyms and parents — the page fetched all of it and kept only `label`, rendering it as a small grey caption. For `OMOP`, `Orphanet`, `UMLS` and `MeSH` (`noframe: True`, and **44% of every disease's review**) the panel then showed nothing at all about the candidate, so the curator opened a tab and held the ARI definition in working memory — exactly the task this tool exists to prevent.
+- The panel now renders a **side-by-side compare pane**: the ARI record's definition and synonyms on the left, the candidate's definition, synonyms and broader terms on the right, for all nine databases rather than only the embeddable ones. It reuses the existing `conceptCache`, so opening a panel costs the same one request it always did.
+- A hub cross-reference is labelled as such — *"Not MONDO's own record — found via …, which cross-references this id"* — so a weaker claim reads as one.
+- `get_xref_rows()` gains `definition` (one annotation per disease; still O(diseases)) so the left column has something to show.
+- **The embedded source page is now secondary**, in a collapsed `<details>` below the compared text rather than instead of it, and `loading="lazy"`. It costs no height until asked for.
+
+### Enrichment is per-item, and every value says where it came from (#117)
+- **A curator who wanted eight of eleven proposed synonyms had to decline all eleven.** The preview offered one "Apply on publish" checkbox for the whole set. Every proposal now carries its own checkbox, with All/None per group; everything starts ticked, so the default matches the old behaviour and a curator only acts to *decline*.
+- The selection travels to publish as `enrichment_selection`, and `apply_enrichment(..., selected=…)` applies only what was kept. Matching is on the **value**, not an index, so a selection made before an index rebuild cannot silently apply a different proposal — anything no longer proposed is dropped.
+- **Per-value lineage.** `enrich()` entries are now `{"value", "source"}`, the source is shown beside each proposal in the drawer, and every applied value gets a line in a new `ARI_EnrichmentSource` annotation: `ARI_Synonym | <value> | from MONDO:0018747 | <UTC> | <editor>`. The PR body recorded only counts, so six months later nobody could tell whether a synonym came from MONDO, from DOID, or from a human. The annotation travels with the ontology, so the lineage is in the published artefact rather than a sidecar.
+
+### Two regressions from #133, found while testing
+- **The review page had stopped honouring saved theme, density and legend.** Tightening the CSP to `script-src 'self'` silently blocked the inline pre-paint script that applies them — verified: all three settings saved and none applied. Moved to `static/ref-edits/boot.js` and loaded from `<head>`, so the policy needs neither `'unsafe-inline'` nor a hash that would break the moment the script is edited. **Merge note:** `small-laptop-layout` found the same regression independently; its version of the file won the merge because it also carries the text-size preference, and the legend default is `on` again here — the objection in #97 was the legend's 88px cost, which its one-line rebuild answers.
+- **A local edit to a JS or CSS file had no effect until the server restarted.** Assets are now served `immutable` for a year and the cache-busting token was the git commit count, which does not change while developing. The token folds in the newest `static/` mtime, and `run.py` sets `ARI_DEV=1` so it is re-derived per page render locally; production keeps the single startup token rather than walking `static/` on every load.
+- A signed-out visitor no longer triggers a 401 on every load: `/api/v2/id-authors` needs a session since #126, and a signed-out viewer cannot confirm anything, so the ledger is not requested.
+
+### Testing
+16 new tests across `tests/test_enrich_service.py` and `tests/test_enrichment_selection.py` — lineage on synonyms and subtypes, lineage distinguishing two agreeing sources, value-based (not positional) selection matching, declining everything applying nothing, and keeping exactly one synonym. **245 pytest + 25 node pass; ruff clean.**
+
+Verified in the running app: the compare pane fills for a MONDO candidate with both definitions visible, per-item checkboxes tick and untick with the count following, All/None works, theme/density/legend all apply from storage, and the console is clean.
+
+## small-laptop-layout
+Closes #94, #97. Partly #101 (everything but the `01`-`05` numbering, which needs a curator's answer).
+
+- **The app answers to the text size now.** There were **zero `rem` units** in either stylesheet, so raising the font size in the browser's own settings did nothing at all. Page zoom was the only lever left, and it crossed the responsive breakpoints: at 125% on a 1366x768 laptop the disease index became a hidden overlay and the progress meter disappeared, while the seven-symbol legend paragraph kept 18% of the viewport. Doing the thing that made the app readable was the thing that took the navigation away. Every `font-size` in `static/css/styles.css` and the review page's stylesheet is `rem` against a root of `calc(1rem * var(--ui-scale))` — `1rem` on the root element resolves to the *browser's* default, so the reader's own setting is honoured and the app's preference multiplies it.
+- **A Text size preference** (Standard / Large / Larger) sits with Theme in the settings popover on both pages, through one shared `localStorage` key, so the choice is made once. Verified end to end: 13.5 -> 15.5 -> 17.8px, and at 1366x768 with Large the index rail stays docked where zooming to 125% used to hide it.
+- **`body { zoom: 1.25 }` is gone from the review page.** The two pages ran at different effective scales, and the zoom decoupled the media queries from the layout — the file itself noted the thresholds had to sit 25% above the widths they guarded. They are the real widths now (1500/1320/1180 -> 1200/1056/860), and 20.6 diseases fit on a 1366x768 screen instead of the 10.7 measured at 125%.
+- **What the layout gives up under width pressure is reordered.** Status outranks reference material: the glyph legend goes first, the progress meter goes last. Confirmed at four widths.
+- **The legend defaults off and is one line, not a paragraph.** Ten tooltipped keys, 37px / 5.3% of a 700px viewport instead of 88px / 18%.
+- **The index rail collapses by choice, at any width.** Above 1200px the header button docks or hides it and the record takes the width back, remembered per browser; below 1200px, where there is nowhere to dock it, it is the overlay it always was. The mode is driven by the media query's own `change` event, so a text-size change that crosses the threshold is not missed.
+- **The start state offers a way in.** It read "Select a disease from the list to view its record" with no list on screen and nothing to click. It now names both routes and gives each a button.
+- **The disease column is what gives way in the matrix.** With the review panel open at 1366px the 413px name column kept its width while the nine columns being compared were crushed to 55px and `ORPHANET` overflowed into `UMLS`. The dragged width is an upper bound now, not a floor: at 1100px the name column drops 330 -> 150px and the database columns rise off their 44px floor to 61.7px. Header labels truncate with the full name in the tooltip, so they can never collide again.
+- **The open review strip's disease name sticks below the column header**, so the disease being judged stays on screen while its cards scroll. Measured pinning at exactly the header's height, which is re-measured when the density or text size changes.
+- One `ResizeObserver` on the matrix re-runs the column budget for the panel, the divider and the window alike, replacing a `resize` listener that only fired for one of the three.
+- **In the record view, a condensed name-and-definition line pins to the top of the reading column while a deep dive is open** — opening a category used to scroll the definition, the thing you are comparing the detail against, off the top.
+- **The story spine renders only the steps that have content** in read mode. Addison's disease has two of five populated: they get 309.5px each instead of ~124px, which is what broke "Biomarkers & treatments" over three lines. Curate mode still shows all five, where the "+ add" affordances are the point.
+- **The symptom word cloud is opt-in.** It restated the eighteen symptoms listed directly above it, at sizes encoding only the Likelihood column, for 220px of a panel.
+- **Both pre-paint preference scripts are files rather than inline `<script>`.** `script-src 'self'` (tightened in #133) blocks inline script outright, so the review page's saved theme, density and legend were being silently ignored. Confirmed against the live CSP header: `boot.js` runs and the saved theme applies.
+
+232 pytest, 25 `node --test`, ruff clean.
+
 ## split-main-module
 Splits `app/main.py` (1384 lines) into modules. The split itself is behaviour-neutral; it also carries one bug fix, called out at the end.
 
