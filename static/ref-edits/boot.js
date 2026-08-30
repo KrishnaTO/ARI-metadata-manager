@@ -17,9 +17,11 @@
   else if (matchMedia('(prefers-color-scheme: dark)').matches) root.dataset.theme = 'dark';
 
   root.dataset.density = get('refDensity') || 'comfortable';
-  // Reference material, off until asked for: it defined seven symbols in a
-  // run-on paragraph that took 18% of a zoomed 768px viewport, on every screen,
-  // forever (issue #97).
-  root.dataset.legend = get('refLegend') || 'off';
+  // On by default. The objection in issue #97 was the cost, not the content: as
+  // a run-on paragraph the legend took 88px — 18% of a zoomed 768px viewport —
+  // on every screen, forever. Rebuilt as a single 37px line it costs 5%, and a
+  // curator who does not yet know what the seven symbols mean should not have
+  // to find a setting to be told (issue #119).
+  root.dataset.legend = get('refLegend') || 'on';
   root.dataset.textsize = get('ari-textsize') || 'standard';
 })();
