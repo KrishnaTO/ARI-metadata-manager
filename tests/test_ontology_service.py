@@ -67,7 +67,9 @@ def test_schema_is_category_map(ro_service):
 
 # --------------------------------------------------------------- write API
 def test_create_disease_assigns_sequential_ari_id(service):
-    n0 = service._next_ari_number()
+    # _highest_ari_number() peeks; _next_ari_number() *reserves*, so the peek is
+    # what a test may call without consuming a number.
+    n0 = service._highest_ari_number()
     detail = service.create_disease(
         {"label": "Testology disease", "definition": "A synthetic test disease."},
         editor="tester",
@@ -75,8 +77,8 @@ def test_create_disease_assigns_sequential_ari_id(service):
     assert detail["name"] == "Testology disease"
     assert detail["ari_id"], "new disease should carry an ARI id"
     assert re.fullmatch(r"ARI:\d{7}", detail["ari_id"][0])
-    assert detail["ari_id"][0] == f"ARI:{n0:07d}"
-    assert service._next_ari_number() == n0 + 1
+    assert detail["ari_id"][0] == f"ARI:{n0 + 1:07d}"
+    assert service._highest_ari_number() == n0 + 1
     # It should now appear in the flat list.
     assert any(d["iri"] == detail["iri"] for d in service.get_diseases_list())
 

@@ -1,5 +1,6 @@
 """Service layer for reading and editing the ARI T1D ontology via owlready2."""
 import json
+import os
 import logging
 import re
 import shutil
@@ -12,6 +13,7 @@ from owlready2 import AnnotationProperty, World, label, comment, destroy_entity
 
 from . import xref_registry
 from .feedback_service import FeedbackStore
+from .id_allocator import IdAllocator
 from .schema import CATEGORIES, SEEALSO_IRI
 
 log = logging.getLogger(__name__)
@@ -55,6 +57,11 @@ class OntologyService:
         if not self.path.exists():
             raise FileNotFoundError(f"Ontology file not found: {self.path}")
         self.feedback = FeedbackStore(self.path.parent.parent / "feedback")
+        # Shared with every other working copy: ARI numbers are the registry's
+        # public identifier and must never be minted twice. Same grandparent
+        # convention as the feedback store, so `.user-data/<login>.owl` and the
+        # base `ontologies/ari_t1d.owl` resolve to the one `provenance/` dir.
+        self.ids = IdAllocator(self.path.parent.parent / "provenance")
         self._load()
 
     def _load(self):
@@ -715,13 +722,11 @@ class OntologyService:
     # diseases are minted under the registry namespace, and new ones must match.
     DISEASE_NS = "https://diseases.autoimmuneregistry.org/disease/"
 
-    def _next_ari_number(self) -> int:
-        """Next number continuing the ARI:00NNNNN sequence.
+    def _highest_ari_number(self) -> int:
+        """The highest ARI number this ontology already contains.
 
         Scans both the ARI_ID annotation (e.g. ``ARI:0001211``) and the IRI local
-        name (e.g. ``ARI_0001080``) of every disease for the highest number, and
-        returns max + 1. Used so newly created diseases get a real, sequential
-        ARI id in the established format rather than a random placeholder."""
+        name (e.g. ``ARI_0001080``) of every disease."""
         base = self.base
         mx = 0
         for d in self._all_diseases():
@@ -732,7 +737,18 @@ class OntologyService:
             m = re.match(r"ARI_0*(\d+)$", d.name or "")
             if m:
                 mx = max(mx, int(m.group(1)))
-        return mx + 1
+        return mx
+
+    def _next_ari_number(self, editor: str = "") -> int:
+        """Reserve the next number in the ARI:00NNNNN sequence.
+
+        Taking max + 1 from the ontology in hand is not enough: each curator
+        edits a private working copy, so two curators creating a disease the
+        same afternoon both minted the same number — and the colliding IRI made
+        RDF treat two unrelated diseases as one individual once both pull
+        requests merged. The number comes from one server-side counter, which
+        this ontology's own highest number can only push forward."""
+        return self.ids.allocate(self._highest_ari_number(), editor=editor)
 
     def create_disease(self, data: dict, editor: str = "user") -> dict:
         """Create a new AutoimmuneDisease individual with the next sequential ARI id.
@@ -756,7 +772,7 @@ class OntologyService:
         # individual is minted under the registry namespace so its IRI is
         # https://diseases.autoimmuneregistry.org/disease/ARI_00NNNNN, matching the
         # curated diseases, rather than the ontology's own aurint.org namespace.
-        num = self._next_ari_number()
+        num = self._next_ari_number(editor=editor)
         ari_id = f"ARI:{num:0{self.ARI_ID_WIDTH}d}"
         local = f"ARI_{num:0{self.ARI_ID_WIDTH}d}"
         disease_ns = self.onto.get_namespace(self.DISEASE_NS)
@@ -837,7 +853,21 @@ class OntologyService:
         return self.get_disease_detail(new_d.iri)
 
     def _save(self):
-        self.onto.save(file=str(self.path), format="rdfxml")
+        """Serialise the ontology, atomically.
+
+        This runs on every field edit, item edit, review log and enrichment, and
+        the file is ~1.7MB of RDF/XML. Saving in place meant a crash, a full
+        disk, or the ten-minute deploy restart landing mid-serialise left a
+        truncated OWL file with no previous version to fall back to. Writing to
+        a sibling temp file and renaming means a reader sees either the whole
+        old file or the whole new one.
+        """
+        tmp = self.path.with_name(self.path.name + f".{os.getpid()}.tmp")
+        try:
+            self.onto.save(file=str(tmp), format="rdfxml")
+            os.replace(tmp, self.path)
+        finally:
+            Path(tmp).unlink(missing_ok=True)
 
     def _append_changelog(self, disease_e, editor: str, msg: str):
         ts = datetime.now(timezone.utc).isoformat(timespec="seconds")

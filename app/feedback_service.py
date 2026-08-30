@@ -5,13 +5,16 @@ Feedback comments are stored as structured log entries in ``feedback/feedback.js
 disease term. By default an entry lives only until the next version release, at which
 point it is moved into ``feedback/archive/``; entries flagged ``keep`` survive releases.
 """
-import json
 import logging
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 
+from . import atomic_store
+
 log = logging.getLogger(__name__)
+
+MAX_MESSAGE_CHARS = 4000
 
 
 def _now() -> str:
@@ -21,6 +24,16 @@ def _now() -> str:
     correlating a comment with the provenance record for the same edit meant
     knowing the server's timezone — which is recorded nowhere."""
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
+
+
+def _checked_message(message) -> str:
+    message = (message or "").strip()
+    if not message:
+        raise ValueError("Feedback message is empty")
+    if len(message) > MAX_MESSAGE_CHARS:
+        raise ValueError(f"Feedback message is too long "
+                         f"({len(message)} characters; the limit is {MAX_MESSAGE_CHARS})")
+    return message
 
 
 class FeedbackStore:
@@ -44,17 +57,11 @@ class FeedbackStore:
         self.dir.mkdir(parents=True, exist_ok=True)
 
     def _load(self) -> list:
-        if self.path.exists():
-            try:
-                return json.loads(self.path.read_text(encoding="utf-8"))
-            except (json.JSONDecodeError, OSError) as e:
-                log.warning("Could not read feedback store %s: %s", self.path, e)
-                return []
-        return []
+        return atomic_store.read_json(self.path, [])
 
     def _save(self, items: list):
         self._ensure_dir()
-        self.path.write_text(json.dumps(items, indent=2, ensure_ascii=False), encoding="utf-8")
+        atomic_store.write_json(self.path, items, indent=2)
 
     def _log(self, action: str, entry: dict):
         line = (f"{_now()} | {entry.get('author', '')} | {action} | "
@@ -73,9 +80,7 @@ class FeedbackStore:
 
     def add(self, disease_iri: str, term: str, message: str,
             keep: bool = False, author: str = "anonymous") -> dict:
-        message = (message or "").strip()
-        if not message:
-            raise ValueError("Feedback message is empty")
+        message = _checked_message(message)
         items = self._load()
         entry = {
             "id": "fb_" + uuid.uuid4().hex[:10],
@@ -92,17 +97,15 @@ class FeedbackStore:
         self._log("ADD", entry)
         return entry
 
-    def update(self, fid: str, message=None, keep=None, author=None) -> dict:
+    def update(self, fid: str, message=None, keep=None) -> dict:
         items = self._load()
         found = None
         for x in items:
             if x.get("id") == fid:
                 if message is not None:
-                    x["message"] = str(message).strip()
+                    x["message"] = _checked_message(message)
                 if keep is not None:
                     x["keep"] = bool(keep)
-                if author:
-                    x["author"] = str(author).strip()
                 x["updated"] = _now()
                 found = x
                 break
@@ -115,10 +118,11 @@ class FeedbackStore:
     def delete(self, fid: str) -> dict:
         items = self._load()
         removed = next((x for x in items if x.get("id") == fid), None)
-        if removed:
-            self._log("DELETE", removed)
+        if not removed:
+            return {"ok": True, "deleted": False}    # nothing matched; don't rewrite the file
+        self._log("DELETE", removed)
         self._save([x for x in items if x.get("id") != fid])
-        return {"ok": True, "deleted": bool(removed)}
+        return {"ok": True, "deleted": True}
 
     def archive_on_release(self, version: str) -> dict:
         """Move non-kept feedback into a versioned archive; retain flagged entries."""
@@ -129,7 +133,7 @@ class FeedbackStore:
             self.archive_dir.mkdir(parents=True, exist_ok=True)
             ts = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
             dest = self.archive_dir / f"feedback_v{version}_{ts}.json"
-            dest.write_text(json.dumps(expiring, indent=2, ensure_ascii=False), encoding="utf-8")
+            atomic_store.write_json(dest, expiring, indent=2)
             with open(self.log_path, "a", encoding="utf-8") as f:
                 for x in expiring:
                     f.write(f"{_now()} | system | ARCHIVED@v{version} | "
