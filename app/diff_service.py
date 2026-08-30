@@ -41,42 +41,107 @@ def _rows(service):
     return out
 
 
+def list_changes(current_service, baseline_service, touched_iris=None) -> list[dict]:
+    """What changed, per disease, as data rather than markdown.
+
+    The same comparison :func:`build_change_summary` renders, returned as
+    ``[{iri, ari_id, name, is_new, fields: [{field, label, previous, new}]}]``.
+    The publish dialog used to offer a free-text title box and nothing else, so a
+    curator opening a pull request could not see which diseases it carried
+    (issue #25); this is what it lists, and what the generated title is built
+    from. Ordered by disease name, like the summary.
+    """
+    cur = _rows(current_service)
+    base = _rows(baseline_service)
+
+    def touched(d):
+        return touched_iris is None or d.get("iri") in touched_iris
+
+    out = []
+    for key, d in sorted(cur.items(), key=lambda kv: _fmt(kv[1].get("name"))):
+        if not touched(d):
+            continue
+        # A new disease's parent is reported here, on the child, because that is
+        # where the relationship lives: the parent's own record gains only a
+        # changelog entry, and no field diff reports those for any edit.
+        parent = (d.get("parent_disease") or [{}])[0].get("name", "")
+        entry = {"iri": d.get("iri"), "ari_id": key, "name": _fmt(d.get("name")) or key,
+                 "is_new": key not in base, "removed": False,
+                 "parent": _fmt(parent), "fields": []}
+        if not entry["is_new"]:
+            b = base[key]
+            for fkey, flabel in FIELDS:
+                ov, nv = _fmt(b.get(fkey)), _fmt(d.get(fkey))
+                if ov != nv:
+                    entry["fields"].append({"field": fkey, "label": flabel,
+                                            "previous": ov, "new": nv})
+            if not entry["fields"]:
+                continue                      # touched but nothing actually differs
+        out.append(entry)
+
+    for key, b in sorted(base.items(), key=lambda kv: _fmt(kv[1].get("name"))):
+        if key not in cur and touched(b):
+            out.append({"iri": b.get("iri"), "ari_id": key,
+                        "name": _fmt(b.get("name")) or key, "is_new": False,
+                        "removed": True, "parent": "", "fields": []})
+    return out
+
+
+def title_for(changes: list[dict]) -> str:
+    """A pull-request title that says what the pull request does.
+
+    The default was "Update <whichever disease is open>", which named the record
+    on screen rather than the work: publish three edits and the title still named
+    one of them, and a brand-new disease still read as an update (issue #25).
+    """
+    added = [c["name"] for c in changes if c.get("is_new")]
+    updated = [c["name"] for c in changes if not c.get("is_new")]
+    if not added and not updated:
+        return "Update ontology"
+
+    def phrase(verb, names):
+        if len(names) == 1:
+            return f"{verb} {names[0]}"
+        if len(names) == 2:
+            return f"{verb} {names[0]} and {names[1]}"
+        return f"{verb} {len(names)} diseases"
+
+    if added and updated:
+        # Only the verb drops its capital — lowercasing the whole phrase would
+        # rewrite the disease names with it.
+        return f"{phrase('Add', added)}; {phrase('update', updated)}"
+    return phrase("Add", added) if added else phrase("Update", updated)
+
+
+def render_summary(changes: list[dict]) -> str:
+    """The pull-request body's Changes section, from :func:`list_changes`."""
+    blocks = []
+    for c in changes:
+        head = f"### {c['name']} ({c['ari_id']})"
+        if c.get("removed"):
+            blocks.append(head + " — **removed**")
+        elif c.get("is_new"):
+            blocks.append(head + (f" — **new clinical subtype of {c['parent']}**"
+                                  if c.get("parent") else " — **new disease**"))
+        else:
+            tbl = [head, "", "| Field | Previous | New |", "| --- | --- | --- |"]
+            for f in c["fields"]:
+                tbl.append(f"| {f['label']} | {_cell(f['previous'])} | {_cell(f['new'])} |")
+            blocks.append("\n".join(tbl))
+    if not blocks:
+        return "_No field-level differences detected versus the source branch._"
+    return "\n\n".join(blocks)
+
+
 def build_change_summary(current_service, baseline_service, touched_iris=None) -> str:
     """``touched_iris``, when given, restricts the summary to diseases whose IRI
     is in that set — the ones the publishing curator actually edited this
     session — so a stale working copy doesn't surface other curators' changes
-    as if they were this curator's own."""
-    cur = _rows(current_service)
-    base = _rows(baseline_service)
-    blocks = []
+    as if they were this curator's own.
 
-    def _touched(d):
-        return touched_iris is None or d.get("iri") in touched_iris
-
-    for key, d in sorted(cur.items(), key=lambda kv: _fmt(kv[1].get("name"))):
-        if not _touched(d):
-            continue
-        name = _fmt(d.get("name")) or key
-        if key not in base:
-            blocks.append(f"### {name} ({key}) — **new disease**")
-            continue
-        b = base[key]
-        diffs = []
-        for fkey, label in FIELDS:
-            ov, nv = _fmt(b.get(fkey)), _fmt(d.get(fkey))
-            if ov != nv:
-                diffs.append((label, b.get(fkey), d.get(fkey)))
-        if diffs:
-            tbl = ["### " + name + " (" + key + ")", "",
-                   "| Field | Previous | New |", "| --- | --- | --- |"]
-            for label, ov, nv in diffs:
-                tbl.append(f"| {label} | {_cell(ov)} | {_cell(nv)} |")
-            blocks.append("\n".join(tbl))
-
-    for key, b in sorted(base.items(), key=lambda kv: _fmt(kv[1].get("name"))):
-        if key not in cur and _touched(b):
-            blocks.append(f"### {_fmt(b.get('name')) or key} ({key}) — **removed**")
-
-    if not blocks:
-        return "_No field-level differences detected versus the source branch._"
-    return "\n\n".join(blocks)
+    One comparison, rendered: the dialog's disease list, the generated title and
+    this summary all read the same :func:`list_changes` result, so a pull request
+    cannot describe itself two different ways.
+    """
+    return render_summary(list_changes(current_service, baseline_service, touched_iris))
+

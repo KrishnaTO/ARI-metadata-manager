@@ -22,14 +22,19 @@
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link rel="stylesheet" href="css/styles.css?v=__ASSETV__">
 <link rel="stylesheet" href="css/help.css?v=__ASSETV__">
+<link rel="stylesheet" href="css/ui-dialog.css?v=__ASSETV__">
+<!-- Theme and text size, applied before the first paint. -->
+<script src="js/boot.js?v=__ASSETV__"></script>
 </head>
 <body>
 <!-- One 56px bar: identity · search · the Read/Curate mode switch · account.
      Everything set-and-forget (new disease, symptom search, review matrix, theme,
      data source) lives behind the preferences button, not in the bar. -->
 <header>
-  <!-- Only shown below 1200px, where the rail becomes an overlay. -->
-  <button id="rail-toggle" class="iconbtn" aria-label="Show the disease index" title="Show the disease index">
+  <!-- Pins and unpins the disease index. Above 1200px it docks or collapses the
+       rail; below that, where the rail is an overlay, it opens and closes it. -->
+  <button id="rail-toggle" class="iconbtn" aria-expanded="true" aria-controls="disease-index"
+          aria-label="Hide the disease index" title="Hide the disease index">
     <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
   </button>
   <!-- The wordmark is the way back to the start state. -->
@@ -62,6 +67,12 @@
       <div class="menu-row"><span>Theme</span>
         <div class="seg" id="theme-seg"><button data-theme="light">Light</button><button data-theme="dark">Dark</button></div>
       </div>
+      <div class="menu-row"><span>Text size</span>
+        <div class="seg" id="textsize-seg" title="Scales the whole app, here and on the cross-reference matrix">
+          <button data-textsize="standard">Standard</button><button data-textsize="large">Large</button><button data-textsize="larger">Larger</button></div>
+      </div>
+      <label class="menu-row check" title="The cloud repeats the symptom list above it at sizes that encode only likelihood">
+        <span>Symptom word cloud</span><input type="checkbox" id="pref-wordcloud"></label>
       <div class="menu-sep"></div>
       <div class="menu-h">Data</div>
       <button class="menu-item" id="menu-settings">Data source, identity &amp; export…</button>
@@ -71,7 +82,7 @@
 </header>
 
 <div class="layout" id="layout">
-  <div class="left-col">
+  <div class="left-col" id="disease-index">
     <div class="tabs">
       <button class="tab active" data-view="alphabetical">A–Z</button>
       <button class="tab" data-view="tissue">Tissue</button>
@@ -88,9 +99,7 @@
   <div class="col-resizer" id="resize-left" title="Drag to resize the list"></div>
 
   <div class="mid-col" id="mid-col">
-    <div id="detail-pane">
-      <div class="empty-state">Select a disease from the list to view its record.</div>
-    </div>
+    <div id="detail-pane"></div>
   </div>
 
   <!-- Deep-dive container. It is moved into the reading column of the record on
@@ -111,6 +120,7 @@
 <!-- App modules — classic scripts, loaded in dependency order (shared global scope) -->
 <script src="js/words.js?v=__ASSETV__"></script>
 <script src="js/help.js?v=__ASSETV__"></script>
+<script src="js/ui-dialog.js?v=__ASSETV__"></script>
 <script src="js/core.js?v=__ASSETV__"></script>
 <script src="js/trees.js?v=__ASSETV__"></script>
 <script src="js/detail.js?v=__ASSETV__"></script>

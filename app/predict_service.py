@@ -79,6 +79,83 @@ def _split_ids(cell: str) -> list[str]:
     return [x.strip() for x in (cell or "").split(";") if x.strip()]
 
 
+# -------------------------------------------------------------------------- score
+# How a candidate was found, and what that is worth. Three routes, in descending
+# order of how much a curator should trust them (issue #91):
+#
+#   xref     an id already on file for this disease cross-references it. The
+#            anchor is a mapping a human put there; the link is asserted by the
+#            reference ontology itself, not inferred from a string.
+#   label    the disease's own label is exactly a name of the term.
+#   synonym  only one of the disease's synonyms matched. ARI synonym lists
+#            sometimes name an *associated* condition rather than a variant, so
+#            this is the weakest route and is only used when the label matched
+#            nothing at all.
+ROUTE_SCORE = {"xref": 70, "label": 55, "synonym": 30}
+
+# Two independent index files proposing the same id is real corroboration; a
+# third adds less. Capped so agreement can never outweigh the route itself.
+AGREEMENT_SCORE = {1: 0, 2: 12, 3: 18}
+AGREEMENT_MAX = 20
+
+# The candidate term's own label being exactly the disease's label is the single
+# strongest confirmation available without opening the resource.
+LABEL_MATCH_BONUS = 15
+
+
+def score_prediction(pred: dict) -> int:
+    """0-100 for how much a candidate mapping deserves a curator's trust.
+
+    The grid distinguished only "predicted" from "predicted from a synonym", so
+    every candidate in between looked alike and there was no way to work the
+    easy ones first (issue #91). This grades them from what is already known:
+    which route found it, how many independent indexes agree, and whether the
+    candidate's own label is the disease's label.
+
+    Pure and deterministic — the same prediction always scores the same.
+    """
+    evidence = pred.get("evidence") or []
+    routes = {e.get("match_field") for e in evidence} or {pred.get("match_field")}
+    best = max((ROUTE_SCORE.get(r, 0) for r in routes), default=0)
+
+    sources = {e.get("source") for e in evidence if e.get("source")}
+    agreement = min(AGREEMENT_SCORE.get(len(sources), AGREEMENT_MAX), AGREEMENT_MAX)
+
+    same_label = (pred.get("object_label") and pred.get("subject_label")
+                  and normalize(pred["object_label"]) == normalize(pred["subject_label"]))
+    return min(100, best + agreement + (LABEL_MATCH_BONUS if same_label else 0))
+
+
+def score_band(score: int) -> str:
+    """The three bands the review grid colours and filters by."""
+    if score >= 80:
+        return "strong"
+    if score >= 55:
+        return "fair"
+    return "weak"
+
+
+def match_key(raw: str) -> str:
+    """Fold an id to its within-database match key.
+
+    Strips an optional ``PREFIX:`` (the indexes and the ontology disagree on whether
+    ids carry one — ``MONDO:0016264`` vs ``0016264``), drops leading zeros from a
+    purely numeric remainder, and casefolds the rest so ``ICD10CM:M32.1`` and
+    ``M32.1`` agree. Matching is always keyed by ``(db, match_key(id))``, so a bare
+    ``2043`` is only ever compared **within** one database — ``DOID:2043`` can never
+    collide with a MeSH descriptor numbered 2043.
+
+    ``concept_service`` keys its reverse index the same way and imports this, so the
+    two cannot drift apart.
+    """
+    s = (raw or "").strip()
+    if ":" in s:
+        s = s.split(":", 1)[1].strip()
+    if s.isdigit():
+        s = s.lstrip("0") or "0"
+    return s.casefold()
+
+
 # ------------------------------------------------------------------------- indexes
 class LexicalIndex:
     """Normalized name/synonym -> reference-ontology records, for one index file.
@@ -97,6 +174,7 @@ class LexicalIndex:
         self.by_name: dict[str, list[dict]] = {}
         self.records: list[dict] = []
         self.terms = 0
+        self._by_ref: dict[tuple[str, str], list[dict]] | None = None
 
     def add(self, record: dict, names: list[str]) -> None:
         self.terms += 1
@@ -111,6 +189,20 @@ class LexicalIndex:
 
     def lookup(self, name: str) -> list[dict]:
         return self.by_name.get(normalize(name), [])
+
+    def records_for(self, db: str, ident: str) -> list[dict]:
+        """Every term in this index that supplies ``ident`` for ``db``.
+
+        Built lazily and only when something asks: the lexical path never needs
+        it, and walking every term's cross-references costs real memory.
+        """
+        if self._by_ref is None:
+            self._by_ref = {}
+            for rec in self.records:
+                for d, ids in rec["by_db"].items():
+                    for i in ids:
+                        self._by_ref.setdefault((d, match_key(i)), []).append(rec)
+        return self._by_ref.get((db, match_key(ident)), [])
 
 
 def load_index(path: str | Path, source: str | None = None) -> LexicalIndex:
@@ -259,6 +351,18 @@ def predict_for_disease(disease: dict, indexes: list[LexicalIndex],
                 for rec in idx.lookup(syn):
                     matches.append((rec, syn, "synonym", idx.source))
 
+    # An id already on file is an anchor a curator put there, so the reference
+    # ontology's own cross-references from that term can fill the blank cells
+    # without any string matching at all (issue #90). One confirmed MONDO id
+    # carries SNOMED, DOID, NCI, ICD-10, Orphanet, UMLS and MeSH.
+    for db, idents in existing.items():
+        if db not in target_dbs:
+            continue
+        for ident in idents:
+            for idx in indexes:
+                for rec in idx.records_for(db, ident):
+                    matches.append((rec, str(ident), "xref", idx.source))
+
     # (db, id) -> prediction, so several matches for the same id merge their evidence.
     found: dict[tuple[str, str], dict] = {}
     for rec, matched, field, source in matches:
@@ -279,14 +383,25 @@ def predict_for_disease(disease: dict, indexes: list[LexicalIndex],
                         # needn't open the resource (issue #42).
                         "object_label": rec["label"],
                         "match_field": field,
-                        "confidence": "high" if anchored else "low",
+                        "confidence": "high" if anchored or field == "xref" else "low",
                         "evidence": [],
                     }
+                elif field == "xref" and pred["match_field"] != "xref":
+                    # Found lexically first and now corroborated by an id on file:
+                    # the stronger route wins the label the grid shows.
+                    pred["match_field"] = "xref"
+                    pred["confidence"] = "high"
                 pred["evidence"].append({
                     "via": rec["id"], "source": source,
                     "matched": matched, "match_field": field,
                 })
-    return sorted(found.values(), key=lambda p: (target_dbs.index(p["db"]), p["id"]))
+
+    for pred in found.values():
+        pred["score"] = score_prediction(pred)
+        pred["band"] = score_band(pred["score"])
+    # Best first within a column, so the easy confirmations are at the top.
+    return sorted(found.values(),
+                  key=lambda p: (target_dbs.index(p["db"]), -p["score"], p["id"]))
 
 
 def predict_matches(diseases: list[dict], indexes: list[LexicalIndex] | None = None,
@@ -329,7 +444,8 @@ def to_cells(predictions: list[dict]) -> list[dict]:
                     "dbs": PREFIX_TO_DBS.get(p.get("prefix"), [p["db"]]),
                     "object_label": p.get("object_label", ""),
                     "match_field": p.get("match_field", ""),
-                    "confidence": p.get("confidence", "high")})
+                    "confidence": p.get("confidence", "high"),
+                    "score": p.get("score", 0), "band": p.get("band", "weak")})
     return out
 
 

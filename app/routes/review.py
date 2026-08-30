@@ -10,7 +10,17 @@ import logging
 from fastapi import APIRouter, Body, Request
 from fastapi.responses import JSONResponse
 
-from .. import concept_service, config, predict_service, sessions, sssom_service, stores, workspace, xref_registry
+from .. import (
+    concept_service,
+    config,
+    predict_service,
+    sessions,
+    sssom_service,
+    stats_service,
+    stores,
+    workspace,
+    xref_registry,
+)
 from .. import github_service as gh
 
 log = logging.getLogger(__name__)
@@ -65,13 +75,31 @@ async def get_ref_session(request: Request):
 
 @router.put("/api/v2/ref-session")
 async def put_ref_session(request: Request, payload: dict = Body(...)):
-    """Persist the signed-in user's cross-reference review session. The body is
-    the frontend-owned state blob ({reviewed, edited, published, branch, pr})."""
+    """Merge one window's changes into the signed-in user's review session.
+
+    Body: ``{patch: {reviewed, edited, published}, branch, pr}``, where a patch
+    value of ``null`` clears that key. Comparing two records side by side is the
+    product's core loop and takes two windows, so these writes have to merge
+    rather than overwrite — see ``workspace._merge_ref_session``."""
     login = sessions._login(request)
     if not login:
         return JSONResponse(status_code=401, content={"detail": "Sign in with GitHub first"})
-    workspace._save_ref_session(login, payload)
+    workspace._merge_ref_session(login, payload.get("patch") or {},
+                                 payload.get("branch"), payload.get("pr"))
     return {"ok": True}
+
+
+@router.get("/api/v2/stats")
+async def stats(request: Request):
+    """What the curation effort has produced, from the stores already on disk.
+
+    The only trace of curation used to be a gitignored log on one host, so
+    nothing could say how much each curator confirms, which databases stall, or
+    how much work is waiting for its second reviewer (issue #124). Read-only and
+    offline: no network call, so the dashboard loads instantly."""
+    svc = workspace.service_for(request)
+    return stats_service.build(svc.get_xref_rows(), await _mapping_judgments(request),
+                               stores.ID_AUTHORS.authors(), stores.ASSIGNMENTS.assignees())
 
 
 @router.get("/api/v2/xref-databases")

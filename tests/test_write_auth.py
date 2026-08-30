@@ -25,6 +25,7 @@ WRITES = [
     ("PUT", "/api/v2/disease/http://example.org/d1", {"changes": {"name": "x"}}),
     ("POST", "/api/v2/disease", {"data": {"label": "x"}}),
     ("POST", "/api/v2/disease/http://example.org/d1/item", {"category": "symptoms", "values": {}}),
+    ("POST", "/api/v2/disease/http://example.org/d1/xref", {"db": "omim", "op": "add", "value": "1"}),
     ("PUT", "/api/v2/item/http://example.org/i1", {"category": "symptoms", "changes": {}}),
     ("DELETE", "/api/v2/item/http://example.org/i1", {"category": "symptoms", "disease": "d"}),
     ("POST", "/api/v2/releases", {"version": "9.9.9"}),

@@ -62,6 +62,29 @@ async def update_disease(request: Request, iri: str, payload: dict = Body(...)):
     return r
 
 
+@router.post("/api/v2/disease/{iri:path}/xref")
+async def apply_xref_op(request: Request, iri: str, payload: dict = Body(...)):
+    """Apply one cross-reference id change. Body: {db, op, value, replaces}.
+
+    ``op`` is add / replace / remove. The whole point is that the client sends
+    the single id rather than the cell's new contents: the list is rebuilt from
+    what is on file at the moment of the write, so a second window that added an
+    id to the same cell no longer has it silently erased (issue #114).
+
+    Write access is gated by ``service_for(..., write=True)`` like every other
+    write endpoint, rather than by a login check here — that would also refuse
+    the offline deployments that run with GitHub integration switched off."""
+    svc = workspace.service_for(request, write=True)
+    before = svc.get_xrefs(iri)
+    r = svc.apply_xref_op(iri, payload.get("db", ""), payload.get("op", ""),
+                          value=payload.get("value", ""), replaces=payload.get("replaces", ""),
+                          editor=payload.get("editor", "user"))
+    stores.ID_AUTHORS.record(iri, before, svc.get_xrefs(iri), sessions._login(request))
+    workspace._mark_dirty(request)
+    workspace._touch(request, iri)
+    return r
+
+
 @router.post("/api/v2/disease/{iri:path}/item")
 async def add_item(request: Request, iri: str, payload: dict = Body(...)):
     """Add a data item to a disease. Body: {category, values:{...}, editor}."""
@@ -129,7 +152,10 @@ async def create_disease(request: Request, payload: dict = Body(...)):
     r = svc.create_disease(data, editor=editor)
     stores.ID_AUTHORS.record(r["iri"], {}, svc.get_xrefs(r["iri"]), sessions._login(request))
     workspace._mark_dirty(request)
-    workspace._touch(request, r["iri"])
+    # The parent gains a changelog entry naming the subtype, so it is part of this
+    # session's work too — without this the pull request describes the child and
+    # says nothing about the record it was split out of (issue #24).
+    workspace._touch(request, r["iri"], data.get("parent_iri"))
     return r
 
 

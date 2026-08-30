@@ -7,6 +7,15 @@ from app import enrich_service as es
 from app import predict_service as ps
 
 
+def values(entries):
+    """Just the strings, for assertions that do not care about lineage.
+
+    Entries are ``{"value", "source"}`` since issue #117 — the source is what
+    lets a curator tell six months later whether a synonym came from MONDO,
+    from DOID, or from a human."""
+    return [e["value"] for e in entries]
+
+
 def _index(*records):
     """LexicalIndex from ``(id, label, synonyms, {db: [ids]})`` tuples."""
     idx = ps.LexicalIndex("test")
@@ -44,48 +53,48 @@ def _enrich(disease, confirmed, indexes=(HUB,), subtypes=SUBTYPES, blocklist=Non
 def test_confirmed_mapping_adds_external_synonyms():
     out = _enrich(_disease(), [{"db": "mondo", "ids": ["0005147"]}])
     # the external term's label + synonyms fold in; the disease's own name does not
-    assert "juvenile diabetes" in out["synonyms"]
-    assert "insulin dependent diabetes" in out["synonyms"]
-    assert "type 1 diabetes mellitus" in out["synonyms"]
+    assert "juvenile diabetes" in values(out["synonyms"])
+    assert "insulin dependent diabetes" in values(out["synonyms"])
+    assert "type 1 diabetes mellitus" in values(out["synonyms"])
 
 
 def test_existing_synonyms_and_label_are_not_duplicated():
     out = _enrich(_disease(name="juvenile diabetes", synonyms=["Insulin-dependent diabetes"]),
                   [{"db": "mondo", "ids": ["0005147"]}])
     # label match (normalized) and existing synonym (case/punct-normalized) are skipped
-    assert "juvenile diabetes" not in out["synonyms"]
+    assert "juvenile diabetes" not in values(out["synonyms"])
     assert not any(ps.normalize(s) == ps.normalize("insulin dependent diabetes")
-                   for s in out["synonyms"])
+                   for s in values(out["synonyms"]))
 
 
 def test_blocklisted_synonyms_are_dropped():
     bl = {"ARI:0000001": {ps.normalize("juvenile diabetes")}}
     out = _enrich(_disease(), [{"db": "mondo", "ids": ["0005147"]}], blocklist=bl)
-    assert "juvenile diabetes" not in out["synonyms"]
-    assert "insulin dependent diabetes" in out["synonyms"]
+    assert "juvenile diabetes" not in values(out["synonyms"])
+    assert "insulin dependent diabetes" in values(out["synonyms"])
 
 
 def test_synonyms_resolved_via_a_cross_referenced_id():
     # confirming the SNOMED id (which has no index of its own) still reaches the
     # MONDO record that cross-references it, so its synonyms fold in
     out = _enrich(_disease(), [{"db": "snomed", "ids": ["46635009"]}])
-    assert "juvenile diabetes" in out["synonyms"]
+    assert "juvenile diabetes" in values(out["synonyms"])
 
 
 # ------------------------------------------------------------------- subtypes (req 2)
 def test_confirmed_mapping_adds_direct_children_as_subtypes():
     out = _enrich(_disease(), [{"db": "mondo", "ids": ["0005147"]}])
-    joined = " ".join(out["subtypes"])
+    joined = " ".join(values(out["subtypes"]))
     assert "type 1 diabetes mellitus 2" in joined
     assert "MONDO:0011899" in joined       # provenance CURIE is recorded
-    assert len(out["subtypes"]) == 2
+    assert len(values(out["subtypes"])) == 2
 
 
 def test_existing_subtypes_are_not_duplicated():
     out = _enrich(_disease(clinical_subtypes=["type 1 diabetes mellitus 2 - already here"]),
                   [{"db": "mondo", "ids": ["0005147"]}])
-    assert not any("type 1 diabetes mellitus 2 " in s for s in out["subtypes"])
-    assert len(out["subtypes"]) == 1       # only the second child remains
+    assert not any("type 1 diabetes mellitus 2 " in s for s in values(out["subtypes"]))
+    assert len(values(out["subtypes"])) == 1       # only the second child remains
 
 
 def test_disease_is_never_proposed_as_its_own_subtype():
@@ -95,13 +104,13 @@ def test_disease_is_never_proposed_as_its_own_subtype():
                               {"id": "MONDO:2", "label": "real subtype"}]}
     out = _enrich(_disease(name="Juvenile diabetes"), [{"db": "mondo", "ids": ["0005147"]}],
                   subtypes=subs)
-    assert out["subtypes"] == ["real subtype - subtype of Juvenile diabetes (MONDO:2)"]
+    assert values(out["subtypes"]) == ["real subtype - subtype of Juvenile diabetes (MONDO:2)"]
 
 
 def test_no_subtypes_when_no_hierarchy_loaded():
     out = _enrich(_disease(), [{"db": "mondo", "ids": ["0005147"]}], subtypes={})
-    assert out["subtypes"] == []
-    assert out["synonyms"]                 # synonyms still work without a subtype file
+    assert values(out["subtypes"]) == []
+    assert values(out["synonyms"])                 # synonyms still work without a subtype file
 
 
 # -------------------------------------------------------------------- ambiguity
@@ -116,12 +125,12 @@ COARSE = _index(
 
 def test_ambiguous_id_within_a_source_contributes_nothing():
     out = _enrich(_disease(), [{"db": "icd10", "ids": ["H90.3"]}], indexes=(COARSE,), subtypes={})
-    assert out["synonyms"] == []
+    assert values(out["synonyms"]) == []
 
 
 def test_unambiguous_id_in_the_same_source_still_resolves():
     out = _enrich(_disease(), [{"db": "mondo", "ids": ["1"]}], indexes=(COARSE,), subtypes={})
-    assert out["synonyms"] == ["deafness alpha"]
+    assert values(out["synonyms"]) == ["deafness alpha"]
 
 
 def test_agreeing_sources_are_both_kept():
@@ -130,8 +139,8 @@ def test_agreeing_sources_are_both_kept():
     other = _index(("DOID:9744", "T1DM", ["sugar diabetes"], {"doid": ["9744"], "snomed": ["46635009"]}))
     out = _enrich(_disease(), [{"db": "snomed", "ids": ["46635009"]}],
                   indexes=(HUB, other), subtypes={})
-    assert "juvenile diabetes" in out["synonyms"]     # from MONDO
-    assert "sugar diabetes" in out["synonyms"]        # from DOID
+    assert "juvenile diabetes" in values(out["synonyms"])     # from MONDO
+    assert "sugar diabetes" in values(out["synonyms"])        # from DOID
 
 
 # ---------------------------------------------------------------------- batch
@@ -159,3 +168,31 @@ def test_load_subtypes_resolves_child_labels_from_the_indexes(tmp_path):
     assert got == {"MONDO:0005147": [{"id": "MONDO:0011899", "label": "type 1 diabetes mellitus 2"},
                                      {"id": "MONDO:0099999", "label": ""}]}
 
+
+
+# ------------------------------------------------------------------ lineage
+def test_every_proposed_synonym_names_the_term_it_came_from():
+    """Issue #117: the PR body recorded only counts, so six months later nobody
+    could tell whether a synonym came from MONDO, from DOID, or from a human."""
+    out = _enrich(_disease(), [{"db": "mondo", "ids": ["0005147"]}])
+    assert out["synonyms"], "expected some proposals to check"
+    for entry in out["synonyms"]:
+        assert set(entry) == {"value", "source"}
+        assert entry["source"].startswith("MONDO:")
+
+
+def test_a_proposed_subtype_names_its_parent_term():
+    out = _enrich(_disease(), [{"db": "mondo", "ids": ["0005147"]}])
+    assert out["subtypes"], "expected some subtype proposals to check"
+    for entry in out["subtypes"]:
+        assert entry["source"].startswith("MONDO:")
+
+
+def test_lineage_distinguishes_two_agreeing_sources():
+    """When two databases agree, each contributed value still names its own."""
+    other = _index(("DOID:9744", "T1DM", ["sugar diabetes"], {"doid": ["9744"], "snomed": ["46635009"]}))
+    out = _enrich(_disease(), [{"db": "snomed", "ids": ["46635009"]}],
+                  indexes=(HUB, other), subtypes={})
+    by_value = {e["value"]: e["source"] for e in out["synonyms"]}
+    assert by_value.get("sugar diabetes", "").startswith("DOID:")
+    assert any(src.startswith("MONDO:") for src in by_value.values())
