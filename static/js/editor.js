@@ -338,18 +338,27 @@ function fieldsDirty(){
   return JSON.stringify(collectDiseaseFields()) !== _fieldsBaseline;
 }
 
-// Ask before throwing away edits. Returns false if the curator backs out.
-function confirmDiscardEdits(){
+// Ask before throwing away edits. Resolves false if the curator backs out.
+// Async because it is an inline dialog now rather than a blocking
+// window.confirm() (issue #118) — both call sites await it.
+async function confirmDiscardEdits(){
   if (!fieldsDirty()) return true;
-  return window.confirm('Discard your unsaved changes to this record?');
+  return UIDialog.confirm({
+    title: 'Discard your unsaved changes?',
+    detail: 'The edits you have made to this record have not been saved, and '
+          + 'leaving now loses them.',
+    confirmLabel: 'Discard them',
+    cancelLabel: 'Keep editing',
+    danger: true,
+  });
 }
 window.confirmDiscardEdits = confirmDiscardEdits;
 
 // The one way out of editing: Cancel, and the record header's "Done editing"
 // both land here, so edit mode and the form can never disagree about whether a
 // record is being curated.
-function cancelFieldEdits(){
-  if (!confirmDiscardEdits()) return;
+async function cancelFieldEdits(){
+  if (!await confirmDiscardEdits()) return;
   _fieldsBaseline = '';
   clearDraft();                  // discarded on purpose — do not offer it back
   setMode('read');
@@ -382,7 +391,7 @@ async function saveEdits(){
       toast('Saved — changelog updated');
     }
   } catch (err){
-    toast('Save failed: ' + err.message);
+    toastError(explainError(err, 'Could not save your changes'));
     saveBtns.forEach(b => { b.disabled = false; b.textContent = 'Save changes'; });
   }
 }
@@ -484,7 +493,7 @@ async function saveItem(category, item){
     afterItemChange(updated, category);
     toast(item ? 'Item updated' : 'Item added');
   } catch (err){
-    toast('Save failed: ' + err.message);
+    toastError(explainError(err, 'Could not save your changes'));
     $('#item-save').disabled = false; $('#item-save').textContent = 'Save';
   }
 }
@@ -613,10 +622,17 @@ async function saveNewDisease() {
   const def_source = _collectDefSrcs('nd_defsrc_list');
   const tissue_iris = [...document.querySelectorAll('#nd_tissues input:checked')].map(c => c.value);
 
-  if (!lbl)               { toast('Label is required'); return; }
-  if (!defn)              { toast('Definition is required'); return; }
-  if (!def_source.length) { toast('At least one definition source is required'); return; }
-  if (!tissue_iris.length){ toast('Select at least one target tissue'); return; }
+  // Every failure at once, inline next to its field. This returned on the first
+  // one, so a curator missing all four got four separate 2.6-second toasts
+  // across four submit attempts, each pinned to the bottom of the viewport and
+  // unconnected to the field it described (issue #99).
+  const form = $('#nd-overlay') || document.body;
+  const problems = [];
+  if (!lbl)                problems.push({ id: 'nd_label', message: 'Give the disease a name.' });
+  if (!defn)               problems.push({ id: 'nd_definition', message: 'Write a definition.' });
+  if (!def_source.length)  problems.push({ id: 'nd_defsrc_list', message: 'Cite at least one source for the definition.' });
+  if (!tissue_iris.length) problems.push({ id: 'nd_tissues', message: 'Choose at least one target tissue.' });
+  if (!UIDialog.showFieldErrors(form, problems)) return;
 
   state.editor = v('#nd_editor') || 'curator';
   const data = {
@@ -649,7 +665,7 @@ async function saveNewDisease() {
     await init();
     await selectDisease(created.iri);
   } catch (err) {
-    toast('Create failed: ' + err.message);
+    toastError(explainError(err, 'Could not create the disease'));
     btn.disabled = false; btn.textContent = 'Create disease';
   }
 }
@@ -658,13 +674,19 @@ async function saveNewDisease() {
 $('#new-disease-btn')?.addEventListener('click', () => openNewDiseaseModal());
 
 async function deleteItem(category, item){
-  if (!confirm(`Delete “${item.name}”? This removes it from the ontology.`)) return;
+  if (!await UIDialog.confirm({
+    title: `Delete “${item.name}”?`,
+    detail: 'This removes it from the ontology. The change is saved as a proposal '
+          + 'and reviewed before it goes live.',
+    confirmLabel: 'Delete it',
+    danger: true,
+  })) return;
   try {
     const updated = await api(`/api/v2/item/${encodeURIComponent(item.iri)}`, {
       method:'DELETE', body:{ category, disease: state.activeIri, editor: state.editor }});
     afterItemChange(updated, category);
     toast('Item deleted');
-  } catch (err){ toast('Delete failed: ' + err.message); }
+  } catch (err){ toastError(explainError(err, 'Could not delete that item')); }
 }
 
 function afterItemChange(updated, category){

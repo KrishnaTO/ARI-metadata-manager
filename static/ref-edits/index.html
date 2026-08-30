@@ -7,15 +7,25 @@
 <!-- Relative, like every other link on this page: the app is mounted under a path
      prefix in production (/ari-editor), so a root-absolute href 404s there. -->
 <link rel="icon" href="../favicon.svg" type="image/svg+xml">
+<!-- Theme, density, legend and text size, applied before the first paint. -->
+<script src="boot.js?v=__ASSETV__"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="../css/ui-dialog.css?v=__ASSETV__">
 <style>
   /* Curation matrix (design 1c): every review database is a column, every disease a
      row of state glyphs, and one disease opens its review strip in place. Palette and
      type scale come from design/mockups/curation-matrix-1c-prototype.dc.html. */
   :root {
-    --ui-zoom:1.25;
+    /* Type scale — shared with the editor's styles.css, so a label is the same
+       size on both pages. This page used to run at body{zoom:1.25}, which made it
+       25% larger than the editor and decoupled the media queries from the layout
+       (the thresholds below had to sit 25% above the widths they guarded). Every
+       font-size here is now rem, and the Text size preference scales both pages
+       together. */
+    --ui-scale:1;
+    font-size:calc(1rem * var(--ui-scale));
     --surface:#fff; --band:#FAFBFC; --head:#EAEEF2; --line:#DDE3EA; --line-strong:#C2CAD4;
     --text:#0F2840; --mute:#5C6675; --faint:#8A93A2;
     --accent:#1F6B7A; --accent-fg:#fff;
@@ -39,6 +49,10 @@
     --disease-col:330px;
     --grid-cols:var(--disease-col) repeat(10,minmax(0,1fr));
   }
+  /* Text size — Standard is the reader's own browser size; the two steps above
+     it are what a curator reads a full day of the matrix at. Set in ⚙. */
+  html[data-textsize="large"]  { --ui-scale:1.15; }
+  html[data-textsize="larger"] { --ui-scale:1.32; }
   html[data-theme="dark"] {
     --surface:#0F2840; --band:#0C2438; --head:#0C2438; --line:#1F3A58; --line-strong:#1F3A58;
     --text:#E3E8EE; --mute:#8A93A2; --faint:#8A93A2;
@@ -52,10 +66,8 @@
     --header-bg:#081A2C; --track:#1F3A58;
   }
   * { box-sizing:border-box; }
-  /* Global UI scale — enlarge all text uniformly; height compensated so the
-     full-height flex layout still fits the viewport (see main styles.css). */
-  body { margin:0; font:400 13px/1.5 var(--sans); color:var(--text); background:var(--surface);
-         zoom:var(--ui-zoom); height:calc(100vh / var(--ui-zoom)); display:flex; flex-direction:column; }
+  body { margin:0; font:400 0.8125rem/1.5 var(--sans); color:var(--text); background:var(--surface);
+         height:100vh; display:flex; flex-direction:column; }
   a { color:var(--accent); }
 
   /* ------------------------------------------------------------------ header
@@ -67,7 +79,7 @@
      stepping out on narrow screens (see the media queries below). */
   header { display:flex; align-items:center; gap:8px; padding:0 14px; height:48px; flex-shrink:0;
            flex-wrap:nowrap; border-bottom:1px solid var(--line); background:var(--header-bg); }
-  header h1 { font:600 13.5px/1 var(--sans); margin:0; white-space:nowrap; }
+  header h1 { font:600 0.8438rem/1 var(--sans); margin:0; white-space:nowrap; }
   #auth { white-space:nowrap; }
   .spacer { flex:1; min-width:8px; }
   /* Hairline between the toolbar's zones — cheaper than a gap for the same grouping. */
@@ -79,48 +91,50 @@
             flex:0 1 auto; min-width:118px; overflow:hidden; }
   .search:focus-within { border-color:var(--accent); }
   .search input { border:0; outline:none; background:transparent; color:var(--text);
-                  font:400 12.5px var(--sans); width:150px; min-width:0; }
+                  font:400 0.7812rem var(--sans); width:150px; min-width:0; }
   .seg { display:flex; border:1px solid var(--line-strong); border-radius:6px; overflow:hidden; flex-shrink:0; }
   .seg button { border:0; background:transparent; color:var(--mute); padding:4px 10px; cursor:pointer;
-                font:400 12px var(--sans); white-space:nowrap; }
+                font:400 0.75rem var(--sans); white-space:nowrap; }
   .seg button:hover { color:var(--text); }
   .seg button.on { background:var(--rail); color:var(--surface); }
   html[data-theme="dark"] .seg button.on { background:var(--rail); color:#081A2C; }
-  .progress { display:flex; align-items:center; gap:5px; font-size:11.5px; color:var(--mute); flex-shrink:0; }
-  .progress b { font:600 12px var(--mono); color:var(--text); }
+  .progress { display:flex; align-items:center; gap:5px; font-size:0.7188rem; color:var(--mute); flex-shrink:0; }
+  .progress b { font:600 0.75rem var(--mono); color:var(--text); }
   .progress .plabel { margin-right:2px; }
   .track { display:inline-block; width:64px; height:5px; border-radius:99px; overflow:hidden; background:var(--track); }
   .track span { display:block; height:100%; background:var(--ok-fg); width:0; transition:width .2s; }
   /* Toolbar buttons: text chips and 28px icon squares share one shape and hover. */
   .chip { display:inline-flex; align-items:center; justify-content:center; gap:6px; height:28px; padding:0 10px;
-          border:1px solid var(--line-strong); border-radius:6px; font:400 12px var(--sans); cursor:pointer;
+          border:1px solid var(--line-strong); border-radius:6px; font:400 0.75rem var(--sans); cursor:pointer;
           color:var(--text); background:transparent; flex-shrink:0; text-decoration:none; position:relative; }
   .chip:hover:not(:disabled) { border-color:var(--accent); color:var(--accent); }
   .chip.on { border-color:var(--accent); color:var(--accent); background:var(--have-bg); }
   .chip:disabled { opacity:.45; cursor:not-allowed; }
-  .chip.icon { width:28px; padding:0; font-size:13px; }
+  .chip.icon { width:28px; padding:0; font-size:0.8125rem; }
   /* Unread-style marker: shown only when there is something to signal. */
   .chip .dot { display:none; position:absolute; top:-3px; right:-3px; width:7px; height:7px; border-radius:99px;
                background:var(--pred-fg); border:1.5px solid var(--header-bg); }
   .chip .dot.live { display:block; }
   .btn { background:transparent; color:var(--text); border:1px solid var(--line-strong); border-radius:6px;
-         padding:6px 12px; cursor:pointer; font:500 12.5px var(--sans); text-decoration:none; display:inline-block; }
+         padding:6px 12px; cursor:pointer; font:500 0.7812rem var(--sans); text-decoration:none; display:inline-block; }
   .btn:hover { border-color:var(--accent); }
   .btn.primary { background:var(--accent); color:var(--accent-fg); border-color:var(--accent); }
   .btn.ok.on { background:var(--ok-solid); color:#fff; border-color:var(--ok-solid); }
   .btn.bad.on { background:var(--bad-solid); color:#fff; border-color:var(--bad-solid); }
   .btn:disabled { opacity:.5; cursor:not-allowed; }
-  .muted { color:var(--mute); font-size:12px; }
+  .muted { color:var(--mute); font-size:0.75rem; }
   header .btn { height:28px; padding:0 12px; line-height:26px; white-space:nowrap; }
   /* Keyboard users get a visible ring everywhere in the toolbar and its popovers. */
   header :focus-visible, .menu :focus-visible { outline:2px solid var(--accent); outline-offset:1px; }
-  /* Narrow viewports drop the toolbar's least load-bearing pieces, in order: the
-     progress caption, the page title, then the progress meter itself. No control
-     is ever dropped. Thresholds are device pixels — the body's 1.25 zoom does not
-     apply to media queries, so they sit 25% above the layout widths they guard. */
-  @media (max-width:1500px) { .progress .plabel { display:none; } }
-  @media (max-width:1320px) { header h1, header h1 + .tsep { display:none; } }
-  @media (max-width:1180px) { .progress, .progress + .tsep { display:none; } }
+  /* Narrow viewports drop the least load-bearing pieces. Status outranks
+     reference material, so the glyph legend goes first and the progress meter
+     goes last. It used to be the other way round: at 1180px the meter vanished
+     while the seven-symbol legend paragraph kept 18% of the viewport (issue #94).
+     No control is ever dropped. The thresholds are the real layout widths now
+     that the page no longer zooms — they used to sit 25% above them. */
+  @media (max-width:1200px) { .progress .plabel { display:none; } }
+  @media (max-width:1056px) { header h1, header h1 + .tsep { display:none; } }
+  @media (max-width:860px)  { .progress, .progress + .tsep { display:none; } }
 
   /* -------------------------------------------------------- toolbar popovers */
   .menuwrap { position:relative; display:flex; flex-shrink:0; }
@@ -128,17 +142,22 @@
           padding:8px; border:1px solid var(--line-strong); border-radius:8px; background:var(--surface);
           box-shadow:0 12px 30px rgba(15,40,64,.18); }
   .menu.open { display:block; }
-  .menu-h { font:600 10px var(--sans); letter-spacing:.09em; text-transform:uppercase; color:var(--faint);
+  .menu-h { font:600 0.625rem var(--sans); letter-spacing:.09em; text-transform:uppercase; color:var(--faint);
             padding:4px 6px 6px; }
   .menu-row { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:5px 6px;
-              font-size:12px; color:var(--text); }
-  .menu-row .seg button { padding:3px 9px; font-size:11.5px; }
+              font-size:0.75rem; color:var(--text); }
+  .menu-row .seg button { padding:3px 9px; font-size:0.7188rem; }
   .menu-row.check { cursor:pointer; user-select:none; }
   .menu-row.check input { accent-color:var(--accent); margin:0; }
+  .menu-row.col { flex-direction:column; align-items:stretch; gap:4px; }
+  .menu-row.col label { font-size:11.5px; color:var(--mute); }
+  .menu-row.col input { font:inherit; font-size:12px; padding:6px 8px; border-radius:4px;
+                        border:1px solid var(--line); background:var(--card); color:inherit; }
+  .menu-hint { font-size:10.5px; line-height:1.45; color:var(--mute); }
   .menu-sep { height:1px; background:var(--line); margin:6px 2px; }
   /* Action items in the publish menu. */
   .menu-item { display:block; width:100%; text-align:left; padding:7px 8px; border:0; border-radius:6px;
-               background:transparent; color:var(--text); font:400 12.5px var(--sans); cursor:pointer;
+               background:transparent; color:var(--text); font:400 0.7812rem var(--sans); cursor:pointer;
                text-decoration:none; }
   .menu-item:hover:not(:disabled) { background:var(--head); color:var(--accent); }
   .menu-item:disabled { opacity:.45; cursor:not-allowed; }
@@ -149,23 +168,23 @@
   /* The divider takes the page surface so it reads in both themes: a light hairline
      on the light-theme teal, a dark one on the lighter dark-theme teal. */
   .split .caret { display:none; border-radius:0 6px 6px 0; margin-left:-1px; padding:0 7px;
-                  border-left-color:var(--surface); font-size:10px; }
+                  border-left-color:var(--surface); font-size:0.625rem; }
   .split.has-pr .caret { display:inline-block; }
 
   /* Selection bar — appears only while diseases are ticked for the review queue. */
   #selbar { display:none; align-items:center; gap:10px; flex-wrap:wrap; padding:9px 16px;
             border-bottom:1px solid var(--line); background:var(--head); flex-shrink:0; }
   #selbar.open { display:flex; }
-  #sel-count { font:600 12px var(--sans); }
+  #sel-count { font:600 0.75rem var(--sans); }
   #selbar input { padding:5px 9px; border:1px solid var(--line-strong); border-radius:6px;
-                  background:var(--surface); color:var(--text); font:400 12px var(--sans); }
+                  background:var(--surface); color:var(--text); font:400 0.75rem var(--sans); }
   #sel-login { width:130px; font-family:var(--mono); }
   #sel-note { width:180px; }
   #sel-others { display:none; align-items:center; gap:6px; padding-left:10px; border-left:1px solid var(--line-strong); }
   #sel-others.on { display:flex; }
 
   /* Note bar — says why an action was refused (e.g. confirming your own id). */
-  #note { display:none; padding:9px 16px; font-size:12px; flex-shrink:0;
+  #note { display:none; padding:9px 16px; font-size:0.75rem; flex-shrink:0;
           background:var(--bad-bg); color:var(--bad-fg); border-bottom:1px solid var(--bad-solid); }
   #note.open { display:block; }
 
@@ -173,8 +192,8 @@
   #pending-panel { display:none; padding:12px 16px; border-bottom:1px solid var(--line);
                    background:var(--head); color:var(--text); flex-shrink:0; max-height:22vh; overflow:auto; }
   #pending-panel.open { display:block; }
-  .pending-h { font:600 10px var(--sans); letter-spacing:.1em; text-transform:uppercase; opacity:.7; }
-  .pending-row { display:flex; justify-content:space-between; gap:12px; font-size:11.5px; padding-top:6px; }
+  .pending-h { font:600 0.625rem var(--sans); letter-spacing:.1em; text-transform:uppercase; opacity:.7; }
+  .pending-row { display:flex; justify-content:space-between; gap:12px; font-size:0.7188rem; padding-top:6px; }
   .pending-row span:last-child { font-family:var(--mono); opacity:.7; }
 
   /* Enrichment drawer — what the confirmed cross-references would add to the
@@ -184,19 +203,38 @@
                   background:var(--head); color:var(--text); flex-shrink:0; max-height:34vh; overflow:auto; }
   #enrich-panel.open { display:block; }
   .en-head { display:flex; align-items:center; gap:12px; flex-wrap:wrap; padding-bottom:8px; }
-  .en-apply { display:flex; align-items:center; gap:6px; font-size:12px; cursor:pointer; user-select:none; }
+  .en-apply { display:flex; align-items:center; gap:6px; font-size:0.75rem; cursor:pointer; user-select:none; }
   .en-apply input { accent-color:var(--accent); }
   .en-disease { border:1px solid var(--line); border-radius:6px; padding:8px 11px; margin-top:8px; background:var(--surface); }
-  .en-disease h4 { margin:0 0 6px; font:600 12.5px var(--sans); }
+  .en-disease h4 { margin:0 0 6px; font:600 0.7812rem var(--sans); }
   .en-group { margin-top:6px; }
-  .en-group .en-label { font:600 10px var(--sans); letter-spacing:.08em; text-transform:uppercase;
+  .en-group .en-label { font:600 0.625rem var(--sans); letter-spacing:.08em; text-transform:uppercase;
                         color:var(--mute); display:block; margin-bottom:4px; }
   .en-chips { display:flex; flex-wrap:wrap; gap:4px; }
-  .en-syn { font:400 11.5px var(--sans); background:var(--ok-bg); color:var(--ok-fg);
+  /* ---- per-item enrichment selection (#117) ----
+     The preview used to offer one all-or-nothing checkbox, so a curator who
+     wanted eight of eleven proposed synonyms had to decline all eleven. Every
+     proposal now carries its own box and the term it came from. */
+  .en-grouphead { display:flex; align-items:center; gap:8px; margin-bottom:5px; }
+  .en-all { border:1px solid var(--line); background:var(--card); color:var(--mute);
+            font:500 0.625rem/1 var(--mono); letter-spacing:.05em; text-transform:uppercase;
+            padding:4px 7px; border-radius:3px; cursor:pointer; min-height:24px; }
+  .en-all:hover { color:var(--accent); border-color:var(--accent); }
+  .en-items { list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:2px; }
+  .en-item > label { display:flex; align-items:baseline; gap:7px; cursor:pointer;
+                     padding:3px 4px; border-radius:3px; }
+  .en-item > label:hover { background:var(--have-bg); }
+  .en-item input { flex-shrink:0; accent-color:var(--accent); cursor:pointer;
+                   width:13px; height:13px; padding:5.5px; box-sizing:content-box;
+                   background-clip:content-box; margin:-5.5px 0 -5.5px -5.5px; }
+  .en-val { font-size:0.75rem; line-height:1.5; color:var(--text); }
+  .en-item .en-src { margin-left:auto; flex-shrink:0; font:400 0.6562rem var(--mono);
+                     color:var(--mute); }
+  .en-syn { font:400 0.7188rem var(--sans); background:var(--ok-bg); color:var(--ok-fg);
             border-radius:99px; padding:2px 9px; }
   .en-subs { list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:3px; }
-  .en-subs li { font-size:11.5px; border-left:2px solid var(--accent); padding:2px 8px; background:var(--band); }
-  .en-subs .en-src { font-family:var(--mono); color:var(--faint); font-size:10.5px; }
+  .en-subs li { font-size:0.7188rem; border-left:2px solid var(--accent); padding:2px 8px; background:var(--band); }
+  .en-subs .en-src { font-family:var(--mono); color:var(--faint); font-size:0.6562rem; }
 
   /* ------------------------------------------------------------------- matrix */
   .body { flex:1; display:flex; min-height:0; position:relative; }
@@ -209,7 +247,7 @@
   #matrix-inner { position:relative; }
   .mhead { display:grid; grid-template-columns:var(--grid-cols); position:sticky; top:0; z-index:2;
            background:var(--head); border-bottom:1px solid var(--line-strong); }
-  .mhead > div { padding:8px 4px; text-align:center; font:600 10px var(--sans); letter-spacing:.05em;
+  .mhead > div { padding:8px 4px; text-align:center; font:600 0.625rem var(--sans); letter-spacing:.05em;
                  text-transform:uppercase; color:var(--mute); border-left:1px solid var(--line); }
   .mhead > div:first-child { padding:8px 14px; text-align:left; letter-spacing:.09em; border-left:0; }
   /* Column splitter between Disease and the first database (SNOMED). A narrow screen
@@ -232,16 +270,20 @@
   /* Column controls: the label sorts the column (missing mappings first, then the
      reverse, then off) and the ○ button narrows the matrix to the diseases missing
      a mapping in that one database. Both are buttons so keyboard users get them. */
-  .hcol { display:flex; flex-direction:column; align-items:center; gap:2px; }
+  .hcol { display:flex; flex-direction:column; align-items:center; gap:2px; min-width:0; }
   .hcol.active { color:var(--accent); }
   .hsort, .hmiss { border:0; background:transparent; padding:0; cursor:pointer; color:inherit;
                    font:inherit; letter-spacing:inherit; text-transform:inherit; }
-  .hsort { display:flex; align-items:center; justify-content:center; gap:2px; width:100%; }
+  .hsort { display:flex; align-items:center; justify-content:center; gap:2px; width:100%; min-width:0; }
+  /* ORPHANET needs ~62px at this size and the tracks fall to 55px once the review
+     panel opens, so the label used to run out of its column and into UMLS. It
+     truncates now; the full name stays in the button's tooltip (issue #97). */
+  .hlabel { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; min-width:0; }
   .hsort:hover, .hmiss:hover { color:var(--accent); }
-  .harrow { font-size:8px; }
+  .harrow { font-size:0.5rem; }
   /* WCAG 2.2 AA wants a 24x24 target. The glyph stays small; the hit area does
      not — padding and a min-size do the work, so nothing moves visually. */
-  .hmiss { font-size:11px; line-height:1; opacity:.45;
+  .hmiss { font-size:0.6875rem; line-height:1; opacity:.45;
            min-width:24px; min-height:24px; display:inline-flex;
            align-items:center; justify-content:center; }
   .hmiss:hover { opacity:1; }
@@ -253,25 +295,25 @@
   .mgroup:nth-child(even) .mrow { background:var(--band); }
   .mgroup.open .mrow { background:var(--head); }
   .mname { padding:9px 14px; display:flex; align-items:center; gap:8px; min-width:0; }
-  .mcaret { color:var(--faint); font-size:10px; flex-shrink:0; }
+  .mcaret { color:var(--faint); font-size:0.625rem; flex-shrink:0; }
   /* Queue controls in the disease cell: a select box, and who holds the disease. */
   /* The box stays 13px; the clickable square around it is 24x24. */
   .mselect { flex-shrink:0; width:13px; height:13px; margin:0; cursor:pointer;
              accent-color:var(--accent); padding:5.5px; box-sizing:content-box;
              background-clip:content-box; }
-  .mowner { flex-shrink:0; margin-left:auto; font:500 10px var(--mono); padding:2px 7px; border-radius:99px;
+  .mowner { flex-shrink:0; margin-left:auto; font:500 0.625rem var(--mono); padding:2px 7px; border-radius:99px;
             background:var(--have-bg); color:var(--have-fg); }
   .mowner.mine { background:var(--ok-bg); color:var(--ok-fg); }
   .mowner.done { opacity:.55; }
   .mowner + .mcount { margin-left:8px; }
   .mgroup.open .mcaret { color:var(--accent); }
-  .mname-text { font:600 12.5px var(--sans); color:var(--text); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .mname-text { font:600 0.7812rem var(--sans); color:var(--text); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   /* Confirmed autoimmune (diseaseCategory "Autoimmune") — the same teal dot the
      editor's disease tree uses, so the marker reads the same across both pages. */
   .ai-dot { flex-shrink:0; width:5px; height:5px; border-radius:50%; background:var(--accent); }
-  .mcount { font:400 10px var(--mono); color:var(--faint); flex-shrink:0; margin-left:auto; }
+  .mcount { font:400 0.625rem var(--mono); color:var(--faint); flex-shrink:0; margin-left:auto; }
   .mcell { display:flex; align-items:center; justify-content:center; border-left:1px solid var(--line);
-           font-size:13.5px; cursor:pointer; color:var(--empty-fg); }
+           font-size:0.8438rem; cursor:pointer; color:var(--empty-fg); }
   /* Keyboard: the matrix is a grid of ~1,900 cells and was entirely unreachable
      without a mouse. A roving tabindex means one cell is in the tab order and
      the arrow keys move between them. */
@@ -285,28 +327,34 @@
   .mcell.none { background:var(--have-bg); color:var(--mute); }
   .mcell.edited { outline:2px solid var(--accent); outline-offset:-2px; }
   .mcell.sel { outline:2px solid var(--accent); outline-offset:-2px; }
-  .mcell .sup { font-size:9px; margin-left:1px; opacity:.9; }
+  .mcell .sup { font-size:0.5625rem; margin-left:1px; opacity:.9; }
   /* Compact density: ~24 diseases per screen instead of 9 — drops the row padding
      and steps the type down, keeping the glyphs and the x/N count. */
   html[data-density="compact"] .mname { padding:5px 12px; }
-  html[data-density="compact"] .mname-text { font:500 11px var(--sans); }
-  html[data-density="compact"] .mcount { font-size:9.5px; }
-  html[data-density="compact"] .mcell { font-size:10px; }
-  html[data-density="compact"] .mcell .sup { font-size:8px; }
+  html[data-density="compact"] .mname-text { font:500 0.6875rem var(--sans); }
+  html[data-density="compact"] .mcount { font-size:0.5938rem; }
+  html[data-density="compact"] .mcell { font-size:0.625rem; }
+  html[data-density="compact"] .mcell .sup { font-size:0.5rem; }
 
   /* ------------------------------------------------- expanded review strip */
   .strip { border-top:2px solid var(--rail); border-bottom:2px solid var(--rail); background:var(--band); }
-  .strip-head { display:flex; align-items:center; gap:12px; padding:14px 16px 10px; flex-wrap:wrap; }
-  .strip-title { font:600 16px var(--sans); color:var(--text); }
+  /* Sticky under the column header: on a 768px screen the open strip is taller
+     than the space left below the row, so the disease you are judging used to
+     scroll out of view while its cards were still on screen (issue #97).
+     --mhead-h is measured after each header render. */
+  .strip-head { display:flex; align-items:center; gap:12px; padding:14px 16px 10px; flex-wrap:wrap;
+                position:sticky; top:var(--mhead-h,34px); z-index:1;
+                background:var(--band); border-bottom:1px solid var(--line); }
+  .strip-title { font:600 1rem var(--sans); color:var(--text); }
   /* Copy a deep link to this disease — the way to open the same record in a second
      window, which is what side-by-side comparison needs (issues #11, #114). */
   .strip-copy { border:1px solid var(--line-strong); background:transparent; color:var(--mute);
-                border-radius:6px; padding:3px 9px; font:400 11px var(--sans); cursor:pointer;
+                border-radius:6px; padding:3px 9px; font:400 0.6875rem var(--sans); cursor:pointer;
                 min-height:24px; white-space:nowrap; }
   .strip-copy:hover { border-color:var(--accent); color:var(--accent); }
-  .strip-id { font:400 11px var(--mono); color:var(--faint); }
-  .strip-syn { font-size:11px; color:var(--mute); }
-  .strip-sum { font-size:11.5px; color:var(--mute); }
+  .strip-id { font:400 0.6875rem var(--mono); color:var(--faint); }
+  .strip-syn { font-size:0.6875rem; color:var(--mute); }
+  .strip-sum { font-size:0.7188rem; color:var(--mute); }
   /* Five cards per row at full width; reflows to fewer as the side panel takes space. */
   .cards { display:grid; grid-template-columns:repeat(auto-fill,minmax(200px,1fr)); gap:12px;
            padding:4px 16px 18px; align-items:start; }
@@ -318,24 +366,24 @@
   .card.have { box-shadow:inset 3px 0 0 var(--line-strong); }
   .card.none { box-shadow:inset 3px 0 0 var(--mute); }
   .card-h { display:flex; align-items:center; justify-content:space-between; gap:6px; }
-  .card-db { font:600 10.5px var(--sans); letter-spacing:.08em; text-transform:uppercase; color:var(--mute); }
-  .card-tag { font-size:9.5px; letter-spacing:.05em; text-transform:uppercase; padding:2px 6px; border-radius:99px; color:var(--empty-fg); }
+  .card-db { font:600 0.6562rem var(--sans); letter-spacing:.08em; text-transform:uppercase; color:var(--mute); }
+  .card-tag { font-size:0.5938rem; letter-spacing:.05em; text-transform:uppercase; padding:2px 6px; border-radius:99px; color:var(--empty-fg); }
   .card-tag.ok   { background:var(--ok-bg);   color:var(--ok-fg); }
   .card-tag.bad  { background:var(--bad-bg);  color:var(--bad-fg); }
   .card-tag.pred { background:var(--pred-bg); color:var(--pred-fg); }
   .card-tag.low  { background:var(--low-bg);  color:var(--low-fg); }
   .card-tag.have { background:var(--have-bg); color:var(--have-fg); }
   .card-tag.none { background:var(--have-bg); color:var(--mute); }
-  .card-empty { margin-top:8px; font-size:11.5px; color:var(--faint); }
-  .card-add { margin-top:9px; font-size:11px; cursor:pointer; color:var(--accent); }
+  .card-empty { margin-top:8px; font-size:0.7188rem; color:var(--faint); }
+  .card-add { margin-top:9px; font-size:0.6875rem; cursor:pointer; color:var(--accent); }
   .card-id { margin-top:8px; cursor:pointer; }
   .card-id + .card-id { margin-top:10px; padding-top:10px; border-top:1px dashed var(--line); }
   .card-id.sel { outline:2px solid var(--accent); outline-offset:4px; border-radius:4px; }
-  .card-id .cid { font:500 11.5px var(--mono); color:var(--text); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-  .card-id .clabel { margin-top:3px; font-size:11.5px; color:var(--mute); line-height:1.4; max-height:32px; overflow:hidden; }
-  .card-id .cacts { display:flex; gap:5px; margin-top:7px; font-size:11px; align-items:center; }
+  .card-id .cid { font:500 0.7188rem var(--mono); color:var(--text); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .card-id .clabel { margin-top:3px; font-size:0.7188rem; color:var(--mute); line-height:1.4; max-height:32px; overflow:hidden; }
+  .card-id .cacts { display:flex; gap:5px; margin-top:7px; font-size:0.6875rem; align-items:center; }
   .card-id .cbtn { flex:1; text-align:center; padding:4px 0; border-radius:5px; border:1px solid var(--line-strong);
-                   background:transparent; cursor:pointer; font:400 11px var(--sans); }
+                   background:transparent; cursor:pointer; font:400 0.6875rem var(--sans); }
   .card-id .cbtn.ok { color:var(--ok-fg); }
   .card-id .cbtn.bad { color:var(--bad-fg); }
   .card-id .cbtn.ok.on { background:var(--ok-solid); border-color:var(--ok-solid); color:#fff; }
@@ -343,16 +391,16 @@
   .card-id .copen { flex:0 0 auto; padding:4px 8px; border:1px solid var(--line-strong); color:var(--accent);
                     border-radius:5px; text-decoration:none; }
   /* Who added the id, and the ✓ withheld from that curator (separation of duties). */
-  .card-id .cwho { margin-top:4px; font:400 10px var(--mono); color:var(--faint); }
+  .card-id .cwho { margin-top:4px; font:400 0.625rem var(--mono); color:var(--faint); }
   .card-id .cwho.own { color:var(--bad-fg); }
   .card-id .cbtn.ok.locked { opacity:.4; text-decoration:line-through; cursor:not-allowed; }
   /* Cell-level "this database has no term for the disease" verdict. */
   .cnone { display:block; width:100%; margin-top:9px; padding:5px 8px; border-radius:5px;
            border:1px dashed var(--line-strong); background:transparent; color:var(--mute);
-           cursor:pointer; font:400 11px var(--sans); text-align:center; }
+           cursor:pointer; font:400 0.6875rem var(--sans); text-align:center; }
   .cnone:hover { border-color:var(--accent); color:var(--accent); }
   .cnone.on { border-style:solid; background:var(--have-bg); color:var(--text); }
-  .empty-note { padding:32px; text-align:center; font-size:12.5px; color:var(--mute); }
+  .empty-note { padding:32px; text-align:center; font-size:0.7812rem; color:var(--mute); }
 
   /* -------------------------------------------------------------- side panel */
   #divider { width:6px; flex-shrink:0; cursor:col-resize; background:var(--line); display:none; touch-action:none; }
@@ -369,16 +417,16 @@
   #panel { display:flex; flex-direction:column; height:100%; overflow-y:auto; overflow-x:hidden; }
   #panel > * { flex-shrink:0; }
   .p-head { padding:12px 16px; border-bottom:1px solid var(--line); background:var(--surface); position:sticky; top:0; z-index:2; }
-  .p-eyebrow { font:600 10.5px var(--sans); letter-spacing:.1em; text-transform:uppercase; color:var(--pred-fg); }
+  .p-eyebrow { font:600 0.6562rem var(--sans); letter-spacing:.1em; text-transform:uppercase; color:var(--pred-fg); }
   .p-eyebrow.ok { color:var(--ok-fg); }
   .p-eyebrow.bad { color:var(--bad-fg); }
-  .p-title { margin-top:6px; font:600 15px/1.3 var(--sans); color:var(--text); }
-  .p-sub { margin-top:3px; font:400 11px var(--mono); color:var(--faint); }
-  .p-close { float:right; cursor:pointer; font-size:14px; opacity:.6; background:none; border:0; color:inherit; }
+  .p-title { margin-top:6px; font:600 0.9375rem/1.3 var(--sans); color:var(--text); }
+  .p-sub { margin-top:3px; font:400 0.6875rem var(--mono); color:var(--faint); }
+  .p-close { float:right; cursor:pointer; font-size:0.875rem; opacity:.6; background:none; border:0; color:inherit; }
   .p-switch { padding:11px 16px; border-bottom:1px solid var(--line); background:var(--head); }
-  .p-switch-h { font:600 10px var(--sans); letter-spacing:.09em; text-transform:uppercase; color:var(--faint); }
+  .p-switch-h { font:600 0.625rem var(--sans); letter-spacing:.09em; text-transform:uppercase; color:var(--faint); }
   .p-sibs { display:flex; flex-wrap:wrap; gap:6px; margin-top:7px; }
-  .p-sib { font:500 10.5px var(--mono); padding:3px 8px; border-radius:99px; cursor:pointer; color:var(--empty-fg); }
+  .p-sib { font:500 0.6562rem var(--mono); padding:3px 8px; border-radius:99px; cursor:pointer; color:var(--empty-fg); }
   .p-sib.ok { background:var(--ok-bg); color:var(--ok-fg); }
   .p-sib.bad { background:var(--bad-bg); color:var(--bad-fg); }
   .p-sib.pred { background:var(--pred-bg); color:var(--pred-fg); }
@@ -389,32 +437,65 @@
   /* The target id and its editor share one box — ✎ swaps the view for the form. */
   .p-idblock { padding:14px 16px; border-bottom:1px solid var(--line); }
   .p-idrow { display:flex; align-items:center; gap:8px; }
-  .p-id { flex:1; min-width:0; font:500 13px var(--mono); color:var(--text); overflow-wrap:anywhere; }
+  .p-id { flex:1; min-width:0; font:500 0.8125rem var(--mono); color:var(--text); overflow-wrap:anywhere; }
   .p-icon { flex-shrink:0; background:transparent; border:1px solid var(--line-strong); border-radius:6px;
-            color:var(--mute); cursor:pointer; font:400 12px var(--sans); padding:5px 9px; line-height:1; }
+            color:var(--mute); cursor:pointer; font:400 0.75rem var(--sans); padding:5px 9px; line-height:1; }
   .p-icon:hover { border-color:var(--accent); color:var(--accent); }
   .p-idform { display:none; }
   .p-idblock.editing .p-idview { display:none; }
   .p-idblock.editing .p-idform { display:block; }
-  .p-idform label { display:block; font:600 10px var(--sans); letter-spacing:.09em; text-transform:uppercase;
+  .p-idform label { display:block; font:600 0.625rem var(--sans); letter-spacing:.09em; text-transform:uppercase;
                     color:var(--faint); margin-bottom:5px; }
   .p-idform input { width:100%; padding:7px 9px; border:1px solid var(--accent); border-radius:6px;
-                    background:var(--surface); color:var(--text); font:400 12.5px var(--mono); }
+                    background:var(--surface); color:var(--text); font:400 0.7812rem var(--mono); }
   .p-formacts { display:flex; gap:8px; margin-top:9px; }
-  .p-hint { margin-top:8px; font-size:11px; color:var(--mute); line-height:1.5; }
-  .p-label { margin-top:3px; font-size:11.5px; color:var(--mute); line-height:1.5; }
+  .p-hint { margin-top:8px; font-size:0.6875rem; color:var(--mute); line-height:1.5; }
+  .p-label { margin-top:3px; font-size:0.7188rem; color:var(--mute); line-height:1.5; }
   .p-idacts { display:flex; gap:8px; margin-top:10px; }
   .p-open { flex:1; text-align:center; padding:9px 12px; border-radius:6px; background:var(--accent);
-            color:var(--accent-fg); font:500 12.5px var(--sans); cursor:pointer; text-decoration:none; }
-  .p-note { margin-top:8px; font-size:11px; color:var(--mute); }
+            color:var(--accent-fg); font:500 0.7812rem var(--sans); cursor:pointer; text-decoration:none; }
+  .p-note { margin-top:8px; font-size:0.6875rem; color:var(--mute); }
   .p-actions { padding:14px 16px; display:flex; gap:8px; align-items:center; flex-wrap:wrap;
                border-bottom:1px solid var(--line); }
   .p-actions .btn.locked { opacity:.45; text-decoration:line-through; }
   /* Why the ✓ is withheld: the curator who added an id cannot confirm it. */
-  .p-lock { margin:12px 16px 0; padding:8px 10px; border-radius:6px; font-size:11.5px; line-height:1.5;
+  .p-lock { margin:12px 16px 0; padding:8px 10px; border-radius:6px; font-size:0.7188rem; line-height:1.5;
             background:var(--bad-bg); color:var(--bad-fg); border:1px solid var(--bad-solid); }
-  .p-foot { padding:10px 16px; border-top:1px solid var(--line); font-size:11px; color:var(--mute); background:var(--head); }
-  #p-frame { flex:1 0 auto; width:100%; min-height:300px; border:0; background:#fff; }
+  .p-foot { padding:10px 16px; border-top:1px solid var(--line); font-size:0.6875rem; color:var(--mute); background:var(--head); }
+  /* ---- compare pane: the ARI record beside the candidate concept (#96) ----
+     Judging a mapping means comparing two definitions. Four of the nine review
+     databases block embedding, so for 44% of every disease's review the panel
+     could show nothing about the candidate at all -- even though the endpoint
+     already returned its definition, synonyms and parents. */
+  .cmp { display:grid; grid-template-columns:1fr 1fr; gap:1px; background:var(--line);
+         border-top:1px solid var(--line); border-bottom:1px solid var(--line); }
+  @media (max-width:640px) { .cmp { grid-template-columns:1fr; } }
+  .cmp-col { background:var(--card); padding:12px 14px 14px; min-width:0; }
+  .cmp-head { font:600 0.625rem/1.4 var(--mono); letter-spacing:.07em; text-transform:uppercase;
+              color:var(--mute); margin-bottom:6px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .cmp-name { font:600 0.8438rem/1.35 var(--sans); color:var(--text); margin-bottom:10px; }
+  .cmp-label { font:600 0.5938rem/1.4 var(--mono); letter-spacing:.08em; text-transform:uppercase;
+               color:var(--mute); margin:10px 0 4px; }
+  .cmp-def { font-size:0.7812rem; line-height:1.55; color:var(--text);
+             max-height:11.5em; overflow-y:auto; overscroll-behavior:contain; }
+  .cmp-chips { display:flex; flex-wrap:wrap; gap:4px; }
+  .cmp-chip { font-size:0.6875rem; line-height:1.5; padding:1px 6px; border-radius:3px;
+              background:var(--have-bg); color:var(--text); border:1px solid var(--line); }
+  .cmp-more { font-size:0.6875rem; color:var(--mute); align-self:center; cursor:help; }
+  .cmp-none { font-size:0.75rem; color:var(--mute); font-style:italic; }
+  .cmp-loading { font-size:0.75rem; color:var(--mute); }
+  .cmp-via { font-size:0.6875rem; line-height:1.5; color:var(--pred-fg); background:var(--pred-bg);
+             border-radius:3px; padding:5px 7px; margin-bottom:8px; }
+
+  /* The embedded source page is a secondary affordance now, below the compared
+     text rather than instead of it -- and collapsed, so it costs no height until
+     the curator asks for it. */
+  .p-source { border-top:1px solid var(--line); }
+  .p-source > summary { padding:9px 16px; font-size:0.7188rem; color:var(--mute);
+                        cursor:pointer; user-select:none; }
+  .p-source > summary:hover { color:var(--accent); }
+  .p-source[open] > summary { border-bottom:1px solid var(--line); }
+  #p-frame { display:block; width:100%; height:340px; border:0; background:#fff; }
 
   /* -------------------------------------------------- new-subtype overlay */
   #subtype-overlay { display:none; position:absolute; top:0; left:0; bottom:0; background:var(--surface); z-index:10;
@@ -422,27 +503,38 @@
   #subtype-overlay.open { display:flex; }
   .so-head { padding:12px 16px; border-bottom:1px solid var(--line); display:flex; align-items:center; gap:8px; flex-shrink:0; }
   .so-body { padding:16px; flex:1; overflow-y:auto; }
-  .so-parent-info { font-size:11.5px; color:var(--mute); background:var(--band); border:1px solid var(--line);
+  .so-parent-info { font-size:0.7188rem; color:var(--mute); background:var(--band); border:1px solid var(--line);
                     border-radius:6px; padding:8px 10px; margin-bottom:14px; }
   .so-field { margin-bottom:12px; }
-  .so-field label { display:block; font:600 10px var(--sans); letter-spacing:.09em; text-transform:uppercase;
+  .so-field label { display:block; font:600 0.625rem var(--sans); letter-spacing:.09em; text-transform:uppercase;
                     color:var(--faint); margin-bottom:4px; }
   .so-field > input, .so-field > textarea, .so-field > select { width:100%; padding:7px 9px; border:1px solid var(--line-strong);
-    border-radius:6px; background:var(--surface); color:var(--text); font:400 12.5px var(--sans); }
+    border-radius:6px; background:var(--surface); color:var(--text); font:400 0.7812rem var(--sans); }
   .so-field textarea { min-height:64px; resize:vertical; }
   .so-req { color:var(--bad-fg); }
   .so-tissue-grid { display:flex; flex-wrap:wrap; gap:5px; margin-top:4px; }
-  .so-tissue-check { display:flex; align-items:center; gap:4px; font-size:12px; padding:3px 9px;
+  .so-tissue-check { display:flex; align-items:center; gap:4px; font-size:0.75rem; padding:3px 9px;
                      border:1px solid var(--line); border-radius:99px; cursor:pointer; user-select:none; }
   .so-tissue-check:hover { border-color:var(--accent); }
   .so-tissue-check input[type=checkbox] { width:auto; margin:0; flex-shrink:0; accent-color:var(--accent); }
   .so-actions { padding:12px 16px; border-top:1px solid var(--line); display:flex; gap:8px; flex-shrink:0; }
 
-  .legend { padding:9px 16px; border-top:1px solid var(--line); font-size:11.5px; color:var(--mute);
-            background:var(--head); flex-shrink:0; }
-  .legend .g { font-family:var(--mono); }
-  /* Reference material, not a control — hideable once the glyphs are learned. */
+  /* One line of keys, not a paragraph. The prose that used to run across three
+     lines here now lives in each key's tooltip, so the strip costs ~26px instead
+     of 88px and still explains itself on hover or focus (issues #94, #97). */
+  .legend { display:flex; flex-wrap:wrap; align-items:center; gap:3px 15px;
+            padding:6px 16px; border-top:1px solid var(--line); font-size:0.7188rem;
+            color:var(--mute); background:var(--head); flex-shrink:0; }
+  .lg-key { display:inline-flex; align-items:center; gap:5px; white-space:nowrap; cursor:help;
+            border:0; background:none; color:inherit; font:inherit; padding:2px 0; }
+  .lg-key:hover, .lg-key:focus-visible { color:var(--text); }
+  .lg-key .g { font-family:var(--mono); color:var(--text); }
+  /* Reference material, not a control — off until asked for, and the first thing
+     to go under width pressure. (Defined here rather than with the toolbar's
+     media queries above, which sit earlier in the file and would lose to the
+     display:flex on .legend.) */
   html[data-legend="off"] .legend { display:none; }
+  @media (max-width:1200px) { .legend { display:none; } }
 </style>
 </head>
 <body>
@@ -471,9 +563,25 @@
       <div class="menu-row"><span>Row density</span>
         <div class="seg" id="density"><button data-density="comfortable">Comfortable</button><button data-density="compact">Compact</button></div>
       </div>
+      <div class="menu-row"><span>Text size</span>
+        <div class="seg" id="textsize" title="Scales the whole app, on this page and in the editor">
+          <button data-textsize="standard">Standard</button><button data-textsize="large">Large</button><button data-textsize="larger">Larger</button></div>
+      </div>
       <div class="menu-sep"></div>
       <div class="menu-h">Matrix</div>
       <label class="menu-row check"><span>Show glyph legend</span><input type="checkbox" id="pref-legend"></label>
+      <div class="menu-sep"></div>
+      <!-- The ORCID was read from localStorage with no way to set it anywhere on
+           this page (issue #118), even though it is what lands in the published
+           SSSOM author_id column. -->
+      <div class="menu-h">Attribution</div>
+      <div class="menu-row col">
+        <label for="pref-orcid">Your ORCID iD (optional)</label>
+        <input id="pref-orcid" placeholder="0000-0000-0000-0000" autocomplete="off"
+               inputmode="numeric" aria-describedby="pref-orcid-hint">
+        <span class="menu-hint" id="pref-orcid-hint">Mappings you publish are attributed to
+          this instead of your GitHub login.</span>
+      </div>
     </div>
   </div>
   <span class="tsep"></span>
@@ -526,22 +634,18 @@
   <div id="side"><div id="panel"></div></div>
 </div>
 <div class="legend">
-  <span class="g">✓</span> confirmed ·
-  <span class="g">•</span> id on file, not yet reviewed ·
-  <span class="g">!</span> predicted ·
-  <span class="g">?</span> predicted from a synonym only ·
-  <span class="g">✕</span> flagged ·
-  <span class="g">–</span> no term exists in that database ·
-  blank no id. A superscript is the number of ids in that cell; a cell only reads ✓ once every id in it has a verdict.
-  <span class="ai-dot" style="display:inline-block;vertical-align:middle"></span> after a disease name marks it confirmed autoimmune.
-  The curator who added an id cannot confirm it — another curator has to.
+  <button class="lg-key" title="Every id in this cell has a verdict. A cell only reads ✓ once all of its ids do."><span class="g">✓</span> confirmed</button>
+  <button class="lg-key" title="An id is on file for this database, but no curator has judged it yet."><span class="g">•</span> on file</button>
+  <button class="lg-key" title="The matcher proposed this id from the disease label."><span class="g">!</span> predicted</button>
+  <button class="lg-key" title="The matcher proposed this id from a synonym only — weaker evidence than a label match."><span class="g">?</span> from a synonym</button>
+  <button class="lg-key" title="A curator judged this id wrong for the disease."><span class="g">✕</span> flagged</button>
+  <button class="lg-key" title="A curator recorded that this database has no term for the disease."><span class="g">–</span> no term</button>
+  <button class="lg-key" title="An empty cell means no id has been recorded for that database yet."><span class="g">▫</span> no id</button>
+  <button class="lg-key" title="A superscript after a glyph is the number of ids in that cell."><span class="g">²</span> ids in the cell</button>
+  <button class="lg-key" title="Confirmed autoimmune — the same teal dot the editor's disease index uses."><span class="ai-dot"></span> autoimmune</button>
+  <button class="lg-key" title="Separation of duties: the curator who added an id cannot confirm it, so another curator has to.">✓ needs a second curator</button>
 </div>
-<script>
-  try { var t = localStorage.getItem('theme'); if (t) document.documentElement.dataset.theme = t;
-    else if (matchMedia('(prefers-color-scheme: dark)').matches) document.documentElement.dataset.theme = 'dark';
-    document.documentElement.dataset.density = localStorage.getItem('refDensity') || 'comfortable';
-    document.documentElement.dataset.legend = localStorage.getItem('refLegend') || 'on'; } catch(e){}
-</script>
+<script src="../js/ui-dialog.js?v=__ASSETV__"></script>
 <script src="review-model.js?v=__ASSETV__"></script>
 <script src="ref-edits.js?v=__ASSETV__"></script>
 </body>

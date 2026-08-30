@@ -20,6 +20,22 @@ from .schema import CATEGORIES, SEEALSO_IRI
 log = logging.getLogger(__name__)
 
 
+def _pick_entries(entries, chosen):
+    """The proposed entries a curator kept.
+
+    ``entries`` are ``{"value", "source"}`` proposals; ``chosen`` is the list of
+    values ticked in the preview, or ``None`` for "everything". Matching on the
+    value rather than an index means a stale selection cannot silently apply the
+    wrong proposal if the underlying indexes changed between preview and publish
+    — anything no longer proposed is simply dropped.
+    """
+    entries = entries or []
+    if chosen is None:
+        return list(entries)
+    keep = {str(v) for v in chosen}
+    return [e for e in entries if e["value"] in keep]
+
+
 def _split_csv(values):
     """Flatten cross-reference annotation values, splitting any that contain
     comma-separated ids into separate entries (e.g. OMOP "12345, 67890").
@@ -326,6 +342,11 @@ class OntologyService:
             row = {"iri": ind.iri, "name": self._get_label(ind),
                    "ari_id": ari[0] if ari else None,
                    "autoimmune": self._is_autoimmune(ind),
+                   # The review panel puts this opposite the candidate concept's
+                   # own definition, so judging a mapping is a side-by-side read
+                   # rather than a memory test (issue #96). One extra annotation
+                   # per disease keeps this O(diseases).
+                   "definition": self._get_comment(ind),
                    "synonyms": self._get_annotation(ind, base + "ARI_Synonym")}
             for key, suffix in self.XREF_SUFFIXES.items():
                 row[key] = _split_csv(self._get_annotation(ind, base + suffix))
@@ -1038,7 +1059,8 @@ class OntologyService:
         kw = {"index_dir": index_dir} if index_dir else {}
         return enrich_service.enrich_many(diseases, by_iri, **kw)
 
-    def apply_enrichment(self, confirmed, editor: str = "curator", index_dir=None) -> dict:
+    def apply_enrichment(self, confirmed, editor: str = "curator", index_dir=None,
+                         selected=None) -> dict:
         """Fold confirmed cross-references' synonyms + subtypes into the ontology.
 
         For each disease with confirmed (positive) mappings, appends the external
@@ -1046,24 +1068,52 @@ class OntologyService:
         ``ARI_ClinicalSubtype`` (requirements 1 & 2), de-duplicated and
         blocklist-filtered by :func:`app.enrich_service.enrich`. Records a per-disease
         changelog entry and saves. Returns a summary
-        ``{diseases, synonyms_added, subtypes_added}``."""
+        ``{diseases, synonyms_added, subtypes_added}``.
+
+        ``selected`` narrows what is applied, as
+        ``{iri: {"synonyms": [value, ...], "subtypes": [value, ...]}}``. The
+        preview offered a single all-or-nothing checkbox, so a curator who wanted
+        eight of eleven proposed synonyms had to decline all eleven (issue #117).
+        ``None`` keeps the previous behaviour of applying everything proposed.
+
+        Every applied value also gets a line in ``ARI_EnrichmentSource`` naming
+        the term it came from. The PR body recorded only counts, so six months
+        later nobody could tell whether a synonym came from MONDO, from DOID or
+        from a human. The annotation travels with the ontology, so the lineage
+        lands in the published artefact rather than in a sidecar file.
+        """
         proposals = self.enrichment_preview(confirmed, index_dir=index_dir)
         base = self.base
-        syn_total = sub_total = 0
+        syn_total = sub_total = applied_to = 0
+        stamp = datetime.now(timezone.utc).isoformat(timespec="seconds")
         for iri, add in proposals.items():
             try:
                 e = self._entity(iri)
-            except KeyError:
+            except NotFound:
                 continue
-            new_syn, new_sub = add.get("synonyms") or [], add.get("subtypes") or []
+            pick = (selected or {}).get(iri) if selected is not None else None
+            new_syn = _pick_entries(add.get("synonyms"),
+                                    None if pick is None else pick.get("synonyms"))
+            new_sub = _pick_entries(add.get("subtypes"),
+                                    None if pick is None else pick.get("subtypes"))
+            if not new_syn and not new_sub:
+                continue
+            applied_to += 1
+            lineage = []
             if new_syn:
                 prop = self._ensure_annotation_property("ARI_Synonym")
-                prop[e] = self._get_annotation(e, base + "ARI_Synonym") + new_syn
+                prop[e] = self._get_annotation(e, base + "ARI_Synonym") + [x["value"] for x in new_syn]
                 syn_total += len(new_syn)
+                lineage += [f"ARI_Synonym | {x['value']} | from {x['source']} | {stamp} | {editor}"
+                            for x in new_syn]
             if new_sub:
                 prop = self._ensure_annotation_property("ARI_ClinicalSubtype")
-                prop[e] = self._get_annotation(e, base + "ARI_ClinicalSubtype") + new_sub
+                prop[e] = self._get_annotation(e, base + "ARI_ClinicalSubtype") + [x["value"] for x in new_sub]
                 sub_total += len(new_sub)
+                lineage += [f"ARI_ClinicalSubtype | {x['value']} | from {x['source']} | {stamp} | {editor}"
+                            for x in new_sub]
+            prop = self._ensure_annotation_property("ARI_EnrichmentSource")
+            prop[e] = self._get_annotation(e, base + "ARI_EnrichmentSource") + lineage
             note = []
             if new_syn:
                 note.append(f"+{len(new_syn)} synonym(s)")
@@ -1071,9 +1121,9 @@ class OntologyService:
                 note.append(f"+{len(new_sub)} clinical subtype(s)")
             self._append_changelog(e, editor,
                                    "Enrichment from confirmed cross-references: " + ", ".join(note))
-        if proposals:
+        if applied_to:
             self._save()
-        return {"diseases": len(proposals), "synonyms_added": syn_total, "subtypes_added": sub_total}
+        return {"diseases": applied_to, "synonyms_added": syn_total, "subtypes_added": sub_total}
 
     # --------------------------------------------------------- ITEM CRUD
     def get_schema(self) -> dict:

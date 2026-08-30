@@ -91,7 +91,7 @@
         link.addEventListener('click', () => window.open(r.pr_url, '_blank'));
         document.body.appendChild(link); setTimeout(() => link.remove(), 8000);
       } catch (e) {
-        toast('Publish failed: ' + e.message);
+        toastError(explainError(e, 'Could not publish'));
         $('#pub-go').disabled = false; $('#pub-go').textContent = 'Open pull request';
       }
     });

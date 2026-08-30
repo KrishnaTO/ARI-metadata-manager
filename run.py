@@ -26,6 +26,10 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     os.environ["ARI_ONTOLOGY_FILE"] = args.file
+    # Local launcher: re-derive the asset cache-busting token on every page
+    # render, so editing a JS or CSS file shows up on reload. Assets are served
+    # `immutable` for a year, so without this an edit needs a server restart.
+    os.environ.setdefault("ARI_DEV", "1")
 
     import uvicorn
     url = f"http://127.0.0.1:{args.port}"
