@@ -15,6 +15,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from . import atomic_store
+from .errors import NotFound
 
 log = logging.getLogger(__name__)
 
@@ -108,7 +109,7 @@ class AssignmentStore:
         data = self._load_all()
         rec = data.get(login)
         if not rec:
-            raise KeyError(login)
+            raise NotFound(login)
         rec["iris"] = [i for i in rec.get("iris", []) if i not in drop]
         rec["done"] = [i for i in rec.get("done", []) if i not in drop]
         rec["updated"] = _now()
