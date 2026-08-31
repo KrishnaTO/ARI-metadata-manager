@@ -36,18 +36,23 @@ WRITES = [
 def github_on(monkeypatch):
     """A deployment with GitHub integration configured, nobody signed in.
 
-    `user_service` is replaced with a tripwire: the gate is meant to reject the
-    request before any ontology is resolved, so reaching it is the failure. This
-    also keeps a regression from writing to the tracked `ontologies/` copy —
-    these tests drive the real app, and `create_release` in particular would
-    otherwise version the real file and leave a snapshot in `releases/`.
+    `user_service` is replaced with a tripwire on its *create* path — the one a
+    write takes. The gate is meant to reject the request before any working copy
+    is resolved, so reaching it is the failure. This also keeps a regression from
+    writing to the tracked `ontologies/` copy — these tests drive the real app,
+    and `create_release` in particular would otherwise version the real file and
+    leave a snapshot in `releases/`. Reads resolve through the same helper
+    without `create`, and land on BASE for an anonymous caller.
     """
     monkeypatch.setattr(config, "GH_ENABLED", True)
     monkeypatch.setattr(sessions, "_login", lambda request: None)
 
+    real = workspace.user_service
     reached = []
 
     def _tripwire(login, create=False):
+        if not create:
+            return real(login)
         reached.append(login)
         raise AssertionError("write gate let an anonymous request through to user_service()")
 

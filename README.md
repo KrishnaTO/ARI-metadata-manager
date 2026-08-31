@@ -52,6 +52,7 @@ ARI-metadata-manager/
 │   ├── schema.py               #   Editable data-item field schema (drives forms + writes)
 │   ├── xref_registry.py        #   Single source of truth for cross-reference databases
 │   ├── github_service.py       #   Per-user OAuth, commit, fork, cross-repo pull request
+│   ├── merge_service.py        #   Rebases a curator's diseases onto the source branch
 │   ├── sssom_service.py        #   Confirmed cross-refs -> SSSOM + equivalencies TSV
 │   ├── id_provenance.py        #   Who added each cross-reference id (separation of duties)
 │   ├── enrich_service.py       #   Confirmed cross-refs -> disease synonyms + clinical subtypes
@@ -156,6 +157,16 @@ Contributors without push access are handled by **forking**: the app creates a f
 there, and opens a cross-repo PR with `maintainer_can_modify`. Re-publishing the same disease
 appends commits to the existing PR. The only persistent secret is the OAuth client secret,
 which never leaves the server. `app/github_service.py` owns this logic.
+
+### Publishing rebases onto the source branch
+A working copy is made once and lives for days, so committing it whole reverted every record
+merged into the branch since — the incident in issue #146. Publishing now fetches
+`GH_ONTOLOGY_PATH` at the source branch, writes **only the diseases in this curator's touched
+set** over it (`app/merge_service.py`), and commits that; the mapping files were always built
+this way, which is why no mapping row was ever lost. The touched set lives at
+`.user-data/<login>.touched.json` so a restart cannot empty it, and it is cleared on a
+successful publish. A disease the curator edited that also changed on the branch fails the
+publish with **409** naming it, rather than silently winning.
 
 ### Per-user working copies & isolation
 Each signed-in editor edits an isolated copy of the ontology at `.user-data/<login>.owl`
@@ -338,7 +349,7 @@ when its target actually changes.
 | GET | `/auth/github` | Start OAuth (optional `next`) |
 | GET | `/auth/github/callback` | OAuth callback |
 | POST | `/api/v2/logout` | Sign out |
-| POST | `/api/v2/publish` | Commit working copy + open/append PR (+ SSSOM files) |
+| POST | `/api/v2/publish` | Commit the curator's diseases onto the source branch + open/append PR (+ SSSOM files) |
 | GET | `/api/v2/settings` | Source branch, PR target, allowed branches |
 | POST | `/api/v2/fetch` | Pull latest from the source branch |
 | POST | `/api/v2/source` | Switch the source branch |

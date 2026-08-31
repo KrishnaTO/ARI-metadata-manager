@@ -1,5 +1,26 @@
 # Changelog
 
+## publish-rebase
+Closes #146.
+
+Two defects in the publish path cost the data repo 208 synonyms, 57 clinical subtypes, ~100 review records and three completed cleanup branches between 17 and 30 August; the audit on the data repo went from 0 errors to 66.
+
+### A publish no longer commits a stale snapshot
+- **The commit is built on the source branch, not on the working copy.** `publish.py` read `svc.path.read_bytes()` — a file created when the curator first edited something and never re-based since — so everything merged into the branch in the days after was reverted by the next save. It now fetches the ontology at the source branch and writes **only the diseases the curator actually edited** over it (`app/merge_service.py`), which is the shape `sssom_service.build` already used for the two mapping files. That asymmetry was visible in the damage: not one mapping row was lost across the whole incident.
+- **A graft is per-individual, not per-field.** The disease and every item individual hanging off it (symptom, treatment, pathway step, immune component) are replaced wholesale from the working copy, so an item added there arrives with its own triples and one deleted there does not come back. An annotation property the branch has never seen is declared as it is grafted. An anonymous node under a disease would need its subtree copied and there is none in this ontology, so the graft refuses rather than committing a record with a piece missing.
+- **A collision fails the publish instead of winning it.** Every write path appends to the disease's `ARI_ChangeLog`, so an entry on the branch that the working copy has never seen is someone else's edit. If one lands on a disease this curator touched, the publish stops with **409** and names the diseases, and the help panel says to expect it.
+- **The touched set is durable** (`.user-data/<login>.touched.json`). It used to be a process-global dict that decided only how the PR body was scoped; it now decides what the commit carries, and a deploy restart emptying it would have committed the source branch back over itself. A publish with nothing in scope is refused with 400 rather than committing an empty change.
+- **The baseline is required.** It used to be best-effort — a failed fetch degraded to "_Change summary unavailable_" and published anyway. Publishing without it would now mean publishing nothing, so a failure is a 502 that says nothing was committed.
+- **Reads resolve the working copy from disk.** `service_for(request)` consulted the in-memory LRU alone, so an evicted copy — or any copy at all after the ten-minute deploy restart — read as the shared base. `user_service` already adopts the file on disk for exactly this reason (#103); the read path now goes through it. Left alone, a publish with no review in it would have committed the shared base as the curator's work.
+
+### Confirming a term stores its id
+- **`store_confirmed_xrefs` writes the confirmed id to the property the vocabulary maps to.** A confirmation wrote a SSSOM row and a changelog line and nothing else, so where the disease did not already hold the id — which is most of MONDO and Orphanet, neither of which the original ARI import carried — the curator confirmed a term and nothing a user could see changed. That stranded 30 confirmed cross-references across 16 diseases. Ids already on file are left alone, so a re-confirmation adds neither a value nor a changelog entry, and the PR body says how many ids were stored.
+
+### Not fixed here
+`update_disease` rewrites a multi-valued annotation through owlready2's set difference, so the *order* synonyms and changelog lines land in the file is not stable between two runs of the app. It produces diff noise in the data repo and predates this issue; the graft reproduces whatever order the working copy holds rather than adding to it.
+
+305 pytest, 33 `node --test`, ruff clean.
+
 ## speaking-to-curators
 Closes #119, #98.
 

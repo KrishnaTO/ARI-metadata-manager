@@ -30,7 +30,6 @@ def reload_base():
 
 USER_SVC: OrderedDict = OrderedDict()   # login -> service, least-recently-used first
 USER_DIRTY: set = set()
-USER_TOUCHED: dict = {}   # login -> set of disease IRIs actually edited this session
 
 
 # Which branch each curator populates FROM and opens pull requests INTO.
@@ -123,9 +122,13 @@ def service_for(request: Request, write=False):
             raise HTTPException(status_code=401,
                                 detail="Sign in with GitHub to edit this ontology")
         return user_service(login, create=True)
-    if login and login in USER_SVC:
-        return USER_SVC[login]
-    return BASE
+    # Reads went through the in-memory map alone, so a working copy that the LRU
+    # had evicted — or that outlived the process that made it — read as BASE:
+    # an afternoon of unpublished edits looked gone after a deploy restart, and
+    # a publish with no review in it committed the shared base as the curator's
+    # work. ``user_service`` adopts the copy on disk, and still returns BASE for
+    # an anonymous reader or a curator who has never edited anything.
+    return user_service(login)
 
 
 # ------------------------------------------------- in-progress review session
@@ -190,7 +193,7 @@ def _clear_ref_session(login):
 def _reset_user(login):
     USER_SVC.pop(login, None)
     USER_DIRTY.discard(login)
-    USER_TOUCHED.pop(login, None)
+    _clear_touched(login)
     _clear_ref_session(login)                   # verdicts reference the old data — drop them
     try:
         (config.USER_DIR / f"{login}.owl").unlink()
@@ -206,13 +209,39 @@ def _mark_dirty(request: Request):
         USER_DIRTY.add(login)
 
 
+def _touched_path(login) -> Path:
+    return config.USER_DIR / f"{login}.touched.json"
+
+
+def touched(login) -> set:
+    """Disease IRIs ``login`` has edited since their last publish.
+
+    This is no longer a summary detail. Publishing rebases the curator's edits
+    onto the source branch and this set is what "their edits" means, so a copy
+    of it that a process restart could empty would commit the source branch back
+    over itself. It lives beside the working copy, like the branch state and the
+    review session.
+    """
+    if not login:
+        return set()
+    return set(atomic_store.read_json(_touched_path(login), []))
+
+
 def _touch(request: Request, *iris):
-    """Record disease IRIs this curator actually edited, so the PR summary can
-    be scoped to their own changes instead of the whole working copy."""
+    """Record disease IRIs this curator actually edited, so publishing knows
+    which records to carry forward and the PR summary can be scoped to them."""
     login = sessions._login(request)
     if not login:
         return
-    USER_TOUCHED.setdefault(login, set()).update(i for i in iris if i)
+    mark(login, *iris)
+
+
+def mark(login, *iris):
+    """``_touch`` without a request, for callers that already have the login."""
+    if not login:
+        return
+    now = touched(login) | {i for i in iris if i}
+    atomic_store.write_json(_touched_path(login), sorted(now))
 
 
 def _dirty(request: Request):
@@ -223,11 +252,18 @@ def _dirty(request: Request):
 def _clear_touched(login):
     """Forget which diseases this curator has edited, after a successful publish.
 
-    ``USER_TOUCHED`` accumulated every disease IRI a curator touched for the life
+    The touched set accumulated every disease IRI a curator touched for the life
     of the process and scoped the change summary in every subsequent PR body, so
     the second and later pull requests of a session described changes that had
     already been published. Only ``_reset_user()`` cleared it."""
-    USER_TOUCHED.pop(login, None)
+    if not login:
+        return
+    try:
+        _touched_path(login).unlink()
+    except FileNotFoundError:
+        pass
+    except OSError as e:
+        log.warning("Could not clear the touched set for %s: %s", login, e)
 
 
 def _restore_working_copy(login, svc, snapshot: bytes):
@@ -293,6 +329,7 @@ def _sweep_user_data():
                 f.unlink()
             USER_SVC.pop(login, None)
             USER_DIRTY.discard(login)
+            _clear_touched(login)           # the copy those IRIs referred to is gone
             _clear_ref_session(login)       # verdicts reference a copy that is no longer live
         except OSError as e:
             log.warning("Could not sweep idle working copy %s: %s", f.name, e)

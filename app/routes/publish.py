@@ -11,7 +11,7 @@ from pathlib import Path
 from fastapi import APIRouter, Body, Request
 from fastapi.responses import JSONResponse
 
-from .. import atomic_store, config, diff_service, sessions, sssom_service, stores, workspace
+from .. import atomic_store, config, diff_service, merge_service, sessions, sssom_service, stores, workspace
 from .. import github_service as gh
 from ..ontology_service import OntologyService
 
@@ -64,10 +64,11 @@ def _mapping_author(supplied, login: str) -> str:
 
 
 async def _baseline_service(request, u):
-    """The source branch's ontology, as a service, or None when it cannot be read.
+    """The source branch's ontology, as a service. Raises if it cannot be read.
 
-    Both the pending-changes list and the pull-request summary compare against
-    this. The caller is responsible for deleting ``service.path``.
+    The pending-changes list and the pull-request summary compare against this,
+    and the publish itself is built on top of it. The caller is responsible for
+    deleting ``service.path``.
     """
     import tempfile
     data = await gh.get_file_at(u["token"], config.GH_OWNER, config.GH_REPO,
@@ -95,7 +96,7 @@ async def pending_changes(request: Request):
     login = sessions._login(request)
     if not u or not login:
         return {"changes": [], "title": "Update ontology", "source_branch": ""}
-    touched = workspace.USER_TOUCHED.get(login)
+    touched = workspace.touched(login)
     baseline = None
     try:
         baseline = await _baseline_service(request, u)
@@ -173,50 +174,85 @@ async def publish(request: Request, payload: dict = Body(default={})):
     # the ontology for the commit. A write copy is used so the entries land in
     # this user's working ontology, mirroring how field edits are handled.
     svc = workspace.service_for(request, write=True) if any_review else workspace.service_for(request)
-    enrich_note = ""
-    # The changelog entries and the enrichment are applied to the working copy
-    # *before* the eight GitHub calls that publish it, so any failure among them
-    # used to leave the entries applied: the curator saw "Publish failed",
-    # clicked again, and the changelog and enrichment were written a second
-    # time. Snapshot first and roll back on failure.
-    rollback = svc.path.read_bytes() if any_review else None
-    if any_review:
-        svc.log_xref_review(confirmed, flagged, editor=login, absent=absent)
-        if apply_enrich:
-            # Per-item selection from the preview drawer; absent means "all",
-            # which is what the single all-or-nothing checkbox used to mean.
-            got = svc.apply_enrichment(confirmed, editor=login,
-                                       selected=payload.get("enrichment_selection"))
-            if got["diseases"]:
-                enrich_note = (f"## Enrichment\n\nFolded confirmed cross-references into "
-                               f"{got['diseases']} disease(s): +{got['synonyms_added']} "
-                               f"synonym(s), +{got['subtypes_added']} clinical subtype(s).")
-        workspace._mark_dirty(request)
-        workspace._touch(request, *(c.get("iri") for c in confirmed + flagged + absent))
-    content = svc.path.read_bytes()
 
-    # Diff current vs the source branch to summarise previous -> new values.
-    import os as _os
-    import tempfile
-    summary = ""
-    tmp_path = None
+    # The diseases this publish is allowed to speak for: the ones edited since
+    # the last publish, plus the ones reviewed in this request. Everything else
+    # in the commit comes from the source branch, so an untouched record cannot
+    # be reverted to whatever it looked like when the working copy was made.
+    review_iris = {c.get("iri") for c in confirmed + flagged + absent if c.get("iri")}
+    scope = workspace.touched(login) | review_iris
+    if not scope:
+        return JSONResponse(status_code=400, content={
+            "detail": "Nothing to publish — no disease has been edited or reviewed in this session."})
+
+    # The source branch as it stands now. This is the base of the commit, not
+    # just something to diff against: publishing committed the working copy
+    # wholesale, so every disease merged into the branch since that copy was
+    # taken was reverted by the next save (issue #146).
     try:
-        data = await gh.get_file_at(u["token"], config.GH_OWNER, config.GH_REPO,
-                                    config.GH_ONTOLOGY_PATH, source_branch)
-        tf = tempfile.NamedTemporaryFile(suffix=".owl", delete=False)
-        tf.write(data); tf.close(); tmp_path = tf.name
-        baseline = OntologyService(tmp_path)
-        summary = diff_service.build_change_summary(svc, baseline,
-                                                    touched_iris=workspace.USER_TOUCHED.get(login))
+        baseline = await _baseline_service(request, u)
     except Exception as e:
-        log.warning("Could not build change summary against source branch %s: %s", source_branch, e)
-        summary = "_Change summary unavailable (could not load the source-branch baseline)._"
+        log.error("Could not read %s at %s to rebase this publish onto: %s",
+                  config.GH_ONTOLOGY_PATH, source_branch, e)
+        return JSONResponse(status_code=502, content={
+            "detail": f"Could not read the ontology on {source_branch} to publish against. "
+                      "Nothing was committed — try again."})
+
+    rollback = None
+    try:
+        collisions = merge_service.upstream_edits(svc, baseline, scope)
+        if collisions:
+            return JSONResponse(status_code=409, content={
+                "detail": "These diseases changed on " + source_branch +
+                          " after your working copy was made: " +
+                          ", ".join(c["name"] for c in collisions) +
+                          ". Publishing now would revert them — use Settings › Fetch "
+                          "changes now to pick them up, then redo your edits.",
+                "conflicts": collisions})
+
+        enrich_note = ""
+        # The changelog entries and the enrichment are applied to the working copy
+        # *before* the eight GitHub calls that publish it, so any failure among them
+        # used to leave the entries applied: the curator saw "Publish failed",
+        # clicked again, and the changelog and enrichment were written a second
+        # time. Snapshot first and roll back on failure.
+        rollback = svc.path.read_bytes() if any_review else None
+        stored_ids = 0
+        if any_review:
+            svc.log_xref_review(confirmed, flagged, editor=login, absent=absent)
+            # A confirmation that only wrote a mapping row left the disease
+            # itself unchanged, so confirming a MONDO or Orphanet term the ARI
+            # import never carried changed nothing anyone could see (issue #146).
+            stored_ids = svc.store_confirmed_xrefs(confirmed, editor=login)
+            if apply_enrich:
+                # Per-item selection from the preview drawer; absent means "all",
+                # which is what the single all-or-nothing checkbox used to mean.
+                got = svc.apply_enrichment(confirmed, editor=login,
+                                           selected=payload.get("enrichment_selection"))
+                if got["diseases"]:
+                    enrich_note = (f"## Enrichment\n\nFolded confirmed cross-references into "
+                                   f"{got['diseases']} disease(s): +{got['synonyms_added']} "
+                                   f"synonym(s), +{got['subtypes_added']} clinical subtype(s).")
+            workspace._mark_dirty(request)
+            workspace._touch(request, *review_iris)
+
+        # Summarise before the graft, while the baseline is still the branch's.
+        summary = diff_service.build_change_summary(svc, baseline, touched_iris=scope)
+
+        # The commit is the source branch with this curator's diseases written
+        # over it — the same shape `sssom_service.build` already uses for the
+        # mapping files, which is why not one mapping row was lost.
+        merge_service.rebase(svc, baseline, scope)
+        baseline._save()
+        content = baseline.path.read_bytes()
+    except Exception:
+        # The graft can refuse (see merge_service), and that lands between the
+        # changelog entries going in and anything being committed.
+        if rollback is not None:
+            workspace._restore_working_copy(login, svc, rollback)
+        raise
     finally:
-        if tmp_path:
-            try:
-                _os.unlink(tmp_path)
-            except OSError as e:
-                log.debug("Could not remove temp baseline %s: %s", tmp_path, e)
+        _discard(baseline.path)
 
     # Confirmed / flagged cross-references also accumulate into the
     # SSSOM + equivalencies mapping files.
@@ -248,6 +284,9 @@ async def publish(request: Request, payload: dict = Body(default={})):
         map_note = (f"## Reviewed mappings\n\n"
                     f"{verdicts or 'No'} — {files['added']} new row(s) "
                     f"added to `{SS_PATH}` (SSSOM) and `{EQ_PATH}`.")
+        if stored_ids:
+            map_note += (f" {stored_ids} confirmed id(s) also stored on the disease "
+                         f"record itself.")
 
     parts = []
     if comment:

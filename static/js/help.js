@@ -67,6 +67,12 @@
       <p>It gathers the work you have not sent yet and opens a <strong>${esc(W.submission)}</strong>
       — a proposed change to the registry's data files, with a summary of what
       changed. Nothing is live until someone reviews and accepts it.</p>
+      <p>It carries <em>only the records you edited</em>. Everything else in the
+      submission is taken from the shared data as it stands at that moment, so
+      sending your work never reverts anybody else's — however old your copy is.</p>
+      <p>If one of the records you edited was also changed by someone else while you
+      were working, the ${esc(W.submission)} stops and names it, rather than quietly
+      overwriting their version. Fetch the latest from Settings and redo that edit.</p>
       <p>You can keep working afterwards. Later work goes into the same
       ${esc(W.submission)} unless you start a new one.</p>`],
 
