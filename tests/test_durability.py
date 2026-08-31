@@ -74,6 +74,25 @@ def test_a_restart_neither_hides_nor_overwrites_a_working_copy(user_dir):
     assert copy.stat().st_size == size_before
 
 
+def test_a_read_through_service_for_finds_the_working_copy_too(user_dir, monkeypatch):
+    """``service_for`` consulted the in-memory map alone, so an evicted or
+    post-restart copy read as BASE — and a publish with no review in it then
+    committed the shared base as this curator's work (issue #146)."""
+    from app import sessions
+    svc = workspace.user_service("ada", create=True)
+    iri = svc.get_diseases_list()[0]["iri"]
+    svc.update_disease(iri, {"disease_category": "EDITED-BEFORE-RESTART"}, editor="ada")
+
+    workspace.USER_SVC.clear()                       # the restart
+    monkeypatch.setattr(sessions, "_login", lambda request: "ada")
+    got = workspace.service_for(object())
+
+    assert got.get_disease_detail(iri)["disease_category"] == ["EDITED-BEFORE-RESTART"]
+    # A curator who has never edited anything still reads the shared base.
+    monkeypatch.setattr(sessions, "_login", lambda request: "bob")
+    assert workspace.service_for(object()) is workspace.BASE
+
+
 def test_in_memory_worlds_are_bounded(user_dir, monkeypatch):
     monkeypatch.setattr(config, "MAX_LOADED_WORLDS", 2)
     for login in ("a", "b", "c"):

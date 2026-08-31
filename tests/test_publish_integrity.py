@@ -120,8 +120,20 @@ def test_a_failed_publish_restores_the_working_copy(user_dir, monkeypatch, base_
     assert "ada" not in workspace.USER_SVC       # reloaded from the restored bytes next time
 
 
-def test_a_successful_publish_stops_scoping_later_pr_bodies(monkeypatch):
-    monkeypatch.setattr(workspace, "USER_TOUCHED", {"ada": {"iri:1", "iri:2"}})
+def test_a_successful_publish_stops_scoping_later_pr_bodies(user_dir):
+    workspace.mark("ada", "iri:1", "iri:2")
+    assert workspace.touched("ada") == {"iri:1", "iri:2"}
     workspace._clear_touched("ada")
-    assert "ada" not in workspace.USER_TOUCHED
+    assert workspace.touched("ada") == set()
     workspace._clear_touched("nobody")           # clearing an absent curator is fine
+
+
+def test_the_touched_set_survives_a_restart(user_dir):
+    """It decides which diseases a publish carries forward, so an in-memory copy
+    that a deploy could empty would commit the source branch back over itself."""
+    workspace.mark("ada", "iri:1")
+    workspace.mark("ada", "iri:2")               # a later request, possibly a later process
+    assert workspace.touched("ada") == {"iri:1", "iri:2"}
+    assert (user_dir / "ada.touched.json").exists()
+    assert workspace.touched("bob") == set()     # not shared between curators
+    assert workspace.touched(None) == set()

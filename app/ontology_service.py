@@ -1026,6 +1026,49 @@ class OntologyService:
             self._save()
         return updated
 
+    def store_confirmed_xrefs(self, confirmed, editor: str = "curator") -> int:
+        """Store confirmed cross-reference ids on the disease record itself.
+
+        Confirming a cross-reference used to write a SSSOM row and a changelog
+        line and nothing else, so where the disease did not already hold the id
+        — which is most of MONDO and Orphanet, neither of which the original ARI
+        import carried — the curator confirmed a term and nothing a user can see
+        changed. Thirty confirmations across sixteen diseases were stranded that
+        way (issue #146); the only thing that had ever stored them was a curator
+        separately hand-editing the field.
+
+        Ids already on file are left alone, so this is idempotent and a
+        re-confirmation adds neither a value nor a changelog entry. Returns the
+        number of ids newly stored.
+        """
+        added = 0
+        for iri, groups in self._confirmed_by_iri(confirmed).items():
+            try:
+                e = self._entity(iri)
+            except KeyError:
+                continue
+            notes = []
+            for g in groups:
+                db = g["db"]
+                suffix = xref_registry.XREF_SUFFIXES.get(db)
+                if not suffix:
+                    log.warning("Confirmed id for unknown database %r on %s — not stored", db, iri)
+                    continue
+                current = _split_csv(self._get_annotation(e, self.base + suffix))
+                fresh = [i for i in (xref_registry.normalize_id(db, x) for x in g["ids"])
+                         if i and i not in current]
+                if not fresh:
+                    continue
+                self._ensure_annotation_property(suffix)[e] = current + fresh
+                notes.append(f"{db.upper()} {', '.join(fresh)}")
+                added += len(fresh)
+            if notes:
+                self._append_changelog(e, editor,
+                                       "Stored confirmed cross-reference: " + "; ".join(notes))
+        if added:
+            self._save()
+        return added
+
     # --------------------------------------------------------- ENRICHMENT
     def _enrich_disease_dict(self, e) -> dict:
         """Current values an enrichment pass needs for one disease individual."""
