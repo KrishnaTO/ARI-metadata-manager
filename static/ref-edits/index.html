@@ -176,16 +176,27 @@
                   border-left-color:var(--surface); font-size:0.625rem; }
   .split.has-pr .caret { display:inline-block; }
 
-  /* Selection bar — appears only while diseases are ticked for the review queue. */
+  /* Selection bar — appears only while diseases are ticked for the review queue.
+     Read left to right: what is selected, then one rule-separated group per queue
+     the selection can be moved between — mine, then (admins only) another
+     curator's. Clear sits apart on the right; it undoes the ticking rather than
+     doing anything to a queue. */
   #selbar { display:none; align-items:center; gap:10px; flex-wrap:wrap; padding:9px 16px;
             border-bottom:1px solid var(--line); background:var(--head); flex-shrink:0; }
   #selbar.open { display:flex; }
+  /* The count and the "already on another curator's queue" note describe the same
+     thing, so they read as one line rather than from opposite ends of the bar. */
+  #sel-what { display:flex; align-items:center; gap:8px; }
   #sel-count { font:600 0.75rem var(--sans); }
+  #sel-owned:empty { display:none; }
+  .selgroup { display:flex; align-items:center; gap:6px; padding-left:10px;
+              border-left:1px solid var(--line-strong); }
   #selbar input { padding:5px 9px; border:1px solid var(--line-strong); border-radius:6px;
                   background:var(--surface); color:var(--text); font:400 0.75rem var(--sans); }
   #sel-login { width:130px; font-family:var(--mono); }
   #sel-note { width:180px; }
-  #sel-others { display:none; align-items:center; gap:6px; padding-left:10px; border-left:1px solid var(--line-strong); }
+  /* The ID beats .selgroup's display:flex, so the group stays hidden until .on. */
+  #sel-others { display:none; }
   #sel-others.on { display:flex; }
 
   /* First-run bar — one scope to start from, for a curator who has judged nothing
@@ -631,16 +642,21 @@
   </div>
 </header>
 <div id="selbar">
-  <span id="sel-count">0 diseases selected</span>
-  <button class="btn primary" id="sel-mine">＋ Add to my queue</button>
-  <span id="sel-others">
+  <span id="sel-what">
+    <span id="sel-count">0 diseases selected</span>
+    <span class="muted" id="sel-owned"></span>
+  </span>
+  <span class="selgroup" id="sel-queue">
+    <button class="btn primary" id="sel-mine">＋ Add to my queue</button>
+    <button class="btn" id="sel-remove" disabled>－ Remove from my queue</button>
+  </span>
+  <span class="selgroup" id="sel-others">
     <input id="sel-login" list="curator-logins" placeholder="curator login" autocomplete="off">
     <datalist id="curator-logins"></datalist>
     <input id="sel-note" placeholder="note (optional)">
     <button class="btn" id="sel-assign">Assign to curator</button>
   </span>
   <span class="spacer"></span>
-  <span class="muted" id="sel-owned"></span>
   <button class="btn" id="sel-clear">Clear selection</button>
 </div>
 <div id="firstrun"></div>

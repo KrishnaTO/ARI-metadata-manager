@@ -1,5 +1,16 @@
 # Changelog
 
+## disease-queue-removal
+
+Work could go onto a review queue but never come off it. `DELETE /api/v2/assignments` has always existed and is tested, but nothing in `static/ref-edits/` called it, so a disease queued by mistake — or one a curator had picked up and decided belonged to someone else — stayed on their **Mine** scope permanently, and the only escape was to have another curator take it with **Assign to curator**.
+
+- **`－ Remove from my queue`** sits beside `＋ Add to my queue` in the selection bar and takes the ticked diseases off your own queue. They go back to **Unassigned**; no verdict, id or provenance record is touched, and re-adding them is the same tick-and-click it was the first time.
+- **It only acts on what you hold.** A delete is scoped to one curator and a selection can span several queues, so the button drops your own and leaves the rest where they are — the count says so before you press it (*"Take 3 diseases off your review queue"*), and it goes flat when nothing selected is yours. Read with the note beside the count, the two account for the whole selection.
+- **The selection bar is grouped rather than a flat run of controls.** It reads left to right as: what is selected, then one rule-separated group per queue the selection can move between — `＋ Add` / `－ Remove` for your own, then the admin-only login/note/**Assign to curator** for someone else's — with **Clear selection** kept apart on the right, since it undoes the ticking rather than touching a queue. The *"1 already on another curator's queue"* note moves up beside the count it qualifies (it used to sit at the far opposite end of the bar, next to Clear) and the two now read as one line: *"4 diseases selected · 1 already on another curator's queue"*. One `.selgroup` rule draws every separator, replacing the one-off border on the admin block.
+- **A failed queue write says so now.** `addToQueue(login, note)` took a parameter named `note`, which shadowed the `note()` toast in its own error handler — the one line reporting a refused assignment threw a `TypeError` instead of showing it, so a rejected write looked like nothing happening. The parameter is `queueNote`.
+
+Frontend only; the endpoint and its auth boundary are unchanged. 305 pytest, 33 `node --test`, ruff clean.
+
 ## publish-rebase
 Closes #146.
 

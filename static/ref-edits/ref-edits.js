@@ -653,12 +653,20 @@
     $('#selbar').classList.toggle('open', n > 0);
     $('#sel-count').textContent = n + (n === 1 ? ' disease selected' : ' diseases selected');
     const held = [...selected].filter(i => owners[i] && !mine(i)).length;
-    $('#sel-owned').textContent = held ? held + " already on another curator's queue" : '';
+    $('#sel-owned').textContent = held ? "· " + held + " already on another curator's queue" : '';
+    // "Remove" only acts on the diseases I actually hold, so it says how many that
+    // is and goes flat when the selection is all somebody else's, or nobody's.
+    const own = [...selected].filter(i => mine(i)).length;
+    const rm = $('#sel-remove');
+    rm.disabled = !own;
+    rm.title = own
+      ? `Take ${own} disease${own === 1 ? '' : 's'} off your review queue`
+      : 'Nothing in this selection is on your review queue';
   }
 
   // Queue the selection for `login`. Diseases another curator holds are only moved
   // after the curator says so; declining queues the rest and leaves those alone.
-  async function addToQueue(login, note) {
+  async function addToQueue(login, queueNote) {
     const iris = [...selected];
     if (!iris.length || !login) return;
     const clash = {};
@@ -683,7 +691,7 @@
     const btns = [$('#sel-mine'), $('#sel-assign')];
     btns.forEach(b => { b.disabled = true; });
     try {
-      await api('assignments', { method: 'POST', body: { login, iris: send, note: note || '', reassign } });
+      await api('assignments', { method: 'POST', body: { login, iris: send, note: queueNote || '', reassign } });
       selected.clear(); lastSel = null;
       $('#sel-note').value = '';
       await loadOwners();
@@ -693,12 +701,32 @@
     } finally { btns.forEach(b => { b.disabled = false; }); }
   }
 
+  // Take the selection off my own queue. A selection can span several curators'
+  // queues and a delete is scoped to one, so this drops only what I hold — the
+  // rest is left where it is. Nothing about a disease's verdicts changes; it just
+  // stops being mine to work through, and reappears under "Unassigned".
+  async function removeFromQueue() {
+    const iris = [...selected].filter(i => mine(i));
+    if (!iris.length) return;
+    $('#sel-remove').disabled = true;
+    try {
+      await api('assignments', { method: 'DELETE', body: { iris } });
+      selected.clear(); lastSel = null;
+      await loadOwners();
+      renderMatrix();
+    } catch (e) {
+      note('Could not update the review queue: ' + e.message, 'error');
+    }
+    reflectSelection();
+  }
+
   function initQueue() {
     if (!canQueue()) return;
     $('#queue-filter').style.display = '';
     $('#sel-others').classList.toggle('on', !!me.can_assign_others);
     $('#sel-clear').addEventListener('click', clearSelection);
     $('#sel-mine').addEventListener('click', () => addToQueue(me.login, ''));
+    $('#sel-remove').addEventListener('click', removeFromQueue);
     $('#sel-assign').addEventListener('click', () => {
       const login = $('#sel-login').value.trim();
       if (!login) { note('Enter the curator’s GitHub login.', 'error'); $('#sel-login').focus(); return; }
