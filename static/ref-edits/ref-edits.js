@@ -653,7 +653,7 @@
     $('#selbar').classList.toggle('open', n > 0);
     $('#sel-count').textContent = n + (n === 1 ? ' disease selected' : ' diseases selected');
     const held = [...selected].filter(i => owners[i] && !mine(i)).length;
-    $('#sel-owned').textContent = held ? held + " already on another curator's queue" : '';
+    $('#sel-owned').textContent = held ? "· " + held + " already on another curator's queue" : '';
     // "Remove" only acts on the diseases I actually hold, so it says how many that
     // is and goes flat when the selection is all somebody else's, or nobody's.
     const own = [...selected].filter(i => mine(i)).length;
