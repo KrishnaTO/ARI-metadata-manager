@@ -690,14 +690,25 @@
     if (!send.length) return;
     const btns = [$('#sel-mine'), $('#sel-assign')];
     btns.forEach(b => { b.disabled = true; });
+    // Only the write is guarded. Redrawing used to sit under the same catch, so a
+    // failure in the redraw was reported as "Could not update the review queue"
+    // when the POST had already succeeded — the queue had changed and the curator
+    // was told it had not. A redraw that throws is a broken page, not a failed
+    // write, and now says so by reaching the console.
+    let written = true;
     try {
       await api('assignments', { method: 'POST', body: { login, iris: send, note: queueNote || '', reassign } });
-      selected.clear(); lastSel = null;
-      $('#sel-note').value = '';
-      await loadOwners();
-      reflectSelection(); renderMatrix();
     } catch (e) {
+      written = false;
       note('Could not update the review queue: ' + e.message, 'error');
+    }
+    try {
+      if (written) {
+        selected.clear(); lastSel = null;
+        $('#sel-note').value = '';
+        await loadOwners();
+        reflectSelection(); renderMatrix();
+      }
     } finally { btns.forEach(b => { b.disabled = false; }); }
   }
 
@@ -709,13 +720,19 @@
     const iris = [...selected].filter(i => mine(i));
     if (!iris.length) return;
     $('#sel-remove').disabled = true;
+    // As in addToQueue: the catch covers the write alone, so a redraw failure is
+    // never reported as a queue that did not change.
+    let written = true;
     try {
       await api('assignments', { method: 'DELETE', body: { iris } });
+    } catch (e) {
+      written = false;
+      note('Could not update the review queue: ' + e.message, 'error');
+    }
+    if (written) {
       selected.clear(); lastSel = null;
       await loadOwners();
       renderMatrix();
-    } catch (e) {
-      note('Could not update the review queue: ' + e.message, 'error');
     }
     reflectSelection();
   }
