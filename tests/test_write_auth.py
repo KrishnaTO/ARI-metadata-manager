@@ -29,6 +29,8 @@ WRITES = [
     ("PUT", "/api/v2/item/http://example.org/i1", {"category": "symptoms", "changes": {}}),
     ("DELETE", "/api/v2/item/http://example.org/i1", {"category": "symptoms", "disease": "d"}),
     ("POST", "/api/v2/releases", {"version": "9.9.9"}),
+    # Discarding rewrites the caller's own working copy from the source branch.
+    ("POST", "/api/v2/discard", {"iris": ["http://example.org/d1"]}),
 ]
 
 

@@ -244,6 +244,35 @@ def mark(login, *iris):
     atomic_store.write_json(_touched_path(login), sorted(now))
 
 
+def forget(login, *iris):
+    """Drop every trace of ``login``'s work on ``iris`` — the touched markers and
+    the review verdicts — leaving the rest of their session alone.
+
+    A curator who collides with the source branch on one disease used to have
+    one way out: fetch the whole branch again, which discards the working copy
+    and every verdict in it. One collision therefore cost an afternoon of
+    unrelated review. Taking the branch's version of just that disease needs
+    its markers and verdicts gone with it, or the next publish carries a verdict
+    against a record the curator no longer has an opinion about.
+    """
+    drop = {i for i in iris if i}
+    if not login or not drop:
+        return
+    rest = touched(login) - drop
+    if rest:
+        atomic_store.write_json(_touched_path(login), sorted(rest))
+    else:
+        _clear_touched(login)
+    session = _load_ref_session(login)
+    if not session:
+        return
+    for name in REF_SESSION_MAPS:
+        # Verdict keys are ``<disease iri>|<database>|<id>``; an IRI carries no "|".
+        session[name] = {k: v for k, v in (session.get(name) or {}).items()
+                         if k.split("|")[0] not in drop}
+    _save_ref_session(login, session)
+
+
 def _dirty(request: Request):
     login = sessions._login(request)
     return bool(login and login in USER_DIRTY)

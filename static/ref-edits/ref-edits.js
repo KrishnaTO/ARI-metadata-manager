@@ -11,7 +11,15 @@
   async function api(p, opts = {}) {
     if (opts.body) { opts.headers = { 'content-type': 'application/json' }; opts.body = JSON.stringify(opts.body); }
     const r = await fetch(apiUrl(p), opts);
-    if (!r.ok) { const d = await r.json().catch(() => ({})); throw new Error(d.detail || r.statusText); }
+    // The status and the body ride along on the error: a refused publish names
+    // the diseases it collided with, and the caller cannot offer to resolve them
+    // from a message string alone.
+    if (!r.ok) {
+      const d = await r.json().catch(() => ({}));
+      const err = new Error(d.detail || r.statusText);
+      err.status = r.status; err.data = d;
+      throw err;
+    }
     return r.json();
   }
 
@@ -567,10 +575,13 @@
     const put = () => {
       if (patchIsEmpty() && !immediate) return;
       const { sent, body } = sessionBody();
-      api('ref-session', { method: 'PUT', body })
+      // Returned, so a caller that must not race the save — taking the branch's
+      // version of a disease rewrites this session server-side — can await it.
+      return api('ref-session', { method: 'PUT', body })
         .catch(e => { requeue(sent); console.warn('Could not save review session:', e.message); });
     };
-    if (immediate) put(); else _saveTimer = setTimeout(put, 500);
+    if (immediate) return put();
+    _saveTimer = setTimeout(put, 500);
   }
 
   // The debounce is a 500ms window in which closing the tab loses a verdict, and
@@ -1544,8 +1555,45 @@
     } catch (e) {
       // pendingPublishId is deliberately kept: the next click retries the SAME
       // attempt, which the server can recognise if the first one actually landed.
-      note('Publish failed: ' + e.message, 'error'); reflectPr(); counts();
+      reflectPr(); counts();
+      if (e.status === 409 && e.data && e.data.conflicts) { takeTheirs(e.data.conflicts); return; }
+      note('Publish failed: ' + e.message, 'error');
     }
+  }
+
+  // A publish that would revert someone else's work is refused and names the
+  // diseases it collided with. The only way out used to be fetching the branch
+  // again, which discards the entire working copy — one collision cost a whole
+  // afternoon of unrelated verdicts. This takes the branch's version of the
+  // named diseases alone; everything else reviewed this session survives, and
+  // the refused publish can go straight back out.
+  async function takeTheirs(conflicts) {
+    const one = conflicts.length === 1;
+    if (!await UIDialog.confirm({
+      title: one ? 'One disease changed while you were working'
+                 : `${conflicts.length} diseases changed while you were working`,
+      detail: `${conflicts.map(c => c.name).join(', ')} — someone else has edited ` +
+              `${one ? 'it' : 'them'} since your copy was made, and submitting would revert ` +
+              `that. Take their version instead? Your verdicts on ${one ? 'that disease' : 'those diseases'} ` +
+              'are dropped; everything else you have reviewed is kept.',
+      confirmLabel: one ? 'Take their version' : 'Take their versions',
+      cancelLabel: 'Leave it for now',
+      danger: true,
+    })) return;
+    try {
+      // Flush first: the server is about to rewrite this session, and a verdict
+      // still sitting in the debounced patch would be lost with it.
+      await saveSession(true);
+      await api('discard', { method: 'POST', body: { iris: conflicts.map(c => c.iri) } });
+    } catch (e) {
+      note('Could not take their version: ' + e.message, 'error');
+      return;
+    }
+    // The working copy and the stored verdicts have both moved; the server holds
+    // what is left, so reload rather than reconciling the matrix in place.
+    clearTimeout(_saveTimer);
+    patch = emptyPatch();
+    location.reload();
   }
 
   // What creating a subtype actually did, and what is left to do. The record is
@@ -1689,6 +1737,38 @@
     orcid.addEventListener('change', saveOrcid);
     orcid.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); saveOrcid(); } });
 
+    // Fetch the latest of the source branch into this curator's working copy.
+    // Publishing refuses when a disease in scope moved on the branch after the
+    // working copy was taken, and this is the way out of that: take the new
+    // data and redo the work. It discards unsubmitted verdicts, so the in-memory
+    // session is dropped before the reload rather than being written back by the
+    // visibilitychange save.
+    $('#pref-fetch').addEventListener('click', async () => {
+      closeMenus();
+      const post = body => api('fetch', { method: 'POST', body });
+      let r;
+      try {
+        r = await post({});
+        if (r.needs_confirm) {
+          if (!await UIDialog.confirm({
+            title: 'Discard your unsubmitted work?',
+            detail: r.detail,
+            confirmLabel: 'Discard and fetch',
+            cancelLabel: 'Keep it',
+            danger: true,
+          })) return;
+          r = await post({ discard: true });
+        }
+      } catch (e) {
+        note('Could not fetch the latest: ' + e.message, 'error');
+        return;
+      }
+      clearTimeout(_saveTimer);
+      patch = emptyPatch();
+      reviewed = {}; edited = {}; published = {};
+      location.reload();
+    });
+
     $('#pref-legend').addEventListener('change', e => {
       const v = e.target.checked ? 'on' : 'off';
       document.documentElement.dataset.legend = v;
@@ -1768,6 +1848,9 @@
     $('#auth').innerHTML = !me.authenticated
       ? (me.github_enabled ? `<a class="btn" href="${new URL('../auth/github?next=' + encodeURIComponent(location.pathname + location.search), location.href).href}">Sign in with GitHub</a>` : '<span class="muted">GitHub off — review only</span>')
       : `<span class="muted">@${esc(me.login)}</span>`;
+    // Fetching is a signed-in action (it rewrites this curator's working copy),
+    // so a signed-out viewer sees it disabled rather than getting a 401 toast.
+    $('#pref-fetch').disabled = !me.authenticated;
     try { buildDatabases(await api('xref-databases')); }
     catch (e) { $('#matrix').innerHTML = '<p class="muted" style="padding:16px">Failed to load the database registry: ' + esc(e.message) + '</p>'; return; }
     try { ROWS = await api('xrefs'); } catch (e) { $('#matrix').innerHTML = '<p class="muted" style="padding:16px">Failed to load: ' + esc(e.message) + '</p>'; return; }

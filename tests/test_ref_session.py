@@ -57,6 +57,32 @@ def test_signed_in_round_trip(tmp_path, monkeypatch):
     assert client.get("/api/v2/ref-session").json() == {}
 
 
+def test_forgetting_one_disease_leaves_the_rest_of_the_session(tmp_path, monkeypatch):
+    """The narrow way out of a publish conflict.
+
+    Taking the source branch's version of a disease has to take its verdicts and
+    its touched marker with it, and nothing else: fetching the branch again —
+    which drops the whole session — is what made one collision cost an afternoon
+    of unrelated review."""
+    monkeypatch.setattr(config, "USER_DIR", tmp_path)
+    collided, kept = "http://x/collided", "http://x/kept"
+    workspace.mark("tester", collided, kept)
+    workspace._save_ref_session("tester", {
+        "reviewed": {f"{collided}|mondo|1": "ok", f"{kept}|mondo|2": "ok"},
+        "edited": {f"{collided}|umls|C1": True},
+        "published": {},
+        "pr": {"number": 7},
+    })
+
+    workspace.forget("tester", collided)
+
+    assert workspace.touched("tester") == {kept}
+    session = workspace._load_ref_session("tester")
+    assert session["reviewed"] == {f"{kept}|mondo|2": "ok"}
+    assert session["edited"] == {}
+    assert session["pr"] == {"number": 7}      # the PR this work goes into is unchanged
+
+
 def test_corrupt_session_file_raises_rather_than_resetting(tmp_path, monkeypatch):
     """A half-written session used to read as empty.
 
