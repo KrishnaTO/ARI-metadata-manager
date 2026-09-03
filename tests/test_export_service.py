@@ -45,24 +45,19 @@ def test_build_report_without_baseline(ro_service):
     assert ws.max_row > 1                           # at least one disease row
 
 
-def test_build_report_with_baseline_flags_changes(make_service):
-    baseline = make_service()
+def test_build_report_with_baseline_flags_changes_and_new_diseases(make_service, ro_service):
+    """Both statuses in one report. They come out of a single comparison pass, so
+    staging them as two tests meant two whole-ontology diffs to assert one cell
+    value each — and this way they are also shown to coexist. The pristine side is
+    the shared `ro_service`: export_service only reads it.
+    """
     current = make_service()
     iri = current.get_diseases_list()[0]["iri"]
     current.update_disease(iri, {"disease_category": "ZZZ-Export-Test"}, editor="t")
+    current.create_disease({"label": "Exportable New Disease"}, editor="t")
 
-    ws = _load(ex.build_report(current, baseline))
+    ws = _load(ex.build_report(current, ro_service))
     headers = [c.value for c in ws[1]]
     assert headers[0] == "Change Status"
     statuses = {ws.cell(row=r, column=1).value for r in range(2, ws.max_row + 1)}
-    assert "Modified" in statuses
-
-
-def test_build_report_with_baseline_flags_new_disease(make_service):
-    baseline = make_service()
-    current = make_service()
-    current.create_disease({"label": "Exportable New Disease"}, editor="t")
-
-    ws = _load(ex.build_report(current, baseline))
-    statuses = {ws.cell(row=r, column=1).value for r in range(2, ws.max_row + 1)}
-    assert "New" in statuses
+    assert {"Modified", "New"} <= statuses
