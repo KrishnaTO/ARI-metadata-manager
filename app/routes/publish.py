@@ -217,13 +217,17 @@ async def publish(request: Request, payload: dict = Body(default={})):
         # clicked again, and the changelog and enrichment were written a second
         # time. Snapshot first and roll back on failure.
         rollback = svc.path.read_bytes() if any_review else None
-        stored_ids = 0
+        stored_ids = removed_ids = 0
         if any_review:
             svc.log_xref_review(confirmed, flagged, editor=login, absent=absent)
             # A confirmation that only wrote a mapping row left the disease
             # itself unchanged, so confirming a MONDO or Orphanet term the ARI
             # import never carried changed nothing anyone could see (issue #146).
             stored_ids = svc.store_confirmed_xrefs(confirmed, editor=login)
+            # And the mirror image: an id judged wrong has to leave the record,
+            # or the ontology keeps serving it and the review grid keeps
+            # offering it as if it had never been reviewed.
+            removed_ids = svc.remove_flagged_xrefs(flagged, editor=login)
             if apply_enrich:
                 # Per-item selection from the preview drawer; absent means "all",
                 # which is what the single all-or-nothing checkbox used to mean.
@@ -286,6 +290,9 @@ async def publish(request: Request, payload: dict = Body(default={})):
                     f"added to `{SS_PATH}` (SSSOM) and `{EQ_PATH}`.")
         if stored_ids:
             map_note += (f" {stored_ids} confirmed id(s) also stored on the disease "
+                         f"record itself.")
+        if removed_ids:
+            map_note += (f" {removed_ids} flagged id(s) removed from the disease "
                          f"record itself.")
 
     parts = []

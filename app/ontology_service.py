@@ -1069,6 +1069,48 @@ class OntologyService:
             self._save()
         return added
 
+    def remove_flagged_xrefs(self, flagged, editor: str = "curator") -> int:
+        """Drop flagged (wrong) cross-reference ids from the disease record itself.
+
+        The counterpart of :meth:`store_confirmed_xrefs`. Flagging a cell wrote a
+        negative SSSOM row and a changelog line, but left the id on the disease,
+        so an id a curator had judged wrong stayed in the ontology and kept being
+        served to users and re-shown in the review grid as if it were unreviewed.
+
+        Ids that are not on the record are ignored, so this is idempotent.
+        Returns the number of ids removed.
+        """
+        removed = 0
+        for iri, groups in self._confirmed_by_iri(flagged).items():
+            try:
+                e = self._entity(iri)
+            except KeyError:
+                continue
+            notes = []
+            for g in groups:
+                db = g["db"]
+                suffix = xref_registry.XREF_SUFFIXES.get(db)
+                if not suffix:
+                    log.warning("Flagged id for unknown database %r on %s — not removed", db, iri)
+                    continue
+                prop = self.base + suffix
+                current = _split_csv(self._get_annotation(e, prop))
+                drop = {i for i in (xref_registry.normalize_id(db, x) for x in g["ids"]) if i}
+                kept = [i for i in current
+                        if xref_registry.normalize_id(db, i) not in drop]
+                gone = [i for i in current if i not in kept]
+                if not gone:
+                    continue
+                self._ensure_annotation_property(suffix)[e] = kept
+                notes.append(f"{db.upper()} {', '.join(gone)}")
+                removed += len(gone)
+            if notes:
+                self._append_changelog(e, editor,
+                                       "Removed flagged cross-reference: " + "; ".join(notes))
+        if removed:
+            self._save()
+        return removed
+
     # --------------------------------------------------------- ENRICHMENT
     def _enrich_disease_dict(self, e) -> dict:
         """Current values an enrichment pass needs for one disease individual."""
@@ -1084,7 +1126,10 @@ class OntologyService:
 
     @staticmethod
     def _confirmed_by_iri(confirmed) -> dict:
-        """Group confirmed cross-references (``{iri, db, ids}``) by disease iri."""
+        """Group reviewed cross-references (``{iri, db, ids}``) by disease iri.
+
+        Shared by the confirmed (store) and flagged (remove) paths — both
+        receive the same shape from the publish endpoint."""
         out: dict = {}
         for c in (confirmed or []):
             iri = c.get("iri")
