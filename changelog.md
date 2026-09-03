@@ -1,5 +1,14 @@
 # Changelog
 
+## umls-flagged-id-removal
+
+Flagging a cross-reference as wrong wrote the negative SSSOM row and the disease's changelog line, and left the id itself sitting on the record. `store_confirmed_xrefs` had no counterpart, so a judgment that an id is *not* this disease changed nothing a user could see: the ontology kept serving it, the API kept returning it, and the review grid kept offering it as an unreviewed value the next curator could confirm.
+
+- **`remove_flagged_xrefs` is the mirror of `store_confirmed_xrefs`.** Publish now runs it over the session's flagged cells: the id leaves the property its database maps to, a `Removed flagged cross-reference: …` changelog entry records who dropped it, and the PR body says how many ids were removed alongside how many were stored. Ids the record does not hold are ignored, so re-flagging is idempotent, and the other ids in the same field are untouched.
+- **The one id already stranded that way is gone.** `ARI:0001012` (Ankylosing spondylitis) held `ARI_ICD10 720.0` — flagged on 2026-07-10, still in the ontology and still served. Removed here. A sweep of all 124 stored negative judgments against the ontology found no others.
+
+Backend and data only. 308 pytest.
+
 ## review-queue-error
 
 Assigning a disease to your own queue could report **"Could not update the review queue: Cannot set properties of null (setting 'disabled')"** — after the assignment had already been written. Two separate defects met in that one message.
