@@ -37,11 +37,6 @@ def test_anonymous_get_is_empty():
     assert r.json() == {}
 
 
-def test_anonymous_put_is_rejected():
-    r = client.put("/api/v2/ref-session", json=SAMPLE)
-    assert r.status_code == 401
-
-
 def test_signed_in_round_trip(tmp_path, monkeypatch):
     monkeypatch.setattr(config, "USER_DIR", tmp_path)
     monkeypatch.setattr(sessions, "_login", lambda request: "tester")

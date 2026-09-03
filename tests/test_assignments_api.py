@@ -1,8 +1,12 @@
-"""Review-queue assignment endpoints and their auth boundary.
+"""Review-queue assignment endpoints and who may drive them.
 
 Filling your *own* queue is never gated — that is what the ref-edits matrix's
 "Add to my queue" does. Queueing work for *another* curator is what the
 ``ASSIGN_ADMINS`` allow-list restricts.
+
+The anonymous 401 on these routes is covered with every other write route in
+``test_write_auth.py``; what is specific to assignments is the allow-list, and
+that is what these test.
 """
 import pytest
 from fastapi.testclient import TestClient
@@ -21,12 +25,6 @@ def signed_in(tmp_path, monkeypatch):
     monkeypatch.setattr(config, "ASSIGN_ADMINS", [])
     monkeypatch.setattr(sessions, "_login", lambda request: "tester")
     return stores.ASSIGNMENTS
-
-
-def test_anonymous_cannot_assign():
-    r = client.post("/api/v2/assignments", json={"iris": ["a"]})
-    assert r.status_code == 401
-    assert "Sign in" in r.json()["detail"]
 
 
 def test_self_assign_defaults_to_the_caller(signed_in):
