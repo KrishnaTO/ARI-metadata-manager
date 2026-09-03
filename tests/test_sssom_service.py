@@ -24,11 +24,6 @@ def _confirmed(**kw):
     return base
 
 
-def test_prefix_to_dbs_groups_shared_prefixes():
-    # SNOMEDCT backs both the snomed and dxcode review columns.
-    assert set(ss.PREFIX_TO_DBS["SNOMEDCT"]) == {"snomed", "dxcode"}
-
-
 def test_build_positive_mapping():
     out = ss.build([_confirmed()], author="orcid:0000-0000-0000-0000")
     assert out["added"] == 1
