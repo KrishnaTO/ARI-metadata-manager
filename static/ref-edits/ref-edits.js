@@ -1672,6 +1672,38 @@
     orcid.addEventListener('change', saveOrcid);
     orcid.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); saveOrcid(); } });
 
+    // Fetch the latest of the source branch into this curator's working copy.
+    // Publishing refuses when a disease in scope moved on the branch after the
+    // working copy was taken, and this is the way out of that: take the new
+    // data and redo the work. It discards unsubmitted verdicts, so the in-memory
+    // session is dropped before the reload rather than being written back by the
+    // visibilitychange save.
+    $('#pref-fetch').addEventListener('click', async () => {
+      closeMenus();
+      const post = body => api('fetch', { method: 'POST', body });
+      let r;
+      try {
+        r = await post({});
+        if (r.needs_confirm) {
+          if (!await UIDialog.confirm({
+            title: 'Discard your unsubmitted work?',
+            detail: r.detail,
+            confirmLabel: 'Discard and fetch',
+            cancelLabel: 'Keep it',
+            danger: true,
+          })) return;
+          r = await post({ discard: true });
+        }
+      } catch (e) {
+        note('Could not fetch the latest: ' + e.message, 'error');
+        return;
+      }
+      clearTimeout(_saveTimer);
+      patch = emptyPatch();
+      reviewed = {}; edited = {}; published = {};
+      location.reload();
+    });
+
     $('#pref-legend').addEventListener('change', e => {
       const v = e.target.checked ? 'on' : 'off';
       document.documentElement.dataset.legend = v;
@@ -1751,6 +1783,9 @@
     $('#auth').innerHTML = !me.authenticated
       ? (me.github_enabled ? `<a class="btn" href="${new URL('../auth/github?next=' + encodeURIComponent(location.pathname + location.search), location.href).href}">Sign in with GitHub</a>` : '<span class="muted">GitHub off — review only</span>')
       : `<span class="muted">@${esc(me.login)}</span>`;
+    // Fetching is a signed-in action (it rewrites this curator's working copy),
+    // so a signed-out viewer sees it disabled rather than getting a 401 toast.
+    $('#pref-fetch').disabled = !me.authenticated;
     try { buildDatabases(await api('xref-databases')); }
     catch (e) { $('#matrix').innerHTML = '<p class="muted" style="padding:16px">Failed to load the database registry: ' + esc(e.message) + '</p>'; return; }
     try { ROWS = await api('xrefs'); } catch (e) { $('#matrix').innerHTML = '<p class="muted" style="padding:16px">Failed to load: ' + esc(e.message) + '</p>'; return; }

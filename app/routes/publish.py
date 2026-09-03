@@ -206,8 +206,8 @@ async def publish(request: Request, payload: dict = Body(default={})):
                 "detail": "These diseases changed on " + source_branch +
                           " after your working copy was made: " +
                           ", ".join(c["name"] for c in collisions) +
-                          ". Publishing now would revert them — use Settings › Fetch "
-                          "changes now to pick them up, then redo your edits.",
+                          ". Publishing now would revert them — fetch the latest from "
+                          "the ⚙ menu's Data section to pick them up, then redo your edits.",
                 "conflicts": collisions})
 
         enrich_note = ""

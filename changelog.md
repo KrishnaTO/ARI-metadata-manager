@@ -1,5 +1,15 @@
 # Changelog
 
+## publish-fetch-dead-end
+
+A publish refused with **409** ("These diseases changed on … Publishing now would revert them") sent the curator to *Settings › Fetch changes now* — a control the cross-reference review page does not have. Its ⚙ popover carries Appearance, Matrix and Attribution only; the fetch lives in the editor's settings modal, on a different page. The one instruction for getting out of the conflict named nothing the curator could find.
+
+- **The ⚙ popover on the review page gains a Data section** with `↻ Fetch changes now`, which replaces the working copy with the latest of the source branch and reloads. It reuses `POST /api/v2/fetch` — the same endpoint the editor's settings modal calls — including the discard confirmation when there is unsubmitted work, and it is disabled when signed out, since fetching rewrites that curator's own working copy.
+- **The unsubmitted session is dropped before the reload.** A fetch clears the server-side verdicts (`workspace._reset_user`), so the in-memory patch is emptied and the pending save timer cancelled first; otherwise the `visibilitychange` keepalive save would have written the discarded verdicts straight back on the way out.
+- **The message and the help panel name a control that exists**, on both pages: *fetch the latest from the ⚙ menu's Data section*.
+
+Frontend plus one message string; the publish guard and the fetch endpoint are unchanged.
+
 ## disease-queue-removal
 
 Work could go onto a review queue but never come off it. `DELETE /api/v2/assignments` has always existed and is tested, but nothing in `static/ref-edits/` called it, so a disease queued by mistake — or one a curator had picked up and decided belonged to someone else — stayed on their **Mine** scope permanently, and the only escape was to have another curator take it with **Assign to curator**.
