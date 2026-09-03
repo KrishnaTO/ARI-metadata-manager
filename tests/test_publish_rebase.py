@@ -220,3 +220,30 @@ def test_confirming_leaves_the_ids_already_on_file_alone(service):
                                   editor="linikujp")
 
     assert set(service.get_disease_detail(iri)["orphanet"]) == {"111", "617930"}
+
+
+# ------------------------------------------------- flags remove the id again
+def test_flagging_a_cross_reference_removes_the_id_from_the_disease(service):
+    iri = service.get_diseases_list()[0]["iri"]
+    service.update_disease(iri, {"umls": "C0156147, C0010346"}, editor="setup")
+
+    removed = service.remove_flagged_xrefs(
+        [{"iri": iri, "db": "umls", "ids": ["umls:C0156147"]}], editor="linikujp")
+
+    assert removed == 1
+    detail = service.get_disease_detail(iri)
+    assert detail["umls"] == ["C0010346"]        # the other id is left alone
+    assert any("Removed flagged cross-reference" in c and "linikujp" in c
+               for c in detail["changelog"])
+
+
+def test_flagging_an_id_the_disease_does_not_hold_changes_nothing(service):
+    iri = service.get_diseases_list()[0]["iri"]
+    service.update_disease(iri, {"umls": "C0010346"}, editor="setup")
+    before = service.get_disease_detail(iri)["changelog"]
+
+    removed = service.remove_flagged_xrefs(
+        [{"iri": iri, "db": "umls", "ids": ["C0156147"]}], editor="linikujp")
+
+    assert removed == 0
+    assert service.get_disease_detail(iri)["changelog"] == before

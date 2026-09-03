@@ -15,6 +15,24 @@ A publish refused with **409** — *"These diseases changed on … Publishing no
 - **The unsubmitted session is dropped before the reload**, and flushed before a narrow discard: the debounced patch and the `visibilitychange` keepalive save would otherwise write verdicts back over what the server had just changed.
 
 Verified against a running app with a stubbed GitHub and a branch edited by another curator: two verdicts, one on a collided disease, submit → 409 → *Take their version* → the collided verdict gone, the other one intact and published. 309 pytest, 33 `node --test`, ruff clean.
+## umls-flagged-id-removal
+
+Flagging a cross-reference as wrong wrote the negative SSSOM row and the disease's changelog line, and left the id itself sitting on the record. `store_confirmed_xrefs` had no counterpart, so a judgment that an id is *not* this disease changed nothing a user could see: the ontology kept serving it, the API kept returning it, and the review grid kept offering it as an unreviewed value the next curator could confirm.
+
+- **`remove_flagged_xrefs` is the mirror of `store_confirmed_xrefs`.** Publish now runs it over the session's flagged cells: the id leaves the property its database maps to, a `Removed flagged cross-reference: …` changelog entry records who dropped it, and the PR body says how many ids were removed alongside how many were stored. Ids the record does not hold are ignored, so re-flagging is idempotent, and the other ids in the same field are untouched.
+- **The one id already stranded that way is gone.** `ARI:0001012` (Ankylosing spondylitis) held `ARI_ICD10 720.0` — flagged on 2026-07-10, still in the ontology and still served. Removed here. A sweep of all 124 stored negative judgments against the ontology found no others.
+
+Backend and data only. 308 pytest.
+
+## review-queue-error
+
+Assigning a disease to your own queue could report **"Could not update the review queue: Cannot set properties of null (setting 'disabled')"** — after the assignment had already been written. Two separate defects met in that one message.
+
+- **The error handler covered the redraw, not just the write.** `addToQueue` ran the POST *and* the whole selection-bar/matrix redraw inside one `try`, so a `TypeError` from the redraw came out of the catch that reports a refused assignment. The queue had changed; the curator was told it had not, which is the one thing an error message must never get backwards. The catch now wraps the `api()` call alone — a redraw that throws is a broken page, and reaches the console as one. `removeFromQueue` had the same shape and got the same treatment.
+- **The redraw threw because script and markup disagreed about the page.** `reflectSelection` sets `#sel-remove`, the *Remove from my queue* button added in the previous release. The page it was running against did not have that button: the asset cache-busting token was fixed when the process started, while the HTML is read from disk on every request. `deploy/update.sh` deliberately defers the restart while a curator is mid-edit — so for that whole window the server served **new markup stamped with the old token**, and every browser dutifully served last release's `immutable`-cached JS against it.
+  - `config.asset_version()` is derived per render now, so the token moves the moment a deploy writes an asset, restart or no restart. The git commit count is gone from it: the newest `static/` mtime already tracks exactly what the token is for, and it does not need a `git` fork per page load. That also retires `ARI_DEV`/`DEV_MODE`, which existed only to re-derive the token locally — there is one behaviour now instead of two.
+
+Frontend and page-render only; no endpoint, schema or auth boundary changes. 306 pytest, 33 `node --test`, ruff clean.
 
 ## disease-queue-removal
 
