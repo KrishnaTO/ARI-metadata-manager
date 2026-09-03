@@ -2,13 +2,19 @@
 
 ## publish-fetch-dead-end
 
-A publish refused with **409** ("These diseases changed on … Publishing now would revert them") sent the curator to *Settings › Fetch changes now* — a control the cross-reference review page does not have. Its ⚙ popover carries Appearance, Matrix and Attribution only; the fetch lives in the editor's settings modal, on a different page. The one instruction for getting out of the conflict named nothing the curator could find.
+A publish refused with **409** — *"These diseases changed on … Publishing now would revert them"* — sent the curator to *Settings › Fetch changes now*, a control the cross-reference review page does not have: its ⚙ popover carries Appearance, Matrix and Attribution only, and the fetch lives in the editor's settings modal on a different page. The one instruction for getting out of the conflict named nothing the curator could find. Following it was worse than not finding it: fetching replaces the **whole** working copy, so one collision cost every unpublished verdict and edit in the session, on records that had nothing to do with it.
 
-- **The ⚙ popover on the review page gains a Data section** with `↻ Fetch changes now`, which replaces the working copy with the latest of the source branch and reloads. It reuses `POST /api/v2/fetch` — the same endpoint the editor's settings modal calls — including the discard confirmation when there is unsubmitted work, and it is disabled when signed out, since fetching rewrites that curator's own working copy.
-- **The unsubmitted session is dropped before the reload.** A fetch clears the server-side verdicts (`workspace._reset_user`), so the in-memory patch is emptied and the pending save timer cancelled first; otherwise the `visibilitychange` keepalive save would have written the discarded verdicts straight back on the way out.
-- **The message and the help panel name a control that exists**, on both pages: *fetch the latest from the ⚙ menu's Data section*.
+### Taking the branch's version of just the diseases that collided
+- **The refusal now offers the way out.** Both pages catch the 409, name the diseases in a dialog and offer *Take their version*. `POST /api/v2/discard` grafts the source branch's version of those diseases — and the symptoms, treatments and pathway steps hanging off them — over the working copy, forgets that this curator touched them, and drops their verdicts. Everything else stands, and the refused publish goes straight back out.
+- **`merge_service.rebase` is `graft_diseases(src, dst, iris)`.** The graft always ran in one direction, working copy onto branch; the recovery is the same operation the other way, so it is the same function rather than a second implementation of it. The working copy is snapshotted first and restored if the graft refuses part-way through, and it is evicted from memory afterwards — owlready2 caches an entity's values on the Python object, and the graft writes triples underneath that cache.
+- **`workspace.forget(login, *iris)`** removes the touched markers and the review verdicts for those diseases alone. The rest of the session, the PR pointer included, is untouched.
+- **API errors carry their status and body.** Both `api()` helpers threw away everything but `detail`, so no caller could act on the `conflicts` list the server had already sent.
 
-Frontend plus one message string; the publish guard and the fetch endpoint are unchanged.
+### The review page had no fetch at all
+- **`⚙ › Data › ↻ Fetch changes now`** on the cross-reference review page, calling the same `POST /api/v2/fetch` as the editor's settings modal, with the same discard confirmation, disabled when signed out. This is the blunt instrument — take the latest of everything and start over — now that the conflict has its own narrow answer.
+- **The unsubmitted session is dropped before the reload**, and flushed before a narrow discard: the debounced patch and the `visibilitychange` keepalive save would otherwise write verdicts back over what the server had just changed.
+
+Verified against a running app with a stubbed GitHub and a branch edited by another curator: two verdicts, one on a collided disease, submit → 409 → *Take their version* → the collided verdict gone, the other one intact and published. 309 pytest, 33 `node --test`, ruff clean.
 
 ## disease-queue-removal
 

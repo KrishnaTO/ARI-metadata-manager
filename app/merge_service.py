@@ -138,19 +138,21 @@ def _graft(src, dst, iri):
         dst.onto._add_data_triple_spod(s_dst, dw._abbreviate(p_iri), o, dtype)
 
 
-def rebase(working, baseline, iris) -> int:
-    """Write the curator's version of each disease in ``iris`` onto ``baseline``.
+def graft_diseases(src, dst, iris) -> int:
+    """Write ``src``'s version of each disease in ``iris`` over ``dst``'s.
 
-    Mutates ``baseline`` in place and returns the number of individuals grafted.
-    The caller saves it and commits *that*, so every untouched record in the
-    commit is the source branch's own.
+    Mutates ``dst`` in place and returns the number of individuals grafted. It
+    runs in both directions. Publishing grafts the working copy onto the source
+    branch and commits *that*, so every untouched record in the commit is the
+    branch's own; taking the branch's version of a disease the curator collided
+    with grafts the other way, over their working copy.
     """
     grafted = 0
     for iri in sorted(iris):
-        # Both sides' items: one the curator added exists only in the working
-        # copy, one they deleted only on the source branch.
-        for target in sorted({iri} | _item_iris(working, iri) | _item_iris(baseline, iri)):
-            _graft(working, baseline, target)
+        # Both sides' items: one added on one side exists only there, and one
+        # deleted on one side must not come back from the other.
+        for target in sorted({iri} | _item_iris(src, iri) | _item_iris(dst, iri)):
+            _graft(src, dst, target)
             grafted += 1
-    log.info("Rebased %d disease(s) (%d individuals) onto the source branch", len(iris), grafted)
+    log.info("Grafted %d disease(s) (%d individuals) onto %s", len(iris), grafted, dst.path.name)
     return grafted

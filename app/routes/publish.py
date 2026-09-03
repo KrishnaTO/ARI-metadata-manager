@@ -121,6 +121,65 @@ def _discard(path):
         log.debug("Could not remove temp baseline %s: %s", path, e)
 
 
+@router.post("/api/v2/discard")
+async def discard_diseases(request: Request, payload: dict = Body(...)):
+    """Take the source branch's version of the named diseases.
+
+    The way out of a publish conflict. Fetching the branch again is the blunt
+    version of this: it drops the whole working copy, so one collision cost the
+    curator every unpublished edit and verdict they were holding, on diseases
+    that had nothing to do with it. This replaces only the named diseases with
+    the branch's version of them, forgets that this curator touched them, and
+    drops their verdicts. Everything else survives, and the publish that was
+    refused can be retried straight away.
+    """
+    if not config.GH_ENABLED:
+        raise ValueError("GitHub integration is not configured")
+    u = sessions._user(request)
+    if not u:
+        return JSONResponse(status_code=401, content={"detail": "Sign in with GitHub first"})
+    iris = sorted({i for i in (payload.get("iris") or []) if i})
+    if not iris:
+        return JSONResponse(status_code=400, content={
+            "detail": "Name at least one disease to take the source branch's version of."})
+    login = u["identity"]["login"]
+    if not (config.USER_DIR / f"{login}.owl").exists():
+        return JSONResponse(status_code=400, content={
+            "detail": "You have no working copy, so there is nothing to discard."})
+
+    try:
+        baseline = await _baseline_service(request, u)
+    except Exception as e:
+        log.error("Could not read %s at %s to take its version of %d disease(s): %s",
+                  config.GH_ONTOLOGY_PATH, workspace._source_branch(request), len(iris), e)
+        return JSONResponse(status_code=502, content={
+            "detail": "Could not read the ontology on the source branch. "
+                      "Nothing was discarded — try again."})
+
+    svc = workspace.user_service(login)
+    # The working copy is snapshotted first: the graft can refuse part-way
+    # through (see merge_service), and half a disease taken from the branch is
+    # worse than the collision this is resolving.
+    snapshot = svc.path.read_bytes()
+    try:
+        merge_service.graft_diseases(baseline, svc, iris)
+        svc._save()
+    except Exception:
+        workspace._restore_working_copy(login, svc, snapshot)
+        raise
+    finally:
+        _discard(baseline.path)
+    # owlready2 caches an entity's values on the Python object and the graft
+    # writes triples underneath that cache, so the saved file is right while the
+    # loaded copy would still read back the discarded edit. Drop it; the next
+    # read adopts the file just written.
+    workspace.USER_SVC.pop(login, None)
+    workspace.forget(login, *iris)
+    log.info("@%s took %s's version of %d disease(s)", login,
+             workspace._source_branch(request), len(iris))
+    return {"ok": True, "discarded": len(iris)}
+
+
 @router.post("/api/v2/publish")
 async def publish(request: Request, payload: dict = Body(default={})):
     """Commit the current ontology file to GitHub as the signed-in user (PR)."""
@@ -206,8 +265,9 @@ async def publish(request: Request, payload: dict = Body(default={})):
                 "detail": "These diseases changed on " + source_branch +
                           " after your working copy was made: " +
                           ", ".join(c["name"] for c in collisions) +
-                          ". Publishing now would revert them — fetch the latest from "
-                          "the ⚙ menu's Data section to pick them up, then redo your edits.",
+                          ". Publishing now would revert them — take " + source_branch +
+                          "'s version of those diseases, which drops your work on them "
+                          "and keeps the rest, then publish again.",
                 "conflicts": collisions})
 
         enrich_note = ""
@@ -242,7 +302,7 @@ async def publish(request: Request, payload: dict = Body(default={})):
         # The commit is the source branch with this curator's diseases written
         # over it — the same shape `sssom_service.build` already uses for the
         # mapping files, which is why not one mapping row was lost.
-        merge_service.rebase(svc, baseline, scope)
+        merge_service.graft_diseases(svc, baseline, scope)
         baseline._save()
         content = baseline.path.read_bytes()
     except Exception:
