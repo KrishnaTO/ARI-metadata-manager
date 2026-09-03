@@ -61,43 +61,41 @@ def _app_version() -> str:
 APP_VERSION = _app_version()
 
 
-def _asset_version() -> str:
+def asset_version() -> str:
     """Single cache-busting token for every static asset, changing on each deploy.
 
     The HTML pages tag all their js/css with `?v=__ASSETV__`, which is replaced
     with this token when the page is served. One value busts every asset at once,
     so there are no fragile per-file `?v=N` numbers to bump (and merge-conflict).
 
-    The commit count alone was enough while every asset response carried
-    ``no-cache``. Now that a versioned asset is served ``immutable`` for a year,
-    it is not: editing a file without committing leaves the token unchanged, so
-    a browser that has already seen it will not fetch the edit for a year. The
-    newest mtime under ``static/`` is folded in, which changes the moment a file
-    is saved and is stable across a deploy that did not touch the file.
+    The token is the newest mtime under ``static/``, and is derived per render.
+    Both of those are load-bearing, and both were learned the hard way:
+
+    * **mtime, not the git commit count.** A versioned asset is served
+      ``immutable`` for a year, so a token that does not move when a file is
+      edited pins the stale copy in every browser that has seen it. The commit
+      count does not move while developing, and moves for deploys that touch no
+      asset at all. The mtime moves exactly when an asset's bytes do.
+    * **Per render, not once at startup.** The HTML is read from disk on every
+      request while the token was fixed when the process started, so between
+      ``deploy/update.sh`` writing the new files and the restart — which that
+      script defers, by design, while a curator is mid-edit — the server handed
+      out *new markup stamped with the old token*, and every browser kept
+      serving the old, immutable JS against it. Script and markup then disagreed
+      about what was on the page, which is exactly the mismatch that made a
+      queue write report a DOM error it never had.
+
+    Deriving it walks the ~30 files under ``static/``: cheaper than the fork the
+    commit count needed, and it only runs for the two HTML page routes.
     """
-    parts = []
-    try:
-        n = subprocess.check_output(["git", "-C", str(ROOT), "rev-list", "--count", "HEAD"],
-                                    text=True, stderr=subprocess.DEVNULL).strip()
-        if n:
-            parts.append(n)
-    except (OSError, subprocess.SubprocessError) as e:
-        log.debug("Could not derive asset version from git, using mtime alone: %s", e)
     try:
         newest = max((f.stat().st_mtime_ns for f in STATIC_DIR.rglob("*")
                       if f.is_file() and f.suffix in (".js", ".css", ".html")), default=0)
-        if newest:
-            parts.append(format(newest // 1_000_000_000, "x"))   # second resolution is plenty
     except OSError as e:
         log.debug("Could not stat static assets for the version token: %s", e)
-    return "-".join(parts) or str(int(time.time()))   # last resort: bust on each restart
-
-
-ASSET_VERSION = _asset_version()
-
-# Set by run.py, the local launcher. Only affects how often the asset token is
-# re-derived; nothing about what is served.
-DEV_MODE = os.environ.get("ARI_DEV") == "1"
+        newest = 0
+    # No asset to date: bust per process rather than serving an empty token.
+    return format(newest // 1_000_000_000, "x") if newest else str(int(time.time()))
 
 # ----------------------------------------------------------------- GitHub config
 GH_CLIENT_ID = os.environ.get("GITHUB_CLIENT_ID", "")

@@ -1,5 +1,15 @@
 # Changelog
 
+## review-queue-error
+
+Assigning a disease to your own queue could report **"Could not update the review queue: Cannot set properties of null (setting 'disabled')"** — after the assignment had already been written. Two separate defects met in that one message.
+
+- **The error handler covered the redraw, not just the write.** `addToQueue` ran the POST *and* the whole selection-bar/matrix redraw inside one `try`, so a `TypeError` from the redraw came out of the catch that reports a refused assignment. The queue had changed; the curator was told it had not, which is the one thing an error message must never get backwards. The catch now wraps the `api()` call alone — a redraw that throws is a broken page, and reaches the console as one. `removeFromQueue` had the same shape and got the same treatment.
+- **The redraw threw because script and markup disagreed about the page.** `reflectSelection` sets `#sel-remove`, the *Remove from my queue* button added in the previous release. The page it was running against did not have that button: the asset cache-busting token was fixed when the process started, while the HTML is read from disk on every request. `deploy/update.sh` deliberately defers the restart while a curator is mid-edit — so for that whole window the server served **new markup stamped with the old token**, and every browser dutifully served last release's `immutable`-cached JS against it.
+  - `config.asset_version()` is derived per render now, so the token moves the moment a deploy writes an asset, restart or no restart. The git commit count is gone from it: the newest `static/` mtime already tracks exactly what the token is for, and it does not need a `git` fork per page load. That also retires `ARI_DEV`/`DEV_MODE`, which existed only to re-derive the token locally — there is one behaviour now instead of two.
+
+Frontend and page-render only; no endpoint, schema or auth boundary changes. 306 pytest, 33 `node --test`, ruff clean.
+
 ## disease-queue-removal
 
 Work could go onto a review queue but never come off it. `DELETE /api/v2/assignments` has always existed and is tested, but nothing in `static/ref-edits/` called it, so a disease queued by mistake — or one a curator had picked up and decided belonged to someone else — stayed on their **Mine** scope permanently, and the only escape was to have another curator take it with **Assign to curator**.
