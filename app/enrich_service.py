@@ -16,6 +16,10 @@ record automatically:
    (requirement 2). Only children of a **confirmed** mapping are proposed — flagged
    (negative) mappings never feed the engine.
 
+Not every confirmed cross-reference is a route to those facts. A database whose ids
+classify rather than denote — ICD-10 — never resolves to a record at all; see
+:data:`NON_CONCEPT_DBS`.
+
 This module is pure: it reads the reference indexes (from
 :mod:`app.predict_service`) and the per-database subtype files, and returns the
 proposed additions. Writing them onto the ontology is
@@ -47,6 +51,28 @@ from .predict_service import (
 # child's label is not among them: it is already in that child's index row, and
 # repeating it here cost 3.7 MB across the three OBO sources.
 SUBTYPE_COLS = ["parent_id", "child_id"]
+
+# Databases whose ids do not denote a concept, and so never route to enrichment.
+#
+# ICD-10 is a statistical classification, not an ontology: a code is a bucket
+# holding a disease together with its subtypes and neighbours, which is why the
+# source publishes its own term list as *approximate* synonyms. Resolving a
+# confirmed ICD-10 code to whatever ontology term happens to cross-reference it
+# therefore folds a **different** concept's names into the disease. In
+# ``ari_t1d.owl`` the code ``E10`` sits on both "Type 1 diabetes mellitus" and
+# "Latent autoimmune diabetes in adults", so LADA was being handed the parent
+# disease's synonyms *and* the parent's MONDO children as its own subtypes.
+#
+# Excluding the database is exact, where filtering would be a guess: nothing about
+# a code separates its good matches from its bad ones. Blocking only coarse rubrics
+# (3-character codes and ranges) was measured against the ontology and fails in both
+# directions -- it would reject ``D86`` sarcoidosis and ``K50`` Crohn disease, which
+# are correct 1:1 matches, while missing ``I95.1`` -> orthostatic hypotension on
+# POTS and ``M08.4`` -> oligoarticular JIA on juvenile RA, which are not.
+#
+# The cost is small and was measured: of the 91 diseases whose ICD-10 code resolves,
+# 77 reach every one of those records through another cross-reference as well.
+NON_CONCEPT_DBS = frozenset({"icd10"})
 
 
 # ------------------------------------------------------------------ subtype index
@@ -103,6 +129,13 @@ def build_id_index(indexes: list[LexicalIndex]) -> dict[tuple[str, str], list[di
     from that source. An id that pins exactly one record in each of several sources
     (e.g. a SNOMED id naming the same disease in both MONDO and DOID) is kept from
     all of them: that is agreement, not ambiguity.
+
+    That check is *within-source* and so cannot see a coarse id that pins one record
+    per source: ``E10`` pins exactly one MONDO term and reads as agreement while
+    still being a rubric over a whole disease family. Which is why ICD-10 is refused
+    upstream by :data:`NON_CONCEPT_DBS` instead of being left to this rule. Records
+    stay indexed under their ICD-10 xrefs here; :func:`enrich` is what declines to
+    follow that route.
     """
     out: dict[tuple[str, str], list[dict]] = {}
     for idx in indexes:
@@ -154,6 +187,8 @@ def enrich(disease: dict, confirmed: list[dict],
     seen_rec: set[str] = set()
     for c in confirmed:
         db = str(c.get("db", "")).strip()
+        if db in NON_CONCEPT_DBS:
+            continue
         for ident in (c.get("ids") or []):
             for rec in _resolve(db, str(ident).strip(), id_index):
                 if rec["id"] not in seen_rec:

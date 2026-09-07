@@ -114,17 +114,19 @@ def test_no_subtypes_when_no_hierarchy_loaded():
 
 
 # -------------------------------------------------------------------- ambiguity
-# A coarse cross-reference (one ICD-10 code shared by many diseases) must not pull
-# every one of those diseases' names into a single synonym list. Real data has
-# ICD-10 codes xreffed by 100+ DOID terms, so this is the main safety rule.
+# A coarse cross-reference shared by many diseases must not pull every one of those
+# diseases' names into a single synonym list. ICD-10 was the worst offender (codes
+# xreffed by 100+ DOID terms) and no longer routes to enrichment at all, but any
+# database's id can be coarser than a concept, so the guard is tested on one that
+# still routes.
 COARSE = _index(
-    ("MONDO:1", "deafness alpha", [], {"mondo": ["1"], "icd10": ["H90.3"]}),
-    ("MONDO:2", "deafness beta", [], {"mondo": ["2"], "icd10": ["H90.3"]}),
+    ("MONDO:1", "deafness alpha", [], {"mondo": ["1"], "snomed": ["15188001"]}),
+    ("MONDO:2", "deafness beta", [], {"mondo": ["2"], "snomed": ["15188001"]}),
 )
 
 
 def test_ambiguous_id_within_a_source_contributes_nothing():
-    out = _enrich(_disease(), [{"db": "icd10", "ids": ["H90.3"]}], indexes=(COARSE,), subtypes={})
+    out = _enrich(_disease(), [{"db": "snomed", "ids": ["15188001"]}], indexes=(COARSE,), subtypes={})
     assert values(out["synonyms"]) == []
 
 
@@ -196,3 +198,44 @@ def test_lineage_distinguishes_two_agreeing_sources():
     by_value = {e["value"]: e["source"] for e in out["synonyms"]}
     assert by_value.get("sugar diabetes", "").startswith("DOID:")
     assert any(src.startswith("MONDO:") for src in by_value.values())
+
+
+# ----------------------------------------------------------- ICD-10 is not a concept db
+# ICD-10 is a statistical classification: a code is a bucket holding a disease
+# together with its subtypes and neighbours. Resolving one to whatever ontology
+# term happens to cross-reference it imports a *different* concept's names -- in
+# ari_t1d.owl, E10 sits on both "Type 1 diabetes mellitus" and "Latent autoimmune
+# diabetes in adults", so LADA was being handed the parent disease's synonyms.
+RUBRIC = _index(
+    ("MONDO:0005147", "type 1 diabetes mellitus", ["type 1 diabetes", "immune mediated diabetes"],
+     {"mondo": ["0005147"], "icd10": ["E10"], "snomed": ["46635009"]}),
+)
+RUBRIC_SUBTYPES = {"MONDO:0005147": [{"id": "MONDO:0011899", "label": "type 1 diabetes mellitus 2"}]}
+
+
+def test_confirmed_icd10_code_contributes_no_synonyms():
+    out = _enrich(_disease(name="Latent autoimmune diabetes in adults (LADA)"),
+                  [{"db": "icd10", "ids": ["E10"]}],
+                  indexes=(RUBRIC,), subtypes=RUBRIC_SUBTYPES)
+    assert values(out["synonyms"]) == []
+
+
+def test_confirmed_icd10_code_contributes_no_subtypes():
+    out = _enrich(_disease(name="Latent autoimmune diabetes in adults (LADA)"),
+                  [{"db": "icd10", "ids": ["E10"]}],
+                  indexes=(RUBRIC,), subtypes=RUBRIC_SUBTYPES)
+    assert values(out["subtypes"]) == []
+
+
+def test_a_record_icd10_cannot_reach_still_enriches_through_its_own_id():
+    # The rule is about the route, not the record: the same term enriches normally
+    # when a concept-denoting database is what was confirmed.
+    out = _enrich(_disease(), [{"db": "mondo", "ids": ["0005147"]}],
+                  indexes=(RUBRIC,), subtypes=RUBRIC_SUBTYPES)
+    assert "immune mediated diabetes" in values(out["synonyms"])
+
+
+def test_icd10_alongside_a_concept_database_does_not_suppress_the_other():
+    out = _enrich(_disease(), [{"db": "icd10", "ids": ["E10"]}, {"db": "snomed", "ids": ["46635009"]}],
+                  indexes=(RUBRIC,), subtypes=RUBRIC_SUBTYPES)
+    assert "immune mediated diabetes" in values(out["synonyms"])
