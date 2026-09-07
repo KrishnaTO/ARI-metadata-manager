@@ -13,7 +13,7 @@ ORPHA:166068	Pontocerebellar hypoplasia type 5	PCH5 | Fetal-onset olivopontocere
 ORPHA:141	Canavan disease	ACY2 deficiency | Aminoacylase 2 deficiency | Aspartoacylase deficiency | Spongy degeneration of the brain		C0206307	D017825
 ORPHA:166063	Pontocerebellar hypoplasia type 4	Fatal infantile encephalopathy with olivopontocerebellar hypoplasia | Olivopontocerebellar hypoplasia | PCH4		C1856974	C536716
 ORPHA:166078	Von Willebrand disease type 1			C1264039	D056725
-ORPHA:206	NON RARE IN EUROPE: Crohn disease				
+ORPHA:206	Crohn disease				
 ORPHA:166073	Pontocerebellar hypoplasia type 6	Fatal infantile encephalopathy with mitochondrial respiratory chain defects | PCH6		C1969084	C548074
 ORPHA:213	Cystinosis	Protein defect of cystin transport		C4316899	D003554
 ORPHA:166084	Von Willebrand disease type 2A			C1282968	
@@ -51,7 +51,7 @@ ORPHA:166286	Porokeratotic eccrine ostial and dermal duct nevus	Comedo nevus of 
 ORPHA:577	Mucolipidosis type III	Pseudo-Hurler polydystrophy		C0033788	
 ORPHA:166291	Dirofilariasis			C0012602	D004184
 ORPHA:166295	Benign non-familial infantile seizures			C5680425	
-ORPHA:771	NON RARE IN EUROPE: Ulcerative colitis	NON RARE IN EUROPE: Ulcerative proctitis | NON RARE IN EUROPE: Ulcerative proctosigmoiditis			
+ORPHA:771	Ulcerative colitis	Ulcerative proctitis | Ulcerative proctosigmoiditis			
 ORPHA:166308	Benign infantile focal epilepsy with midline spikes and waves during sleep	BIMSE		C4749346	
 ORPHA:166305	OBSOLETE: Benign infantile seizures associated with mild gastroenteritis				
 ORPHA:2912	Poliomyelitis			C0032371	D011051
@@ -63,12 +63,12 @@ ORPHA:801	Scleroderma			C0011644
 ORPHA:166311	Benign partial infantile seizures			C5680426	
 ORPHA:461	Recessive X-linked ichthyosis	RXLI | Steroid sulfatase deficiency | X-linked ichthyosis | XLI		C2720163	D016114
 ORPHA:166421	Orgasm-induced epilepsy			C4706598	
-ORPHA:856	NON RARE IN EUROPE: Tourette syndrome	NON RARE IN EUROPE: GTS | NON RARE IN EUROPE: Gilles de la Tourette syndrome | NON RARE IN EUROPE: Tourette disease	F95.2		
+ORPHA:856	Tourette syndrome	GTS | Gilles de la Tourette syndrome | Tourette disease	F95.2		
 ORPHA:166418	Eating reflex epilepsy	Eating epilepsy | Eating seizures		C0393725	
 ORPHA:584	Mucopolysaccharidosis type 7	Beta-glucuronidase deficiency | MPS7 | MPSVII | Mucopolysaccharidosis type VII | Sly disease		C0085132	D016538
 ORPHA:166415	Audiogenic epilepsy			C0751791	
 ORPHA:166412	Hot water reflex epilepsy	HWE		C4706506	
-ORPHA:825	NON RARE IN EUROPE: Ankylosing spondylitis	NON RARE IN EUROPE: Ankylosing spondylarthritis | NON RARE IN EUROPE: Bechterew syndrome	M45		
+ORPHA:825	Ankylosing spondylitis	Ankylosing spondylarthritis | Bechterew syndrome	M45		
 ORPHA:166433	Epilepsy with reading-induced seizures	EwRIS		C0278193	
 ORPHA:166430	Micturition-induced epilepsy			C4706587	
 ORPHA:881	Turner syndrome	45,X syndrome | 45,X/46,XX syndrome		C0041408	D014424
@@ -146,7 +146,7 @@ ORPHA:558	Marfan syndrome	MFS	Q87.4	C0024796	D008382
 ORPHA:803	Amyotrophic lateral sclerosis	ALS | Charcot disease | Lou Gehrig disease		C0002736	D000690
 ORPHA:165805	Familial mesial temporal lobe epilepsy with febrile seizures			C5191318	
 ORPHA:165711	Rare abdominal surgical disease			C5680441	
-ORPHA:802	NON RARE IN EUROPE: Multiple sclerosis		G35		
+ORPHA:802	Multiple sclerosis		G35		
 ORPHA:165707	Syndromic urogenital tract malformation			C5680442	
 ORPHA:100	Ataxia-telangiectasia	Louis-Bar syndrome		C0004135	D001260
 ORPHA:165704	Non-syndromic urogenital tract malformation			C5680443	
@@ -253,12 +253,12 @@ ORPHA:640	Hereditary neuropathy with liability to pressure palsies	Current press
 ORPHA:60	Alpha-1-antitrypsin deficiency	Alpha-1-proteinase inhibitor deficiency | Alpha1-antitrypsin deficiency		C0221757	D019896
 ORPHA:895	Waardenburg syndrome type 2	WS2 | Waardenburg syndrome type II		C2700265	C536463
 ORPHA:896	Waardenburg syndrome type 3	Klein-Waardenburg syndrome | WS3 | Waardenburg syndrome type III | Waardenburg syndrome with limb anomalies		C0079661	
-ORPHA:3140	NON RARE IN EUROPE: Schizophrenia				
+ORPHA:3140	Schizophrenia				
 ORPHA:857	Townes-Brocks syndrome	Imperforate anus-hand, foot and ear anomalies syndrome | REAR syndrome | Renal-ear-anal-radial syndrome | Sensorineural deafness with imperforate anus and hypoplastic thumbs | Sensorineural hearing loss with imperforate anus and hypoplastic thumbs | TBS | Townes syndrome		C0265246	C536974
 ORPHA:894	Waardenburg syndrome type 1	WS1 | Waardenburg syndrome type I		C1847800	
 ORPHA:682	Hyperkalemic periodic paralysis	Adynamia episodica hereditaria | Familial hyperPP | Familial hyperkalemic periodic paralysis | Gamstorp disease | Gamstorp episodic adynamy | HYPP | HyperKPP | HyperPP | Hyperkalemic PP | Primary hyperPP | Primary hyperkalemic periodic paralysis		C0238357	D020513
 ORPHA:800	Schwartz-Jampel syndrome	Aberfeld syndrome | Burton skeletal dysplasia | Burton syndrome | Catel-Hempel syndrome | Dysostosis enchondralis metaepiphysaria, Catel-Hempel type | Myotonic chondrodystrophy | Myotonic myopathy, dwarfism, chondrodystrophy, ocular and facial anomalies | Osteochondromuscular dystrophy | SJS | SJS1 | Schwartz-Jampel syndrome type 1 | Schwartz-Jampel-Aberfeld syndrome		C0036391	
-ORPHA:706	NON RARE IN EUROPE: Patent arterial duct	NON RARE IN EUROPE: Persistent patency of the arterial duct | NON RARE IN EUROPE: Patent ductus arteriosus	Q25.0		
+ORPHA:706	Patent arterial duct	Persistent patency of the arterial duct | Patent ductus arteriosus	Q25.0		
 ORPHA:628	Diastrophic dysplasia	Diastrophic dwarfism	Q77.5	C0220726	C536170
 ORPHA:673	Malaria			C0024530	D008288
 ORPHA:681	Hypokalemic periodic paralysis	Westphall disease		C0238358	D020514
@@ -268,7 +268,7 @@ ORPHA:774	Hereditary hemorrhagic telangiectasia	HHT | Rendu-Osler disease | Rend
 ORPHA:794	Saethre-Chotzen syndrome	ACS3 | Acrocephalosyndactyly type 3 | SCS		C0175699	
 ORPHA:710	Pfeiffer syndrome	ACS5 | Acrocephalosyndactyly type 5		C0220658	C538582
 ORPHA:2869	Peutz-Jeghers syndrome	Hamartomatous intestinal polyposis | PJS		C0031269	D010580
-ORPHA:862	NON RARE IN EUROPE: Hereditary essential tremor		G25.0		
+ORPHA:862	Hereditary essential tremor		G25.0		
 ORPHA:893	WAGR syndrome	Del(11)(p13) | Deletion 11p13 | Monosomy 11p13 | Wilms tumor-aniridia-genitourinary anomalies-intellectual disability syndrome		C0206115	D017624
 ORPHA:912	Zellweger syndrome	Cerebrohepatorenal syndrome | Severe PBD-ZSD | Severe peroxisome biogenesis disorder-Zellweger spectrum disorder | ZS		C0043459	D015211
 ORPHA:50	Aicardi syndrome	Agenesis of corpus callosum with chorioretinal abnormality		C0175713	D058540
@@ -290,7 +290,7 @@ ORPHA:169805	Moderate hemophilia A	Moderate congenital F8 deficiency | Moderate 
 ORPHA:562	McCune-Albright syndrome			C0242292	
 ORPHA:565	Menkes disease	MD | Menkes kinky hair disease | Menkes syndrome		C0022716	D007706
 ORPHA:2443	Mitochondrial oxidative phosphorylation disorder due to nuclear DNA anomalies	Mitochondrial oxidative phosphorylation disorder due to nDNA anomalies | OXPHOS disease due to nDNA anomalies | OXPHOS disease due to nuclear DNA anomalies		C5679573	
-ORPHA:555	NON RARE IN EUROPE: Celiac disease	NON RARE IN EUROPE: Celiac sprue | NON RARE IN EUROPE: Coeliac disease | NON RARE IN EUROPE: Coeliac sprue | NON RARE IN EUROPE: Gluten intolerance | NON RARE IN EUROPE: Gluten-induced enteropathy | NON RARE IN EUROPE: Gluten-sensitive enteropathy | NON RARE IN EUROPE: Idiopathic steatorrhea | NON RARE IN EUROPE: Nontropical sprue	K90.0		
+ORPHA:555	Celiac disease	Celiac sprue | Coeliac disease | Coeliac sprue | Gluten intolerance | Gluten-induced enteropathy | Gluten-sensitive enteropathy | Idiopathic steatorrhea | Nontropical sprue	K90.0		
 ORPHA:474	Jeune syndrome	Asphyxiating thoracic dystrophy of the newborn | JATD | Jeune asphyxiating thoracic dystrophy		C0265275	C537571
 ORPHA:540	Familial hemophagocytic lymphohistiocytosis	Familial HLH		C0272199	
 ORPHA:568	Microphthalmia, Lenz type	Lenz microphthalmia		C0796016	C537464
@@ -306,15 +306,15 @@ ORPHA:169464	Primary CD59 deficiency			C4755276
 ORPHA:99	Autosomal dominant cerebellar ataxia	ADCA | Autosomal dominant spinocerebellar ataxia		C4087347	
 ORPHA:116	Beckwith-Wiedemann syndrome	BWS | Exomphalos-macroglossia-gigantism syndrome | Wiedemann-Beckwith syndrome		C0004903	D001506
 ORPHA:87	Apert syndrome	ACS1 | Acrocephalosyndactyly type 1		C0001193	
-ORPHA:169618	NON RARE IN EUROPE: Secondary central precocious puberty				
-ORPHA:169615	NON RARE IN EUROPE: Idiopathic central precocious puberty				
+ORPHA:169618	Secondary central precocious puberty				
+ORPHA:169615	Idiopathic central precocious puberty				
 ORPHA:97	Familial paroxysmal ataxia	Episodic ataxia type 2		C1720416	
 ORPHA:169467	Recurrent Neisseria infections due to factor D deficiency			C5190780	
 ORPHA:313	Lamellar ichthyosis	LI	Q80.2	C5848247	D017490
 ORPHA:169799	Mild hemophilia B	Mild congenital F9 deficiency | Mild congenital factor IX deficiency		C5679574	
 ORPHA:169796	Moderate hemophilia B	Moderate congenital F9 deficiency | Moderate congenital factor IX deficiency		C5679575	
 ORPHA:169793	Severe hemophilia B	Severe congenital F9 deficiency | Severe congenital factor IX deficiency		C5679576	
-ORPHA:406	NON RARE IN EUROPE: Heterozygous familial hypercholesterolemia	NON RARE IN EUROPE: HeFH	E78.0		
+ORPHA:406	Heterozygous familial hypercholesterolemia	HeFH	E78.0		
 ORPHA:1000	Ocular albinism with late-onset sensorineural deafness	Ocular albinism with late-onset sensorineural hearing loss		C1845069	C537043
 ORPHA:171220	Isolated rectal duplication			C4511483	
 ORPHA:999	Ermine phenotype	O'Doherty syndrome | Pigmentary disorder with deafness | Pigmentary disorder with hearing loss		C1856899	C535508
@@ -328,12 +328,12 @@ ORPHA:171445	Muscle filaminopathy	FLNC-associated myofibrillar myopathy | Filami
 ORPHA:171607	X-linked spastic paraplegia type 34	SPG34		C2677897	C567465
 ORPHA:2771	Bruck syndrome	Osteogenesis imperfecta-congenital joint contractures syndrome		C0432253	
 ORPHA:171612	Autosomal dominant spastic paraplegia type 37	SPG37		C2936880	C567931
-ORPHA:106	NON RARE IN EUROPE: Autism		F84.0		
+ORPHA:106	Autism		F84.0		
 ORPHA:1349	Mitochondrial DNA-related cardiomyopathy and hearing loss	Maternally-inherited cardiomyopathy and deafness | mtDNA-related cardiomyopathy and deafness | mtDNA-related cardiomyopathy and hearing loss | tRNA-LYS-related cardiomyopathy-hearing loss syndrome		C4510409	
 ORPHA:171617	Autosomal dominant spastic paraplegia type 38	SPG38		C2676732	C567349
 ORPHA:171622	Autosomal recessive spastic paraplegia type 32	SPG32		C1970009	C566983
 ORPHA:171629	Autosomal recessive spastic paraplegia type 35	SPG35		C3496228	C567311
-ORPHA:357	NON RARE IN EUROPE: Gilbert syndrome	NON RARE IN EUROPE: Familial cholemia | NON RARE IN EUROPE: Hyperbilirubinemia type 1	E80.4		
+ORPHA:357	Gilbert syndrome	Familial cholemia | Hyperbilirubinemia type 1	E80.4		
 ORPHA:861	Treacher-Collins syndrome	Franceschetti-Klein syndrome | Mandibulofacial dysostosis without limb anomalies		C0242387	
 ORPHA:308	Progressive myoclonic epilepsy type 1	EPM1 | Progressive myoclonus epilepsy type 1 | ULD | Unverricht-Lundborg disease		C0751785	D020194
 ORPHA:1991	Cleft lip with or without cleft palate	Tessier cleft number 1,2		C0810364	
@@ -413,7 +413,7 @@ ORPHA:169186	Autosomal recessive centronuclear myopathy	AR-CNM		C0410204	C562934
 ORPHA:464	Incontinentia pigmenti	Bloch-Siemens syndrome | Bloch-Sulzberger syndrome	Q82.3	C0021171	D007184
 ORPHA:3307	Tetrasomy 18p syndrome	Isochromosome 18p		C0795868	C538306
 ORPHA:169163	Familial scaphocephaly syndrome			C3267076	
-ORPHA:484	NON RARE IN EUROPE: Klinefelter syndrome	NON RARE IN EUROPE: 47,XXY syndrome	Q98.0		
+ORPHA:484	Klinefelter syndrome	47,XXY syndrome	Q98.0		
 ORPHA:3084	Mirhosseini-Holmes-Walton syndrome	Pigmentary retinopathy-intellectual disability syndrome		C0796072	
 ORPHA:169189	Autosomal dominant centronuclear myopathy	AD-CNM		C1834558	
 ORPHA:44	Neonatal adrenoleukodystrophy	Intermediate PBD-ZSD | Intermediate peroxisome biogenesis disorder-Zellweger spectrum disorder | NALD		C0282525	
@@ -431,7 +431,7 @@ ORPHA:915	Aarskog-Scott syndrome	Aarskog syndrome | Faciodigitogenital syndrome 
 ORPHA:2614	Nail-patella syndrome	Onychoosteodysplasia | Turner-Kieser syndrome		C0027341	D009261
 ORPHA:33	Isovaleric acidemia	Isovaleric acid CoA dehydrogenase deficiency		C0268575	C538167
 ORPHA:168194	Rare cardiac tumor			C5680461	
-ORPHA:924	NON RARE IN EUROPE: Acanthosis nigricans		L83		
+ORPHA:924	Acanthosis nigricans		L83		
 ORPHA:819	Smith-Magenis syndrome	17p11.2 microdeletion syndrome		C0795864	D058496
 ORPHA:3085	Retinitis pigmentosa-intellectual disability-deafness-hypogonadism syndrome	Edwards-Sethi syndrome | Retinitis pigmentosa-intellectual disability- labyrinthine deafness-hypogenitalism syndrome | Retinitis pigmentosa-intellectual disability-sensorineural hearing loss-hypogenitalism syndrome		C4518330	
 ORPHA:9	Tetrasomy X syndrome	48,XXXX syndrome | Quadruple X | Tetra X		C0265496	C536502
@@ -467,11 +467,11 @@ ORPHA:168552	Spondylometaphyseal dysplasia-bowed forearms-facial dysmorphism syn
 ORPHA:1154	Arthrogryposis-oculomotor limitation-electroretinal anomalies syndrome	Distal arthrogryposis type 5 | Distal arthrogryposis type IIB | Distal arthrogryposis with ophthalmoplegia | Oculomelic amyoplasia		C1862472	C537737
 ORPHA:168555	Spondylometaphyseal dysplasia, A4 type			C1836862	C563803
 ORPHA:168558	46,XY difference of sex development-adrenal insufficiency due to CYP11A1 deficiency	46,XY disorder of sex development-adrenal insufficiency due to CYP11A1 deficiency | XY sex reversal-adrenal failure		C5190811	
-ORPHA:1162	NON RARE IN EUROPE: Asperger syndrome		F84.5		
+ORPHA:1162	Asperger syndrome		F84.5		
 ORPHA:168563	46,XY gonadal dysgenesis-motor and sensory neuropathy syndrome			C5190810	
 ORPHA:124	Diamond-Blackfan anemia	DBA | Congenital PRCA | Congenital pure red cell aplasia | Diamond-Blackfan anemia syndrome		C0265265	D029503
 ORPHA:168566	Fatal mitochondrial disease due to combined oxidative phosphorylation defect type 3	Fatal mitochondrial disease due to COXPD3		C4303760	
-ORPHA:1232	NON RARE IN EUROPE: Barrett esophagus		K22.7		
+ORPHA:1232	Barrett esophagus		K22.7		
 ORPHA:1310	Caffey disease	Infantile cortical hyperostosis		C0020497	D006958
 ORPHA:168569	H syndrome			C1864445	
 ORPHA:168572	Native American myopathy	STAC3-related congenital myopathy | Bailey-Bloch congenital myopathy | Congenital myopathy-cleft palate-malignant hyperthermia syndrome		C1850625	C538343
@@ -550,7 +550,7 @@ ORPHA:180303	Rare non-malformative uterine adnexal disease			C5681841
 ORPHA:606	Proximal myotonic myopathy	Myotonic dystrophy type 2 | Proximal myotonic dystrophy | Ricker disease | Ricker syndrome		C2931689	
 ORPHA:705	Pendred syndrome	Goiter-deafness syndrome | Goiter-hearing loss syndrome		C0271829	C536648
 ORPHA:180779	Syndromic diaphragmatic or thoracic malformation			C5680469	
-ORPHA:2870	NON RARE IN EUROPE: Peyronie syndrome	NON RARE IN EUROPE: Induratio penis plastica | NON RARE IN EUROPE: Plastic induration of penis	N48.6		
+ORPHA:2870	Peyronie syndrome	Induratio penis plastica | Plastic induration of penis	N48.6		
 ORPHA:180776	Non-syndromic diaphragmatic or thoracic malformation			C5680470	
 ORPHA:2801	Juvenile Paget disease	Familial osteoectasia | Hereditary hyperphosphatasia | Hyperostosis corticalis deformans juvenilis | JPG		C0268414	C537701
 ORPHA:180772	Rare disease with autism			C5680471	
@@ -619,7 +619,7 @@ ORPHA:180275	Paget disease of the nipple	Mammary Paget disease | Paget disease o
 ORPHA:560	Marshall syndrome			C0265235	C536025
 ORPHA:587	Muir-Torre syndrome	Multiple keratoacanthoma, Muir-Torre type		C1321489	D055653
 ORPHA:570	Moebius syndrome	Möbius syndrome		C0221060	D020331
-ORPHA:180284	NON RARE IN EUROPE: Benign ductal tumor of breast				
+ORPHA:180284	Benign ductal tumor of breast				
 ORPHA:1505	Short rib-polydactyly syndrome			C0036996	D012779
 ORPHA:180257	Rare malignant breast tumor	Rare breast cancer		C5679588	
 ORPHA:180261	Phyllodes tumor of the breast			C0238031	D003557
@@ -640,7 +640,7 @@ ORPHA:180086	Didelphys uterus	Bicervical bicornuate uterus	Q51.1	C0266393	D00009
 ORPHA:180079	Pseudounicornuate uterus	Incomplete unilateral Müllerian aplasia | Incomplete unilateral aplasia of the Müllerian ducts | Unicornuate uterus with rudimentary horn		C4749300	
 ORPHA:180074	True unicornuate uterus	Complete unilateral Müllerian aplasia | Complete unilateral aplasia of the Müllerian ducts | Unicornuate uterus without rudimentary horn		C5848180	
 ORPHA:180122	Septate uterus			C0152240	D000093665
-ORPHA:180118	NON RARE IN EUROPE: Cordiform uterus	NON RARE IN EUROPE: Uterus arcuatus | NON RARE IN EUROPE: Uterus cordiformis			
+ORPHA:180118	Cordiform uterus	Uterus arcuatus | Uterus cordiformis			
 ORPHA:180114	Unicervical bicornuate uterus			C5680490	
 ORPHA:180111	Bicervical bicornuate uterus with patent cervix and vagina			C5680491	
 ORPHA:180134	Bicornuate uterus		Q51.3	C0266387	D000093663
@@ -667,13 +667,13 @@ ORPHA:191	Cockayne syndrome			C0009207	D003057
 ORPHA:180176	Familial juvenile hypertrophy of the breast	Familial juvenile gigantomastia | Virginal breast hypertrophy		C4749285	
 ORPHA:166	Charcot-Marie-Tooth disease/Hereditary motor and sensory neuropathy	CMT/HMSN | Charcot-Marie-Tooth hereditary neuropathy		C0007959	D002607
 ORPHA:180170	Excess breast volume or number			C5680496	
-ORPHA:155	NON RARE IN EUROPE: Familial isolated hypertrophic cardiomyopathy	NON RARE IN EUROPE: Familial isolated hypertrophic obstructive cardiomyopathy | NON RARE IN EUROPE: Familial isolated hypertrophic subaortic stenosis | NON RARE IN EUROPE: Familial or idiopathic hypertrophic subaortic stenosis | NON RARE IN EUROPE: Familila or idiopathic hypertrophic obstructive cardiomyopathy | NON RARE IN EUROPE: Hypertrophic obstructive cardiomyopathy | NON RARE IN EUROPE: Primitive hypertrophic obstructive cardiomyopathy | NON RARE IN EUROPE: Primitive hypertrophic subaortic stenosis			
+ORPHA:155	Familial isolated hypertrophic cardiomyopathy	Familial isolated hypertrophic obstructive cardiomyopathy | Familial isolated hypertrophic subaortic stenosis | Familial or idiopathic hypertrophic subaortic stenosis | Familila or idiopathic hypertrophic obstructive cardiomyopathy | Hypertrophic obstructive cardiomyopathy | Primitive hypertrophic obstructive cardiomyopathy | Primitive hypertrophic subaortic stenosis			
 ORPHA:178551	Aggressive primary cutaneous T-cell lymphoma			C5680497	
 ORPHA:178548	Indolent primary cutaneous T-cell lymphoma			C5680498	
 ORPHA:834	Free sialic acid storage disease	FSASD | Free sialic acid storage disorder		C2931872	C538523
 ORPHA:178557	Indolent primary cutaneous B-cell lymphoma			C5680499	
 ORPHA:178554	Aggressive primary cutaneous B-cell lymphoma			C5680500	
-ORPHA:3135	NON RARE IN EUROPE: Scheuermann's disease	NON RARE IN EUROPE: Scheuermann juvenile kyphosis | NON RARE IN EUROPE: Spinal osteochondrosis			
+ORPHA:3135	Scheuermann's disease	Scheuermann juvenile kyphosis | Spinal osteochondrosis			
 ORPHA:799	Schizencephaly			C0266484	D065707
 ORPHA:178563	Primary cutaneous B-cell lymphoma			C1274310	
 ORPHA:3151	Multiple sclerosis-ichthyosis-factor VIII deficiency syndrome			C4518551	
@@ -716,7 +716,7 @@ ORPHA:178345	Aromatase excess syndrome	AEXS | Familial hyperestrogenism | Heredi
 ORPHA:178355	Smith-McCort dysplasia			C1846431	C564589
 ORPHA:178338	UV-sensitive syndrome			C1833561	C563466
 ORPHA:3137	Alpha-N-acetylgalactosaminidase deficiency	NAGA deficiency | Schindler disease		C5848084	
-ORPHA:3435	NON RARE IN EUROPE: Vitiligo		L80		
+ORPHA:3435	Vitiligo		L80		
 ORPHA:178342	Inflammatory myofibroblastic tumor			C0334121	
 ORPHA:178544	Primary cutaneous diffuse large B-cell lymphoma, leg type	PCDLBCL,LT		C1709656	
 ORPHA:178540	Primary cutaneous follicle center lymphoma	PCFCL	C82.6	C1333171	
@@ -735,7 +735,7 @@ ORPHA:178509	Perry syndrome	Parkinsonism with alveolar hypoventilation and menta
 ORPHA:178506	Interstitial lung disease-brain calcification syndrome	Brain calcification, Rajab type | Developmental delay-brain calcification-interstitial lung disease syndrome | Interstitial lung disease-brain calcification syndrome, Rajab type		C3150910	
 ORPHA:178503	Dursun syndrome	Pulmonary arterial hypertension-leukopenia-atrial septal defect syndrome		C2751630	
 ORPHA:611	Inclusion body myositis	IBM | Sporadic inclusion body myositis | sIBM		C0238190	D018979
-ORPHA:178493	NON RARE IN EUROPE: Myopic macular degeneration	NON RARE IN EUROPE: Myopic maculopathy			
+ORPHA:178493	Myopic macular degeneration	Myopic maculopathy			
 ORPHA:178487	Adult intestinal botulism	Adult intestinal colonization botulism | Adult intestinal toxemia botulism | Adult intestinal toxin-mediated botulism | Infant-like botulism		C4289991	
 ORPHA:581	Mucopolysaccharidosis type 3	MPS3 | MPSIII | Mucopolysaccharidosis type III | Sanfilippo disease | Sanfilippo syndrome		C0026706	D009084
 ORPHA:177926	Bleeding disorder in hemophilia A carriers			C5680504	
@@ -763,7 +763,7 @@ ORPHA:354	GM1 gangliosidosis	Beta-galactosidase-1 deficiency | GLB1 deficiency |
 ORPHA:178320	Acute lung injury			C0242488	D055371
 ORPHA:178315	Undifferentiated embryonal sarcoma of the liver	Embryonal sarcoma of the liver | UES | Undifferentiated sarcoma of the liver		C2205345	
 ORPHA:178333	Åland Islands eye disease	AIED | Forsius-Eriksson syndrome | Forsius-Eriksson type ocular albinism		C0268505	C562664
-ORPHA:362	NON RARE IN EUROPE: Glucose-6-phosphate-dehydrogenase deficiency	NON RARE IN EUROPE: Favism | NON RARE IN EUROPE: G6PD deficiency	D55.0		
+ORPHA:362	Glucose-6-phosphate-dehydrogenase deficiency	Favism | G6PD deficiency	D55.0		
 ORPHA:760	Purine nucleoside phosphorylase deficiency	PNP deficiency | PNPase deficiency	D81.5	C0268125	C562587
 ORPHA:178330	OBSOLETE: Heinz body anemia				
 ORPHA:270	Oculopharyngeal muscular dystrophy	OPMD		C0270952	D039141
@@ -818,7 +818,7 @@ ORPHA:3165	Eosinophilic fasciitis	Diffuse fasciitis with eosinophilia | Shulman 
 ORPHA:2420	Primary pulmonary lymphoma			C4273669	
 ORPHA:727	Microscopic polyangiitis	MPA | Micropolyangiitis | Microscopic polyarteritis	M31.7	C2347126	D055953
 ORPHA:900	Granulomatosis with polyangiitis	GPA | Wegener granulomatosis	M31.3	C3495801	D014890
-ORPHA:3185	NON RARE IN EUROPE: Polycystic ovary syndrome	NON RARE IN EUROPE: PCOS | NON RARE IN EUROPE: Polycystic ovarian syndrome | NON RARE IN EUROPE: Stein-Leventhal syndrome	E28.2		
+ORPHA:3185	Polycystic ovary syndrome	PCOS | Polycystic ovarian syndrome | Stein-Leventhal syndrome	E28.2		
 ORPHA:863	Trichinellosis	Trichinosis	B75	C0040896	D014235
 ORPHA:171695	Parkinsonian-pyramidal syndrome	Pallidopyramidal syndrome		C1850100	C538104
 ORPHA:134	Beta-ketothiolase deficiency	3-ketothiolase deficiency | 3-oxothiolase deficiency | Alpha methylacetoacetic aciduria | Alpha-methyl-acetoacetyl-CoA thiolase deficiency | Mitochondrial acetoacetyl-coenzyme A thiolase deficiency | T2 deficiency		C1536500	C535434
@@ -833,7 +833,7 @@ ORPHA:1163	Aspergillosis			C0004030	D001228
 ORPHA:171723	White sponge nevus	Hereditary mucosal leukokeratosis | White sponge nevus of Cannon		C1721005	D053529
 ORPHA:3467	Hereditary xanthinuria	Classic xanthinuria | Xanthic urolithiasis | Xanthine stone disease		C5779508	
 ORPHA:171673	Limbal stem cell deficiency			C1561989	D000092423
-ORPHA:171676	NON RARE IN EUROPE: Periventricular leukomalacia		P91.2		
+ORPHA:171676	Periventricular leukomalacia		P91.2		
 ORPHA:171680	Lissencephaly due to TUBA1A mutation			C4305153	
 ORPHA:511	Maple syrup urine disease	BCKD deficiency | BCKDH deficiency | Branched-chain 2-ketoacid dehydrogenase deficiency | Branched-chain ketoaciduria | MSUD	E71.0	C0024776	D008375
 ORPHA:32	Glutathione synthetase deficiency	Pyroglutamicaciduria		C0398746	C536835
@@ -876,7 +876,7 @@ ORPHA:486	Autosomal dominant severe congenital neutropenia			C4749612
 ORPHA:1209	Tricuspid atresia			C0243002	D018785
 ORPHA:199647	Isolated encephalocele			C5680519	D004677
 ORPHA:98	Autosomal recessive spastic ataxia of Charlevoix-Saguenay	ARSACS | Autosomal recessive spastic ataxia type 6 | SPAX6		C1849140	C536787
-ORPHA:1480	NON RARE IN EUROPE: Ventricular septal defect	NON RARE IN EUROPE: Interventricular communication | NON RARE IN EUROPE: VSD	Q21.0		
+ORPHA:1480	Ventricular septal defect	Interventricular communication | VSD	Q21.0		
 ORPHA:1478	Interatrial communication	ASD | Atrial septal defect | Interauricular communication	Q21.1	C0018817	D006344
 ORPHA:330	Congenital factor XII deficiency	Congenital Hageman factor deficiency		C0015526	D005175
 ORPHA:1482	Gonococcal conjunctivitis		A54.3+	C5779547	D009878
@@ -914,7 +914,7 @@ ORPHA:199630	Isolated cerebellar vermis hypoplasia			C4707794
 ORPHA:199627	Atypical autism		F84.1	C0338986	
 ORPHA:1249	OBSOLETE: Binswanger disease				
 ORPHA:199293	Congenital microgastria			C0266150	
-ORPHA:1983	NON RARE IN EUROPE: Chronic fatigue syndrome	NON RARE IN EUROPE: Chronic fatigue immune dysfunction syndrome | NON RARE IN EUROPE: Myalgic encephalomyelitis			
+ORPHA:1983	Chronic fatigue syndrome	Chronic fatigue immune dysfunction syndrome | Myalgic encephalomyelitis			
 ORPHA:3452	Whipple disease	Intestinal lipodystrophy		C0023788	D008061
 ORPHA:199282	Harlequin syndrome	Progressive isolated segmental anhidrosis		C2029348	C535634
 ORPHA:199285	Hereditary hypercarotenemia and vitamin A deficiency			C4511672	
@@ -964,7 +964,7 @@ ORPHA:3111	Rotor syndrome	Hyperbilirubinemia, Rotor type		C0220991
 ORPHA:2382	Lennox-Gastaut syndrome			C0238111	D065768
 ORPHA:2806	Subacute sclerosing leukoencephalitis	Dawson encephalitis | SSPE | Subacute inclusion body encephalitis | Subacute sclerosing panencephalitis | Van Bogaert disease | Van Bogaert encephalitis		C0038522	D013344
 ORPHA:2467	Systemic mastocytosis		C96.2	C0221013	D034721
-ORPHA:120	NON RARE IN EUROPE: Pernicious anemia	NON RARE IN EUROPE: Acquired pernicious anemia | NON RARE IN EUROPE: Addison-Biermer anemia | NON RARE IN EUROPE: Addisonian anemia | NON RARE IN EUROPE: Biermer anemia | NON RARE IN EUROPE: Biermer disease | NON RARE IN EUROPE: Juvenile onset pernicious anemia	D51.0		
+ORPHA:120	Pernicious anemia	Acquired pernicious anemia | Addison-Biermer anemia | Addisonian anemia | Biermer anemia | Biermer disease | Juvenile onset pernicious anemia	D51.0		
 ORPHA:1934	Early infantile developmental and epileptic encephalopathy	EIDEE | Early infantile epileptic encephalopathy with suppression-bursts | Ohtahara syndrome		C0393706	
 ORPHA:845	Tay-Sachs disease	Beta-hexosaminidase subunit alpha deficiency | GM2 gangliosidosis, Tay-Sachs variant | GM2 gangliosidosis, hexosaminidase A deficiency variant | HEXA disorder		C0039373	D013661
 ORPHA:1942	Epilepsy with myoclonic-atonic seizures	Doose syndrome | EMAS | EMAtS | Epilepsy with myoclonic-astatic seizures | MAE | Myoclonic atonic epilepsy | Myoclonic-astatic epilepsy in early childhood		C0393702	
@@ -986,7 +986,7 @@ ORPHA:2932	Chronic inflammatory demyelinating polyneuropathy	CIDP | Chronic infl
 ORPHA:2398	Multiple symmetric lipomatosis	Cephalothoracic lipodystrophy | Familial benign cervical lipomatosis | Launois-Bensaude lipomatosis | Madelung disease		C0023804	D008069
 ORPHA:1656	Dermatitis herpetiformis	Duhring-Brocq disease	L13.0	C0011608	D003874
 ORPHA:183763	Rare genetic syndromic intellectual disability			C5680525	
-ORPHA:855	NON RARE IN EUROPE: Hashimoto thyroiditis	NON RARE IN EUROPE: Hashimoto hypothyroidism | NON RARE IN EUROPE: Hashimoto struma	E06.3		
+ORPHA:855	Hashimoto thyroiditis	Hashimoto hypothyroidism | Hashimoto struma	E06.3		
 ORPHA:183770	Rare genetic immune disease			C5680526	
 ORPHA:850	May-Hegglin thrombocytopenia	MHA | May-Hegglin anomaly | May-Hegglin syndrome			
 ORPHA:3198	Stiff person spectrum disorder	Moersch-Woltman syndrome | SMS | SPS | Stiff man spectrum disorder		C0085292	
@@ -1026,7 +1026,7 @@ ORPHA:2380	Legg-Calvé-Perthes disease	Aseptic necrosis of the capital femoral e
 ORPHA:683	Progressive supranuclear palsy	PSP syndrome	G23.1	C0038868	D013494
 ORPHA:677	Pancreatoblastoma			C0334489	C537162
 ORPHA:183734	Genetic gynecological tumor			C5680531	
-ORPHA:2810	NON RARE IN EUROPE: Idiopathic facial palsy	NON RARE IN EUROPE: Bell palsy	G51.0		
+ORPHA:2810	Idiopathic facial palsy	Bell palsy	G51.0		
 ORPHA:183651	Rare constitutional anemia			C5680532	
 ORPHA:183660	Severe combined immunodeficiency	SCID		C0085110	D016511
 ORPHA:897	Waardenburg-Shah syndrome	Shah-Waardenburg syndrome | WS4 | Waardenburg syndrome type 4 | Waardenburg-Hirschsprung syndrome		C1848519	C536467
@@ -1104,7 +1104,7 @@ ORPHA:183494	Genetic immune deficiency with skin involvement			C5680569
 ORPHA:146	Differentiated thyroid carcinoma	Papillary or follicular thyroid carcinoma | Well-differentiated thyroid carcinoma		C1337013	
 ORPHA:183484	Genetic subcutaneous tissue disorder			C5680570	
 ORPHA:183487	Genetic skin tumor or hamartoma			C5680571	
-ORPHA:1331	NON RARE IN EUROPE: Familial prostate cancer			C2931456	C537243
+ORPHA:1331	Familial prostate cancer			C2931456	C537243
 ORPHA:183478	Genetic skin vascular disorder			C5680572	
 ORPHA:183481	Genetic mixed dermis disorder			C5680573	
 ORPHA:157	Carnitine palmitoyltransferase II deficiency	CPT2 | CPTII | Carnitine palmitoyltransferase deficiency type 2		C0342790	C535589
@@ -1188,7 +1188,7 @@ ORPHA:776	Lujan-Fryns syndrome	X-linked intellectual disability with marfanoid h
 ORPHA:181399	Rare hyperthyroidism			C5680610	
 ORPHA:670	PIBIDS syndrome	Trichothiodystrophy type F | Trichothiodystrophy-sun sensitivity syndrome		C1866504	
 ORPHA:181402	Syndrome with hypoparathyroidism			C5680611	
-ORPHA:907	NON RARE IN EUROPE: Wolff-Parkinson-White syndrome	NON RARE IN EUROPE: Ventricular familial preexcitation syndrome			
+ORPHA:907	Wolff-Parkinson-White syndrome	Ventricular familial preexcitation syndrome			
 ORPHA:181393	Growth hormone insensitivity syndrome	GHIS | Short stature due to a defect in growth hormone receptor or post-receptor pathway		C4318479	
 ORPHA:902	Werner syndrome	Adult progeria | WS		C0043119	D014898
 ORPHA:181396	Rare hypothyroidism			C5680612	
@@ -1218,7 +1218,7 @@ ORPHA:657	Congenital isolated hyperinsulinism	PHHI | Persistent hyperinsulinemic
 ORPHA:2445	Conotruncal heart malformations			C1857586	C535464
 ORPHA:2495	Meningioma			C0025286	D008579
 ORPHA:569	Familial or sporadic hemiplegic migraine			C0270862	
-ORPHA:323	NON RARE IN EUROPE: FG syndrome phenotypic spectrum				
+ORPHA:323	FG syndrome phenotypic spectrum				
 ORPHA:2014	Cleft palate		Q35	C0008925	D002972
 ORPHA:240	Léri-Weill dyschondrosteosis	Léri-Weill syndrome		C0265309	C537119
 ORPHA:2311	Autosomal recessive spondylocostal dysostosis	Jarcho-Levin syndrome		C0265343	C537565
@@ -1240,7 +1240,7 @@ ORPHA:1581	Non-distal deletion 10q syndrome	Non-distal monosomy 10q | Non-telome
 ORPHA:1580	Distal deletion 10p syndrome	Distal monosomy 10p | Monosomy 10pter | Telomeric deletion 10p		C4304502	
 ORPHA:1437	Ring chromosome 1 syndrome	Ring 1 | Ring chromosome 1 | r(1) syndrome		C0265395	C535361
 ORPHA:172	Progressive familial intrahepatic cholestasis	PFIC			
-ORPHA:164	NON RARE IN EUROPE: Cerebral cavernous malformations	NON RARE IN EUROPE: Brain cavernous angioma | NON RARE IN EUROPE: Brain cavernous hemangioma | NON RARE IN EUROPE: Cerebral cavernoma			
+ORPHA:164	Cerebral cavernous malformations	Brain cavernous angioma | Brain cavernous hemangioma | Cerebral cavernoma			
 ORPHA:1447	Ring chromosome 4 syndrome	Syndrome r(4) | r(4) syndrome | Ring 4 | Ring chromosome 4		C0265407	C537636
 ORPHA:1444	Ring chromosome 20 syndrome	Ring 20 | Ring chromosome 20		C0265482	C580424
 ORPHA:1439	Ring chromosome 12 syndrome	Ring 12 | Ring chromosome 12		C5201040	
@@ -1489,7 +1489,7 @@ ORPHA:1278	Brachydactyly-preaxial hallux varus syndrome			C4518542
 ORPHA:137599	Herpes simplex virus stromal keratitis			C1301533	
 ORPHA:137602	Corneal endotheliitis			C0423262	
 ORPHA:1166	Congenital unilateral hypoplasia of depressor anguli oris	Isolated asymmetric crying facies		C0431406	C535349
-ORPHA:137820	NON RARE IN EUROPE: Extrapelvic endometriosis	NON RARE IN EUROPE: Endometriosis outside pelvis		C0404545	
+ORPHA:137820	Extrapelvic endometriosis	Endometriosis outside pelvis		C0404545	
 ORPHA:1168	Ataxia-oculomotor apraxia type 1	AOA1		C1859598	C538013
 ORPHA:1160	Chylous ascites			C0008732	D002915
 ORPHA:137817	Arachnoiditis	Adhesive arachnoiditis | Chronic arachnoiditis		C0003708	D001100
@@ -1804,7 +1804,7 @@ ORPHA:1647	Oculocerebrocutaneous syndrome	Delleman syndrome | Delleman-Oorthuys 
 ORPHA:139485	Autosomal recessive ataxia due to ubiquinone deficiency	ARCA2 | Autosomal recessive ataxia due to coenzyme Q10 deficiency | Autosomal recessive cerebellar ataxia type 2 | Autosomal recessive spinocerebellar ataxia type 9 | SCAR9		C2677589	C567436
 ORPHA:139491	OBSOLETE: Hemochromatosis type 4	OBSOLETE: Autosomal dominant hereditary hemochromatosis | OBSOLETE: Ferroportin disease | OBSOLETE: Hemochromatosis due to defect in ferroportin			
 ORPHA:1653	Dentin dysplasia	DD		C0011430	D003805
-ORPHA:139498	NON RARE IN EUROPE: Hemochromatosis type 1	NON RARE IN EUROPE: C282Y/C282Y hemochromatosis | NON RARE IN EUROPE: Classic hemochromatosis | NON RARE IN EUROPE: HFE-related hemochromatosis			
+ORPHA:139498	Hemochromatosis type 1	C282Y/C282Y hemochromatosis | Classic hemochromatosis | HFE-related hemochromatosis			
 ORPHA:1651	OBSOLETE: Dennis-Cohen syndrome				
 ORPHA:139507	Dietary iron overload disease	African iron overload | Bantu siderosis		C0268063	C537904
 ORPHA:1654	OBSOLETE: Natal teeth-intestinal pseudoobstruction-patent ductus syndrome				
@@ -2082,7 +2082,7 @@ ORPHA:2077	German syndrome	Hypotonia-arthrogryposis-facial dysmorphism-lymphedem
 ORPHA:157973	Congenital muscular dystrophy due to LMNA mutation	L-CMD | LMNA-related congenital muscular dystrophy		C2750785	C567708
 ORPHA:2085	Glaucoma-sleep apnea syndrome			C4304308	
 ORPHA:2084	Glaucoma-ectopia lentis-microspherophakia-stiff joints-short stature syndrome	GEMSS syndrome		C2931588	C537679
-ORPHA:157980	NON RARE IN EUROPE: Bladder cancer				
+ORPHA:157980	Bladder cancer				
 ORPHA:157965	SLC39A13-related spondylodysplastic Ehlers-Danlos syndrome	SCD-EDS | SLC39A13-related spEDS | SLC39A13-related spondylodysplastic EDS | Spondylocheirodysplastic Ehlers-Danlos syndrome | spEDS-SLC39A13		C2676510	C567340
 ORPHA:2083	Prominent glabella-microcephaly-hypogenitalism syndrome	MacDermot-Winter syndrome		C0796024	C537714
 ORPHA:2081	Cerebral gigantism-jaw cysts syndrome	Cramer-Niederdellmann syndrome			
@@ -2198,7 +2198,7 @@ ORPHA:730415	Complex neurodevelopmental disorder with unspecific dysmorphic feat
 ORPHA:247604	Juvenile primary lateral sclerosis	JPLS | Juvenile PLS		C1853396	C536416
 ORPHA:730418	Complex neurodevelopmental disorder with unspecific dysmorphic features/congenital anomalies without ID/ASD of genetic/genomic origin				
 ORPHA:247623	Perinatal lethal hypophosphatasia	Perinatal lethal Rathbun disease | Perinatal lethal phosphoethanolaminuria		C2673477	C567107
-ORPHA:2335	NON RARE IN EUROPE: Isolated keratoconus				
+ORPHA:2335	Isolated keratoconus				
 ORPHA:730657	Calmodulin-related catecholaminergic polymorphic ventricular tachycardia	Calmodulin-related CPVT | Calmodulin-related malignant paroxysmal ventricular tachycardia | Calmodulin-related polymorphic ventricular tachycardia induced by catecholamines | Calmodulin-related bidirectional ventricular tachycardia induced by catecholamines			
 ORPHA:247638	Prenatal benign hypophosphatasia	Prenatal benign Rathbun disease | Prenatal benign phosphoethanolaminuria		C5679616	
 ORPHA:2338	Isolated punctate palmoplantar keratoderma	Isolated punctate PPK | Isolated punctate palmoplantar hyperkeratosis		C5679617	
@@ -2300,8 +2300,8 @@ ORPHA:1019	Epstein syndrome	Alport syndrome with macrothrombocytopenia		C0398641
 ORPHA:243343	Dimethylglycine dehydrogenase deficiency	DMG dehydrogenase deficiency | DMGDH deficiency		C1853892	C565278
 ORPHA:243367	Acute fatty liver of pregnancy	AFLP		C1455728	C537957
 ORPHA:2435	Hypo- and hypermelanotic cutaneous macules-retarded growth-intellectual disability syndrome	Westerhof-Beemer-Cormane syndrome		C1835172	C537836
-ORPHA:243377	NON RARE IN EUROPE: Diabetes mellitus type 1	NON RARE IN EUROPE: Insulin-dependent diabetes mellitus	E10		
-ORPHA:243761	NON RARE IN EUROPE: Essential hypertension		I10		
+ORPHA:243377	Diabetes mellitus type 1	Insulin-dependent diabetes mellitus	E10		
+ORPHA:243761	Essential hypertension		I10		
 ORPHA:2429	Macrocephaly-spastic paraplegia-dysmorphism syndrome	Fryns macrocephaly		C1838281	C563963
 ORPHA:2432	Macrosomia-microphthalmia-cleft palate syndrome	Teebi-Al Saleh-Hassoon syndrome		C4721892	C537830
 ORPHA:2419	Lymphedema-ptosis syndrome				
@@ -2363,7 +2363,7 @@ ORPHA:2196	Primary hypomagnesemia with hypercalciuria and nephrocalcinosis with 
 ORPHA:251852	Embryonal tumor of neuroepithelial tissue			C5680699	
 ORPHA:251576	Gliosarcoma			C0206726	D018316
 ORPHA:251561	High-grade astrocytoma				
-ORPHA:387	NON RARE IN EUROPE: Hidradenitis suppurativa	NON RARE IN EUROPE: Acne inversa | NON RARE IN EUROPE: Ectopic acne | NON RARE IN EUROPE: Fox den disease | NON RARE IN EUROPE: Pyoderma fistulans significa | NON RARE IN EUROPE: Verneuil disease	L73.2		
+ORPHA:387	Hidradenitis suppurativa	Acne inversa | Ectopic acne | Fox den disease | Pyoderma fistulans significa | Verneuil disease	L73.2		
 ORPHA:251582	Gliomatosis cerebri			C0334576	
 ORPHA:2150	Hirschsprung disease-type D brachydactyly syndrome			C4303481	C538319
 ORPHA:2152	Mowat-Wilson syndrome	Hirschsprung disease-intellectual disability syndrome		C1856113	C536990
@@ -2400,7 +2400,7 @@ ORPHA:251940	Desmoplastic infantile astrocytoma/ganglioglioma	DIA/DIG		C4757951
 ORPHA:251946	Dysembryoplastic neuroepithelial tumor	DNET		C1266177	
 ORPHA:2228	Hypodontia-dysplasia of nails syndrome	Hypodontia-nail dysgenesis syndrome | Tooth and nail syndrome | Witkop syndrome		C0406735	C536736
 ORPHA:251934	Mixed neuronal-glial tumor			C5680701	
-ORPHA:2227	NON RARE IN EUROPE: Hypodontia	NON RARE IN EUROPE: Tooth agenesis			
+ORPHA:2227	Hypodontia	Tooth agenesis			
 ORPHA:251937	Gangliocytoma			C5779630	
 ORPHA:2224	Hypertryptophanemia			C2931837	C563467
 ORPHA:2232	Primary hypergonadotropic hypogonadism-partial alopecia syndrome	Al Awadi-Farag-Teebi syndrome		C2931374	C536949
@@ -2760,7 +2760,7 @@ ORPHA:726053	Congenital amegakaryocytic thrombocytopenia without known causal ge
 ORPHA:2790	Endosteal hyperostosis, Worth type	Autosomal dominant osteosclerosis, Worth type | Worth syndrome		C0432273	C536748
 ORPHA:254509	Iatrogenic botulism	Inadvertent botulism		C4288922	
 ORPHA:254411	Annular atrophic lichen planus	Annular atrophic LP		C4304037	
-ORPHA:1306	NON RARE IN EUROPE: Buschke-Ollendorff syndrome	NON RARE IN EUROPE: Disseminated dermatofibrosis with osteopoikilosis			
+ORPHA:1306	Buschke-Ollendorff syndrome	Disseminated dermatofibrosis with osteopoikilosis			
 ORPHA:726047	Congenital amegakaryocytic thrombocytopenia-MPL	CAMT-MPL | Congenital amegakaryocytic thrombocytopenia due to MPL | Congenital amegakaryocytic thrombocytopenia-MPL protooncogene, thrombopoietin receptor			
 ORPHA:254424	Annular lichen planus	Annular LP		C0406363	
 ORPHA:2783	Autosomal dominant osteopetrosis type 1			C1843330	C536056
@@ -2822,7 +2822,7 @@ ORPHA:726824	Hepatorenocardiac degenerative fibrosis	HRCDF
 ORPHA:261718	OBSOLETE: Anomaly of chromosome 8				
 ORPHA:726812	Self limited focal childhood epilepsy	SFEC			
 ORPHA:261715	OBSOLETE: Anomaly of chromosome 7				
-ORPHA:619	NON RARE IN EUROPE: Primary ovarian failure	NON RARE IN EUROPE: Hypergonadotropic ovarian failure | NON RARE IN EUROPE: Premature menopause | NON RARE IN EUROPE: Premature ovarian failure | NON RARE IN EUROPE: Premature ovarian insufficiency | NON RARE IN EUROPE: Primary ovarian insufficiency	E28.3		
+ORPHA:619	Primary ovarian failure	Hypergonadotropic ovarian failure | Premature menopause | Premature ovarian failure | Premature ovarian insufficiency | Primary ovarian insufficiency	E28.3		
 ORPHA:726837	Hematohidrosis	Hematidrosis | Haematidrosis | Hemidrosis			
 ORPHA:261712	OBSOLETE: Anomaly of chromosome 6				
 ORPHA:2491	Müllerian duct anomalies-limb anomalies syndrome			C4274837	
@@ -3144,7 +3144,7 @@ ORPHA:263534	Acral peeling skin syndrome	Acral PSS | Localized PSS | PSS 2 | Pee
 ORPHA:263543	Generalized peeling skin syndrome	Generalized deciduous skin | Generalized PSS		C4305156	
 ORPHA:263516	Progressive myoclonic epilepsy type 3	EPM3 | PME type 3 | Progressive myoclonic epilepsy due to KCTD7 deficiency | Progressive myoclonus epilepsy type 3		C2673257	C567095
 ORPHA:263524	Acute necrotizing encephalopathy of childhood	ANEC | Isolated ANE | Isolated acute necrotizing encephalopathy		C4706387	
-ORPHA:3029	NON RARE IN EUROPE: Horseshoe kidney		Q63.1		
+ORPHA:3029	Horseshoe kidney		Q63.1		
 ORPHA:263501	COG4-CDG	CDG syndrome type IIj | CDG-IIj | CDG2J | Carbohydrate deficient glycoprotein syndrome type IIj | Congenital disorder of glycosylation type 2j | Congenital disorder of glycosylation type IIj		C4303552	
 ORPHA:3026	Radial ray hypoplasia-choanal atresia syndrome	Goldblatt-Viljoen syndrome		C2931464	C537280
 ORPHA:263508	COG1-CDG	CDG syndrome type IIg | CDG-IIg | CDG2G | Carbohydrate deficient glycoprotein syndrome type IIg | Congenital disorder of glycosylation type 2g | Congenital disorder of glycosylation type IIg		C2931011	C535756
@@ -3616,7 +3616,7 @@ ORPHA:268940	Bilateral polymicrogyria			C4707565
 ORPHA:268943	Unilateral polymicrogyria			C4024960	
 ORPHA:3416	Hyperostosis corticalis generalisata	Hyperphosphatasemia tarda | Van Buchem disease		C0432272	
 ORPHA:268926	Midline cerebral malformation	Midline brain malformation		C5679771	
-ORPHA:1244	NON RARE IN EUROPE: Bicuspid aortic valve				
+ORPHA:1244	Bicuspid aortic valve				
 ORPHA:268936	Isolated arhinencephaly		Q04.1	C4749732	
 ORPHA:3421	Cerebroretinal vasculopathy	CRV | Grand-Kaine-Fulling syndrome			
 ORPHA:3419	OBSOLETE: Van Regemorter-Pierquin-Vamos syndrome				
@@ -3699,7 +3699,7 @@ ORPHA:280065	Calciphylaxis cutis			C4274083
 ORPHA:647	Nijmegen breakage syndrome	AT V1 | Ataxia-telangiectasia, variant 1 | Berlin breakage syndrome | Immunodeficiency-microcephaly-chromosomal instability syndrome | Microcephaly-immunodeficiency-lymphoid malignancy syndrome | NBS | Seemanova syndrome type 2		C0398791	D049932
 ORPHA:280062	Calciphylaxis			C0006666	D002115
 ORPHA:279947	Postorgasmic illness syndrome	POIS		C4749582	
-ORPHA:3153	NON RARE IN EUROPE: Adolescent idiopathic scoliosis				
+ORPHA:3153	Adolescent idiopathic scoliosis				
 ORPHA:279943	Hereditary neutrophilia			C0543669	C563010
 ORPHA:279934	Mitochondrial DNA depletion syndrome, hepatocerebral form due to DGUOK deficiency			C5191055	
 ORPHA:3152	Sclerosteosis	Cortical hyperostosis-syndactyly syndrome		C0265301	C537525
@@ -3711,7 +3711,7 @@ ORPHA:280142	Combined immunodeficiency due to LCK deficiency	CID due to LCK defi
 ORPHA:3168	Sillence syndrome			C1862092	C537338
 ORPHA:280133	Complement component 3 deficiency	C3 deficiency		C1332655	
 ORPHA:3163	SHORT syndrome	Lipodystrophy-Rieger anomaly-diabetes syndrome | Rieger anomaly-partial lipodystrophy syndrome		C0878684	C537327
-ORPHA:280110	NON RARE IN EUROPE: Paget disease of bone	NON RARE IN EUROPE: Osteitis deformans			
+ORPHA:280110	Paget disease of bone	Osteitis deformans			
 ORPHA:1479	Atrial septal defect-atrioventricular conduction defects syndrome			C4510872	
 ORPHA:3156	Senior-Loken syndrome	Nephronophthisis with retinal dystrophy | Renal dysplasia-retinal aplasia syndrome | SLSN		C0403553	C537580
 ORPHA:280071	ALG11-CDG	CDG syndrome type Ip | CDG-Ip | CDG1P | Carbohydrate deficient glycoprotein syndrome type Ip | Congenital disorder of glycosylation type 1p | Congenital disorder of glycosylation type Ip		C3150913	
@@ -3756,7 +3756,7 @@ ORPHA:3274	Granulomatous arthritis of childhood	Autoinflammatory granulomatosis 
 ORPHA:3275	Spondylocarpotarsal synostosis	Synspondylism		C1848934	C535780
 ORPHA:3284	OBSOLETE: Tachycardia-hypertension-microphthalmos-hyperglycinuria syndrome				
 ORPHA:425	Apolipoprotein A-I deficiency	ApoA-I deficiency | Familial apoA-I deficiency | Familial hypoalphalipoproteinemia		C0342898	
-ORPHA:3289	NON RARE IN EUROPE: Taurodontism				
+ORPHA:3289	Taurodontism				
 ORPHA:3291	Teebi-Shaltout syndrome			C1848912	C536950
 ORPHA:3293	Telecanthus-hypertelorism-strabismus-pes cavus syndrome			C2931549	
 ORPHA:3292	Tel Hashomer camptodactyly syndrome	Camptodactyly-muscular hypoplasia-skeletal anomalies-abnormal palmar creases syndrome		C1859356	C536953
@@ -3808,7 +3808,7 @@ ORPHA:276399	Familial multinodular goiter	FMNG | Familial MNG | Familial multino
 ORPHA:276267	OBSOLETE: Xeroderma pigmentosum complementation group G	OBSOLETE: XPG			
 ORPHA:3238	Cardiospondylocarpofacial syndrome	Forney syndrome | Forney-Robinson-Pascoe syndrome | Mitral regurgitation-deafness-skeletal anomalies syndrome | Mitral regurgitation-hearing loss-skeletal anomalies syndrome		C2931461	C537269
 ORPHA:3237	Multiple synostoses syndrome	Deafness-Hermann type symphalangism syndrome | Facio-audio-symphalangism | Hearing loss-Hermann type symphalangism syndrome | Symphalangism-brachydactyly syndrome | WL syndrome		C0175700	
-ORPHA:276271	NON RARE IN EUROPE: Familial dysalbuminemic hyperthyroxinemia	NON RARE IN EUROPE: Analbuminemia | NON RARE IN EUROPE: Bisalbuminemia | NON RARE IN EUROPE: FDH			
+ORPHA:276271	Familial dysalbuminemic hyperthyroxinemia	Analbuminemia | Bisalbuminemia | FDH			
 ORPHA:3246	Symphalangism with multiple anomalies of hands and feet	Learman syndrome		C1861391	C566098
 ORPHA:276413	10q22.3q23.3 microdeletion syndrome	Del(10)(q22.3q23.3) | Deletion 10q22.3q23.3 | Monosomy 10q22.3q23.3		C4749270	
 ORPHA:276402	OBSOLETE: Limbic encephalitis with caspr2 antibodies				
@@ -3829,7 +3829,7 @@ ORPHA:3325	Classic heparin-induced thrombocytopenia	Classic HAT | Classic HIT | 
 ORPHA:746	Mitochondrial trifunctional protein deficiency	TFP deficiency | TFPD		C1969443	C566945
 ORPHA:943	Malonic aciduria	Deficiency of malonyl-CoA decarboxylase | MLYCD deficiency | Malonic acidemia | Malonyl-CoA decarboxylase deficiency		C0342793	C535702
 ORPHA:621	Autosomal recessive methemoglobinemia			C0272087	C580280
-ORPHA:1002	NON RARE IN EUROPE: Cluster headache	NON RARE IN EUROPE: Ciliary neuralgia | NON RARE IN EUROPE: Cluster migraine | NON RARE IN EUROPE: Erythromelalgia of the head | NON RARE IN EUROPE: Erythroprosopalgia of Bing | NON RARE IN EUROPE: Histamine cephalalgia | NON RARE IN EUROPE: Histamine headache | NON RARE IN EUROPE: Histaminic cephalalgia | NON RARE IN EUROPE: Horton headache | NON RARE IN EUROPE: Migrainous neuralgia | NON RARE IN EUROPE: Red migraine	G44.0		
+ORPHA:1002	Cluster headache	Ciliary neuralgia | Cluster migraine | Erythromelalgia of the head | Erythroprosopalgia of Bing | Histamine cephalalgia | Histamine headache | Histaminic cephalalgia | Horton headache | Migrainous neuralgia | Red migraine	G44.0		
 ORPHA:2089	Glycogen storage disease due to hepatic glycogen synthase deficiency	GSD due to hepatic glycogen synthase deficiency | GSD type 0a | Glycogen storage disease due to liver glycogen synthase deficiency | Glycogen storage disease type 0a | Glycogenosis type 0a		C4510753	
 ORPHA:412	Dysbetalipoproteinemia	Broad-beta disease | Familial dyslipidemia type 3 | HLP type 3 | Hyperlipidemia type 3 | Hyperlipoproteinemia type 3 | Remnant hyperlipoproteinemia		C0020479	D006952
 ORPHA:743	Severe hereditary thrombophilia due to congenital protein S deficiency	Autosomal recessive thrombophilia due to congenital protein S deficiency		C2584611	
@@ -3898,7 +3898,7 @@ ORPHA:206704	Bulbospinal muscular atrophy of childhood			C5680797
 ORPHA:206966	Mitochondrial myopathy		G71.3	C0162670	D017240
 ORPHA:229	Familial aortic dissection	Annuloaortic ectasia | Cystic medial necrosis of aorta		C0345050	
 ORPHA:206959	Muscular glycogenosis	Glycogen storage myopathy		C5679786	
-ORPHA:279	NON RARE IN EUROPE: Age-related macular degeneration				
+ORPHA:279	Age-related macular degeneration				
 ORPHA:777	X-linked non-syndromic intellectual disability			C3501611	
 ORPHA:206953	Muscular lipidosis	Lipid storage myopathy		C0410214	C562935
 ORPHA:766	Hemolytic anemia due to red cell pyruvate kinase deficiency	Pyruvate kinase deficiency of erythrocytes		C0340968	C564858
@@ -3938,7 +3938,7 @@ ORPHA:3095	Atypical Rett syndrome	Atypical RTT | Rett syndrome variant		C2748910
 ORPHA:2326	Kallmann syndrome-heart disease syndrome			C4302897	
 ORPHA:207094	Laminin subunit alpha 2-related muscular dystrophy	LAMA2-related muscular dystrophy | Qualitative or quantitative defects of merosin		C5679788	
 ORPHA:207098	Qualitative or quantitative defects of integrin alpha-7	Integrinopathy		C5679789	
-ORPHA:378	NON RARE IN EUROPE: Sjögren syndrome	NON RARE IN EUROPE: Sicca syndrome | NON RARE IN EUROPE: Sjögren-Gougerot syndrome	M35.0		
+ORPHA:378	Sjögren syndrome	Sicca syndrome | Sjögren-Gougerot syndrome	M35.0		
 ORPHA:207067	Qualitative or quantitative defects of gamma-sarcoglycan			C5680805	
 ORPHA:1130	Arachnodactyly-intellectual disability-dysmorphism syndrome	De Die-Smulders-Vles-Fryns syndrome		C4304030	
 ORPHA:207070	Qualitative or quantitative defects of delta-sarcoglycan			C5680806	
@@ -4066,7 +4066,7 @@ ORPHA:209030	Qualitative or quantitative defects of protein O-mannosyltransferas
 ORPHA:209027	Qualitative or quantitative defects of protein glycosyltransferase-like			C5680850	
 ORPHA:209038	Qualitative or quantitative defects of myofibrillar proteins			C5680851	
 ORPHA:209033	Qualitative or quantitative defects of protein O-mannosyltransferase 2			C5680852	
-ORPHA:489	NON RARE IN EUROPE: Thyroglossal duct cyst	NON RARE IN EUROPE: Thyroglossal tract cyst			
+ORPHA:489	Thyroglossal duct cyst	Thyroglossal tract cyst			
 ORPHA:1167	OBSOLETE: Facial asymmetry-temporal seizures syndrome				
 ORPHA:210110	Intermediate osteopetrosis	Autosomal recessive intermediate osteopetrosis		C0432261	
 ORPHA:3405	Umbilical cord ulceration-intestinal atresia syndrome			C4304396	C536938
@@ -4074,7 +4074,7 @@ ORPHA:210115	Sterile multifocal osteomyelitis with periostitis and pustulosis	Au
 ORPHA:1884	Ectopia lentis-chorioretinal dystrophy-myopia syndrome	Noble-Bass-Sherman syndrome		C2931115	C536124
 ORPHA:209981	IRIDA syndrome	Iron-refractory iron deficiency anemia		C0085576	C562385
 ORPHA:1459	Celiac disease-epilepsy-cerebral calcification syndrome	CEC		C4302597	
-ORPHA:209989	NON RARE IN EUROPE: Non-papillary transitional cell carcinoma of the bladder	NON RARE IN EUROPE: Non-papillary urothelial carcinoma		C5679798	
+ORPHA:209989	Non-papillary transitional cell carcinoma of the bladder	Non-papillary urothelial carcinoma		C5679798	
 ORPHA:3360	OBSOLETE: Trichodermal syndrome-intellectual disability syndrome	OBSOLETE: Katsantoni-Papadakou Lagoyanni syndrome			
 ORPHA:210133	Leukonychia totalis-acanthosis-nigricans-like lesions-abnormal hair syndrome			C4751169	
 ORPHA:210136	Pulmonary fibrosis-hepatic hyperplasia-bone marrow hypoplasia syndrome			C4510085	
@@ -4096,7 +4096,7 @@ ORPHA:2033	OBSOLETE: Multifocal muscular fibrosis-obstructed vessels syndrome
 ORPHA:209905	Brain-lung-thyroid syndrome	Choreoathetosis-hypothyroidism-neonatal respiratory distress syndrome		C1970269	C567034
 ORPHA:2458	OBSOLETE: Mandibulofacial dysostosis-deafness-postaxial polydactyly syndrome	OBSOLETE: Opitz-Reynolds-Fitzgerald syndrome			
 ORPHA:209902	Hypercholesterolemia due to cholesterol 7alpha-hydroxylase deficiency			C4751204	
-ORPHA:209893	NON RARE IN EUROPE: Congenital isolated thyroxine-binding globulin deficiency	NON RARE IN EUROPE: Congenital isolated TBG deficiency			
+ORPHA:209893	Congenital isolated thyroxine-binding globulin deficiency	Congenital isolated TBG deficiency			
 ORPHA:2666	Adult familial nephronophthisis-spastic quadriparesia syndrome			C4518090	
 ORPHA:209943	IRVAN syndrome	Idiopathic retinal vasculitis-aneurysms-neuroretinitis syndrome		C3665812	
 ORPHA:209932	Cone dystrophy with supernormal rod response	Cone dystrophy with supernormal rod ERG | Cone dystrophy with supernormal rod electroretinogram | Cone dystrophy with supernormal scotopic electroretinogram		C1835897	
@@ -4272,7 +4272,7 @@ ORPHA:216986	Niemann-Pick disease type C, adult neurologic onset			C5680869
 ORPHA:1787	Acrofacial dysostosis, Palagonia type			C1866168	C538185
 ORPHA:216981	Niemann-Pick disease type C, juvenile neurologic onset	Niemann-Pick disease type C, classic form		C5679813	
 ORPHA:217008	Segmental venous malformation	Bockenheimer syndrome | Extensive venous malformation | Genuine diffuse phlebectasia		C5679814	
-ORPHA:1863	NON RARE IN EUROPE: Trochlear dysplasia	NON RARE IN EUROPE: Femoral trochlear groove insufficiency | NON RARE IN EUROPE: Hypoplasia of the femoral trochlea			
+ORPHA:1863	Trochlear dysplasia	Femoral trochlear groove insufficiency | Hypoplasia of the femoral trochlea			
 ORPHA:216989	Autosomal dominant dystrophic epidermolysis bullosa, Pasini type	DDEB, Pasini type		C0432322	
 ORPHA:217017	Zechi-Ceide syndrome	Occipital atretic cephalocele-unusual facies-large feet syndrome		C2752047	C567865
 ORPHA:217012	Spinocerebellar ataxia type 31	SCA31		C1861736	C566146
@@ -4280,7 +4280,7 @@ ORPHA:2088	Fanconi-Bickel syndrome	GSD due to GLUT2 deficiency | Glycogen storag
 ORPHA:217026	Microcephaly-facio-cardio-skeletal syndrome, Hadziselimovic type	Hadziselimovic syndrome | Microcephaly-faciocardioskeletal syndrome		C2751878	C567850
 ORPHA:217023	OBSOLETE: Atypical hemolytic uremic syndrome with thrombomodulin anomaly	OBSOLETE: Atypical HUS with thrombomodulin anomaly | OBSOLETE: D- HUS with thrombomodulin anomaly | OBSOLETE: Hemolytic uremic syndrome without diarrhea with thrombomodulin anomaly | OBSOLETE: aHUS with thrombomodulin anomaly			
 ORPHA:217034	Male infertility with normal virilization due to meiosis defect	Azoospermia due to maturation arrest | Azoospermia due to meiosis defect | Male infertility with normal virilization due to maturation arrest			
-ORPHA:217031	NON RARE IN EUROPE: Obesity due to MC3R deficiency				
+ORPHA:217031	Obesity due to MC3R deficiency				
 ORPHA:217049	OBSOLETE: Rare non-syndromic cataract				
 ORPHA:217046	OBSOLETE: Autosomal recessive childhood-onset cortical cataract				
 ORPHA:179	Birdshot chorioretinopathy	Birdshot chorioretinitis | Birdshot retinochoroiditis | Birdshot retinochoroidopathy | Vitiliginous choroiditis		C1853959	D000080365
@@ -4312,7 +4312,7 @@ ORPHA:217340	17q21.31 microduplication syndrome	Dup(17)(q21.31) | Trisomy 17q21.
 ORPHA:3260	Idiopathic hypereosinophilic syndrome			C0206141	
 ORPHA:217315	Cutis verticis gyrata-retinitis pigmentosa-sensorineural deafness syndrome	Cutis verticis gyrata-retinitis pigmentosa-neurosensory deafness syndrome | Cutis verticis gyrata-retinitis pigmentosa-neurosensory hearing loss syndrome | Cutis verticis gyrata-retinitis pigmentosa-sensorineural hearing loss syndrome		C1854061	
 ORPHA:217330	REN-related autosomal dominant tubulointerstitial kidney disease	ADTKD-REN | FJHN type 2 | Familial juvenile hyperuricemic nephropathy type 2 | REN-associated FJHN | REN-associated familial juvenile hyperuricemic nephropathy | REN-associated kidney disease		C4303080	
-ORPHA:1648	NON RARE IN EUROPE: Dementia with Lewy body	NON RARE IN EUROPE: Cortical Lewy body disease | NON RARE IN EUROPE: DLB | NON RARE IN EUROPE: Diffuse Lewy body disease | NON RARE IN EUROPE: Lewy body dementia			
+ORPHA:1648	Dementia with Lewy body	Cortical Lewy body disease | DLB | Diffuse Lewy body disease | Lewy body dementia			
 ORPHA:2086	Optic pathway glioma			C0796418	
 ORPHA:2566	Chronic Epstein-Barr virus infection syndrome	CAEBV syndrome | Chronic EBV infection syndrome		C4751209	
 ORPHA:3385	African trypanosomiasis	Sleeping sickness		C0041228	D014353
@@ -4498,7 +4498,7 @@ ORPHA:301	Ependymal tumor			C1333407
 ORPHA:541	Primary cutaneous CD30+ T-cell lymphoproliferative disease	Primary cutaneous Ki-1+ T-cell lymphoproliferative disease	C86.6	C5679826	
 ORPHA:543	Burkitt lymphoma	Small non-cleaved cell lymphoma		C0006413	D002051
 ORPHA:319	Skeletal Ewing sarcoma	Osseous Ewing sarcoma		C0585474	
-ORPHA:227535	NON RARE IN EUROPE: Hereditary breast cancer	NON RARE IN EUROPE: Familial breast cancer | NON RARE IN EUROPE: Familial breast carcinoma | NON RARE IN EUROPE: Hereditary breast carcinoma		C0346153	C562840
+ORPHA:227535	Hereditary breast cancer	Familial breast cancer | Familial breast carcinoma | Hereditary breast carcinoma		C0346153	C562840
 ORPHA:668	Osteosarcoma	Osteogenic sarcoma		C0029463	D012516
 ORPHA:227786	OBSOLETE: Familial flecked retinopathy	OBSOLETE: Hereditary flecked retinopathy			
 ORPHA:227510	Multiple system atrophy, cerebellar type	Sporadic OPCA type 1 | Sporadic olivopontocerebellar atrophy type 1 | MSA, cerebellar type | MSA-c	G23.3	C5554234	
@@ -4555,7 +4555,7 @@ ORPHA:2345	Isolated Klippel-Feil syndrome	Congenital cervical vertebral fusion |
 ORPHA:228429	Congenital generalized  lipodystrophy type 4	BSCL type 4 | Berardinelli-Seip syndrome type 4, BSCL type 4 | GCL4		C2750069	
 ORPHA:1333	Familial pancreatic carcinoma	Familial pancreatic cancer		C2931038	C535837
 ORPHA:228396	Ptosis-upper ocular movement limitation-absence of lacrimal punctum syndrome			C4510249	
-ORPHA:2794	NON RARE IN EUROPE: Familial otosclerosis				
+ORPHA:2794	Familial otosclerosis				
 ORPHA:228387	Spondylo-megaepiphyseal-metaphyseal dysplasia			C2750066	C567639
 ORPHA:228390	Frontonasal dysplasia-alopecia-genital anomalies syndrome	ALX4-related FNDAG | Craniofrontonasal dysplasia with alopecia and hypogonadism | Frontonasal dysplasia type 2 | Frontonasal dysplasia with alopecia and genital abnomality		C4510728	
 ORPHA:228407	Craniofacial dysmorphism-skeletal anomalies-intellectual disability syndrome	TMCO1 defect syndrome			
@@ -4621,7 +4621,7 @@ ORPHA:2133	Hemoglobin E disease			C0238159
 ORPHA:228179	Autosomal dominant Charcot-Marie-Tooth disease type 2M	CMT2M		C4304672	
 ORPHA:288	Hereditary elliptocytosis	HE	D58.1	C0013902	D004612
 ORPHA:231531	Hermansky-Pudlak syndrome due to BLOC-1 deficiency			C5680913	
-ORPHA:751	NON RARE IN EUROPE: Pseudoarylsulfatase A deficiency				
+ORPHA:751	Pseudoarylsulfatase A deficiency				
 ORPHA:231537	Hermansky-Pudlak syndrome type 8	HPS8			
 ORPHA:231512	Hermansky-Pudlak syndrome due to BLOC-2 deficiency	HPS without pulmonary fibrosis | Hermansky-Pudlak syndrome without pulmonary fibrosis		C5679833	
 ORPHA:1320	Idiopathic camptocormia	Idiopathic camptocormism | Idiopathic progressive lumbar kyphosis		C0264162	C537968
@@ -4758,7 +4758,7 @@ ORPHA:238536	Congenital secondary erythrocytosis	Congenital secondary polycythem
 ORPHA:238637	Megacystis-megaureter syndrome	Megaureter-megacystis syndrome		C0431752	
 ORPHA:238624	Idiopathic intracranial hypertension	Benign intracranial hypertension | IIH | Pseudotumor cerebri	G93.2	C0033845	D011559
 ORPHA:238621	Ileal pouch anal anastomosis related faecal incontinence			C5680932	
-ORPHA:238616	NON RARE IN EUROPE: Alzheimer disease				
+ORPHA:238616	Alzheimer disease				
 ORPHA:238613	OBSOLETE: Beckwith-Wiedemann syndrome due to NSD1 mutation				
 ORPHA:238606	Primary orthostatic tremor	POT		C0878578	C536418
 ORPHA:238593	IgG4-related mesenteritis	Isolated mesenteric lipodystrophy | Lipomatous mesenteritis | Liposclerotic mesenteritis | Mesenteric lipogranuloma | Mesenteric panniculitis | Sclerosing mesenteritis		C0267770	
@@ -4802,7 +4802,7 @@ ORPHA:329977	Classic neuroendocrine tumor of appendix	Classic appendiceal neuroe
 ORPHA:329984	Goblet cell carcinoma	GCC | Goblet cell adenocarcinoid | Goblet cell carcinoid | Goblet cell tumor		C0205695	
 ORPHA:330012	High altitude pulmonary edema	HAPE		C0340100	C535833
 ORPHA:330015	Lead poisoning	Lead intoxication | Plumbism | Saturnism	T56.0	C0023176	D007855
-ORPHA:330006	NON RARE IN EUROPE: Macular telangiectasia type 2				
+ORPHA:330006	Macular telangiectasia type 2				
 ORPHA:330009	OBSOLETE: Poliomyelitis in patients with immunodeficiencies deemed at risk				
 ORPHA:330032	Hemoglobin Lepore-beta-thalassemia syndrome	HbLepore-beta-thalassemia syndrome | Lepore-beta-thalassemia syndrome		C5679855	
 ORPHA:330041	Hemoglobin M disease	Autosomal dominant methemoglobinemia | M hemoglobinopathy		C3665425	C581942
@@ -4940,9 +4940,9 @@ ORPHA:324294	T-cell immunodeficiency with epidermodysplasia verruciformis	T-cell
 ORPHA:324290	PRDM8-related progressive myoclonus epilepsy	Early-onset Lafora body disease		C4518574	
 ORPHA:322126	Genetic tumor of hematopoietic and lymphoid tissues			C5680961	
 ORPHA:324262	Autosomal recessive congenital cerebellar ataxia due to MGLUR1 deficiency	Autosomal recessive congenital cerebellar ataxia due to metabotropic glutamate receptor 1 deficiency | Autosomal recessive spinocerebellar ataxia type 13 | SCAR13		C3553816	
-ORPHA:319691	NON RARE IN EUROPE: Partial color blindness, protan type	NON RARE IN EUROPE: Partial achromatopsia, protan type | NON RARE IN EUROPE: Protanopia			
-ORPHA:319698	NON RARE IN EUROPE: Partial color blindness, deutan type	NON RARE IN EUROPE: Deuteranopia | NON RARE IN EUROPE: Partial achromatopsia, deutan type			
-ORPHA:319705	NON RARE IN EUROPE: Parkinson disease		G20		
+ORPHA:319691	Partial color blindness, protan type	Partial achromatopsia, protan type | Protanopia			
+ORPHA:319698	Partial color blindness, deutan type	Deuteranopia | Partial achromatopsia, deutan type			
+ORPHA:319705	Parkinson disease		G20		
 ORPHA:319719	Autoinflammatory syndrome of childhood			C5680962	
 ORPHA:320317	OBSOLETE: Cleft lip/palate-ectodermal dysplasia syndrome				
 ORPHA:320332	X-linked pure spastic paraplegia			C5680963	
@@ -4986,13 +4986,13 @@ ORPHA:319623	OBSOLETE: X-linked mendelian susceptibility to mycobacterial diseas
 ORPHA:319612	OBSOLETE: X-linked mendelian susceptibility to mycobacterial diseases due to IKBKG deficiency	OBSOLETE: X-linked MSMD due to IKBKG deficiency | OBSOLETE: X-linked MSMD due to NEMO deficiency | OBSOLETE: X-linked mendelian susceptibility to mycobacterial diseases due to NEMO deficiency			
 ORPHA:319605	X-linked mendelian susceptibility to mycobacterial diseases	X-linked MSMD		C4304413	
 ORPHA:319600	Mendelian susceptibility to mycobacterial diseases due to partial IRF8 deficiency	MSMD due to partial IRF8 deficiency | MSMD due to partial interferon regulatory factor 8 deficiency | Mendelian susceptibility to mycobacterial diseases due to partial interferon regulatory factor 8 deficiency		C4509854	
-ORPHA:319684	NON RARE IN EUROPE: Inosine triphosphate pyrophosphatase deficiency				
-ORPHA:319681	NON RARE IN EUROPE: Lactase non-persistence in adulthood				
+ORPHA:319684	Inosine triphosphate pyrophosphatase deficiency				
+ORPHA:319681	Lactase non-persistence in adulthood				
 ORPHA:319678	Encephalopathy-hypertrophic cardiomyopathy-renal tubular disease syndrome			C4706367	
 ORPHA:319675	Microcephalic primordial dwarfism, Dauber type			C4749303	
 ORPHA:319671	Alazami syndrome	Microcephalic primordial dwarfism, Alazami type		C3554439	
 ORPHA:319667	Primary lymphoma of the conjunctiva	Primary lymphoid conjunctival tumor		C4706485	
-ORPHA:319658	NON RARE IN EUROPE: Unexplained intellectual disability				
+ORPHA:319658	Unexplained intellectual disability				
 ORPHA:319254	Kyasanur forest disease	Kyasanur hemorrhagic fever | Monkey disease | Monkey fever	A98.2	C0022810	D007733
 ORPHA:319266	Omsk hemorrhagic fever		A98.1	C0019103	D006481
 ORPHA:319276	Clear cell renal carcinoma	CCRCC | Clear cell renal cell adenocarcinoma | Clear cell renal cell carcinoma		C0279702	
@@ -5046,7 +5046,7 @@ ORPHA:314970	Lymphocytic hypereosinophilic syndrome	HES-L | Lymphocytic variant 
 ORPHA:314962	Secondary hypereosinophilic syndrome	HES-R | Reactive hypereosinophilic syndrome | Secondary HES		C5679897	
 ORPHA:314950	Primary hypereosinophilic syndrome	Clonal hypereosinophilic syndrome | HES-M | HES-N | Neoplastic hypereosinophilic syndrome | Primary HES		C5679898	
 ORPHA:314946	OBSOLETE: Mycobacterium xenopi infection				
-ORPHA:314928	NON RARE IN EUROPE: Normal pressure hydrocephalus	NON RARE IN EUROPE: Chronic adult hydrocephalus	G91.2		
+ORPHA:314928	Normal pressure hydrocephalus	Chronic adult hydrocephalus	G91.2		
 ORPHA:314918	Mild Canavan disease	Juvenile Canavan disease		C0751667	
 ORPHA:314911	Severe Canavan disease	Infantile Canavan disease | Neonatal Canavan disease		C5575558	
 ORPHA:316244	Partial deletion of the short arm of chromosome 12 syndrome	Partial deletion of chromosome 12p | Partial monosomy of chromosome 12p | Partial monosomy of the short arm of chromosome 12		C2931805	C538302
@@ -5302,7 +5302,7 @@ ORPHA:352675	X-linked Charcot-Marie-Tooth disease type 6	CMT6X | CMTX6		C3806702
 ORPHA:352682	Cobblestone lissencephaly without muscular or ocular involvement	Cobblestone lissencephaly without muscular or eye involvement | Lissencephaly type 2 without muscular or eye involvement | Lissencephaly type 2 without muscular or ocular involvement		C5191415	
 ORPHA:353277	Rubinstein-Taybi syndrome due to CREBBP mutations			C5681840	
 ORPHA:353253	Burning mouth syndrome	BMS | Oral dysesthesia | Orodynia | Stomatodynia | Stomatopyrosis		C0006430	D002054
-ORPHA:353225	NON RARE IN EUROPE: Primary adult open-angle glaucoma	NON RARE IN EUROPE: POAG	H40.1		
+ORPHA:353225	Primary adult open-angle glaucoma	POAG	H40.1		
 ORPHA:353220	Familial primary localized cutaneous amyloidosis	FPLCA		C1304242	
 ORPHA:353217	Epileptic encephalopathy with global cerebral demyelination	AGC1 deficiency | Mitochondrial aspartate-glutamate carrier 1 deficiency		C4512050	
 ORPHA:352763	Scleredema	Buschke scleredema		C0036413	
@@ -5499,7 +5499,7 @@ ORPHA:811	Shwachman-Diamond syndrome	Pancreatic insufficiency and bone marrow dy
 ORPHA:2689	Intermittent neutropenia				
 ORPHA:2687	Neutropenia-hyperlymphocytosis with large granular lymphocytes syndrome			C2930809	
 ORPHA:293150	Familial clubfoot due to PITX1 point mutation	Hereditary clubfoot due to PITX1 point mutation		C5679943	
-ORPHA:336	NON RARE IN EUROPE: Fibromuscular dysplasia of arteries		I77.3		
+ORPHA:336	Fibromuscular dysplasia of arteries		I77.3		
 ORPHA:293144	Familial clubfoot due to 5q31 microdeletion	Hereditary clubfoot due to 5q31 microdeletion		C5679944	
 ORPHA:741	Familial mitral valve prolapse			C0340364	
 ORPHA:293168	Infantile-onset ascending hereditary spastic paralysis	IAHSP		C2931441	C537217
@@ -5518,7 +5518,7 @@ ORPHA:293208	Celiac artery compression syndrome	Dunbar syndrome | MALS | Median 
 ORPHA:2459	Mansonelliasis	Mansonellosis	B74.4	C0024759	D008368
 ORPHA:2404	Loiasis		B74.3	C0023968	D008118
 ORPHA:2394	Pyruvate dehydrogenase E3 deficiency	DLD deficiency | Dihydrolipoamide dehydrogenase deficiency | E3-deficient maple syrup urine disease			
-ORPHA:2356	NON RARE IN EUROPE: Arachnoid cyst			C0078981	D016080
+ORPHA:2356	Arachnoid cyst			C0078981	D016080
 ORPHA:829	Adult-onset Still disease	AOSD | Wissler-Fanconi syndrome	M06.1	C0085253	D016706
 ORPHA:3096	Reye syndrome			C0035400	D012202
 ORPHA:1929	Rasmussen syndrome	Rasmussen subacute encephalitis		C2930868	C535291
@@ -5567,7 +5567,7 @@ ORPHA:289527	OBSOLETE: Fatal infantile hypertrophic cardiomyopathy due to mitoch
 ORPHA:289522	Microtriplication 11q24.1 syndrome	Tetrasomy 11q24.1		C4749373	
 ORPHA:289513	12q15q21 microdeletion syndrome	Del(12)(q15)(q21) | Deletion 12q15q21 | Monosomy 12q15q21		C4518344	
 ORPHA:289465	Isolated congenital adermatoglyphia	Congenital absence of fingerprints | Immigration delay disease		C4706567	
-ORPHA:289395	NON RARE IN EUROPE: Secondary Sjögren syndrome	NON RARE IN EUROPE: Secondary Sjögren-Gougerot syndrome			
+ORPHA:289395	Secondary Sjögren syndrome	Secondary Sjögren-Gougerot syndrome			
 ORPHA:289390	Primary Sjögren disease	Primary SjD | Primary Sjögren syndrome		C0151449	
 ORPHA:289385	Malignancy diagnosed during pregnancy	Cancer diagnosed during pregnancy		C5679948	
 ORPHA:289483	Intellectual disability-alacrima-achalasia syndrome			C4706563	
@@ -5652,7 +5652,7 @@ ORPHA:284400	Small cell carcinoma of the bladder	Poorly differentiated neuroendo
 ORPHA:282124	Partial deletion of chromosome 12 syndrome	Partial monosomy of chromosome 12		C5680422	
 ORPHA:282196	Autoimmune polyendocrinopathy	APS | Autoimmune polyglandular syndrome	E31.0	C0085409	D016884
 ORPHA:282166	Inherited Creutzfeldt-Jakob disease	Inherited CJD		C0751254	
-ORPHA:284130	NON RARE IN EUROPE: Rheumatoid arthritis				
+ORPHA:284130	Rheumatoid arthritis				
 ORPHA:309848	Disorder of magnesium transport		E83.4	C5681030	
 ORPHA:309845	Disorder of zinc metabolism and transport		E83.2	C0268085	
 ORPHA:309842	Disorder of iron metabolism and transport		E83.1	C5681031	
@@ -6025,7 +6025,7 @@ ORPHA:465508	Symptomatic form of HFE-related hemochromatosis	Symptomatic form of
 ORPHA:464282	Spastic paraplegia-severe developmental delay-epilepsy syndrome	SPPRS syndrome | Spastic paraplegia-psychomotor retardation-seizures syndrome		C5568869	
 ORPHA:464288	Short stature-brachydactyly-obesity-global developmental delay syndrome	SBIDDS		C5568868	
 ORPHA:464306	DYRK1A-related intellectual disability syndrome	DYRK1A syndrome		C5568143	
-ORPHA:464293	NON RARE IN EUROPE: Infantile capillary hemangioma				
+ORPHA:464293	Infantile capillary hemangioma				
 ORPHA:464329	Kaposiform lymphangiomatosis			C5681097	
 ORPHA:464321	Multifocal lymphangioendotheliomatosis-thrombocytopenia syndrome	Cutaneovisceral angiomatosis-thrombocytopenia syndrome | MLT | Multifocal lymphangioendotheliomatosis with thrombocytopenia		C5575322	
 ORPHA:464318	Verrucous venous malformation	Verrucous haemangioma | Verrucous hemangioma		C0334540	
@@ -6038,7 +6038,7 @@ ORPHA:464453	Acquired methemoglobinemia	Drug-induced methemoglobinemia		C0271905
 ORPHA:464443	COG6-CGD	CDG2L | Congenital disorder of glycosylation type 2l | Congenital disorder of glycosylation type IIL | CDG syndrome type IIL | CDG-IIL		C3553230	
 ORPHA:464440	Primary dystonia, DYT27 type			C4225336	
 ORPHA:464370	Neonatal alloimmune neutropenia			C0272176	
-ORPHA:464463	NON RARE IN EUROPE: Adenocarcinoma of stomach	NON RARE IN EUROPE: Gastric adenocarcinoma			
+ORPHA:464463	Adenocarcinoma of stomach	Gastric adenocarcinoma			
 ORPHA:464458	Paracetamol poisoning	Acetaminophen poisoning		C0237963	
 ORPHA:639	Polyneuropathy associated with IgM monoclonal gammopathy with anti-MAG	Anti-MAG neuropathy | Neuropathy associated with monoclonal IgM antibodies to myelin-associated glycoprotein		C1736154	
 ORPHA:662	Lymphedema with yellow nails	YNS | Yellow nail syndrome		C0221348	D056684
@@ -6083,7 +6083,7 @@ ORPHA:449427	IgG4-related pachymeningitis	Idiopathic hypertrophic pachymeningiti
 ORPHA:449280	Scedosporiosis			C1142170	C000656924
 ORPHA:449285	Snakebite envenomation		T63.0	C0037379	D012909
 ORPHA:449266	Pleural empyema			C0014013	D016724
-ORPHA:449262	NON RARE IN EUROPE: Primary bile acid malabsorption				
+ORPHA:449262	Primary bile acid malabsorption				
 ORPHA:448372	OBSOLETE: X-linked acrogigantism due to Xq26 microduplication	OBSOLETE: Familial infantile gigantism due to Xq26 microduplication | OBSOLETE: Familial infantile gigantism due to dup(X)q(26) | OBSOLETE: X-LAG due to dup(X)q(26)			
 ORPHA:448426	Genetic primary orthostatic hypotension			C5681106	
 ORPHA:448348	OBSOLETE: X-linked acrogigantism due to a point mutation	OBSOLETE: Familial infantile gigantism due to a point mutation | OBSOLETE: X-LAG (X-linked acrogigantism) due to a point mutation			
@@ -6111,8 +6111,8 @@ ORPHA:459548	Rare genetic venous malformation			C5681113
 ORPHA:459530	OBSOLETE: Genetic primary lymphedema				
 ORPHA:459537	Genetic complex vascular malformation with associated anomalies	Genetic hemangiolymphangioma		C5679997	
 ORPHA:459787	Lethal multiple congenital anomalies/dysmorphic syndrome			C5681114	
-ORPHA:459690	NON RARE IN EUROPE: Gender dysphoria				
-ORPHA:459696	NON RARE IN EUROPE: Juvenile idiopathic scoliosis		M41.1		
+ORPHA:459690	Gender dysphoria				
+ORPHA:459696	Juvenile idiopathic scoliosis		M41.1		
 ORPHA:458837	Rare combined vascular malformation			C5681115	
 ORPHA:458833	Isolated lymphatic malformation	Common cystic lymphatic malformation		C5681116	
 ORPHA:458844	Rare vascular malformation of major vessels			C5681117	
@@ -6123,7 +6123,7 @@ ORPHA:459061	Craniofacial dysplasia-short stature-ectodermal anomalies-intellect
 ORPHA:459056	Autosomal recessive spastic paraplegia type 75	SPG75		C4225250	
 ORPHA:459074	Corpus callosum agenesis-macrocephaly-hypertelorism syndrome	7q36.3 microduplication syndrome | Dup(7)(q36.3)		C5679998	
 ORPHA:459070	X-linked intellectual disability-cerebellar hypoplasia-spondylo-epiphyseal dysplasia syndrome	RPL10-related neurodevelopmental disorder | RPL10-related X-linked intellectual disability		C5687848	
-ORPHA:458713	NON RARE IN EUROPE: Specific language impairment				
+ORPHA:458713	Specific language impairment				
 ORPHA:458718	Idiopathic spontaneous coronary artery dissection	Idiopathic SCAD		C5679999	
 ORPHA:458758	Composite hemangioendothelioma	Polymorphous hemangioendothelioma		C1304513	
 ORPHA:458763	Retiform hemangioendothelioma			C1304512	
@@ -6164,7 +6164,7 @@ ORPHA:457059	OBSOLETE: Pseudohypoparathyroidism with Albright hereditary osteody
 ORPHA:457062	OBSOLETE: Pseudohypoparathyroidism without Albright hereditary osteodystrophy				
 ORPHA:457074	Congenital nemaline myopathy			C1268589	
 ORPHA:457050	Autosomal dominant mitochondrial myopathy with exercise intolerance			C4015513	
-ORPHA:651	NON RARE IN EUROPE: Idiopathic infantile nystagmus	NON RARE IN EUROPE: Congenital idiopathic nystagmus | NON RARE IN EUROPE: Infantile nystagmus syndrome | NON RARE IN EUROPE: Motor congenital nystagmus			
+ORPHA:651	Idiopathic infantile nystagmus	Congenital idiopathic nystagmus | Infantile nystagmus syndrome | Motor congenital nystagmus			
 ORPHA:317	Erythrokeratodermia variabilis	EKV | Erythrokeratodermia variabilis, Mendes da Costa type		C0265961	D056266
 ORPHA:103	OBSOLETE: Genetic optic atrophy				
 ORPHA:629	Short stature due to growth hormone qualitative anomaly	Kowarski syndrome		C1849779	C537505
@@ -6179,15 +6179,15 @@ ORPHA:2902	Idiopathic chronic eosinophilic pneumonia	Chronic eosinophilic pneumo
 ORPHA:1302	Cryptogenic organizing pneumonia	BOOP | Bronchiolitis obliterans organizing pneumonia | COP		C0242770	D018549
 ORPHA:198	Occipital horn syndrome			C0268353	C537860
 ORPHA:891	Familial exudative vitreoretinopathy	Criswick-Schepens syndrome | FEVR		C0339539	D000080345
-ORPHA:225	NON RARE IN EUROPE: Maternally-inherited diabetes and deafness	NON RARE IN EUROPE: MIDD | NON RARE IN EUROPE: Maternally-inherited diabetes and hearing loss | NON RARE IN EUROPE: Mitochondrial diabetes		C0342289	C536246
+ORPHA:225	Maternally-inherited diabetes and deafness	MIDD | Maternally-inherited diabetes and hearing loss | Mitochondrial diabetes		C0342289	C536246
 ORPHA:466677	Scorpion envenomation		T63.2	C0238417	D065008
 ORPHA:466682	Euthyroid Graves orbitopathy	Euthyroid Graves ophthalmopathy		C5680004	
 ORPHA:466688	Severe intellectual disability-corpus callosum agenesis-facial dysmorphism-cerebellar ataxia syndrome			C4225193	
 ORPHA:466695	Supratip dysplasia			C5681127	
 ORPHA:466658	Rare disease with malignant hyperthermia			C5681128	
-ORPHA:466667	NON RARE IN EUROPE: Colorectal cancer				
+ORPHA:466667	Colorectal cancer				
 ORPHA:466670	Cyanide poisoning		T65.0	C0238080	
-ORPHA:466673	NON RARE IN EUROPE: Post-herpetic neuralgia		G53.0		
+ORPHA:466673	Post-herpetic neuralgia		G53.0		
 ORPHA:466650	Exercise-induced malignant hyperthermia	Exertional heat stroke		C5700399	
 ORPHA:466962	SMARCA4-deficient sarcoma of thorax	SMARCA4-deficient thoracic sarcoma		C5554190	
 ORPHA:466950	Facial dysmorphism-developmental delay-behavioral abnormalities syndrome due to WAC point mutation	Desanto-Shinawi syndrome due to WAC point mutation		C5681129	
@@ -6318,8 +6318,8 @@ ORPHA:404499	Autosomal recessive cerebellar ataxia-epilepsy-intellectual disabil
 ORPHA:404493	Autosomal recessive cerebellar ataxia-epilepsy-intellectual disability syndrome due to TUD deficiency	SCAR23 | Spinocerebellar ataxia autosomal recessive type 23		C4750914	
 ORPHA:404481	Autosomal recessive cerebellar ataxia-epilepsy-intellectual disability syndrome			C5681145	
 ORPHA:404476	Global developmental delay-lung cysts-overgrowth-Wilms tumor syndrome	GLOW syndrome		C4748924	
-ORPHA:411527	NON RARE IN EUROPE: Central retinal vein occlusion	NON RARE IN EUROPE: CRVO		C0154841	
-ORPHA:411533	NON RARE IN EUROPE: Melanoma				
+ORPHA:411527	Central retinal vein occlusion	CRVO		C0154841	
+ORPHA:411533	Melanoma				
 ORPHA:411536	Mild phosphoribosylpyrophosphate synthetase superactivity	Mild PRPP synthetase superactivity | Mild PRPS1 superactivity		C5680016	
 ORPHA:411543	Severe phosphoribosylpyrophosphate synthetase superactivity	Severe PRPP synthetase superactivity | Severe PRPS1 superactivity		C5680017	
 ORPHA:411590	Wolfram-like syndrome			C4518338	
@@ -6334,7 +6334,7 @@ ORPHA:411777	Generalized eruptive keratoacanthoma	GEKA | Generalized eruptive ke
 ORPHA:411712	Maternal riboflavin deficiency			C4750953	
 ORPHA:411788	Familial isolated trichomegaly			C4706941	
 ORPHA:411986	Early-onset epileptic encephalopathy-cortical blindness-intellectual disability-facial dysmorphism syndrome	Epilepsy-cortical blindness-intellectual disability-facial dysmorphism syndrome		C4750952	
-ORPHA:411969	NON RARE IN EUROPE: Metabolic syndrome				
+ORPHA:411969	Metabolic syndrome				
 ORPHA:412035	13q12.3 microdeletion syndrome	Del(13)(q12.3) | Monosomy 13q12.3		C4750951	
 ORPHA:412022	Facial dysmorphism-lens dislocation-anterior segment abnormalities-spontaneous filtering blebs syndrome	FDLAB syndrome | Facial dysmorphism-lens dislocation-anterior segment abnormalities-nontraumatic conjunctive cysts syndrome | Traboulsi syndrome		C1832167	
 ORPHA:411641	Ocular cystinosis	Adult-onset cystinosis | Non-nephropathic cystinosis		C2931013	C535765
@@ -6594,9 +6594,9 @@ ORPHA:3008	Pyruvate carboxylase deficiency	Ataxia with lactic acidosis type 2 | 
 ORPHA:443192	Classic stiff person syndrome	Classic SPS | Classic stiff man syndrome | Classic SMS		C5680058	
 ORPHA:595	Centronuclear myopathy	CNM		C0175709	
 ORPHA:443180	Spontaneous intracranial hypotension	Spontaneous cerebrospinal fluid leak	G96.0	C0751731	
-ORPHA:413	NON RARE IN EUROPE: Hyperlipoproteinemia type 4	NON RARE IN EUROPE: Familial hypertriglyceridemia | NON RARE IN EUROPE: HLP type 4	E78.1		
+ORPHA:413	Hyperlipoproteinemia type 4	Familial hypertriglyceridemia | HLP type 4	E78.1		
 ORPHA:443173	Postpartum psychosis	Puerperal psychosis		C0520678	
-ORPHA:426	NON RARE IN EUROPE: Familial hypobetalipoproteinemia				
+ORPHA:426	Familial hypobetalipoproteinemia				
 ORPHA:298	Mitochondrial neurogastrointestinal encephalomyopathy	MNGIE		C0872218	
 ORPHA:443291	HIV-associated cancer	HIV-related cancer		C5680059	
 ORPHA:443287	OBSOLETE: ACTH-independent Cushing syndrome due to rare cortisol-producing adrenal tumor				
@@ -6687,10 +6687,10 @@ ORPHA:420259	Secondary pulmonary alveolar proteinosis	Secondary PAP		C3873302
 ORPHA:420179	Malan overgrowth syndrome	Sotos syndrome 2		C3553660	
 ORPHA:414726	Genetic facial cleft	Genetic craniofacial cleft		C5680068	
 ORPHA:415675	OBSOLETE: Small pox	OBSOLETE: Variola			
-ORPHA:415300	NON RARE IN EUROPE: Non-arteritic anterior ischemic optic neuropathy	NON RARE IN EUROPE: NAION			
+ORPHA:415300	Non-arteritic anterior ischemic optic neuropathy	NAION			
 ORPHA:415286	Bilirubin encephalopathy	Kernicterus	P57	C0022610	D007647
-ORPHA:415268	NON RARE IN EUROPE: Adenocarcinoma of the lung				
-ORPHA:415687	NON RARE IN EUROPE: Sudden infant death syndrome	NON RARE IN EUROPE: SIDS			
+ORPHA:415268	Adenocarcinoma of the lung				
+ORPHA:415687	Sudden infant death syndrome	SIDS			
 ORPHA:420755	Rare genetic odontal or periodontal disorder			C5681204	
 ORPHA:420789	Autoimmune encephalopathy with parasomnia and obstructive sleep apnea	Anti-IgLON5 disease | Anti-IgLON5 syndrome		C4707562	
 ORPHA:420794	Cono-spondylar dysplasia	Short stature-kyphosis-hypoplasia of basal ilia-cone epiphyses-facial dysmorphism syndrome		C4707860	
@@ -6721,7 +6721,7 @@ ORPHA:423771	Rare carcinoma of stomach	Rare gastric carcinoma		C5680069
 ORPHA:423693	Double outlet right ventricle with subaortic or doubly committed ventricular septal defect	DORV with subaortic or doubly committed VSD		C5680070	
 ORPHA:423712	Double outlet right ventricle with atrioventricular septal defect, pulmonary stenosis, heterotaxy	DORV with atrioventricular septal defect, pulmonary stenosis, heterotaxy		C5680071	
 ORPHA:423662	Rare autonomic nervous system disorder			C5681205	
-ORPHA:423668	NON RARE IN EUROPE: Cortisol-producing adrenal tumor				
+ORPHA:423668	Cortisol-producing adrenal tumor				
 ORPHA:423479	X-linked intellectual disability-limb spasticity-retinal dystrophy-arginine vasopressin deficiency	X-linked intellectual disability-limb spasticity-retinal dystrophy-diabetes insipidus syndrome		C4517296	
 ORPHA:423655	ARX-related encephalopathy-brain malformation spectrum			C5681206	
 ORPHA:422526	Hereditary clear cell renal cell carcinoma	Hereditary clear cell renal cell adenocarcinoma		C1333985	
@@ -6794,7 +6794,7 @@ ORPHA:434179	Orofaciodigital syndrome type 14	Microcephaly-cerebral malformation
 ORPHA:504476	Cerebellar ataxia with neuropathy and bilateral vestibular areflexia syndrome	CABV syndrome | CANVAS | Cerebellar ataxia with bilateral vestibulopathy syndrome		C3281223	C000726747
 ORPHA:504523	T-B+NK+ severe combined immunodeficiency due to LAT deficiency	T-B+NK+ SCID due to LAT deficiency		C4479588	
 ORPHA:504530	Combined immunodeficiency due to Moesin deficiency	CID due to Moesin deficiency | MSN-related combined immunodeficiency | X-linked Moesin-associated immunodeficiency		C5568123	
-ORPHA:26823	NON RARE IN EUROPE: Pigment-dispersion syndrome				
+ORPHA:26823	Pigment-dispersion syndrome				
 ORPHA:26793	Very long chain acyl-CoA dehydrogenase deficiency	VLCAD deficiency | VLCADD		C3887523	C536353
 ORPHA:29072	Hereditary pheochromocytoma-paraganglioma	Familial pheochromocytoma-paraganglioma		C4274332	
 ORPHA:28378	Tyrosinemia type 2	Keratosis palmoplantaris-corneal dystrophy syndrome | Oculocutaneous tyrosinemia | Richner-Hanhart syndrome | Tyrosinemia due to TAT deficiency | Tyrosinemia due to tyrosine aminotransferase deficiency | Tyrosinemia type II		C0268487	
@@ -6829,7 +6829,7 @@ ORPHA:26792	Short chain acyl-CoA dehydrogenase deficiency	ACADS deficiency | SCA
 ORPHA:26791	Multiple acyl-CoA dehydrogenase deficiency	Glutaric acidemia type 2 | Glutaric aciduria type 2 | MAD deficiency | MADD		C0268596	D054069
 ORPHA:26348	Acquired prothrombin deficiency	Acquired hypoprothrombinemia		C0392610	C538174
 ORPHA:26349	Protein S acquired deficiency			C2363755	C567077
-ORPHA:620	NON RARE IN EUROPE: Common mesentery	NON RARE IN EUROPE: Universal mesentery			
+ORPHA:620	Common mesentery	Universal mesentery			
 ORPHA:831	Congenital cervical spinal stenosis	Congenital narrowing of cervical spinal canal | Congenital stenosis of the cervical spine		C4749275	
 ORPHA:49	Penile agenesis	Aphallia | Penis agenesis	Q55.5	C4551491	C536649
 ORPHA:227	Diphallia			C0345322	
@@ -6992,7 +6992,7 @@ ORPHA:502444	Alkaline ceramidase 3 deficiency	ACER3-related early childhood-onse
 ORPHA:432	Normosmic congenital hypogonadotropic hypogonadism	Normosmic idiopathic hypogonadotropic hypogonadism | nIHH		C5680088	
 ORPHA:91	Aromatase deficiency	Congenital estrogen deficiency		C1960539	C537436
 ORPHA:785	Estrogen resistance syndrome			C4510972	
-ORPHA:625	NON RARE IN EUROPE: Atypical mole	NON RARE IN EUROPE: Clark nevus | NON RARE IN EUROPE: Dysplastic nevus			
+ORPHA:625	Atypical mole	Clark nevus | Dysplastic nevus			
 ORPHA:873	Desmoid tumor	Aggressive fibromatosis | Desmoid type fibromatosis		C0079218	
 ORPHA:553	OBSOLETE: Cushing syndrome	OBSOLETE: Hyperadrenocorticism | OBSOLETE: Hypercortisolism			
 ORPHA:679	Malignant atrophic papulosis	Cutaneo-muco-intestinal syndrome | MAP | Papulosis atrophicans maligna		C0221011	D054853
@@ -7000,7 +7000,7 @@ ORPHA:901	Wells syndrome	Eosinophilic cellulitis	L98.3	C0343101	C536693
 ORPHA:703	Bullous pemphigoid		L12.0	C0030805	D010391
 ORPHA:841	Sebocystomatosis	Steatocystoma multiplex	L72.2	C0259771	D062685
 ORPHA:817	Peeling skin syndrome	Deciduous skin | Familial continuous skin peeling syndrome | Idiopathic deciduous skin | Keratosis exfoliativa congenita | PSS | Peeling skin disease		C1849193	C564818
-ORPHA:830	NON RARE IN EUROPE: Stuccokeratosis				
+ORPHA:830	Stuccokeratosis				
 ORPHA:867	Familial multiple trichoepithelioma			C1275122	
 ORPHA:735	Porokeratosis of Mibelli			C0949506	
 ORPHA:497906	Childhood-onset basal ganglia degeneration syndrome	Lenk-Ploski syndrome		C4310743	
@@ -7017,7 +7017,7 @@ ORPHA:497764	Spinocerebellar ataxia type 43	SCA43		C4310763
 ORPHA:530	Lipoid proteinosis	Hyalinosis cutis et mucosae | Urbach-Wiethe disease		C0023795	D008065
 ORPHA:493	Familial keratoacanthoma	Hereditary keratoacanthoma | Multiple keratoacanthoma		C5848325	C536150
 ORPHA:497188	Diffuse intrinsic pontine glioma	DIPG		C2986658	D000080443
-ORPHA:462	NON RARE IN EUROPE: Autosomal dominant ichthyosis vulgaris		Q80.0		
+ORPHA:462	Autosomal dominant ichthyosis vulgaris		Q80.0		
 ORPHA:498	Keratosis pilaris atrophicans				
 ORPHA:496916	Rare genetic hyperkinetic movement disorder			C5681226	
 ORPHA:496924	Non-inflammatory vasculopathy			C5681227	
@@ -7055,11 +7055,11 @@ ORPHA:73	Gorham-Stout disease	Gorham disease | Gorham syndrome | Idiopathic mass
 ORPHA:498228	Phyllodes tumor of the prostate	Cystic epithelial-stromal tumors of the prostate | Cystosarcoma phyllodes of the prostate | Phyllodes type of atypical prostatic hyperplasia		C1335409	
 ORPHA:728	Relapsing polychondritis	Polychondropathia	M94.1	C0032453	D011081
 ORPHA:467	Non-acquired combined pituitary hormone deficiency	Congenital combined pituitary hormone deficiency | Congenital hypopituitarism		C5680091	
-ORPHA:463	NON RARE IN EUROPE: Adrenal incidentaloma				
+ORPHA:463	Adrenal incidentaloma				
 ORPHA:872	OBSOLETE: Disorder in the hormonal synthesis with or without goiter				
 ORPHA:142	Anaplastic thyroid carcinoma			C0238461	D065646
 ORPHA:143	Parathyroid carcinoma			C0687150	D010282
-ORPHA:759	NON RARE IN EUROPE: Central precocious puberty	NON RARE IN EUROPE: CPP | NON RARE IN EUROPE: Gonadotropin-dependant precocious puberty			
+ORPHA:759	Central precocious puberty	CPP | Gonadotropin-dependant precocious puberty			
 ORPHA:786	Generalized glucocorticoid resistance syndrome			C5231034	
 ORPHA:1676	Idiopathic pulmonary artery dilatation			C1384816	
 ORPHA:1666	Dextrocardia		Q24.0	C0011813	D003914
@@ -7253,7 +7253,7 @@ ORPHA:488434	Camptodactyly syndrome, Guadalajara type 3			C2677809	C567455
 ORPHA:488613	Global developmental delay-neuro-ophthalmological abnormalities-seizures-intellectual disability syndrome			C5567482	
 ORPHA:488594	Autosomal recessive spastic paraplegia type 76	SPG76		C5567483	
 ORPHA:488197	Familial progressive retinal dystrophy-iris coloboma-congenital cataract syndrome			C5567488	
-ORPHA:488201	NON RARE IN EUROPE: Non-small cell lung cancer	NON RARE IN EUROPE: NSCLC			
+ORPHA:488201	Non-small cell lung cancer	NSCLC			
 ORPHA:488168	Microcephaly-congenital cataract-psoriasiform dermatitis syndrome	SMO deficiency | Sterol-C4-methyl oxidase deficiency		C5567510	
 ORPHA:488191	Female infertility due to oocyte meiotic arrest			C5567489	
 ORPHA:487796	Takenouchi-Kosaki syndrome	Macrothrombocytopenia-lymphedema-developmental delay-facial dysmorphism-camptodactyly syndrome		C4225222	
@@ -7267,7 +7267,7 @@ ORPHA:31154	Hypobetalipoproteinemia			C0020597	D006995
 ORPHA:31202	Melioidosis	Burkholderia pseudomallei infection		C0025229	D008554
 ORPHA:31150	Tangier disease	ATP-binding cassette transporter A1 deficiency | Analphalipoproteinemia		C0039292	D013631
 ORPHA:31153	Hypoalphalipoproteinemia			C0473527	D052456
-ORPHA:31142	NON RARE IN EUROPE: Oral erosive lichen				
+ORPHA:31142	Oral erosive lichen				
 ORPHA:31043	Primary hypomagnesemia with hypercalciuria and nephrocalcinosis without severe ocular involvement	FHHNC without severe ocular involvement | HOMG3 | Renal hypomagnesemia type 3		C4511528	
 ORPHA:31112	Dermatofibrosarcoma protuberans	DFSP		C0392784	C538219
 ORPHA:30924	Primary hypomagnesemia with secondary hypocalcemia	Hypomagnesemia caused by selective magnesium malabsorption | Hypomagnesemia intestinal type 1 | Intestinal hypomagnesemia with secondary hypocalcemia | PHSH | HOMG1 | HSH		C1865974	C566593
@@ -7329,7 +7329,7 @@ ORPHA:69739	Athabaskan brainstem dysgenesis syndrome	ABSD | Athabascan brainstem
 ORPHA:69663	Low phospholipid-associated cholelithiasis	ABCB4-related cholelithiasis | LPAC		C2609268	
 ORPHA:69665	Intrahepatic cholestasis of pregnancy	Gravidic intrahepatic cholestasis | Pregnancy-related cholestasis | Recurrent intrahepatic cholestasis of pregnancy		C0268318	C535932
 ORPHA:69723	Tyrosinemia type 3	Tyrosinemia due to 4-hydroxyphenylpyruvate dioxygenase deficiency | Tyrosinemia due to 4-hydroxyphenylpyruvic acid oxidase deficiency | Tyrosinemia due to HPD deficiency | Tyrosinemia type III		C0268623	
-ORPHA:69127	NON RARE IN EUROPE: Immunoglobulin A deficiency	NON RARE IN EUROPE: IgA deficiency | NON RARE IN EUROPE: IgAD | NON RARE IN EUROPE: SIgAD | NON RARE IN EUROPE: Selective immunoglobulin A deficiency	D80.2		
+ORPHA:69127	Immunoglobulin A deficiency	IgA deficiency | IgAD | SIgAD | Selective immunoglobulin A deficiency	D80.2		
 ORPHA:69126	PAPA syndrome	FRA | Familial recurrent arthritis | Pyogenic arthritis-pyoderma gangrenosum-acne syndrome		C1858361	C536253
 ORPHA:69087	Naegeli-Franceschetti-Jadassohn syndrome	NFJ syndrome | Naegeli syndrome		C0343111	C538331
 ORPHA:69125	Anonychia with flexural pigmentation			C1862844	C566278
@@ -7404,7 +7404,7 @@ ORPHA:562528	Congenital limbs-face contractures-hypotonia-developmental delay sy
 ORPHA:64755	Becker nevus syndrome	Becker melanosis | Becker naevus syndrome | Pigmentary hairy epidermal nevus | Pigmented hairy epidermal naevus | Pigmented hairy epidermal nevus		C1858042	C565735
 ORPHA:562559	Anterior maxillary protrusion-strabismus-intellectual disability syndrome	MRAMS syndrome		C3150924	
 ORPHA:562538	Autosomal recessive extra-oral halitosis	MTO-deficiency | Methanethiol oxidase deficiency		C4748387	
-ORPHA:65250	NON RARE IN EUROPE: Perineural cyst	NON RARE IN EUROPE: Tarlov cyst		C0520720	D052958
+ORPHA:65250	Perineural cyst	Tarlov cyst		C0520720	D052958
 ORPHA:562569	TMEM94-associated congenital heart defect-facial dysmorphism-developmental delay syndrome			C5193024	
 ORPHA:65279	OBSOLETE: Lymphocytic colitis				
 ORPHA:64686	Tolosa-Hunt syndrome	Painful ophthalmoplegia		C0040381	D020333
@@ -7416,13 +7416,13 @@ ORPHA:64720	Leiomyosarcoma			C0023269	D007890
 ORPHA:64694	Trench fever	Bartonellosis due to Bartonella quintana infection	A79.0	C0040830	D014205
 ORPHA:64692	Bartonella bacilliformis infection	Bartonellosis due to infection with Bartonella bacilliformis | Carrion disease	A44.0	C4552012	D001474
 ORPHA:64739	Ovarian hyperstimulation syndrome	OHSS	N98.1	C0085083	D016471
-ORPHA:64738	NON RARE IN EUROPE: Non rare thrombophilia		D68.5		
+ORPHA:64738	Non rare thrombophilia		D68.5		
 ORPHA:64734	Iridocorneal endothelial syndrome	ICE syndrome		C1096100	D057129
 ORPHA:64743	Hepatoportal sclerosis	Obliterative portal venopathy		C4273756	
 ORPHA:64742	Pleuropulmonary blastoma			C1266144	C537516
 ORPHA:64741	Pulmonary blastoma	Pneumoblastoma		C0206629	D018202
 ORPHA:561854	FOXG1 syndrome	FOXG1-related epileptic-dyskinetic encephalopathy		C3150705	
-ORPHA:64740	NON RARE IN EUROPE: Recurrent acute pancreatitis				
+ORPHA:64740	Recurrent acute pancreatitis				
 ORPHA:63261	HERNS syndrome	Hereditary endotheliopathy-retinopathy-nephropathy-stroke syndrome			
 ORPHA:63269	Antley-Bixler syndrome with genital anomaly and disorder of steroidogenesis	Ambiguous genitalia-disordered steroidogenesis Antley-Bixler syndrome		C3150099	
 ORPHA:63259	Iniencephaly		Q00.2	C0152234	
@@ -7458,7 +7458,7 @@ ORPHA:564127	Genetic nephrotic syndrome	Hereditary nephrotic syndrome		C5680119
 ORPHA:60030	Loeys-Dietz syndrome	Aortic aneurysm syndrome due to TGF-beta receptors anomalies		C2697932	D055947
 ORPHA:59315	Isolated rhombencephalosynapsis			C1866130	
 ORPHA:60014	Argyria	Silver staining		C0003782	D001129
-ORPHA:57777	NON RARE IN EUROPE: Cirrhotic cardiomyopathy			C4511053	
+ORPHA:57777	Cirrhotic cardiomyopathy			C4511053	
 ORPHA:57196	Medial condensing osteitis of the clavicle	Osteitis condensans of the clavicle		C5396729	
 ORPHA:57194	OBSOLETE: Aseptic osteitis				
 ORPHA:563690	Furuncular myiasis due to Cordylobia rodhaini	Furunculoid myiasis due to Cordylobia rodhaini | Furunculous myiasis due to Cordylobia rodhaini		C5231033	
@@ -7475,7 +7475,7 @@ ORPHA:56425	Cold agglutinin disease	CAD | CAS | Chronic cold agglutinin disease 
 ORPHA:59181	Sorsby fundus dystrophy	SMD | Sorsby macular dystrophy | Sorsby pseudoinflammatory fundus dystrophy		C1850938	C564992
 ORPHA:59135	Laing distal myopathy	Distal myopathy type 1 | MPD1		C4552004	
 ORPHA:58220	OBSOLETE: Microscopic colitis				
-ORPHA:58208	NON RARE IN EUROPE: Pericarditis				
+ORPHA:58208	Pericarditis				
 ORPHA:58040	Osteoblastoma			C0029417	D018215
 ORPHA:58017	Classic hairy cell leukemia	HCL-C | Leukemic reticuloendotheliosis		C0023443	D007943
 ORPHA:57782	Mazabraud syndrome	Myxoma with fibrous dysplasia		C3697137	
@@ -7563,7 +7563,7 @@ ORPHA:79146	Familial progressive hyperpigmentation	Melanosis diffusa congenita |
 ORPHA:79145	Dowling-Degos disease	Reticular pigment anomaly of flexures		C3714534	C562924
 ORPHA:79144	Isolated congenital onychodysplasia	COIF | COIF syndrome | Congenital onychodysplasia of the index fingers | Iso-Kikuchi syndrome		C1274658	
 ORPHA:79143	Isolated congenital anonychia	Isolated anonychia	Q84.3	C0265998	C536377
-ORPHA:79142	NON RARE IN EUROPE: Familial Dupuytren contracture				
+ORPHA:79142	Familial Dupuytren contracture				
 ORPHA:79172	Creatine deficiency syndrome	CCDS | CDS | Cerebral creatine deficiency syndrome		C5244016	
 ORPHA:79173	Disorder of methionine cycle and sulfur amino acid metabolism	Cytosolic methyl group transfer or sulfur amino acid metabolism disorder	E72.1	C5680126	
 ORPHA:79171	Disorder of cobalamin metabolism and transport			C5681844	
@@ -7686,7 +7686,7 @@ ORPHA:75858	MORM syndrome	Intellectual disability-truncal obesity-retinal dystro
 ORPHA:77242	OBSOLETE: Lymphedema tarda				
 ORPHA:77241	OBSOLETE: Lymphedema praecox				
 ORPHA:77258	Trichorhinophalangeal syndrome type 1			C5816692	
-ORPHA:77243	NON RARE IN EUROPE: Lipedema				
+ORPHA:77243	Lipedema				
 ORPHA:77260	Gaucher disease type 2	Acute neuronopathic Gaucher disease | Infantile cerebral Gaucher disease		C0268250	
 ORPHA:77259	Gaucher disease type 1	Non-cerebral juvenile Gaucher disease		C1961835	
 ORPHA:73271	Bleeding diathesis due to a collagen receptor defect			C5190736	
@@ -7695,7 +7695,7 @@ ORPHA:73267	Non-24-hour sleep-wake syndrome	Hypernychthemeral syndrome		C5545668
 ORPHA:73256	Central neurocytoma			C0206719	
 ORPHA:73260	Paracoccidioidomycosis			C0030409	D010229
 ORPHA:73246	Visceral neuropathy-brain anomalies-facial dysmorphism-developmental delay syndrome			C4304402	
-ORPHA:73247	NON RARE IN EUROPE: Eosinophilic esophagitis	NON RARE IN EUROPE: EoE			
+ORPHA:73247	Eosinophilic esophagitis	EoE			
 ORPHA:569821	Congenital primary lymphedema of Gordon	VEGFC-related congenital primary lymphedema		C5680138	
 ORPHA:73423	Acute ackee fruit intoxication	Acute intoxication by Blighia sapida | Jamaican vomiting sickness | Jamaican vomiting syndrome		C0274888	
 ORPHA:569816	CELSR1-related late-onset primary lymphedema			C5681848	
@@ -7744,7 +7744,7 @@ ORPHA:73220	X-linked intellectual disability-hypotonic face syndrome
 ORPHA:40366	Acitretin/etretinate embryopathy	Fetal acitretin/etretinate syndrome | Retinoid embryopathy		C4510941	
 ORPHA:40923	Eales disease	Idiopathic retinal perivasculitis | Idiopathic retinal vasculitis		C0271073	C538011
 ORPHA:39812	Graft versus host disease	GvHD		C0018133	D006086
-ORPHA:40050	NON RARE IN EUROPE: Psoriatic arthritis				
+ORPHA:40050	Psoriatic arthritis				
 ORPHA:530849	Familial apolipoprotein A5 deficiency	Familial APOA5 deficiency | Familial apolipoprotein A-V deficiency		C5680141	
 ORPHA:39041	Omenn syndrome	Combined immunodeficiency with hypereosinophilia		C2700553	
 ORPHA:530838	KRT1-related diffuse nonepidermolytic keratoderma	KRT1-related diffuse NEPPK		C5680142	
@@ -7775,7 +7775,7 @@ ORPHA:68335	Rare chromosomal anomaly			C5681313	D002869
 ORPHA:68329	Rare maxillo-facial surgical disease	Rare maxillofacial anomaly		C5680147	
 ORPHA:530983	Lamb-Shaffer syndrome	SOX5 haploinsufficiency syndrome		C4225202	
 ORPHA:530995	Mixed phenotype acute leukemia	MPAL		C2826025	
-ORPHA:41842	NON RARE IN EUROPE: Fibromyalgia		M79.7		
+ORPHA:41842	Fibromyalgia		M79.7		
 ORPHA:41751	Bietti crystalline dystrophy	BCD | Bietti crystalline corneoretinal dystrophy | Bietti crystalline retinopathy		C1859486	C535440
 ORPHA:42062	Iminoglycinuria			C0268654	C536285
 ORPHA:35705	Neurometabolic disorder due to serine deficiency	Serine deficiency		C5680148	
@@ -7809,7 +7809,7 @@ ORPHA:36397	Adiposis dolorosa	Adiposalgia | Adipose tissue rheumatism | Dercum d
 ORPHA:36412	Hypocomplementemic urticarial vasculitis	Anti-C1q vasculitis | Mac Duffie hypocomplementemic urticarial vasculitis | Mac Duffie syndrome | McDuffie hypocomplementemic urticarial vasculitis | McDuffie syndrome		C0343206	
 ORPHA:36414	OBSOLETE: Brain stem tumor				
 ORPHA:36426	Stevens-Johnson syndrome	Dermatostomatitis, Stevens Johnson type		C0038325	D013262
-ORPHA:36297	NON RARE IN EUROPE: Anorexia nervosa		F50.0		
+ORPHA:36297	Anorexia nervosa		F50.0		
 ORPHA:36355	Bleeding disorder due to P2Y12 defect	Bleeding disorder due to ADP platelet receptor P2Y12 defect		C4510945	
 ORPHA:36367	Distal deletion 1q syndrome	Monosomy 1qter | Telomeric deletion 1q | Distal monosomy 1q		C4273897	
 ORPHA:36382	OBSOLETE: Familial cervical artery dissection	OBSOLETE: Familial CAD | OBSOLETE: Hereditary CAD | OBSOLETE: Hereditary cervical artery dissection			
@@ -7835,11 +7835,11 @@ ORPHA:33572	5-oxoprolinase deficiency	Oxoprolinuria due to oxoprolinase deficien
 ORPHA:33543	Kleine-Levin syndrome			C0206085	D017593
 ORPHA:33475	Meningococcal meningitis			C0025294	D008585
 ORPHA:33445	Neuroectodermal melanolysosomal disease	Elejalde neuroectodermal melanolysosomal disease		C1860157	C536203
-ORPHA:33409	NON RARE IN EUROPE: Lichen sclerosus	NON RARE IN EUROPE: Lichen sclerosus et atrophicus	L90.0		
+ORPHA:33409	Lichen sclerosus	Lichen sclerosus et atrophicus	L90.0		
 ORPHA:33408	Bullous lichen planus		L43.1	C0023648	
 ORPHA:535458	Familial GPIHBP1 deficiency	Familial glycosylphosphatidylinositol-anchored high density lipoprotein-binding protein 1 deficiency			
 ORPHA:33402	Pediatric hepatocellular carcinoma	Childhood-onset HCC | Childhood-onset hepatocellular carcinoma | Pediatric HCC		C0279606	
-ORPHA:34412	NON RARE IN EUROPE: HAIR-AN syndrome	NON RARE IN EUROPE: Hyperandrogenic-insulin resistant-acanthosis nigricans syndrome			
+ORPHA:34412	HAIR-AN syndrome	Hyperandrogenic-insulin resistant-acanthosis nigricans syndrome			
 ORPHA:34217	Naxos disease	KWWH type I | Keratoderma with woolly hair type I | Keratosis palmoplantaris with arrythmogenic cardiomyopathy | Naxos syndrome | Palmoplantar hyperkeratosis with arrythmogenic cardiomyopathy | Palmoplantar keratoderma with arrythmogenic cardiomyopathy		C1832600	C538346
 ORPHA:34149	Autosomal dominant tubulointerstitial kidney disease	ADTKD | Familial juvenile hyperuricemic nephropathy | MCKD | Medullary cystic kidney disease	Q61.5	C4511620	
 ORPHA:34145	Immunoglobulin A nephropathy	Berger disease | IgA nephropathy		C0017661	
@@ -7857,13 +7857,13 @@ ORPHA:535453	Familial lipase maturation factor 1 deficiency	Familial LMF1 defici
 ORPHA:33364	Trichothiodystrophy			C1955934	D054463
 ORPHA:33276	Kaposi sarcoma			C0036220	D012514
 ORPHA:33314	Jessner lymphocytic infiltration of the skin	Jessner-Kanof lymphocytic infiltration of the skin		C0580181	
-ORPHA:33271	NON RARE IN EUROPE: Non-alcoholic fatty liver disease	NON RARE IN EUROPE: NAFLD			
+ORPHA:33271	Non-alcoholic fatty liver disease	NAFLD			
 ORPHA:33208	Idiopathic hypersomnia	Idiopathic excessive sleepiness	G47.1	C0751757	D020177
 ORPHA:33226	Waldenström macroglobulinemia		C88.0	C0024419	D008258
 ORPHA:35061	OBSOLETE: Idiopathic recurrent and disabling cutaneous herpes				
-ORPHA:35056	NON RARE IN EUROPE: Trimethylaminuria	NON RARE IN EUROPE: Fish-odor syndrome			
+ORPHA:35056	Trimethylaminuria	Fish-odor syndrome			
 ORPHA:35069	PLA2G6-related neurodegeneration, infantile-onset	INAD | Infantile neuroaxonal dystrophy | Infantile PLAN | Infantile phospholipase A2-associated neurodegeneration | Seitelberger disease | PLA2G6-associated neurodegeneration, infantile-onset		C0270724	
-ORPHA:35066	NON RARE IN EUROPE: Idiopathic cutaneous and mucosal candidosis	NON RARE IN EUROPE: Idiopathic cutaneous and mucosal candidiasis	B37		
+ORPHA:35066	Idiopathic cutaneous and mucosal candidosis	Idiopathic cutaneous and mucosal candidiasis	B37		
 ORPHA:35093	Non-syndromic sagittal craniosynostosis	Isolated sagittal craniosynostosis | Isolated scaphocephaly | Non-syndromic sagittal suture synostosis		C5680150	
 ORPHA:35078	T-B+NK- severe combined immunodeficiency due to JAK3 deficiency	T-B+NK- SCID due to JAK3 deficiency		C1833275	
 ORPHA:35063	Fulminant viral hepatitis			C0276624	
@@ -7974,7 +7974,7 @@ ORPHA:51084	Torsade-de-pointes syndrome with short coupling interval			C3150851
 ORPHA:51083	Congenital short QT syndrome	Congenital SQTS		C2348199	
 ORPHA:51013	OBSOLETE: Melanoma-pancreatic cancer syndrome				
 ORPHA:50839	Cat-scratch disease	Bartonellosis due to Bartonella henselae infection	A28.1	C0007361	D002372
-ORPHA:50838	NON RARE IN EUROPE: Carpal tunnel syndrome		G56.0		
+ORPHA:50838	Carpal tunnel syndrome		G56.0		
 ORPHA:50817	Duane anomaly-myopathy-scoliosis syndrome	Verloes-Deprez syndrome		C4302550	
 ORPHA:50943	Keratolytic winter erythema	Erythrokeratolysis hiemalis | Oudtshoorn disease		C0406756	C536155
 ORPHA:50942	Striate palmoplantar keratoderma	Keratosis palmoplantaris striata | Keratosis palmoplantaris striata et areata | Keratosis palmoplantaris varians of Wachters		C4707237	
@@ -8019,7 +8019,7 @@ ORPHA:45452	Idiopathic neonatal atrial flutter			C4275090
 ORPHA:542657	Isolated hyperchlorhidrosis	Carbonic anhydrase XII deficiency		C1840437	
 ORPHA:542822	Anomaly of the coronary ostia			C5681322	
 ORPHA:44890	Gastrointestinal stromal tumor	GIST | Gastrointestinal stromal sarcoma		C0238198	D046152
-ORPHA:45360	NON RARE IN EUROPE: Menière disease		H81.0		
+ORPHA:45360	Menière disease		H81.0		
 ORPHA:45358	Congenital fibrosis of extraocular muscles	FEOM		C1302995	C580012
 ORPHA:46487	Epidermolysis bullosa acquisita	Acquired epidermolysis bullosa	L12.3	C0079293	D016107
 ORPHA:544254	SYNGAP1-related developmental and epileptic encephalopathy	SYNGAP1-related DEE		C5680163	
@@ -8195,7 +8195,7 @@ ORPHA:519284	Rare disorder of the anterior segment of the eye			C5681390
 ORPHA:519286	Rare disorder of the pupil			C5681391	
 ORPHA:519280	Rare conjunctivitis			C5681392	
 ORPHA:519282	Rare corneal disorder			C5681393	
-ORPHA:89939	NON RARE IN EUROPE: Hyperkalemic renal tubular acidosis	NON RARE IN EUROPE: Renal tubular acidosis type 4			
+ORPHA:89939	Hyperkalemic renal tubular acidosis	Renal tubular acidosis type 4			
 ORPHA:519276	Anterior segment developmental anomaly with extraocular manifestations			C5681394	
 ORPHA:89938	Bartter syndrome type 4	Bartter syndrome type IV | Bartter syndrome with sensorineural deafness | Bartter syndrome with sensorineural hearing loss		C3838860	
 ORPHA:89937	Autosomal dominant hypophosphatemic rickets	ADHR | Autosomal dominant hypophosphatemia		C0342642	C562791
@@ -8354,7 +8354,7 @@ ORPHA:521305	Proximal myopathy with focal depletion of mitochondria			C1833453	C
 ORPHA:89833	Palmoplantar keratoderma with tonotubular keratin				
 ORPHA:521308	Frontonasal dysplasia-bifid nose-upper limb anomalies syndrome			C5567892	
 ORPHA:521390	Spastic paraplegia-intellectual disability-nystagmus-obesity syndrome	SINO syndrome		C4284592	
-ORPHA:521399	NON RARE IN EUROPE: Non rare obesity				
+ORPHA:521399	Non rare obesity				
 ORPHA:89838	Autosomal recessive generalized epidermolysis bullosa simplex	Autosomal recessive generalized EBS		C5680184	
 ORPHA:521406	Dystonia-parkinsonism-hypermanganesemia syndrome			C4310765	
 ORPHA:521411	Autosomal recessive axonal Charcot-Marie-Tooth disease due to copper metabolism defect	Autosomal recessive axonal CMT due to copper metabolism defect		C5569051	
@@ -8480,7 +8480,7 @@ ORPHA:529852	Combined hepatocellular carcinoma and cholangiocarcinoma	Combined H
 ORPHA:90673	Hypothyroidism due to TSH receptor mutations			C3493776	C576976
 ORPHA:90674	Isolated thyroid-stimulating hormone deficiency	Isolated TSH deficiency | Isolated thyrotropin deficiency		C4082174	C000610012
 ORPHA:529831	Letrozole toxicity			C5681461	
-ORPHA:529819	NON RARE IN EUROPE: Exfoliation syndrome	NON RARE IN EUROPE: Pseudoexfoliation syndrome | NON RARE IN EUROPE: XFS			
+ORPHA:529819	Exfoliation syndrome	Pseudoexfoliation syndrome | XFS			
 ORPHA:529808	Chronic bilirubin encephalopathy	BIND | Bilirubin-induced neurological dysfunction | CBE | KSD | Kernicterus spectrum disorder		C5575229	
 ORPHA:90658	Charcot-Marie-Tooth disease type 1E	CMT1E | Charcot-Marie-Tooth disease-deafness syndrome | Charcot-Marie-Tooth disease-hearing loss syndrome		C2931686	C537986
 ORPHA:529799	Acute bilirubin encephalopathy	ABE | Acute kernicterus		C5671282	
@@ -8922,7 +8922,7 @@ ORPHA:83471	T-cell immunodeficiency with thymic aplasia	Isolated aplasia/hypopla
 ORPHA:83452	Complex regional pain syndrome	Sudeck's atrophy | Causalgia | Reflex sympathetic dystrophy | Algodystrophy | Algoneurodystrophy		C0458219	D020918
 ORPHA:83451	Florid cemento-osseous dysplasia	Florid osseous dysplasia | Focal cemento-osseous dysplasia		C0555197	C537063
 ORPHA:83450	Regional odontodysplasia	Ghost teeth		C0206554	
-ORPHA:83449	NON RARE IN EUROPE: Inappropriate antidiuretic hormone secretion syndrome	NON RARE IN EUROPE: SIADH			
+ORPHA:83449	Inappropriate antidiuretic hormone secretion syndrome	SIADH			
 ORPHA:83463	Microtia		Q17.2	C0152423	D065817
 ORPHA:83461	Congenital primary aphakia		Q12.3	C1853230	C537786
 ORPHA:83454	Glomuvenous malformation	Glomangiomatosis | Hereditary multiple glomangiomas | Multiple glomus tumors | VMGLOM | Venous malformations with glomus cells		C1841984	C536827
@@ -8960,7 +8960,7 @@ ORPHA:85164	Camptodactyly-tall stature-scoliosis-hearing loss syndrome	CATSHL sy
 ORPHA:85146	Neurogenic scapuloperoneal syndrome, Kaeser type	Kaeser syndrome | Stark-Kaeser syndrome		C1867005	C566695
 ORPHA:85162	Facial onset sensory and motor neuronopathy	FOSMN syndrome		C4509818	
 ORPHA:85138	Addison disease	Autoimmune Addison disease | Autoimmune adrenalitis | Classic Addison disease | Primary Addison disease | Primary adrenal insufficiency		C0001403	D000224
-ORPHA:85142	NON RARE IN EUROPE: Aldosterone-producing adenoma	NON RARE IN EUROPE: Aldosterone-secreting adenoma | NON RARE IN EUROPE: Aldosteronoma | NON RARE IN EUROPE: Conn adenoma | NON RARE IN EUROPE: Primary aldosteronism due to Conn adenoma	D35.0		
+ORPHA:85142	Aldosterone-producing adenoma	Aldosterone-secreting adenoma | Aldosteronoma | Conn adenoma | Primary aldosteronism due to Conn adenoma	D35.0		
 ORPHA:85128	Bothnia retinal dystrophy	Västerbotten dystrophy		C1843816	C564392
 ORPHA:85136	Cystic leukoencephalopathy without megalencephaly	CLWM		C2751843	C567845
 ORPHA:85110	Familial encephalopathy with neuroserpin inclusion bodies	FENIB		C1858680	C536841
@@ -9162,7 +9162,7 @@ ORPHA:97346	ADan amyloidosis	Familial dementia, Danish type		C1861735	C538209
 ORPHA:97345	ABri amyloidosis	Familial dementia, British type		C5190835	C538208
 ORPHA:97349	Postencephalitic parkinsonism		G21.3	C0030568	D010301
 ORPHA:97352	Pellagra		E52	C0030783	D010383
-ORPHA:97354	NON RARE IN EUROPE: Wernicke encephalopathy	NON RARE IN EUROPE: Dementia due to thiamine deficiency	E51.2		
+ORPHA:97354	Wernicke encephalopathy	Dementia due to thiamine deficiency	E51.2		
 ORPHA:97353	Dementia pugilistica	Boxer's dementia | Chronic traumatic encephalopathy | Punch-drunk syndrome		C0149843	
 ORPHA:97360	Robinow syndrome	Acral dysostosis with facial and genital abnormalities | Fetal face syndrome | Mesomelic dwarfism-small genitalia syndrome | Robinow dwarfism | Robinow-Silverman-Smith syndrome		C0265205	C562492
 ORPHA:97355	Caribbean parkinsonism	Atypical parkinsonism in the Caribbean		C4275027	
@@ -9170,7 +9170,7 @@ ORPHA:97361	Renal hypoplasia, unilateral		Q60.3	C0431691
 ORPHA:97362	Renal hypoplasia, bilateral		Q60.4	C0431692	
 ORPHA:97363	Unilateral multicystic dysplastic kidney	Unilateral MCDK | Unilateral multicystic renal dysplasia		C1567426	
 ORPHA:97364	Bilateral multicystic dysplastic kidney	Bilateral MCDK | Bilateral multicystic renal dysplasia		C1840451	C537373
-ORPHA:97365	NON RARE IN EUROPE: Solitary renal cyst	NON RARE IN EUROPE: Simple kidney cyst			
+ORPHA:97365	Solitary renal cyst	Simple kidney cyst			
 ORPHA:97366	Multiloculated renal cyst	Multilocular cyst of the kidney | Multilocular renal cyst		C0431719	
 ORPHA:97367	Renal tubular dysgenesis due to twin-twin transfusion			C5438872	
 ORPHA:97368	Drug-related renal tubular dysgenesis			C5438798	
@@ -9179,7 +9179,7 @@ ORPHA:97548	Right isomerism	Ivemark syndrome | RAI | Right atrial isomerism		C31
 ORPHA:97552	Steroid-sensitive nephrotic syndrome without renal biopsy				
 ORPHA:97555	OBSOLETE: Sporadic idiopathic steroid-resistant nephrotic syndrome with collapsing glomerulopathy				
 ORPHA:97556	Congenital and infantile nephrotic syndrome				
-ORPHA:97557	NON RARE IN EUROPE: Chronic proteinuria with focal and segmental hyalinosis	NON RARE IN EUROPE: Permanent proteinuria with focal and segmental hyalinosis without nephrotic syndrome	N04.1		
+ORPHA:97557	Chronic proteinuria with focal and segmental hyalinosis	Permanent proteinuria with focal and segmental hyalinosis without nephrotic syndrome	N04.1		
 ORPHA:97560	Primary membranous glomerulonephritis	Idiopathic membranous glomerulonephritis | Primary membranous nephropathy		C0086445	
 ORPHA:96183	Maternal uniparental disomy of chromosome 9 syndrome	UPD(9)mat		C4707721	
 ORPHA:96182	Silver-Russell syndrome due to maternal uniparental disomy of chromosome 7	UPD(7)mat		C5680247	
@@ -9248,7 +9248,7 @@ ORPHA:97567	Immunotactoid glomerulopathy	Immunotactoid glomerulonephritis		C2242
 ORPHA:97569	OBSOLETE: Unclassified glomerulonephritis				
 ORPHA:97564	Pauci-immune glomerulonephritis without ANCA	Antineutrophil cytoplasmic antibody-negative pauci-immune glomerulonephritis | Pauci-immune glomerulonephritis without antineutrophil cytoplasmic antibody		C5680253	
 ORPHA:97566	Non-amyloid fibrillary glomerulopathy	Congo red-negative amyloidosis-like glomerulopathy | Non-amyloid fibrillary glomerulonephritis		C4273674	
-ORPHA:97562	NON RARE IN EUROPE: Benign familial hematuria				
+ORPHA:97562	Benign familial hematuria				
 ORPHA:97563	Pauci-immune glomerulonephritis with ANCA	Pauci-immune glomerulonephritis with antineutrophil cytoplasmic antibody		C5680254	
 ORPHA:97935	Rare gastroenterologic disease			C5681551	
 ORPHA:97929	Rare cardiac disease			C5681552	
@@ -9284,7 +9284,7 @@ ORPHA:95614	OBSOLETE: Pituitary deficiency secondary to meningeal hemorrhage
 ORPHA:95613	Pituitary apoplexy	Pituitary tumor apoplexy		C0032001	D010899
 ORPHA:95700	Familial adrenal hypoplasia with absent pituitary luteinizing hormone	Familial adrenal hypoplasia with absent pituitary LH | Familial adrenal hypoplasia, miniature type		C5190711	
 ORPHA:95699	Congenital adrenal hyperplasia due to cytochrome P450 oxidoreductase deficiency	Congenital adrenal hyperplasia due to cytochrome POR deficiency | POR deficiency | PORD		C1860042	
-ORPHA:95698	NON RARE IN EUROPE: Non-classic congenital adrenal hyperplasia due to 21-hydroxylase deficiency	NON RARE IN EUROPE: NCAH			
+ORPHA:95698	Non-classic congenital adrenal hyperplasia due to 21-hydroxylase deficiency	NCAH			
 ORPHA:95626	Acquired arginine vasopressin deficiency	Acquired CDI | Acquired neurogenic diabetes insipidus		C5680256	
 ORPHA:95625	OBSOLETE: Posttraumatic diabetes insipidus				
 ORPHA:95623	OBSOLETE: Posttraumatic hypopituitarism				
@@ -9304,7 +9304,7 @@ ORPHA:95488	Non-acquired pituitary hormone deficiency			C5681572
 ORPHA:95491	Congenital coronary artery aneurysm	Congenital coronary aneurysm		C0340627	
 ORPHA:95485	Arterial duct anomaly	Patent ductus arteriosus anomalies		C5680258	
 ORPHA:95484	OBSOLETE: Aneurysm or dilatation of ascending aorta				
-ORPHA:95487	NON RARE IN EUROPE: Atypical arterial duct	NON RARE IN EUROPE: Atypical patent ductus arteriosus			
+ORPHA:95487	Atypical arterial duct	Atypical patent ductus arteriosus			
 ORPHA:95486	Premature closure of the arterial duct	Premature closure of the patent ductus arteriosus		C3532264	
 ORPHA:95496	Pituitary stalk interruption syndrome	Ectopic neurohypophysis | PSIS		C4053775	
 ORPHA:95499	Congenital anomaly of the inferior vena cava	Congenital anomaly of the IVC | Congenital anomaly of the inferior caval vein		C0265932	
@@ -9456,7 +9456,7 @@ ORPHA:93573	Thrombotic microangiopathy	TMA		C2717961	D057049
 ORPHA:93566	OBSOLETE: Pediatric Sjögren syndrome				
 ORPHA:93567	OBSOLETE: Pediatric systemic sclerosis	OBSOLETE: Pediatric systemic scleroderma			
 ORPHA:93568	Juvenile polymyositis	Juvenile PM		C3826988	
-ORPHA:93569	NON RARE IN EUROPE: Polymyalgia rheumatica	NON RARE IN EUROPE: Rhizomelic pseudopolyarthritis			
+ORPHA:93569	Polymyalgia rheumatica	Rhizomelic pseudopolyarthritis			
 ORPHA:93448	Lysosomal storage disease with skeletal involvement	Dysostosis multiplex		C5848292	
 ORPHA:597201	TRIM22-related inflammatory bowel disease	TRIM22-related IBD		C5680271	
 ORPHA:93447	Primary bone dysplasia with defective bone mineralization	Primary osteodysplasia with defective bone mineralization | Primary skeletal dysplasia with defective bone mineralization		C5680272	
@@ -9540,8 +9540,8 @@ ORPHA:93383	Brachydactyly type B			C1300267
 ORPHA:93387	Brachydactyly type E			C4315392	C566194
 ORPHA:93388	Brachydactyly type A1	Brachydactyly, Farabee type		C1862151	C537088
 ORPHA:93384	Brachydactyly type C			C1862103	C537093
-ORPHA:93385	NON RARE IN EUROPE: Brachydactyly type D				
-ORPHA:93393	NON RARE IN EUROPE: Brachydactyly type A3	NON RARE IN EUROPE: Brachydactyly-clinodactyly | NON RARE IN EUROPE: Brachymesophalangy V			
+ORPHA:93385	Brachydactyly type D				
+ORPHA:93393	Brachydactyly type A3	Brachydactyly-clinodactyly | Brachymesophalangy V			
 ORPHA:93389	Brachydactyly type A5			C1862138	
 ORPHA:93396	Brachydactyly type A2	Brachydactyly, Mohr-Wriedt type		C1832702	C537089
 ORPHA:93397	Brachydactyly type A7	Brachydactyly, Smorgasbord type		C4303991	
@@ -9563,7 +9563,7 @@ ORPHA:93955	OBSOLETE: Benign essential blepharospasm	OBSOLETE: Primary blepharos
 ORPHA:93956	OBSOLETE: Truncal dystonia				
 ORPHA:93957	OBSOLETE: Limb dystonia				
 ORPHA:94059	Uremic pruritus			C1262019	
-ORPHA:94062	NON RARE IN EUROPE: Coronary artery disease-hyperlipidemia-hypertension-diabetes-osteoporosis syndrome				
+ORPHA:94062	Coronary artery disease-hyperlipidemia-hypertension-diabetes-osteoporosis syndrome				
 ORPHA:94061	OBSOLETE: Macrocephaly-immune deficiency-anemia syndrome				
 ORPHA:94058	Neovascular glaucoma			C0017609	D015355
 ORPHA:94056	Isolated humero-ulnar synostosis	Isolated congenital humeroulnar fusion		C5925053	
@@ -9695,7 +9695,7 @@ ORPHA:99111	Persistent left superior vena cava connecting to the roof of left-si
 ORPHA:99112	Absence of innominate vein	Absence of brachiocephalic vein		C4707656	
 ORPHA:99110	Right superior vena cava connecting to left-sided atrium	Right SVC connecting to left-sided atrium | Right superior caval vein connecting to left-sided atrium		C0344658	
 ORPHA:99109	Persistent left superior vena cava connecting through coronary sinus to left-sided atrium	Persistent left SVC connecting through coronary sinus to left-sided atrium		C5680293	
-ORPHA:99108	NON RARE IN EUROPE: Patent foramen ovale				
+ORPHA:99108	Patent foramen ovale				
 ORPHA:99107	Atrial septal aneurysm			C0521533	
 ORPHA:99106	Atrial septal defect, ostium primum type	ASD, ostium primum type		C5680294	C548006
 ORPHA:99105	Atrial septal defect, sinus venosus type	ASD, sinus venosus type		C0344730	C548009
@@ -9709,7 +9709,7 @@ ORPHA:99098	Cor triatriatum dexter	Cor triatriatum dextrum | Divided right atriu
 ORPHA:99097	OBSOLETE: Single ventricular septal defect				
 ORPHA:99096	OBSOLETE: Multiple ventricular septal defects				
 ORPHA:99095	Congenital Gerbode defect	Left ventricular-to-right atrial communication		C0344947	
-ORPHA:99151	NON RARE IN EUROPE: Hippocampal tauopathy in cerebral aging				
+ORPHA:99151	Hippocampal tauopathy in cerebral aging				
 ORPHA:99143	OBSOLETE: Mandibulofacial dysostosis-lymphedema syndrome				
 ORPHA:99146	OBSOLETE: Platelet function disease associated with renal insufficiency				
 ORPHA:99147	Acquired von Willebrand syndrome	Acquired von Willebrand disease		C0272362	
@@ -9743,14 +9743,14 @@ ORPHA:99170	Tarsal kink syndrome			C1303000
 ORPHA:99169	Epiblepharon			C0344503	
 ORPHA:99172	Euryblepharon			C1303001	
 ORPHA:99171	Isolated congenital ectropion			C5681630	
-ORPHA:99166	NON RARE IN EUROPE: Familial combined hyperlipoproteinemia				
+ORPHA:99166	Familial combined hyperlipoproteinemia				
 ORPHA:99657	Primary dystonia, DYT2 type	DYT2		C1857093	C538006
 ORPHA:99651	OBSOLETE: Non-pore-loop channelopathy involved in other renal tubular disorder				
 ORPHA:99654	OBSOLETE: Fibrocalculous pancreatopathy	OBSOLETE: FCPD | OBSOLETE: Fibrocalculous pancreatic diabetes | OBSOLETE: Tropical pancreatic diabetes			
 ORPHA:99664	OBSOLETE: Trochlear nerve palsy				
 ORPHA:99663	OBSOLETE: Vestibular torticollis				
 ORPHA:99666	OBSOLETE: Atlantoaxial subluxation				
-ORPHA:99665	NON RARE IN EUROPE: Ventral hernia				
+ORPHA:99665	Ventral hernia				
 ORPHA:99662	OBSOLETE: Posterior fossa tumors				
 ORPHA:99429	Complete androgen insensitivity syndrome	CAIS | Complete androgen resistance syndrome		C0936016	
 ORPHA:99642	Spondyloepimetaphyseal dysplasia, Handigodu type			C3150545	
@@ -10159,7 +10159,7 @@ ORPHA:98708	OBSOLETE: Pigmentation disorder with eye involvement, excluding albi
 ORPHA:98710	OBSOLETE: Metabolic disease associated with ocular features				
 ORPHA:98709	OBSOLETE: Ectodermal malformation syndrome associated with ocular features				
 ORPHA:98681	Rare disorder with strabismus			C5681695	
-ORPHA:98682	NON RARE IN EUROPE: Essential strabismus				
+ORPHA:98682	Essential strabismus				
 ORPHA:98683	Syndromic disorder with strabismus	Syndrome with a symptomatic strabismus		C5680339	
 ORPHA:98684	Craniostenosis with strabismus			C5681696	
 ORPHA:98685	Rare oculomotor nerve disorder			C5681697	
@@ -11066,7 +11066,7 @@ ORPHA:100094	Multiple polyglandular tumor			C5848154
 ORPHA:100924	Porphyria due to ALA dehydratase deficiency	ALAD porphyria | Porphyria due to ALAD deficiency | Porphyria due to delta-aminolevulinate dehydratase deficiency | Porphyria of Doss		C0268328	
 ORPHA:684216	Intellectual disability-facial dysmorphism-joint hypermobility-hearing loss syndrome	BEFAHRS | Beck-Fahrner syndrome | Intellectual disability-facial dysmorphism-joint hypermobility-deafness syndrome | TET3 deficiency | TET3-related Beck-Fahrner syndrome			
 ORPHA:100932	OBSOLETE: Nuclear oculomotor paralysis				
-ORPHA:100642	NON RARE IN EUROPE: Gonorrhea				
+ORPHA:100642	Gonorrhea				
 ORPHA:684305	Neurooculocardiogenitourinary syndrome	NOCGUS | Neuro-oculo-cardio-genito-urinary syndrome			
 ORPHA:100973	FRAXE intellectual disability	Intellectual disability associated with fragile site FRAXE		C4274328	
 ORPHA:100974	FRAXF syndrome			C4274329	
@@ -11350,7 +11350,7 @@ ORPHA:656135	Intellectual disability-cupped ears syndrome	Snijders Blok-Fisher s
 ORPHA:658540	16q22 deletion syndrome			C5925109	
 ORPHA:99887	Acute megakaryoblastic leukemia in children with Down syndrome	Acute megakaryoblastic leukemia in children with trisomy 21 | DS-AMKL in children with Down syndrome | DS-AMKL in children with trisomy 21		C5925108	
 ORPHA:656912	Autosomal dominant combined immunodeficiency due to ERBIN deficiency	AD-CID due to ERBIN deficiency | Autosomal dominant combined immunodeficiency due to erbb2 interacting protein deficiency		C5925110	
-ORPHA:99888	NON RARE IN EUROPE: Adrenocortical adenoma				
+ORPHA:99888	Adrenocortical adenoma				
 ORPHA:99889	Cushing syndrome due to ectopic ACTH secretion	Adrenocorticotropic hormone secretion syndrome | Ectopic ACTH secreting tumor | Ectopic Cushing syndrome | Occult ectopic ACTH secretion | Paraneoplastic Cushing syndrome		C0001231	
 ORPHA:658549	Idiopathic small fibers neuropathy	Idiopathic-SFN		C5925111	
 ORPHA:656417	Embryonal tumor with multilayered rosettes	ETMR		C5575350	
@@ -11641,6 +11641,6 @@ ORPHA:619249	Rare hereditary connective tissue disease			C5681831
 ORPHA:619284	Narcolepsy	Narcolepsy with or without cataplexy		C0027404	D009290
 ORPHA:619340	Inherited hematologic cancer-predisposing syndrome			C5681832	
 ORPHA:619363	NOCARH syndrome	Neonatal-onset cytopenia-autoinflammation-rash episodes of HLH syndrome | Neonatal-onset cytopenia-autoinflammation-rash episodes of hemophagocytic lymphohistiocytosis syndrome		C5925147	
-ORPHA:619360	NON RARE IN EUROPE: Isolated hereditary persistence of fetal hemoglobin		D56.4		
+ORPHA:619360	Isolated hereditary persistence of fetal hemoglobin		D56.4		
 ORPHA:619233	Hereditary persistence of fetal hemoglobin-intellectual disability syndrome	Dias-Logan syndrome		C4310833	
 ORPHA:619238	Rare hereditary autoinflammatory disease			C5816810	

@@ -130,6 +130,48 @@ def test_parse_orphanet_xml_exact_refs_only(tmp_path):
     assert "icd10" not in r                                          # narrower ref dropped
 
 
+def test_parse_orphanet_xml_strips_non_rare_in_europe_prefix(tmp_path):
+    # Orphanet prepends its "not rare in Europe" epidemiological annotation to the
+    # label *and* to every synonym (ORPHA:825 is the real shape). It is not part of
+    # the disease name: left in, enrich_service imports it verbatim as an ARI synonym
+    # and it dominates the predictor's token set.
+    xml = _write(tmp_path, "orpha_nonrare.xml", '''<?xml version="1.0"?>
+<JDBOR><DisorderList>
+  <Disorder id="1">
+    <OrphaCode>825</OrphaCode>
+    <Name lang="en">NON RARE IN EUROPE: Ankylosing spondylitis</Name>
+    <SynonymList>
+      <Synonym lang="en">NON RARE IN EUROPE: Ankylosing spondylarthritis</Synonym>
+      <Synonym lang="en">NON RARE IN EUROPE: Bechterew syndrome</Synonym>
+    </SynonymList>
+  </Disorder>
+</DisorderList></JDBOR>
+''')
+    rows = {r["id"]: r for r in fd.parse_orphanet_xml(xml)}
+    r = rows["ORPHA:825"]
+    assert r["label"] == "Ankylosing spondylitis"
+    assert r["synonyms"] == ["Ankylosing spondylarthritis", "Bechterew syndrome"]
+
+
+def test_parse_orphanet_xml_keeps_obsolete_prefix(tmp_path):
+    # Boundary of the rule above: ``OBSOLETE:`` is the only other prefix of that shape
+    # in en_product1 and it must survive, because it is the file's sole signal that a
+    # term is retired. Broadening the strip to any upper-case prefix would make ~1,600
+    # dead terms match as confidently as live ones.
+    xml = _write(tmp_path, "orpha_obsolete.xml", '''<?xml version="1.0"?>
+<JDBOR><DisorderList>
+  <Disorder id="1">
+    <OrphaCode>1000</OrphaCode>
+    <Name lang="en">OBSOLETE: Retired disorder</Name>
+    <SynonymList><Synonym lang="en">OBSOLETE: Retired disorder variant</Synonym></SynonymList>
+  </Disorder>
+</DisorderList></JDBOR>
+''')
+    r = {x["id"]: x for x in fd.parse_orphanet_xml(xml)}["ORPHA:1000"]
+    assert r["label"] == "OBSOLETE: Retired disorder"
+    assert r["synonyms"] == ["OBSOLETE: Retired disorder variant"]
+
+
 def test_index_columns_match_predict_service():
     # INDEX_COLS is the shared column *vocabulary*: the writer emits a subset of it
     # (see test_write_index_omits_columns_this_source_never_fills) and the reader

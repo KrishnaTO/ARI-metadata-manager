@@ -297,13 +297,31 @@ def parse_mesh_xml(path: Path, keep_tree_prefixes: tuple[str, ...] = ("C", "F03"
 _ORPHA_SOURCE_DB = {"ICD-10": "icd10", "OMIM": "omim", "UMLS": "umls",
                     "MeSH": "mesh", "SNOMED CT": "snomed"}
 
+# Orphanet prepends this epidemiological annotation to the label *and* to every
+# synonym of a disorder that is not rare within Europe (ORPHA:825 "Ankylosing
+# spondylitis", ORPHA:802 "Multiple sclerosis", ~150 terms). It states a property of
+# the disorder, not part of its name. en_product1 carries exactly one other prefix of
+# this shape, ``OBSOLETE:``, which is deliberately left in place: that one flags a
+# retired term and is the only signal in the file that a term is retired, so folding
+# it into the name would make a dead term match as confidently as a live one.
+_ORPHA_NON_RARE_PREFIX = "NON RARE IN EUROPE: "
+
+
+def _strip_orpha_annotation(name: str) -> str:
+    """Drop Orphanet's "not rare in Europe" annotation from a label or synonym."""
+    if name.startswith(_ORPHA_NON_RARE_PREFIX):
+        return name[len(_ORPHA_NON_RARE_PREFIX):].strip()
+    return name
+
 
 def parse_orphanet_xml(path: Path) -> list[dict]:
     """Distil the Orphanet nomenclature XML (en_product1) into index rows.
 
     Own id = OrphaCode; label = Name; synonyms = SynonymList; ``definition`` = the
     disorder's SummaryInformation text section (en_product1 carries the Orphanet
-    definition). Only *exact* external references (DisorderMappingRelation ``E``)
+    definition). Orphanet's "NON RARE IN EUROPE: " annotation is stripped off the
+    label and the synonyms here (see ``_strip_orpha_annotation``) so every consumer
+    reads the clean disease name. Only *exact* external references (DisorderMappingRelation ``E``)
     become cross-references, mapped to ICD-10 / OMIM / UMLS / MeSH / SNOMED so a
     broader/narrower Orphanet mapping is never emitted as a skos:exactMatch
     prediction. ``parents`` is left empty — the Orphanet classification hierarchy
@@ -317,15 +335,16 @@ def parse_orphanet_xml(path: Path) -> list[dict]:
         if _local_tag(elem) != "Disorder":
             continue
         code = elem.findtext("OrphaCode") or ""
-        name = elem.findtext("Name") or ""
+        name = _strip_orpha_annotation(elem.findtext("Name") or "")
         if code and name:
             definition = elem.findtext(
                 "SummaryInformationList/SummaryInformation/TextSectionList/TextSection/Contents") or ""
             row = {"id": f"ORPHA:{code}", "label": name, "synonyms": [],
                    "definition": definition, "parents": [], "orphanet": [code]}
             for syn in elem.iterfind("SynonymList/Synonym"):
-                if syn.text:
-                    row["synonyms"].append(syn.text)
+                synonym = _strip_orpha_annotation(syn.text or "")
+                if synonym:
+                    row["synonyms"].append(synonym)
             for ref in elem.iterfind("ExternalReferenceList/ExternalReference"):
                 db = _ORPHA_SOURCE_DB.get(ref.findtext("Source") or "")
                 ident = ref.findtext("Reference") or ""
