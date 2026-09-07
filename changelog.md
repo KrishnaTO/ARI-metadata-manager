@@ -1,5 +1,23 @@
 # Changelog
 
+## icd10-synonyms-filtering
+
+Enrichment folded a confirmed cross-reference's label and synonyms into the disease no matter which database the curator confirmed. ICD-10 is the one database in the registry where that is unsound: it is a statistical classification, not an ontology of concepts. A code is a bucket holding a disease together with its subtypes and neighbours — which is exactly why the source publishes its own term list as *approximate* synonyms — so resolving one to whatever ontology term happens to cross-reference it hands the disease a **different** concept's names.
+
+- **ICD-10 no longer routes to enrichment.** `NON_CONCEPT_DBS` in `enrich_service` names the databases whose ids classify rather than denote, and `enrich()` skips a confirmed cross-reference in that set before resolving it. One check, placed where the confirmed references become records, so it governs proposed **synonyms and proposed clinical subtypes together** — the second half mattering as much as the first, since a code sitting on a broader term also proposed every one of that term's ontology children as subtypes of the narrower disease.
+- **Excluding the database is exact, where filtering would have been a guess.** The obvious narrower rule — block only the coarse rubrics, three-character codes and ranges — was measured against `ari_t1d.owl` and fails in both directions. It would reject `D86` sarcoidosis, `K50` Crohn disease, `M45` ankylosing spondylitis and twelve more that are correct 1:1 matches, while still admitting `I95.1` → *orthostatic hypotension* onto **POTS**, `H81.0` → *Menière disease* onto **autoimmune disorder of inner ear**, `L12.1` → *ocular cicatricial pemphigoid* onto **benign mucous membrane pemphigoid** and `M08.4` → *oligoarticular JIA* onto **juvenile RA**. Granularity is not the axis; the classification is.
+- **The existing ambiguity guard could not have caught this.** `build_id_index` drops an id matching more than one record *within* a source, and treats one record per source as agreement. `E10` pins exactly one MONDO term, so it reads as agreement while being a rubric over a whole disease family. Records stay indexed under their ICD-10 xrefs; `enrich` is what declines to follow the route.
+
+### What it costs, measured
+Across the whole catalogue: **1665 → 1642** proposed synonyms, 23 gone. Of the 91 diseases whose ICD-10 code resolves to a record at all, 77 reach every one of those records through another cross-reference as well and lose nothing.
+
+Proposed subtypes went **713 → 715** — *up* by two, which is the fix working rather than a side effect. A child whose label matched an incoming synonym was being suppressed by the "a disease is never its own subtype" identity check. Juvenile RA is the clean case: `M08.4` was importing *Oligoarticular juvenile idiopathic arthritis* as a **synonym**, which then masked the real ontology child of the same name. The synonym goes and the subtype appears, which is where that term belonged.
+
+### Not fixed here, because it is not code
+`ari_t1d.owl` records `ARI_DOID 9744` on **Latent autoimmune diabetes in adults** — that is the parent, *type 1 diabetes mellitus* — and `ARI_MONDO MONDO:0011027`, which is *diabetes mellitus, noninsulin-dependent, 1*. LADA therefore still inherits the parent's synonyms after this change, through DOID rather than through `E10`. Two stored ids are wrong; no routing rule should paper over that. Orphanet's `NON RARE IN EUROPE: ` label prefix also arrives verbatim as synonym text and wants its own issue.
+
+Four tests in `test_enrich_service`, written first. `test_ambiguous_id_within_a_source_contributes_nothing` was re-pointed at a SNOMED id: it had used an ICD-10 code, which the new rule would have satisfied for the wrong reason, and it is mutation-checked to still fail without the guard it names. 338 pytest, ruff clean.
+
 ## ci-test-consolidation
 
 A review of the 28 test files behind CI, acting on what it found. No application code changed; the suite got wider in the one place it was thin and shorter everywhere it was repeating itself.
