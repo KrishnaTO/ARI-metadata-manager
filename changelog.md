@@ -20,14 +20,15 @@ Predictions are computed in the request that serves the review page, not by any 
 
 | | before | after |
 |---|---|---|
-| Cache hit (nearly every load) | 0.13 ms | 0.18 ms |
-| Recompute (ontology changed) | 28 ms | 202 ms |
-| Cold start (first load after restart) | 2.0 s | 2.5 s |
-| Resident, process-wide | 235 MB | 251 MB |
+| Cache hit (nearly every load) | 0.14 ms | 0.12 ms |
+| Recompute (ontology changed) | 25 ms | 37 ms |
+| Cold start (first load after restart) | 2.0 s | 2.2 s |
+| Resident, process-wide | 235 MB | 250 MB |
 
-The recompute is the honest cost: the diseases that reach the fuzzy route open buckets for common words like `syndrome` and `autoimmune`, and MONDO alone indexes 84k names. It lands only on a load where that curator's ontology actually changed — an edit, a publish, a fetch — never on a repeat load, and never per keystroke.
+Both of those numbers started out far worse — 202 ms and 307 MB — and neither needed the route weakened to come down:
 
 - **Token buckets hold positions, not strings.** The word→names index first held a Python set of name strings per token: a million set slots, each a pointer with a hash table's slack around it, **71 MB** across the five indexes — a quarter of the whole process. Packed into `array("i")` against a `_names` list it is **16.7 MB** for the same 996,070 entries, at no cost in time. The names are already in `by_name`; a second copy of them bought nothing.
+- **Only the buckets that can hold an answer are opened.** Scoring the query against every term that shares *any* word meant "Fulminant type 1 diabetes" walking every term containing "type" or "1" to find the few that also say "fulminant" — **202 ms** of the recompute. A candidate at or above the threshold must share at least `ceil(threshold × len(query))` of the query's words, so it can miss at most the rest, and one of the rarest that-many-plus-one buckets must contain it. Opening only those is **37 ms**, and it is exact rather than approximate: `test_fuzzy_lookup_finds_exactly_what_scanning_every_name_would` pins it against a brute-force scan at five thresholds, and the full 607-cell prediction output is byte-identical with the filter removed.
 
 Verified against the running app on the 212-disease catalogue: 607 cells (445 `xref`, 69 `label`, 17 `synonym`, 76 `fuzzy`) across 10 diseases, scoring 19-39. 322 pytest, 33 `node --test`, ruff clean.
 

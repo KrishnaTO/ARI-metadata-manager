@@ -262,9 +262,9 @@ syndrome") are out of reach of any lexical route and need a curator or ARI's own
 the request that serves the review page, against the caller's own working copy. Two in-memory
 caches keep that cheap: the parsed index files sit in a module-level cache shared by the whole
 process (keyed on each file's mtime and size), and each `OntologyService` caches its cell list
-against the ontology file's mtime. So a repeat page load is a **cache hit (~0.2 ms)**; a load
-after that curator edited, published or fetched **recomputes (~200 ms)**; and the first load
-after a restart pays the **cold start (~2.5 s)** to parse the indexes. Merging a PR deploys
+against the ontology file's mtime. So a repeat page load is a **cache hit (~0.1 ms)**; a load
+after that curator edited, published or fetched **recomputes (~40 ms)**; and the first load
+after a restart pays the **cold start (~2.2 s)** to parse the indexes. Merging a PR deploys
 *code* — the systemd timers in `deploy/` pull app code, ontology and mappings every 10 minutes
 — it does not run predictions.
 

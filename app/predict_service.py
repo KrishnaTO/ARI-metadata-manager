@@ -39,6 +39,7 @@ from __future__ import annotations
 
 import csv
 import datetime
+import math
 import re
 import unicodedata
 from array import array
@@ -285,10 +286,22 @@ class LexicalIndex:
                     if bucket is None:
                         bucket = self._by_token[tok] = array("i")
                     bucket.append(position)
+        # Which buckets have to be opened at all. A candidate at or above the
+        # threshold shares at least ``ceil(threshold * len(query))`` of the
+        # query's words — the union is never smaller than the query, so Jaccard
+        # cannot reach the threshold on fewer. It can therefore *miss* at most
+        # the rest, and any one more bucket than that must contain it. Opening
+        # the rarest such buckets is exact — nothing that would have passed is
+        # skipped, which ``test_fuzzy_lookup_finds_exactly_what_scanning_every_
+        # name_would`` pins against a brute-force scan — and it is what stops
+        # "Fulminant type 1 diabetes" from walking every term holding "type" or
+        # "1" to find the handful that also say "fulminant".
+        needed = math.ceil(threshold * len(query) - 1e-9)
+        buckets = sorted((self._by_token.get(tok, ()) for tok in query), key=len)
         out: list[tuple[dict, float]] = []
         seen: set[int] = set()
-        for tok in query:
-            for position in self._by_token.get(tok, ()):
+        for bucket in buckets[:max(1, len(query) - needed + 1)]:
+            for position in bucket:
                 if position in seen:
                     continue
                 seen.add(position)
