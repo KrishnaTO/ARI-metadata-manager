@@ -335,7 +335,15 @@ async function api(path, opts={}){
   const fullPath = path.startsWith('/') ? BASE_PATH + path : path;
   if (opts.body){ opts.headers = {'content-type':'application/json'}; opts.body = JSON.stringify(opts.body); }
   const res = await fetch(fullPath, opts);
-  if (!res.ok){ const d = await res.json().catch(()=>({})); throw new Error(d?.detail || res.statusText); }
+  // The status and the body ride along on the error: a refused publish names the
+  // diseases it collided with, and the caller cannot offer to resolve them from
+  // a message string alone.
+  if (!res.ok){
+    const d = await res.json().catch(()=>({}));
+    const err = new Error(d?.detail || res.statusText);
+    err.status = res.status; err.data = d;
+    throw err;
+  }
   return await res.json();
 }
 

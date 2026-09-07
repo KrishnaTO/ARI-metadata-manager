@@ -72,7 +72,7 @@
       sending your work never reverts anybody else's — however old your copy is.</p>
       <p>If one of the records you edited was also changed by someone else while you
       were working, the ${esc(W.submission)} stops and names it, rather than quietly
-      overwriting their version. Fetch the latest from Settings and redo that edit.</p>
+      overwriting their version. You can take their version of that record — your work on it is dropped, your work on everything else is kept — and send the rest.</p>
       <p>You can keep working afterwards. Later work goes into the same
       ${esc(W.submission)} unless you start a new one.</p>`],
 

@@ -125,10 +125,41 @@
         link.addEventListener('click', () => window.open(r.pr_url, '_blank'));
         document.body.appendChild(link); setTimeout(() => link.remove(), 8000);
       } catch (e) {
-        toastError(explainError(e, 'Could not send it for review'));
         $('#pub-go').disabled = false; $('#pub-go').textContent = Words.publish;
+        if (e.status === 409 && e.data && e.data.conflicts) { takeTheirs(e.data.conflicts); return; }
+        toastError(explainError(e, 'Could not send it for review'));
       }
     });
+  }
+
+  // A submission that would revert someone else's work is refused and names the
+  // diseases it collided with. The only way out used to be fetching the source
+  // branch again, which discards the whole working copy — one collision cost
+  // every unpublished edit the curator held, on records that had nothing to do
+  // with it. This takes the branch's version of the named diseases alone.
+  async function takeTheirs(conflicts) {
+    const one = conflicts.length === 1;
+    if (!await UIDialog.confirm({
+      title: one ? 'One record changed while you were working'
+                 : `${conflicts.length} records changed while you were working`,
+      detail: `${conflicts.map(c => c.name).join(', ')} — someone else has edited ` +
+              `${one ? 'it' : 'them'} since your copy was made, and this ${Words.submission} ` +
+              `would revert that. Take their version instead? Your edits to ` +
+              `${one ? 'that record' : 'those records'} are dropped; your work on everything ` +
+              'else is kept.',
+      confirmLabel: one ? 'Take their version' : 'Take their versions',
+      cancelLabel: 'Leave it for now',
+      danger: true,
+    })) return;
+    try {
+      await api('/api/v2/discard', { method: 'POST', body: { iris: conflicts.map(c => c.iri) } });
+    } catch (err) {
+      toastError(explainError(err, 'Could not take their version'));
+      return;
+    }
+    // The working copy has moved under the record on screen; reload rather than
+    // reconciling the open form against data it was never loaded from.
+    location.reload();
   }
 
   if (document.readyState !== 'loading') refresh();

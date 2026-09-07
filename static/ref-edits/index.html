@@ -612,6 +612,16 @@
           <button data-textsize="standard">Standard</button><button data-textsize="large">Large</button><button data-textsize="larger">Larger</button></div>
       </div>
       <div class="menu-sep"></div>
+      <!-- A publish that would revert diseases changed upstream tells the curator
+           to fetch the latest first, but this page had no fetch control at all —
+           only the editor's settings modal did, and it is a separate page. -->
+      <div class="menu-h">Data</div>
+      <div class="menu-row col">
+        <button class="menu-item" id="pref-fetch">&#8635; Fetch changes now</button>
+        <span class="menu-hint">Replaces your working copy with the latest from the source
+          branch. Verdicts and edits you have not submitted are discarded.</span>
+      </div>
+      <div class="menu-sep"></div>
       <div class="menu-h">Matrix</div>
       <label class="menu-row check"><span>Show glyph legend</span><input type="checkbox" id="pref-legend"></label>
       <div class="menu-sep"></div>

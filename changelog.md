@@ -11,7 +11,23 @@ A review of the 28 test files behind CI, acting on what it found. No application
 
 One thing deliberately left alone: the `_index()` / `_disease()` helpers duplicated between `test_predict_service` and `test_enrich_service`. They differ for real reasons, and hoisting them would couple two independent files to one helper to save twenty lines.
 
-Tests and CI only. 314 pytest (from 308) in 32.0s (from 36.9s), 33 `node --test`, ruff clean, `validate_mappings` clean.
+Tests and CI only. The consolidation took the suite from 308 to 314 pytest and 36.9s to 32.0s; 318 with `main` merged in. 33 `node --test`, ruff clean, `validate_mappings` clean.
+
+## publish-fetch-dead-end
+
+A publish refused with **409** — *"These diseases changed on … Publishing now would revert them"* — sent the curator to *Settings › Fetch changes now*, a control the cross-reference review page does not have: its ⚙ popover carries Appearance, Matrix and Attribution only, and the fetch lives in the editor's settings modal on a different page. The one instruction for getting out of the conflict named nothing the curator could find. Following it was worse than not finding it: fetching replaces the **whole** working copy, so one collision cost every unpublished verdict and edit in the session, on records that had nothing to do with it.
+
+### Taking the branch's version of just the diseases that collided
+- **The refusal now offers the way out.** Both pages catch the 409, name the diseases in a dialog and offer *Take their version*. `POST /api/v2/discard` grafts the source branch's version of those diseases — and the symptoms, treatments and pathway steps hanging off them — over the working copy, forgets that this curator touched them, and drops their verdicts. Everything else stands, and the refused publish goes straight back out.
+- **`merge_service.rebase` is `graft_diseases(src, dst, iris)`.** The graft always ran in one direction, working copy onto branch; the recovery is the same operation the other way, so it is the same function rather than a second implementation of it. The working copy is snapshotted first and restored if the graft refuses part-way through, and it is evicted from memory afterwards — owlready2 caches an entity's values on the Python object, and the graft writes triples underneath that cache.
+- **`workspace.forget(login, *iris)`** removes the touched markers and the review verdicts for those diseases alone. The rest of the session, the PR pointer included, is untouched.
+- **API errors carry their status and body.** Both `api()` helpers threw away everything but `detail`, so no caller could act on the `conflicts` list the server had already sent.
+
+### The review page had no fetch at all
+- **`⚙ › Data › ↻ Fetch changes now`** on the cross-reference review page, calling the same `POST /api/v2/fetch` as the editor's settings modal, with the same discard confirmation, disabled when signed out. This is the blunt instrument — take the latest of everything and start over — now that the conflict has its own narrow answer.
+- **The unsubmitted session is dropped before the reload**, and flushed before a narrow discard: the debounced patch and the `visibilitychange` keepalive save would otherwise write verdicts back over what the server had just changed.
+
+Verified against a running app with a stubbed GitHub and a branch edited by another curator: two verdicts, one on a collided disease, submit → 409 → *Take their version* → the collided verdict gone, the other one intact and published. 309 pytest, 33 `node --test`, ruff clean.
 
 ## umls-flagged-id-removal
 
