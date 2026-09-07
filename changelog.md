@@ -1,5 +1,18 @@
 # Changelog
 
+## ci-test-consolidation
+
+A review of the 28 test files behind CI, acting on what it found. No application code changed; the suite got wider in the one place it was thin and shorter everywhere it was repeating itself.
+
+- **The anonymous-write gate is derived from the app's own routes.** Five files each kept a hand-written list of "this endpoint 401s when nobody is signed in" — and between them they covered 13 of the 20 `/api/v2` write routes. The seven nobody had listed included `/api/v2/publish`, `/api/v2/fetch`, `/api/v2/source`, `/api/v2/pr-base` and `/api/v2/assignments/done`: all gated in code, none of it exercised, and the only thing standing between a new endpoint and an ungated one was whether its author remembered which test file to extend. `test_write_auth` now reads the route list out of `app.openapi()` and parametrizes over every write route bar a two-entry allow-list (`enrichment-preview`, a read that takes a body; `logout`). 18 routes checked instead of 13, and the list can no longer fall behind the app.
+- **Two CI steps went.** "Import smoke test (loads the ontology)" is done by `pytest` — ten test modules import `app.main`, which builds `workspace.BASE` at import time — and `python -m compileall app scripts run.py` is a strict subset of `ruff check .`, which parses every Python file in the repo. Both predate the test suite they were standing in for. The job id stays `smoke` so the required-check name in branch protection is untouched.
+- **The whole-ontology comparisons are staged once, not per test.** `build_change_summary` / `list_changes` / `build_report` walk every disease, and the scenarios were built one per test: two fresh ontology copies and a fresh comparison to assert one facet of a result the neighbouring test had just computed. Six of the nine diff tests were staging "edit one field" or "create one disease" from scratch. One module-scoped working copy carries each kind of change now — ten comparisons become six, eighteen service builds become four, and every test name survives. Two keep their own pair on purpose: "no changes" needs two independent loads of the same file to compare equal, and the removal case mutates its baseline.
+- **Three files stopped holding other files' subjects.** The four absent/corrupt-store tests in `test_error_handling` were the same policy and the same issue (#108) as `test_durability`'s `atomic_store` section, so they moved there and the file is gone. The five `store_confirmed_xrefs` / `remove_flagged_xrefs` tests at the foot of `test_publish_rebase` are cross-reference operations, not rebasing — they rode in on the same two commits — and moved to `test_xref_ops`. And the `PREFIX_TO_DBS["SNOMEDCT"] == {snomed, dxcode}` assertion appeared verbatim in both `test_sssom_service` and `test_xref_registry`; the registry file is the one whose stated job is that pairing, so the copy went.
+
+One thing deliberately left alone: the `_index()` / `_disease()` helpers duplicated between `test_predict_service` and `test_enrich_service`. They differ for real reasons, and hoisting them would couple two independent files to one helper to save twenty lines.
+
+Tests and CI only. The consolidation took the suite from 308 to 314 pytest and 36.9s to 32.0s; 334 with `main` merged in. 33 `node --test`, ruff clean, `validate_mappings` clean.
+
 ## fuzzy-xref-prediction
 
 The predictor matched names **exactly** or not at all. Replaying the 443 curator-confirmed mappings in `mappings/ari.sssom.tsv` against the local indexes showed what that costs: of the 275 confirmed cells whose target term the indexes actually hold, exact matching finds 131, and a steady tail of the rest are misses on nothing but word order and punctuation — "Adult onset Still's disease" against `adult-onset Still disease`, "Behçet's syndrome" against `Behcet's disease`, "Atypical hemolytic uremic syndrome with anti-factor H autoantibodies" against Orphanet's `… anti-factor H antibodies`. A curator was researching those from scratch while the answer sat one word-order away in a file the app had already loaded.
@@ -47,6 +60,7 @@ A publish refused with **409** — *"These diseases changed on … Publishing no
 - **The unsubmitted session is dropped before the reload**, and flushed before a narrow discard: the debounced patch and the `visibilitychange` keepalive save would otherwise write verdicts back over what the server had just changed.
 
 Verified against a running app with a stubbed GitHub and a branch edited by another curator: two verdicts, one on a collided disease, submit → 409 → *Take their version* → the collided verdict gone, the other one intact and published. 309 pytest, 33 `node --test`, ruff clean.
+
 ## umls-flagged-id-removal
 
 Flagging a cross-reference as wrong wrote the negative SSSOM row and the disease's changelog line, and left the id itself sitting on the record. `store_confirmed_xrefs` had no counterpart, so a judgment that an id is *not* this disease changed nothing a user could see: the ontology kept serving it, the API kept returning it, and the review grid kept offering it as an unreviewed value the next curator could confirm.

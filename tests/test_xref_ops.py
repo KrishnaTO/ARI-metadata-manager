@@ -5,6 +5,10 @@ window happened to be holding and PUT that back as the field's complete value.
 Anything a second window (or another curator) had added to the same cell since
 page load was erased, with no conflict and no message — issue #114, and the
 reason comparing two records side by side was unsafe.
+
+The same rule governs the two publish-boundary entry points at the foot of this
+file. ``store_confirmed_xrefs`` and ``remove_flagged_xrefs`` apply one judged id
+against the record as it stands, leaving every other id in the cell alone.
 """
 import pytest
 
@@ -130,3 +134,67 @@ def test_a_refused_replace_comes_back_as_a_400_with_the_reason(service, monkeypa
                     json={"db": "omim", "op": "replace", "value": "1", "replaces": "999"})
     assert r.status_code == 400
     assert "no longer on file" in r.json()["detail"]
+
+
+# ------------------------------------------------ confirmations store the id
+def test_confirming_a_cross_reference_stores_the_id_on_the_disease(service):
+    iri = service.get_diseases_list()[0]["iri"]
+    service.update_disease(iri, {"mondo": ""}, editor="setup")
+
+    added = service.store_confirmed_xrefs(
+        [{"iri": iri, "db": "mondo", "ids": ["MONDO:0850054"]}], editor="linikujp")
+
+    assert added == 1
+    detail = service.get_disease_detail(iri)
+    assert detail["mondo"] == ["0850054"]        # stored bare, as every id is
+    assert any("Stored confirmed cross-reference" in c and "linikujp" in c
+               for c in detail["changelog"])
+
+
+def test_confirming_an_id_the_disease_already_holds_changes_nothing(service):
+    iri = service.get_diseases_list()[0]["iri"]
+    service.update_disease(iri, {"mondo": "0850054"}, editor="setup")
+    before = service.get_disease_detail(iri)["changelog"]
+
+    added = service.store_confirmed_xrefs(
+        [{"iri": iri, "db": "mondo", "ids": ["0850054"]}], editor="linikujp")
+
+    assert added == 0
+    assert service.get_disease_detail(iri)["changelog"] == before
+
+
+def test_confirming_leaves_the_ids_already_on_file_alone(service):
+    iri = service.get_diseases_list()[0]["iri"]
+    service.update_disease(iri, {"orphanet": "111"}, editor="setup")
+
+    service.store_confirmed_xrefs([{"iri": iri, "db": "orphanet", "ids": ["617930"]}],
+                                  editor="linikujp")
+
+    assert set(service.get_disease_detail(iri)["orphanet"]) == {"111", "617930"}
+
+
+# ------------------------------------------------- flags remove the id again
+def test_flagging_a_cross_reference_removes_the_id_from_the_disease(service):
+    iri = service.get_diseases_list()[0]["iri"]
+    service.update_disease(iri, {"umls": "C0156147, C0010346"}, editor="setup")
+
+    removed = service.remove_flagged_xrefs(
+        [{"iri": iri, "db": "umls", "ids": ["umls:C0156147"]}], editor="linikujp")
+
+    assert removed == 1
+    detail = service.get_disease_detail(iri)
+    assert detail["umls"] == ["C0010346"]        # the other id is left alone
+    assert any("Removed flagged cross-reference" in c and "linikujp" in c
+               for c in detail["changelog"])
+
+
+def test_flagging_an_id_the_disease_does_not_hold_changes_nothing(service):
+    iri = service.get_diseases_list()[0]["iri"]
+    service.update_disease(iri, {"umls": "C0010346"}, editor="setup")
+    before = service.get_disease_detail(iri)["changelog"]
+
+    removed = service.remove_flagged_xrefs(
+        [{"iri": iri, "db": "umls", "ids": ["C0156147"]}], editor="linikujp")
+
+    assert removed == 0
+    assert service.get_disease_detail(iri)["changelog"] == before

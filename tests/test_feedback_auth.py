@@ -29,17 +29,12 @@ def as_alice(store, monkeypatch):
     return store
 
 
-ANON_WRITES = [
-    ("POST", "/api/v2/feedback", {"disease": "d", "term": "t", "message": "hi"}),
-    ("PUT", "/api/v2/feedback/fb_1", {"message": "rewritten"}),
-    ("DELETE", "/api/v2/feedback/fb_1", None),
-]
-
-
-@pytest.mark.parametrize("method,url,body", ANON_WRITES)
-def test_anonymous_writes_are_rejected(store, method, url, body):
-    r = client.request(method, url, json=body)
-    assert r.status_code == 401
+def test_an_anonymous_write_never_reaches_the_store(store):
+    """The 401 itself is covered for all three feedback routes, alongside every
+    other write route, in ``test_write_auth.py``. What is worth pinning here is
+    the half that a status code cannot prove: the handler refuses *before*
+    touching the store, rather than writing and then reporting a refusal."""
+    client.post("/api/v2/feedback", json={"disease": "d", "term": "t", "message": "hi"})
     assert store.list() == []
 
 

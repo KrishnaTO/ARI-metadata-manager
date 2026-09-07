@@ -3,15 +3,24 @@
 Covers issues #103 (a restart discarded then overwrote unpublished work),
 #104 (parallel creation minted duplicate ids), #107 (source branch was global),
 #108 (non-atomic writes, silent resets) and #120 (idle work deleted).
+
+The store section holds the policy for absent and corrupt state files. An absent
+one is a first run and stays quiet. A *present but corrupt* one is data that
+existed and is now unreadable: the ledgers raise rather than read as empty,
+because continuing on an empty one loses it for good on the next write. The
+session store is the one exception -- it is regenerable by signing in again, so
+it recovers with a warning.
 """
 import json
+import logging
 import shutil
 import time
 from collections import OrderedDict
 
 import pytest
 
-from app import atomic_store, config, workspace
+from app import atomic_store, config, sessions, workspace
+from app.feedback_service import FeedbackStore
 from app.id_allocator import IdAllocator
 from app.ontology_service import OntologyService
 
@@ -35,6 +44,48 @@ def test_a_corrupt_store_is_not_read_as_empty(tmp_path):
     with pytest.raises(atomic_store.StoreCorrupt):
         atomic_store.read_json(f, {})
     assert f.read_text() == "{ half a wri"     # the bytes are still there
+
+
+# ------------------------------------------------- the stores built on top of it
+def _app_warnings(caplog):
+    return [r for r in caplog.records
+            if r.levelno >= logging.WARNING and r.name.startswith("app")]
+
+
+def test_load_sessions_missing_file_is_quiet(tmp_path, monkeypatch, caplog):
+    monkeypatch.setattr(config, "SESSIONS_FILE", tmp_path / "absent.json")
+    with caplog.at_level(logging.WARNING):
+        assert sessions._load_sessions() == {}
+    assert not _app_warnings(caplog)
+
+
+def test_load_sessions_corrupt_file_warns_and_recovers(tmp_path, monkeypatch, caplog):
+    """The exception to the rule above: a lost session is one sign-in away."""
+    f = tmp_path / "sessions.json"
+    f.write_text("{ this is not valid json")
+    monkeypatch.setattr(config, "SESSIONS_FILE", f)
+    with caplog.at_level(logging.WARNING):
+        assert sessions._load_sessions() == {}
+    assert any("session" in r.getMessage().lower() for r in _app_warnings(caplog))
+
+
+def test_feedback_store_missing_file_is_quiet(tmp_path, caplog):
+    store = FeedbackStore(tmp_path / "feedback")
+    with caplog.at_level(logging.WARNING):
+        assert store.list() == []
+    assert not _app_warnings(caplog)
+
+
+def test_feedback_store_refuses_to_read_corrupt_json_as_empty(tmp_path):
+    """That the wrapper goes through atomic_store, not its own json.load.
+
+    Reading it as `[]` meant the next write replaced the damaged file with an
+    empty one and the comments were gone for good (issue #108)."""
+    store = FeedbackStore(tmp_path / "feedback")
+    store.dir.mkdir(parents=True)          # the store only creates this on its first write
+    store.path.write_text("{ broken json")
+    with pytest.raises(atomic_store.StoreCorrupt):
+        store.list()
 
 
 # ----------------------------------------------------- #103 working copies

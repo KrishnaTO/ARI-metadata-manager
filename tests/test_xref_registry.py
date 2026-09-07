@@ -20,6 +20,9 @@ def test_every_entry_is_well_formed():
 
 
 def test_sssom_prefix_is_the_registry_prefix():
+    """The one place this pairing is asserted against the registry. It is also
+    checked through `to_cells` output in test_predict_service, which is the
+    review grid's contract rather than the registry's."""
     assert sssom_service.PREFIX is xref_registry.PREFIX
     # SNOMED backs both snomed and dxcode, so PREFIX_TO_DBS groups them.
     assert set(sssom_service.PREFIX_TO_DBS["SNOMEDCT"]) == {"snomed", "dxcode"}
