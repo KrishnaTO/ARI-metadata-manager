@@ -11,7 +11,39 @@ A review of the 28 test files behind CI, acting on what it found. No application
 
 One thing deliberately left alone: the `_index()` / `_disease()` helpers duplicated between `test_predict_service` and `test_enrich_service`. They differ for real reasons, and hoisting them would couple two independent files to one helper to save twenty lines.
 
-Tests and CI only. The consolidation took the suite from 308 to 314 pytest and 36.9s to 32.0s; 318 with `main` merged in. 33 `node --test`, ruff clean, `validate_mappings` clean.
+Tests and CI only. The consolidation took the suite from 308 to 314 pytest and 36.9s to 32.0s; 334 with `main` merged in. 33 `node --test`, ruff clean, `validate_mappings` clean.
+
+## fuzzy-xref-prediction
+
+The predictor matched names **exactly** or not at all. Replaying the 443 curator-confirmed mappings in `mappings/ari.sssom.tsv` against the local indexes showed what that costs: of the 275 confirmed cells whose target term the indexes actually hold, exact matching finds 131, and a steady tail of the rest are misses on nothing but word order and punctuation — "Adult onset Still's disease" against `adult-onset Still disease`, "Behçet's syndrome" against `Behcet's disease`, "Atypical hemolytic uremic syndrome with anti-factor H autoantibodies" against Orphanet's `… anti-factor H antibodies`. A curator was researching those from scratch while the answer sat one word-order away in a file the app had already loaded.
+
+### A fourth, weakest route: word overlap
+- **`fuzzy` joins `xref`, `label` and `synonym`.** When no exact route finds anything, candidates are proposed from terms whose name shares enough of the label's words (Jaccard over normalised tokens — no stemming, no edit distance: disease names differ by whole qualifier words far more often than by typos, and "shares 3 of its 4 words" is something a curator can check by eye). `LexicalIndex.fuzzy_lookup` scores only the terms sharing at least one word, via a word→names index built on first use, so the route costs nothing for the diseases an exact match already answers.
+- **It runs only as a last resort.** Not when the label matched, not when a synonym matched, and not when an id already on file anchors the disease. A fuzzy candidate therefore never sits beside a certain one diluting it — the case the guard exists for is a label that exactly names one term while a narrower sibling shares three of its four words.
+- **It is scored as the weakest thing in the system.** Below a synonym match even at perfect overlap, scaled by the overlap itself so near-identical names outrank half-shared ones, and always in the `weak` band. Against the full catalogue it proposes 76 candidates across 10 diseases, scoring 19–39: the Orphanet anti-factor-H variant near the top, `Immune checkpoint inhibitor-induced autoimmunity` → `…-Induced Dermatitis` at the bottom.
+
+### The threshold is derived, not guessed
+- **`scripts/eval_fuzzy.py`** replays the confirmed mappings at a range of thresholds and reports what each recovers against the candidates it costs a curator to read. **0.6** takes the bulk of the recoverable matches at roughly one confirmed cell per four candidates read; 0.5 buys five more cells for 130 extra candidates and lets one ambiguous name ("Fulminant type 1 diabetes") draw 97 on its own; 0.4 adds no recall whatsoever for another 476. Re-run it when the corpus grows.
+
+### The grid stops calling a guess a synonym
+- The review page had two words for predictions, *predicted* and *from a synonym*, and a word-overlap candidate would have arrived wearing the second. The card tag now reads **word overlap**, the side panel **Predicted · word-overlap match only**, the score tooltip *"nothing matched exactly; this term shares most of the label's words"*, and the legend key **? no exact match** — which is what the `?` glyph has always actually meant. A genuine synonym prediction still says synonym.
+
+### What it costs
+Predictions are computed in the request that serves the review page, not by any batch job, so the price is paid per page load and is worth stating plainly. Measured in fresh processes against the 212-disease catalogue and the five real indexes, with the fuzzy route stubbed out for the "before" column:
+
+| | before | after |
+|---|---|---|
+| Cache hit (nearly every load) | 0.14 ms | 0.12 ms |
+| Recompute (ontology changed) | 25 ms | 37 ms |
+| Cold start (first load after restart) | 2.0 s | 2.2 s |
+| Resident, process-wide | 235 MB | 250 MB |
+
+Both of those numbers started out far worse — 202 ms and 307 MB — and neither needed the route weakened to come down:
+
+- **Token buckets hold positions, not strings.** The word→names index first held a Python set of name strings per token: a million set slots, each a pointer with a hash table's slack around it, **71 MB** across the five indexes — a quarter of the whole process. Packed into `array("i")` against a `_names` list it is **16.7 MB** for the same 996,070 entries, at no cost in time. The names are already in `by_name`; a second copy of them bought nothing.
+- **Only the buckets that can hold an answer are opened.** Scoring the query against every term that shares *any* word meant "Fulminant type 1 diabetes" walking every term containing "type" or "1" to find the few that also say "fulminant" — **202 ms** of the recompute. A candidate at or above the threshold must share at least `ceil(threshold × len(query))` of the query's words, so it can miss at most the rest, and one of the rarest that-many-plus-one buckets must contain it. Opening only those is **37 ms**, and it is exact rather than approximate: `test_fuzzy_lookup_finds_exactly_what_scanning_every_name_would` pins it against a brute-force scan at five thresholds, and the full 607-cell prediction output is byte-identical with the filter removed.
+
+Verified against the running app on the 212-disease catalogue: 607 cells (445 `xref`, 69 `label`, 17 `synonym`, 76 `fuzzy`) across 10 diseases, scoring 19-39. 322 pytest, 33 `node --test`, ruff clean.
 
 ## publish-fetch-dead-end
 

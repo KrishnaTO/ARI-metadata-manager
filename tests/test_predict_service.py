@@ -314,3 +314,168 @@ def test_predictions_come_back_best_first_within_a_column():
     for db in {p["db"] for p in preds}:
         scores = [p["score"] for p in preds if p["db"] == db]
         assert scores == sorted(scores, reverse=True)
+
+
+# ----------------------------------------------------------------- fuzzy matching
+# Analysis of the 443 confirmed mappings in mappings/ari.sssom.tsv found 60 that
+# exact matching misses purely on word order/punctuation ("Adult onset Still's
+# disease" vs "adult-onset Still disease"). Word-overlap recovers those; it is the
+# weakest route and only runs when every exact route came up empty.
+VARIANTS = _index(
+    ("MONDO:0011429", "adult-onset Still disease", [],
+     {"mondo": ["0011429"], "snomed": ["57160007"]}),
+    ("MONDO:0007037", "unrelated other condition", [],
+     {"mondo": ["0007037"], "snomed": ["999"]}),
+)
+
+
+def test_tokens_splits_a_normalized_name_into_words():
+    assert ps.tokens("Adult onset Still's disease") == {"adult", "onset", "still", "s", "disease"}
+    assert ps.tokens("") == set()
+
+
+def test_token_similarity_is_word_overlap_and_ignores_word_order():
+    assert ps.token_similarity("Still disease adult", "adult Still disease") == 1.0
+    assert ps.token_similarity("Uveitis", "autoimmune uveitis") == 0.5
+    assert ps.token_similarity("nothing alike", "totally different words") == 0.0
+
+
+def test_fuzzy_lookup_returns_only_candidates_at_or_above_the_threshold():
+    hits = VARIANTS.fuzzy_lookup("Adult onset Still's disease", 0.5)
+    assert [r["id"] for r, _ in hits] == ["MONDO:0011429"]
+    assert VARIANTS.fuzzy_lookup("Adult onset Still's disease", 0.9) == []
+
+
+def test_a_word_order_variant_is_predicted_as_a_fuzzy_match():
+    preds = ps.predict_for_disease(_disease("Adult onset Still's disease"), [VARIANTS])
+    got = {p["db"]: p["id"] for p in preds}
+    assert got == {"mondo": "0011429", "snomed": "57160007"}
+    assert all(p["match_field"] == "fuzzy" for p in preds)
+    assert all(p["confidence"] == "low" for p in preds)
+
+
+# One term the label names exactly, and a narrower sibling sharing most of its
+# words — the case where a fuzzy candidate would sit next to a certain one.
+SIBLINGS = _index(
+    ("MONDO:0011429", "juvenile idiopathic arthritis", [],
+     {"mondo": ["0011429"], "snomed": ["410795001"]}),
+    ("MONDO:0019751", "juvenile idiopathic arthritis, systemic", [],
+     {"mondo": ["0019751"], "snomed": ["239796000"]}),
+)
+
+
+def test_fuzzy_never_runs_when_an_exact_route_already_matched():
+    # The label is exactly the first term's name. The systemic sibling shares 3 of
+    # its 4 words, so fuzzy would happily propose it too — a wrong id offered
+    # beside the right one. The exact match must be the only answer.
+    preds = ps.predict_for_disease(_disease("Juvenile idiopathic arthritis"), [SIBLINGS])
+    assert {(p["db"], p["id"]) for p in preds} == {("mondo", "0011429"), ("snomed", "410795001")}
+    assert "fuzzy" not in {p["match_field"] for p in preds}
+
+
+def test_fuzzy_never_runs_when_an_id_on_file_anchors_the_disease():
+    d = _disease("Adult onset Still's disease", existing={"mondo": ["0005147"]})
+    preds = ps.predict_for_disease(d, [HUB, VARIANTS])
+    assert {p["match_field"] for p in preds} == {"xref"}
+
+
+def test_a_name_sharing_too_few_words_is_not_predicted():
+    assert ps.predict_for_disease(_disease("Still waters run deep"), [VARIANTS]) == []
+
+
+def test_fuzzy_is_the_weakest_route_and_scales_with_the_overlap():
+    base = {"object_label": "x", "subject_label": "y"}
+    syn = ps.score_prediction({**base, "evidence": [{"match_field": "synonym", "source": "mondo"}]})
+    near = ps.score_prediction({**base, "evidence": [
+        {"match_field": "fuzzy", "source": "mondo", "similarity": 0.9}]})
+    far = ps.score_prediction({**base, "evidence": [
+        {"match_field": "fuzzy", "source": "mondo", "similarity": 0.5}]})
+    assert syn > near > far
+
+
+def test_fuzzy_evidence_records_the_overlap_it_matched_on():
+    p = ps.predict_for_disease(_disease("Adult onset Still's disease"), [VARIANTS])[0]
+    ev = p["evidence"][0]
+    assert ev["match_field"] == "fuzzy" and ev["via"] == "MONDO:0011429"
+    assert 0.5 <= ev["similarity"] < 1.0
+
+
+# Two terms carrying the same name — a fuzzy hit on that name must return both,
+# or one of the homonyms silently disappears from the candidate list.
+HOMONYMS = _index(
+    ("MONDO:0001", "juvenile idiopathic arthritis systemic", [], {"mondo": ["0001"]}),
+    ("DOID:0002", "juvenile idiopathic arthritis systemic", [], {"doid": ["0002"]}),
+)
+
+
+def test_a_name_shared_by_two_terms_yields_both_candidates():
+    hits = HOMONYMS.fuzzy_lookup("juvenile idiopathic arthritis", 0.6)
+    assert sorted(r["id"] for r, _ in hits) == ["DOID:0002", "MONDO:0001"]
+    assert {round(sim, 2) for _, sim in hits} == {0.75}
+    preds = ps.predict_for_disease(_disease("Juvenile idiopathic arthritis"), [HOMONYMS])
+    assert {(p["db"], p["id"]) for p in preds} == {("mondo", "0001"), ("doid", "0002")}
+
+
+# ------------------------------------------------- fuzzy candidate gathering
+# fuzzy_lookup must return exactly what comparing the query against every
+# indexed name would, however it narrows the search. Terms here deliberately
+# share common words ("syndrome", "disease", "autoimmune") so a filter that
+# leans on the rarest word has something to get wrong.
+SHARED_WORDS = _index(
+    ("A:1", "autoimmune hepatitis", [], {"mondo": ["1"]}),
+    ("A:2", "autoimmune hepatitis type 1", [], {"mondo": ["2"]}),
+    ("A:3", "chronic autoimmune hepatitis", [], {"mondo": ["3"]}),
+    ("A:4", "autoimmune polyendocrine syndrome type 1", [], {"mondo": ["4"]}),
+    ("A:5", "autoimmune polyendocrine syndrome type 2", [], {"mondo": ["5"]}),
+    ("A:6", "Behcet syndrome", ["Behcet disease"], {"mondo": ["6"]}),
+    ("A:7", "chronic fatigue syndrome", [], {"mondo": ["7"]}),
+    ("A:8", "type 1 diabetes mellitus", [], {"mondo": ["8"]}),
+    ("A:9", "type 2 diabetes mellitus", [], {"mondo": ["9"]}),
+    ("A:10", "adult-onset Still disease", [], {"mondo": ["10"]}),
+    ("A:11", "Still disease", [], {"mondo": ["11"]}),
+    ("A:12", "syndrome", [], {"mondo": ["12"]}),
+)
+
+_FUZZY_QUERIES = [
+    "autoimmune hepatitis", "Autoimmune hepatitis type 1", "chronic hepatitis",
+    "autoimmune polyendocrine syndrome", "Behcet's disease", "syndrome",
+    "Adult onset Still's disease", "type 1 diabetes", "diabetes mellitus type 2",
+    "a name that shares nothing", "chronic autoimmune syndrome of the liver",
+]
+
+
+def _brute_force(index, name, threshold):
+    """What fuzzy_lookup must equal: score the query against every indexed name."""
+    query = ps.tokens(name)
+    out = []
+    for key, recs in index.by_name.items():
+        candidate = set(key.split())
+        if not query or not candidate:
+            continue
+        overlap = len(query & candidate) / len(query | candidate)
+        if overlap >= threshold:
+            out.extend((rec, overlap) for rec in recs)
+    return out
+
+
+def _as_set(hits):
+    return {(rec["id"], round(sim, 6)) for rec, sim in hits}
+
+
+@pytest.mark.parametrize("threshold", [0.4, 0.5, 0.6, 0.75, 1.0])
+def test_fuzzy_lookup_finds_exactly_what_scanning_every_name_would(threshold):
+    for query in _FUZZY_QUERIES:
+        assert _as_set(SHARED_WORDS.fuzzy_lookup(query, threshold)) == \
+               _as_set(_brute_force(SHARED_WORDS, query, threshold)), \
+               f"{query!r} at {threshold}"
+
+
+@needs_indexes
+def test_fuzzy_lookup_matches_brute_force_on_a_real_index():
+    mondo = next((i for i in ps.get_indexes() if i.source == "mondo"), None)
+    if mondo is None:
+        pytest.skip("no mondo index")
+    for query in ["Adult onset Still's disease", "Fulminant type 1 diabetes",
+                  "Autoimmune ganglionopathy", "Urticarial vasculitis"]:
+        assert _as_set(mondo.fuzzy_lookup(query, ps.FUZZY_THRESHOLD)) == \
+               _as_set(_brute_force(mondo, query, ps.FUZZY_THRESHOLD)), query
