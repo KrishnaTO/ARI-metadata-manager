@@ -56,7 +56,7 @@
   //   ok    confirmed this session, or positive in the curated mappings
   //   bad   flagged this session, or negative in the curated mappings
   //   pred  lexical prediction for a blank cell (the label matched a concept)
-  //   low   lexical prediction from a synonym only
+  //   low   lexical prediction from a synonym, or from word overlap alone
   //   have  an id on file that nobody has judged yet
   function idState(s, r, dbkey, id, pred) {
     const k = idKey(r.iri, dbkey, id);
