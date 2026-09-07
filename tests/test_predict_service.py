@@ -398,3 +398,19 @@ def test_fuzzy_evidence_records_the_overlap_it_matched_on():
     ev = p["evidence"][0]
     assert ev["match_field"] == "fuzzy" and ev["via"] == "MONDO:0011429"
     assert 0.5 <= ev["similarity"] < 1.0
+
+
+# Two terms carrying the same name — a fuzzy hit on that name must return both,
+# or one of the homonyms silently disappears from the candidate list.
+HOMONYMS = _index(
+    ("MONDO:0001", "juvenile idiopathic arthritis systemic", [], {"mondo": ["0001"]}),
+    ("DOID:0002", "juvenile idiopathic arthritis systemic", [], {"doid": ["0002"]}),
+)
+
+
+def test_a_name_shared_by_two_terms_yields_both_candidates():
+    hits = HOMONYMS.fuzzy_lookup("juvenile idiopathic arthritis", 0.6)
+    assert sorted(r["id"] for r, _ in hits) == ["DOID:0002", "MONDO:0001"]
+    assert {round(sim, 2) for _, sim in hits} == {0.75}
+    preds = ps.predict_for_disease(_disease("Juvenile idiopathic arthritis"), [HOMONYMS])
+    assert {(p["db"], p["id"]) for p in preds} == {("mondo", "0001"), ("doid", "0002")}

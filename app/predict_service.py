@@ -41,6 +41,7 @@ import csv
 import datetime
 import re
 import unicodedata
+from array import array
 from pathlib import Path
 
 from .xref_registry import PREFIX, SOURCE_DB, XREF_DATABASES, normalize_id
@@ -237,7 +238,8 @@ class LexicalIndex:
         self.records: list[dict] = []
         self.terms = 0
         self._by_ref: dict[tuple[str, str], list[dict]] | None = None
-        self._by_token: dict[str, set[str]] | None = None
+        self._names: list[str] = []
+        self._by_token: dict[str, array] | None = None
 
     def add(self, record: dict, names: list[str]) -> None:
         self.terms += 1
@@ -261,22 +263,36 @@ class LexicalIndex:
         ~85k indexed terms would cost far more than the handful of buckets its
         own words open. Like ``records_for`` this index is built lazily, since
         most diseases are answered by an exact route and never come here.
+
+        Buckets hold **positions in** ``_names``, packed into ``array("i")``, not
+        the name strings themselves. Holding a Python set of strings per token
+        cost 71 MB across the five real indexes — a million set slots, each a
+        pointer with a hash table's slack around it — against roughly 15 MB for
+        the same million entries packed 4 bytes apiece. That is a quarter of the
+        process's resident memory recovered for a purely internal change; the
+        names are already in ``by_name``, so a second copy of the strings buys
+        nothing but the indirection this avoids.
         """
         query = tokens(name)
         if not query:
             return []
         if self._by_token is None:
+            self._names = list(self.by_name)
             self._by_token = {}
-            for key in self.by_name:
-                for tok in key.split():
-                    self._by_token.setdefault(tok, set()).add(key)
+            for position, key in enumerate(self._names):
+                for tok in set(key.split()):
+                    bucket = self._by_token.get(tok)
+                    if bucket is None:
+                        bucket = self._by_token[tok] = array("i")
+                    bucket.append(position)
         out: list[tuple[dict, float]] = []
-        seen: set[str] = set()
+        seen: set[int] = set()
         for tok in query:
-            for key in self._by_token.get(tok, ()):
-                if key in seen:
+            for position in self._by_token.get(tok, ()):
+                if position in seen:
                     continue
-                seen.add(key)
+                seen.add(position)
+                key = self._names[position]
                 candidate = set(key.split())
                 overlap = len(query & candidate) / len(query | candidate)
                 if overlap >= threshold:

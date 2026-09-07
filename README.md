@@ -258,6 +258,20 @@ python scripts/eval_fuzzy.py
 Names sharing no words at all ("Kawasaki disease" for "Acute febrile mucocutaneous lymph node
 syndrome") are out of reach of any lexical route and need a curator or ARI's own synonym list.
 
+**When it runs.** There is no batch job. `GET /api/v2/predictions` computes predictions inside
+the request that serves the review page, against the caller's own working copy. Two in-memory
+caches keep that cheap: the parsed index files sit in a module-level cache shared by the whole
+process (keyed on each file's mtime and size), and each `OntologyService` caches its cell list
+against the ontology file's mtime. So a repeat page load is a **cache hit (~0.2 ms)**; a load
+after that curator edited, published or fetched **recomputes (~200 ms)**; and the first load
+after a restart pays the **cold start (~2.5 s)** to parse the indexes. Merging a PR deploys
+*code* — the systemd timers in `deploy/` pull app code, ontology and mappings every 10 minutes
+— it does not run predictions.
+
+**What it costs.** ~250 MB resident process-wide (index files, plus the lazily built reverse-id
+and word-token maps), and ~6.5 MB per concurrently active curator for their working copy and
+cached cells. A 1 GB instance is comfortable; 512 MB is not.
+
 ### Enrichment from confirmed cross-references
 Confirming a cross-reference asserts that the external term **is** the disease, so two of that
 term's facts can be folded back into the ARI record: its label and exact synonyms extend

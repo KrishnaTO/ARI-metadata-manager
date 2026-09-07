@@ -15,7 +15,21 @@ The predictor matched names **exactly** or not at all. Replaying the 443 curator
 ### The grid stops calling a guess a synonym
 - The review page had two words for predictions, *predicted* and *from a synonym*, and a word-overlap candidate would have arrived wearing the second. The card tag now reads **word overlap**, the side panel **Predicted · word-overlap match only**, the score tooltip *"nothing matched exactly; this term shares most of the label's words"*, and the legend key **? no exact match** — which is what the `?` glyph has always actually meant. A genuine synonym prediction still says synonym.
 
-Verified against the running app on the 212-disease catalogue: full prediction pass 0.83s, 607 cells (445 `xref`, 69 `label`, 17 `synonym`, 76 `fuzzy`). 321 pytest, ruff clean.
+### What it costs
+Predictions are computed in the request that serves the review page, not by any batch job, so the price is paid per page load and is worth stating plainly. Measured in fresh processes against the 212-disease catalogue and the five real indexes, with the fuzzy route stubbed out for the "before" column:
+
+| | before | after |
+|---|---|---|
+| Cache hit (nearly every load) | 0.13 ms | 0.18 ms |
+| Recompute (ontology changed) | 28 ms | 202 ms |
+| Cold start (first load after restart) | 2.0 s | 2.5 s |
+| Resident, process-wide | 235 MB | 251 MB |
+
+The recompute is the honest cost: the diseases that reach the fuzzy route open buckets for common words like `syndrome` and `autoimmune`, and MONDO alone indexes 84k names. It lands only on a load where that curator's ontology actually changed — an edit, a publish, a fetch — never on a repeat load, and never per keystroke.
+
+- **Token buckets hold positions, not strings.** The word→names index first held a Python set of name strings per token: a million set slots, each a pointer with a hash table's slack around it, **71 MB** across the five indexes — a quarter of the whole process. Packed into `array("i")` against a `_names` list it is **16.7 MB** for the same 996,070 entries, at no cost in time. The names are already in `by_name`; a second copy of them bought nothing.
+
+Verified against the running app on the 212-disease catalogue: 607 cells (445 `xref`, 69 `label`, 17 `synonym`, 76 `fuzzy`) across 10 diseases, scoring 19-39. 322 pytest, 33 `node --test`, ruff clean.
 
 ## publish-fetch-dead-end
 
