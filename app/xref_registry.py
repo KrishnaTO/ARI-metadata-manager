@@ -23,6 +23,7 @@ Per-entry fields:
   review      shown as a column on the reference-review page
   main_app    shown as a cross-reference chip on the main disease page
 """
+import re
 
 XREF_DATABASES = [
     {"key": "snomed", "label": "SNOMED", "prefix": "SNOMEDCT",
@@ -140,3 +141,37 @@ def normalize_id(db_key: str, value) -> str:
     if prefix and text.lower().startswith(prefix.lower() + ":"):
         text = text[len(prefix) + 1:].strip()
     return "" if text.lower() in PLACEHOLDER_IDS else text
+
+
+# One pattern per object-CURIE prefix, matched against the bare local part of an
+# id. The data repo validates every published mapping row against the same
+# shapes, and two of its rules meet here: an id removed from a disease needs a
+# negative row *if and only if* it is well-formed, because a row carrying a
+# malformed id is itself rejected. So `xref_removals` records a removal as a
+# judgment only when it matches, and a malformed value is dropped as the repair
+# it is.
+ID_PATTERNS = {
+    "SNOMEDCT": re.compile(r"\d{6,18}"),
+    "omop": re.compile(r"\d{4,10}"),
+    "DOID": re.compile(r"\d{1,7}"),
+    "MONDO": re.compile(r"\d{7}"),
+    "ncit": re.compile(r"C\d{2,7}"),
+    # A single ICD-10-CM code, never a range. U07.1 and U09.9 are in current use.
+    "icd10cm": re.compile(r"[A-Z]\d[0-9A-Z](\.[0-9A-Z]{1,4})?"),
+    "ORPHA": re.compile(r"\d{1,7}"),
+    "OMIM": re.compile(r"\d{6}"),
+    "umls": re.compile(r"C\d{7}"),
+    "mesh": re.compile(r"[CD]\d{6,9}"),
+}
+
+
+def well_formed(db_key: str, value) -> bool:
+    """Is ``value`` a usable identifier for ``db_key``'s vocabulary?
+
+    Answers the only question a caller needs: whether this id is one the
+    published mapping set can carry. A placeholder, a blank, or a value of the
+    wrong shape for its database is not.
+    """
+    ident = normalize_id(db_key, value)
+    pattern = ID_PATTERNS.get(PREFIX.get(db_key, ""))
+    return bool(ident and pattern and pattern.fullmatch(ident))

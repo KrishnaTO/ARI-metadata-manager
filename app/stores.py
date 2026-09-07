@@ -1,13 +1,17 @@
 """Process-wide ledgers, instantiated once.
 
-Both are durable on-disk stores that outlive any one request and are read from
+These are durable on-disk stores that outlive any one request and are read from
 more than one route module, so they are created here rather than owned by
 whichever route happened to need them first.
 """
-from . import assignment_service, config, id_provenance
+from . import assignment_service, config, id_provenance, xref_removals
 
 # Per-curator disease assignments and their done markers.
 ASSIGNMENTS = assignment_service.AssignmentStore(config.ASSIGN_DIR)
 
 # Who added each cross-reference id — the review page's separation of duties.
 ID_AUTHORS = id_provenance.IdAuthorStore(config.PROVENANCE_DIR)
+
+# Cross-reference ids edited off a disease record, awaiting publication as the
+# negative judgments they are.
+XREF_REMOVALS = xref_removals.XrefRemovalStore(config.PROVENANCE_DIR)
