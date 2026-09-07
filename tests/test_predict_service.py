@@ -314,3 +314,87 @@ def test_predictions_come_back_best_first_within_a_column():
     for db in {p["db"] for p in preds}:
         scores = [p["score"] for p in preds if p["db"] == db]
         assert scores == sorted(scores, reverse=True)
+
+
+# ----------------------------------------------------------------- fuzzy matching
+# Analysis of the 443 confirmed mappings in mappings/ari.sssom.tsv found 60 that
+# exact matching misses purely on word order/punctuation ("Adult onset Still's
+# disease" vs "adult-onset Still disease"). Word-overlap recovers those; it is the
+# weakest route and only runs when every exact route came up empty.
+VARIANTS = _index(
+    ("MONDO:0011429", "adult-onset Still disease", [],
+     {"mondo": ["0011429"], "snomed": ["57160007"]}),
+    ("MONDO:0007037", "unrelated other condition", [],
+     {"mondo": ["0007037"], "snomed": ["999"]}),
+)
+
+
+def test_tokens_splits_a_normalized_name_into_words():
+    assert ps.tokens("Adult onset Still's disease") == {"adult", "onset", "still", "s", "disease"}
+    assert ps.tokens("") == set()
+
+
+def test_token_similarity_is_word_overlap_and_ignores_word_order():
+    assert ps.token_similarity("Still disease adult", "adult Still disease") == 1.0
+    assert ps.token_similarity("Uveitis", "autoimmune uveitis") == 0.5
+    assert ps.token_similarity("nothing alike", "totally different words") == 0.0
+
+
+def test_fuzzy_lookup_returns_only_candidates_at_or_above_the_threshold():
+    hits = VARIANTS.fuzzy_lookup("Adult onset Still's disease", 0.5)
+    assert [r["id"] for r, _ in hits] == ["MONDO:0011429"]
+    assert VARIANTS.fuzzy_lookup("Adult onset Still's disease", 0.9) == []
+
+
+def test_a_word_order_variant_is_predicted_as_a_fuzzy_match():
+    preds = ps.predict_for_disease(_disease("Adult onset Still's disease"), [VARIANTS])
+    got = {p["db"]: p["id"] for p in preds}
+    assert got == {"mondo": "0011429", "snomed": "57160007"}
+    assert all(p["match_field"] == "fuzzy" for p in preds)
+    assert all(p["confidence"] == "low" for p in preds)
+
+
+# One term the label names exactly, and a narrower sibling sharing most of its
+# words — the case where a fuzzy candidate would sit next to a certain one.
+SIBLINGS = _index(
+    ("MONDO:0011429", "juvenile idiopathic arthritis", [],
+     {"mondo": ["0011429"], "snomed": ["410795001"]}),
+    ("MONDO:0019751", "juvenile idiopathic arthritis, systemic", [],
+     {"mondo": ["0019751"], "snomed": ["239796000"]}),
+)
+
+
+def test_fuzzy_never_runs_when_an_exact_route_already_matched():
+    # The label is exactly the first term's name. The systemic sibling shares 3 of
+    # its 4 words, so fuzzy would happily propose it too — a wrong id offered
+    # beside the right one. The exact match must be the only answer.
+    preds = ps.predict_for_disease(_disease("Juvenile idiopathic arthritis"), [SIBLINGS])
+    assert {(p["db"], p["id"]) for p in preds} == {("mondo", "0011429"), ("snomed", "410795001")}
+    assert "fuzzy" not in {p["match_field"] for p in preds}
+
+
+def test_fuzzy_never_runs_when_an_id_on_file_anchors_the_disease():
+    d = _disease("Adult onset Still's disease", existing={"mondo": ["0005147"]})
+    preds = ps.predict_for_disease(d, [HUB, VARIANTS])
+    assert {p["match_field"] for p in preds} == {"xref"}
+
+
+def test_a_name_sharing_too_few_words_is_not_predicted():
+    assert ps.predict_for_disease(_disease("Still waters run deep"), [VARIANTS]) == []
+
+
+def test_fuzzy_is_the_weakest_route_and_scales_with_the_overlap():
+    base = {"object_label": "x", "subject_label": "y"}
+    syn = ps.score_prediction({**base, "evidence": [{"match_field": "synonym", "source": "mondo"}]})
+    near = ps.score_prediction({**base, "evidence": [
+        {"match_field": "fuzzy", "source": "mondo", "similarity": 0.9}]})
+    far = ps.score_prediction({**base, "evidence": [
+        {"match_field": "fuzzy", "source": "mondo", "similarity": 0.5}]})
+    assert syn > near > far
+
+
+def test_fuzzy_evidence_records_the_overlap_it_matched_on():
+    p = ps.predict_for_disease(_disease("Adult onset Still's disease"), [VARIANTS])[0]
+    ev = p["evidence"][0]
+    assert ev["match_field"] == "fuzzy" and ev["via"] == "MONDO:0011429"
+    assert 0.5 <= ev["similarity"] < 1.0

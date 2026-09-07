@@ -1,4 +1,4 @@
-"""Predict database cross-references for diseases by exact name/synonym match.
+"""Predict database cross-references for diseases by name/synonym match.
 
 Issue #42: many ARI diseases already carry an id for some of the target databases
 (SNOMED, OMOP, DOID, MONDO, NCI, ICD-10, Orphanet, UMLS, MeSH) but leave the
@@ -8,6 +8,17 @@ in a downloaded reference ontology, that term (and the databases it cross-refere
 gives a candidate id. These are surfaced as yellow "predicted" cells on the
 reference-review page and written to a predicted-SSSOM file with a
 ``semapv:LexicalMatching`` justification — a curator still confirms each one.
+
+When nothing matches exactly, a last-resort *fuzzy* route proposes terms whose
+name merely shares most of the label's words. Replaying the confirmed mappings in
+``mappings/ari.sssom.tsv`` showed exact matching misses a steady tail of pure
+word-order and punctuation variants — "Adult onset Still's disease" against
+"adult-onset Still disease" — that word overlap recovers with no synonym
+knowledge and nothing to download. It is the weakest route and scores below
+every other; see ``FUZZY_THRESHOLD`` and ``scripts/eval_fuzzy.py``. Names sharing
+no words at all ("Kawasaki disease" for "Acute febrile mucocutaneous lymph node
+syndrome") stay out of reach of any lexical method and need a curator or ARI's
+own synonym list.
 
 Data source
 -----------
@@ -75,6 +86,26 @@ def normalize(text: str) -> str:
     return t.strip()
 
 
+def tokens(text: str) -> set[str]:
+    """The set of words in a name, folded by :func:`normalize`."""
+    return set(normalize(text).split())
+
+
+def token_similarity(a: str, b: str) -> float:
+    """Word overlap of two names, 0.0-1.0 (Jaccard of their token sets).
+
+    Word order and punctuation drop out, so "adult-onset Still disease" and
+    "Adult onset Still's disease" come out close without any stemming or
+    synonym knowledge. A curator can read the number back as "shares this
+    fraction of its words", which is why this and not an edit distance:
+    disease names differ by *whole qualifier words* far more often than by typos.
+    """
+    ta, tb = tokens(a), tokens(b)
+    if not ta or not tb:
+        return 0.0
+    return len(ta & tb) / len(ta | tb)
+
+
 def _split_ids(cell: str) -> list[str]:
     return [x.strip() for x in (cell or "").split(";") if x.strip()]
 
@@ -89,9 +120,32 @@ def _split_ids(cell: str) -> list[str]:
 #   label    the disease's own label is exactly a name of the term.
 #   synonym  only one of the disease's synonyms matched. ARI synonym lists
 #            sometimes name an *associated* condition rather than a variant, so
-#            this is the weakest route and is only used when the label matched
+#            this route is only used when the label matched nothing at all.
+#   fuzzy    no name matched exactly; the disease's label merely *shares words*
+#            with the term's. The weakest route by far — it is inference from a
+#            string, not an assertion by anyone — so it scores below a synonym
+#            even at perfect overlap and only runs when every route above found
 #            nothing at all.
-ROUTE_SCORE = {"xref": 70, "label": 55, "synonym": 30}
+ROUTE_SCORE = {"xref": 70, "label": 55, "synonym": 30, "fuzzy": 10}
+
+# How much of a fuzzy match's score comes from the overlap itself, so that a
+# near-identical name ranks above one that merely shares half its words. Capped
+# so that even a perfect-overlap fuzzy match stays under the synonym route.
+FUZZY_SIMILARITY_WEIGHT = 15
+
+# Minimum word overlap for a fuzzy candidate, chosen by replaying the 542 confirmed
+# cells in ``mappings/ari.sssom.tsv`` at several thresholds (scripts/eval_fuzzy.py):
+#
+#   0.7  +3 confirmed cells recovered for +17 candidates offered
+#   0.6  +15                            for +57          <- chosen
+#   0.5  +20                            for +187, and one disease alone drew 97
+#   0.4  +20 (no further recall at all) for +663
+#
+# 0.6 takes the bulk of the recoverable matches at roughly one confirmed cell per
+# four candidates a curator reads. Below it, recall flattens while ambiguous
+# names ("Fulminant type 1 diabetes" against every type-1-diabetes variant) bury
+# the curator; above it, real variants like "Behcet's disease" start dropping out.
+FUZZY_THRESHOLD = 0.6
 
 # Two independent index files proposing the same id is real corroboration; a
 # third adds less. Capped so agreement can never outweigh the route itself.
@@ -101,6 +155,15 @@ AGREEMENT_MAX = 20
 # The candidate term's own label being exactly the disease's label is the single
 # strongest confirmation available without opening the resource.
 LABEL_MATCH_BONUS = 15
+
+
+def _route_value(evidence: dict) -> int:
+    """What one piece of evidence is worth: its route, plus overlap if fuzzy."""
+    route = evidence.get("match_field")
+    score = ROUTE_SCORE.get(route, 0)
+    if route == "fuzzy":
+        score += round(FUZZY_SIMILARITY_WEIGHT * float(evidence.get("similarity") or 0))
+    return score
 
 
 def score_prediction(pred: dict) -> int:
@@ -114,9 +177,8 @@ def score_prediction(pred: dict) -> int:
 
     Pure and deterministic — the same prediction always scores the same.
     """
-    evidence = pred.get("evidence") or []
-    routes = {e.get("match_field") for e in evidence} or {pred.get("match_field")}
-    best = max((ROUTE_SCORE.get(r, 0) for r in routes), default=0)
+    evidence = pred.get("evidence") or [{"match_field": pred.get("match_field")}]
+    best = max((_route_value(e) for e in evidence), default=0)
 
     sources = {e.get("source") for e in evidence if e.get("source")}
     agreement = min(AGREEMENT_SCORE.get(len(sources), AGREEMENT_MAX), AGREEMENT_MAX)
@@ -175,6 +237,7 @@ class LexicalIndex:
         self.records: list[dict] = []
         self.terms = 0
         self._by_ref: dict[tuple[str, str], list[dict]] | None = None
+        self._by_token: dict[str, set[str]] | None = None
 
     def add(self, record: dict, names: list[str]) -> None:
         self.terms += 1
@@ -189,6 +252,36 @@ class LexicalIndex:
 
     def lookup(self, name: str) -> list[dict]:
         return self.by_name.get(normalize(name), [])
+
+    def fuzzy_lookup(self, name: str, threshold: float) -> list[tuple[dict, float]]:
+        """Every ``(record, overlap)`` whose name shares at least ``threshold`` words.
+
+        Only names sharing at least one word with ``name`` are scored, via a
+        word -> names index built on first use: comparing a disease against all
+        ~85k indexed terms would cost far more than the handful of buckets its
+        own words open. Like ``records_for`` this index is built lazily, since
+        most diseases are answered by an exact route and never come here.
+        """
+        query = tokens(name)
+        if not query:
+            return []
+        if self._by_token is None:
+            self._by_token = {}
+            for key in self.by_name:
+                for tok in key.split():
+                    self._by_token.setdefault(tok, set()).add(key)
+        out: list[tuple[dict, float]] = []
+        seen: set[str] = set()
+        for tok in query:
+            for key in self._by_token.get(tok, ()):
+                if key in seen:
+                    continue
+                seen.add(key)
+                candidate = set(key.split())
+                overlap = len(query & candidate) / len(query | candidate)
+                if overlap >= threshold:
+                    out.extend((rec, overlap) for rec in self.by_name[key])
+        return out
 
     def records_for(self, db: str, ident: str) -> list[dict]:
         """Every term in this index that supplies ``ident`` for ``db``.
@@ -338,10 +431,10 @@ def predict_for_disease(disease: dict, indexes: list[LexicalIndex],
     blocked = (blocklist or {}).get(disease.get("ari_id") or "", set())
 
     # Anchor on the label; fall back to synonyms only when the label matches nothing.
-    matches = []   # (record, matched_text, field, source)
+    matches = []   # (record, matched_text, field, source, similarity)
     for idx in indexes:
         for rec in idx.lookup(label):
-            matches.append((rec, label, "label", idx.source))
+            matches.append((rec, label, "label", idx.source, 1.0))
     anchored = bool(matches)
     if not anchored:
         for syn in (disease.get("synonyms") or []):
@@ -349,7 +442,7 @@ def predict_for_disease(disease: dict, indexes: list[LexicalIndex],
                 continue
             for idx in indexes:
                 for rec in idx.lookup(syn):
-                    matches.append((rec, syn, "synonym", idx.source))
+                    matches.append((rec, syn, "synonym", idx.source, 1.0))
 
     # An id already on file is an anchor a curator put there, so the reference
     # ontology's own cross-references from that term can fill the blank cells
@@ -361,11 +454,22 @@ def predict_for_disease(disease: dict, indexes: list[LexicalIndex],
         for ident in idents:
             for idx in indexes:
                 for rec in idx.records_for(db, ident):
-                    matches.append((rec, str(ident), "xref", idx.source))
+                    matches.append((rec, str(ident), "xref", idx.source, 1.0))
+
+    # Last resort: nothing matched exactly and no id on file anchors this disease,
+    # so fall back to names that merely *share words* with the label. Confirmed
+    # mappings show these are usually word-order or punctuation variants that
+    # exact matching drops ("Adult onset Still's disease" -> "adult-onset Still
+    # disease"). Only reached when every stronger route came up empty, so a fuzzy
+    # candidate never competes with — or dilutes — a real match.
+    if not matches:
+        for idx in indexes:
+            for rec, overlap in idx.fuzzy_lookup(label, FUZZY_THRESHOLD):
+                matches.append((rec, label, "fuzzy", idx.source, overlap))
 
     # (db, id) -> prediction, so several matches for the same id merge their evidence.
     found: dict[tuple[str, str], dict] = {}
-    for rec, matched, field, source in matches:
+    for rec, matched, field, source, similarity in matches:
         for db in blank:
             # A record supplies ``db`` either as its own id (same ontology) or
             # through a cross-reference it carries to ``db``.
@@ -394,6 +498,7 @@ def predict_for_disease(disease: dict, indexes: list[LexicalIndex],
                 pred["evidence"].append({
                     "via": rec["id"], "source": source,
                     "matched": matched, "match_field": field,
+                    "similarity": similarity,
                 })
 
     for pred in found.values():

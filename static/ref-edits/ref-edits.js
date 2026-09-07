@@ -110,9 +110,10 @@
   // "not in database" verdict is stored and published under.
   const NO_TERM = RM.NO_TERM;
   // Predicted matches (issue #42) keyed `${ari_id}|${prefix}|${id}` ->
-  // {label, match_field, confidence}. From /api/v2/predictions: exact name/synonym
-  // hits for blank cells. confidence 'high' = the disease label matched a concept;
-  // 'low' = only a synonym matched (label matched nothing) — worth a closer look.
+  // {label, match_field, confidence}. From /api/v2/predictions: name/synonym hits
+  // for blank cells. confidence 'high' = the disease label matched a concept;
+  // 'low' = only a synonym matched, or nothing matched exactly and the candidate
+  // merely shares words with the label ('fuzzy') — both worth a closer look.
   let predicted = {};
 
   // Predicted candidate ids for a currently-blank (disease, db) cell. Returns
@@ -161,7 +162,7 @@
   //   ok    confirmed this session, or positive in the curated mappings
   //   bad   flagged this session, or negative in the curated mappings
   //   pred  lexical prediction for a blank cell (the disease label matched a concept)
-  //   low   lexical prediction from a synonym only
+  //   low   lexical prediction from a synonym, or from word overlap alone
   //   have  an id on file that nobody has judged yet
   // A cell (not an id) can also be `none` — the curator judged that the database
   // has no term for this disease at all.
@@ -202,6 +203,15 @@
   const SUP = { 2: '²', 3: '³', 4: '⁴', 5: '⁵' };
   const TAG = { ok: 'confirmed', bad: 'flagged', pred: 'predicted', low: 'synonym',
                 have: 'on file', none: 'not in database' };
+  // A 'low' cell is a prediction that matched nothing exactly: either a synonym hit
+  // or, weaker still, a name that merely shares words with the label. Say which, so
+  // the grid never calls a word-overlap guess a synonym match.
+  const tagFor = (st, entries) => {
+    if (!st) return 'no id';
+    if (st === 'low' && (entries || []).some(e => e.pred && e.pred.match_field === 'fuzzy'))
+      return 'word overlap';
+    return TAG[st];
+  };
 
   // Concept labels for ids on file (predictions already carry theirs). Filled lazily
   // for the open row only, then painted in place so a re-render never blocks on them.
@@ -879,6 +889,7 @@
     xref: 'carried by an id already on file for this disease',
     label: 'this disease’s label is exactly this term’s name',
     synonym: 'only one of this disease’s synonyms matched',
+    fuzzy: 'nothing matched exactly; this term shares most of the label’s words',
   };
 
   function scoreHtml(pred) {
@@ -894,7 +905,7 @@
   function cardHtml(r, db) {
     const entries = cellEntries(r, db.key);
     const st = cellState(r, db.key);
-    const tag = st ? TAG[st] : 'no id';
+    const tag = tagFor(st, entries);
     const ids = entries.map(e => {
       const ist = idState(r, db.key, e.id, e.pred);
       const k = idKey(r.iri, db.key, e.id);
@@ -988,7 +999,7 @@
         // roughly 1,900 of them were unreachable without a mouse and screen
         // readers saw unlabelled containers. The roving tabindex is set by
         // primeMatrixTabStop() after each render.
-        const label = `${r.name}, ${db.label}: ${st ? TAG[st] : 'no id'}`;
+        const label = `${r.name}, ${db.label}: ${tagFor(st, entries)}`;
         return `<div class="mcell${st ? ' ' + st : ''}${sel ? ' sel' : ''}${anyEdited ? ' edited' : ''}"
           data-iri="${esc(r.iri)}" data-db="${db.key}" title="${esc(title)}"
           role="gridcell" tabindex="-1" aria-label="${esc(label)}"
@@ -1164,7 +1175,8 @@
     const eyebrow = absent ? 'No term in ' + db.label
       : !ent ? 'No id yet'
       : st === 'ok' ? 'Confirmed mapping' : st === 'bad' ? 'Flagged mapping'
-      : st === 'low' ? 'Predicted · synonym match only'
+      : st === 'low' ? (ent.pred.match_field === 'fuzzy'
+          ? 'Predicted · word-overlap match only' : 'Predicted · synonym match only')
       : st === 'pred' ? 'Predicted · exact ' + (ent.pred.match_field || 'label') + ' match'
       : 'On file · not yet reviewed';
     const pos = ent ? entries.findIndex(e => String(e.id) === String(ent.id)) + 1 : 0;

@@ -221,6 +221,43 @@ reload resumes where they left off. The session is stored per user beside their 
 ontology copy and is dropped when they switch source branch. Once a pull request exists,
 **Publish** commits to that same PR, while a **New PR** button opens a fresh one instead.
 
+### Predicting cross-references
+A blank cell is not left for the curator to research from nothing: `app/predict_service.py`
+proposes candidate ids from the `data/2-databases/<db>.index.tsv` files, surfaced as yellow
+cells and written to `mappings/ari.predicted.sssom.tsv` with a `semapv:LexicalMatching`
+justification. Nothing is ever written to the ontology by prediction — a curator confirms
+every one. Four routes propose candidates, in descending order of how much they are worth:
+
+| Route | How the candidate was found |
+|-------|-----------------------------|
+| `xref` | An id already on file for this disease cross-references it. One confirmed MONDO id carries SNOMED, DOID, NCI, ICD-10, Orphanet, UMLS and MeSH at once. |
+| `label` | The disease's own label is exactly a name of the term. |
+| `synonym` | Only one of the disease's synonyms matched; used only when the label matched nothing. |
+| `fuzzy` | Nothing matched exactly, and the term's name merely **shares most of the label's words** ("Adult onset Still's disease" → "adult-onset Still disease"). |
+
+The label is the disease's identity **anchor**: when it matches exactly, only those terms are
+used, because ARI synonym lists sometimes name an *associated* condition rather than a
+variant (filtered further by `mappings/ari.synonym_blocklist.tsv`). Each weaker route runs
+only when every stronger one came up empty, so `fuzzy` never competes with a real match.
+
+Every candidate carries a **0–100 score** and a strong/fair/weak band, so the easy
+confirmations sort to the top of a column: the route sets the floor, independent indexes
+agreeing raises it, and the candidate's own label being the disease's label raises it most.
+A `fuzzy` candidate scores below a synonym even at perfect overlap and always lands in
+`weak` — it is inference from a string, not an assertion by anyone.
+
+`FUZZY_THRESHOLD` (the minimum word overlap) is derived, not guessed. `scripts/eval_fuzzy.py`
+replays every curator-confirmed mapping in `mappings/ari.sssom.tsv` at a range of thresholds
+and reports what each recovers against the candidates it costs a curator to read; re-run it
+when the confirmed corpus grows.
+
+```bash
+python scripts/eval_fuzzy.py
+```
+
+Names sharing no words at all ("Kawasaki disease" for "Acute febrile mucocutaneous lymph node
+syndrome") are out of reach of any lexical route and need a curator or ARI's own synonym list.
+
 ### Enrichment from confirmed cross-references
 Confirming a cross-reference asserts that the external term **is** the disease, so two of that
 term's facts can be folded back into the ARI record: its label and exact synonyms extend
