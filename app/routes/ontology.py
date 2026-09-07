@@ -54,9 +54,13 @@ async def update_disease(request: Request, iri: str, payload: dict = Body(...)):
     svc = workspace.service_for(request, write=True)
     before = svc.get_xrefs(iri)
     r = svc.update_disease(iri, changes, editor=editor)
+    after = svc.get_xrefs(iri)
     # Credit this curator with any cross-reference id the edit introduced, so the
     # review page can stop them confirming their own mapping (separation of duties).
-    stores.ID_AUTHORS.record(iri, before, svc.get_xrefs(iri), sessions._login(request))
+    stores.ID_AUTHORS.record(iri, before, after, sessions._login(request))
+    # And park any id it took away, so the removal reaches the mapping files as
+    # the judgment it is rather than vanishing (see app/xref_removals.py).
+    stores.XREF_REMOVALS.record(iri, before, after, sessions._login(request))
     workspace._mark_dirty(request)
     workspace._touch(request, iri)
     return r
@@ -79,7 +83,9 @@ async def apply_xref_op(request: Request, iri: str, payload: dict = Body(...)):
     r = svc.apply_xref_op(iri, payload.get("db", ""), payload.get("op", ""),
                           value=payload.get("value", ""), replaces=payload.get("replaces", ""),
                           editor=payload.get("editor", "user"))
-    stores.ID_AUTHORS.record(iri, before, svc.get_xrefs(iri), sessions._login(request))
+    after = svc.get_xrefs(iri)
+    stores.ID_AUTHORS.record(iri, before, after, sessions._login(request))
+    stores.XREF_REMOVALS.record(iri, before, after, sessions._login(request))
     workspace._mark_dirty(request)
     workspace._touch(request, iri)
     return r

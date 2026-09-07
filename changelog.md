@@ -17,6 +17,19 @@ Proposed subtypes went **713 → 715** — *up* by two, which is the fix working
 `ari_t1d.owl` records `ARI_DOID 9744` on **Latent autoimmune diabetes in adults** — that is the parent, *type 1 diabetes mellitus* — and `ARI_MONDO MONDO:0011027`, which is *diabetes mellitus, noninsulin-dependent, 1*. LADA therefore still inherits the parent's synonyms after this change, through DOID rather than through `E10`. Two stored ids are wrong; no routing rule should paper over that. Orphanet's `NON RARE IN EUROPE: ` label prefix also arrives verbatim as synonym text and wants its own issue.
 
 Four tests in `test_enrich_service`, written first. `test_ambiguous_id_within_a_source_contributes_nothing` was re-pointed at a SNOMED id: it had used an ICD-10 code, which the new rule would have satisfied for the wrong reason, and it is mutation-checked to still fail without the guard it names. 338 pytest, ruff clean.
+## xref-removal-judgments
+
+An id edited off a disease record left no trace outside the ontology. Flagging one on the reference-review page records a decision — the publish sends it in `flagged`, which both drops the id and writes the negative SSSOM row naming who ruled against it — but `update_disease` and `apply_xref_op` write the ontology and stop there. So a curated cross-reference could leave the registry with nothing to say a curator had judged it wrong, and no author against the judgment.
+
+Found from the outside: KrishnaTO/ARI#83 failed CI with four `xref-deleted` errors. ARI:0001158 (Polyglandular autoimmune syndrome type 2) had lost DOID `0060234`, umls `C1275078`, ncit `C98873` and mesh `C563187`, and its changelog showed all four going through the field editor (`Edited: doid`, `Edited: nci`, `Edited: umls`, `Edited: mesh`) half an hour before the review was submitted. The data repo's validator caught what this app had not recorded.
+
+- **Both write paths park what they take away.** `app/xref_removals.py` holds a removal as a pending negative judgment in `provenance/xref-removals.json`, keyed exactly like the authorship ledger. The two routes already snapshot `get_xrefs` either side of an edit to credit ids the edit *introduced*; this reads the same diff in the other direction, so no new plumbing and one `get_xrefs` call saved per write.
+- **The export learns nothing new.** `POST /api/v2/publish` folds the parked removals into the same `flagged` list the review page fills, before `remove_flagged_xrefs` and `sssom_service.build` see it. One list drives both the ontology and the mapping files whichever page the curator used, rather than the export having to ask where a removal came from. `remove_flagged_xrefs` is already idempotent, so an id the field editor deleted passes through and only its row is produced.
+- **A removal undone is not a judgment.** An id put back before publishing leaves the ledger, so a curator who deletes a code and retypes it does not publish a ruling against it.
+- **Malformed ids are repairs, not rulings.** The data repo requires a negative row for a removed id *if and only if* it is well-formed, because a row carrying a malformed id is itself rejected (`id-shape`, `icd9-under-icd10`). Dropping an ICD-9 code stored under ICD-10 is a repair. `xref_registry.well_formed` draws that line, against per-vocabulary patterns that now live beside the databases they describe.
+- **Entries are released when the publish carrying them lands**, next to `_clear_touched`, so the same id is not ruled against twice.
+
+12 new tests (346 pytest, ruff clean): the ledger's own behaviour, and the three routes end to end — clearing a field, replacing an id (the ARI:0001158 shape), and the review page's id-at-a-time path.
 
 ## ci-test-consolidation
 

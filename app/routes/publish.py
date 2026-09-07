@@ -196,6 +196,11 @@ async def publish(request: Request, payload: dict = Body(default={})):
     # reference-review session (also written to the mapping files further below).
     confirmed = payload.get("confirmed") or []
     flagged = payload.get("flagged") or []
+    # An id edited off a disease record is a negative judgment too, and the field
+    # editor is the only path that does not say so. Its parked removals join the
+    # review page's here, so one list drives both the ontology and the mapping
+    # files no matter which page the curator used (see app/xref_removals.py).
+    flagged += stores.XREF_REMOVALS.pending(workspace.touched(u["identity"]["login"]))
     # Cells judged to have no term at all in the target database.
     absent = payload.get("absent") or []
     # author_id lands in the published SSSOM. An ORCID is validated here rather
@@ -383,5 +388,6 @@ async def publish(request: Request, payload: dict = Body(default={})):
         raise
 
     _remember_publish(login, request_id, result)
+    stores.XREF_REMOVALS.clear(flagged)   # the judgments are in the commit now
     workspace._clear_touched(login)   # published; later PRs must not re-describe this work
     return result
