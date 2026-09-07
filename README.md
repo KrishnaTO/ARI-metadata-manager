@@ -38,7 +38,7 @@ ARI-metadata-manager/
 │   ├── config.py               #   Every setting read at startup (env vars, paths, versions)
 │   ├── sessions.py             #   Server-side token store; who the caller is and may do
 │   ├── workspace.py            #   Per-curator working copies: branch, edits, sweep, expiry
-│   ├── stores.py               #   The assignment + id-provenance ledger singletons
+│   ├── stores.py               #   The assignment, id-provenance + removal ledger singletons
 │   ├── routes/                 #   Endpoints, grouped by the page they serve:
 │   │   ├── ontology.py         #     Disease records: trees, indexes, edits, releases
 │   │   ├── review.py           #     /ref-edits matrix: xrefs, mappings, predictions, session
@@ -55,6 +55,7 @@ ARI-metadata-manager/
 │   ├── merge_service.py        #   Rebases a curator's diseases onto the source branch
 │   ├── sssom_service.py        #   Confirmed cross-refs -> SSSOM + equivalencies TSV
 │   ├── id_provenance.py        #   Who added each cross-reference id (separation of duties)
+│   ├── xref_removals.py        #   Ids edited off a record, pending as negative judgments
 │   ├── enrich_service.py       #   Confirmed cross-refs -> disease synonyms + clinical subtypes
 │   ├── diff_service.py         #   Human-readable change summary for PR bodies
 │   ├── export_service.py       #   Export ontology -> 1_Core_ARI_Diseases.xlsx (marks changes)
@@ -196,6 +197,15 @@ an id credits its author in a ledger (`app/id_provenance.py`, served by `GET
 /api/v2/id-authors`); the page then withholds the ✓ from that curator — flagging the id or
 declaring the database empty stays open to everyone — and `POST /api/v2/publish` re-checks
 authorship, so the rule holds regardless of what the client sends.
+
+Removing an id is a judgment too, and until recently only the review page made one. Editing a
+cross-reference out of the disease record wrote the ontology and nothing else, so a curated id
+could leave the registry with no decision behind it — which the data repo rejects on publish.
+Both write paths now park what they take away (`app/xref_removals.py`), and the next publish
+folds those removals into the same `flagged` list the review page fills, so one code path
+produces the negative SSSOM row either way. An id put back before publishing is not a
+judgment and leaves the ledger; a malformed one never enters it, because the published mapping
+set rejects a row carrying an id of the wrong shape.
 
 The ledger only sees edits made through the app, so ids curated before it existed are seeded
 from the curator named on each accumulated mapping — SSSOM `author_id`, equivalencies
