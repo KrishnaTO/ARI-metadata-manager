@@ -1563,11 +1563,12 @@
   <ARI_Synonym rdf:datatype="http://www.w3.org/2001/XMLSchema#string">Type 1.5 diabetes</ARI_Synonym>
   <ARI_Synonym rdf:datatype="http://www.w3.org/2001/XMLSchema#string">Slowly progressive IDDM</ARI_Synonym>
   <ARI_Synonym rdf:datatype="http://www.w3.org/2001/XMLSchema#string">Latent autoimmune diabetes</ARI_Synonym>
-  <ARI_DOID rdf:datatype="http://www.w3.org/2001/XMLSchema#string">9744</ARI_DOID>
+  <ARI_DOID rdf:datatype="http://www.w3.org/2001/XMLSchema#string">0080846</ARI_DOID>
   <ARI_UMLS rdf:datatype="http://www.w3.org/2001/XMLSchema#string">C2987933</ARI_UMLS>
-  <ARI_MONDO rdf:datatype="http://www.w3.org/2001/XMLSchema#string">MONDO:0011027</ARI_MONDO>
+  <ARI_MONDO rdf:datatype="http://www.w3.org/2001/XMLSchema#string">0850306</ARI_MONDO>
   <ARI_ICD10 rdf:datatype="http://www.w3.org/2001/XMLSchema#string">E10</ARI_ICD10>
   <ARI_ChangeLog rdf:datatype="http://www.w3.org/2001/XMLSchema#string">2026-06-12 | System | Initial subtype entry</ARI_ChangeLog>
+  <ARI_ChangeLog rdf:datatype="http://www.w3.org/2001/XMLSchema#string">2026-09-07T18:40:00+00:00 | KrishnaTO | Corrected doid 9744 (type 1 diabetes mellitus, the parent) to 0080846 and mondo MONDO:0011027 (diabetes mellitus, noninsulin-dependent, 1) to 0850306 - both are 'latent autoimmune diabetes in adults'</ARI_ChangeLog>
 </owl:NamedIndividual>
 
 <owl:NamedIndividual rdf:about="#Sym_LADA_Thirst">
@@ -1829,7 +1830,6 @@
   <ARI_ChangeLog rdf:datatype="http://www.w3.org/2001/XMLSchema#string">2026-06-15 10:37 | Importer | Imported from ARI core reports</ARI_ChangeLog>
   <ARI_ChangeLog rdf:datatype="http://www.w3.org/2001/XMLSchema#string">2026-06-25 03:09 | user | Edited: mondo</ARI_ChangeLog>
   <ARI_MONDO rdf:datatype="http://www.w3.org/2001/XMLSchema#string">0019139</ARI_MONDO>
-  <ARI_DOID rdf:datatype="http://www.w3.org/2001/XMLSchema#string">12134</ARI_DOID>
   <ARI_ChangeLog rdf:datatype="http://www.w3.org/2001/XMLSchema#string">2026-06-25 03:18 | user | Edited: doid</ARI_ChangeLog>
   <ARI_ICD10 rdf:datatype="http://www.w3.org/2001/XMLSchema#string">D68.311</ARI_ICD10>
   <ARI_ChangeLog rdf:datatype="http://www.w3.org/2001/XMLSchema#string">2026-06-25 03:26 | user | Edited: icd10</ARI_ChangeLog>
@@ -1839,6 +1839,7 @@
   <ARI_ChangeLog rdf:datatype="http://www.w3.org/2001/XMLSchema#string">2026-06-25 03:42 | user | Edited: nci</ARI_ChangeLog>
   <ARI_ChangeLog rdf:datatype="http://www.w3.org/2001/XMLSchema#string">2026-07-13 03:07 | user | Edited: orphanet</ARI_ChangeLog>
   <ARI_ChangeLog rdf:datatype="http://www.w3.org/2001/XMLSchema#string">2026-07-13 03:10 | KrishnaTO | Cross-reference review: flagged ORPHANET 73274</ARI_ChangeLog>
+  <ARI_ChangeLog rdf:datatype="http://www.w3.org/2001/XMLSchema#string">2026-09-07T18:40:00+00:00 | KrishnaTO | Removed doid 12134 (factor VIII deficiency, i.e. congenital hemophilia A) - the Disease Ontology has no term for acquired hemophilia, so there is no exact match to replace it with</ARI_ChangeLog>
 </owl:NamedIndividual>
 
 <owl:NamedIndividual rdf:about="#Tissue_Blood">
@@ -5334,13 +5335,14 @@ Several names are used for autoimmune thyroiditis. When it is known to be autoim
   <ARI_AuthorDate rdf:datatype="http://www.w3.org/2001/XMLSchema#string">2024-09</ARI_AuthorDate>
   <ARI_SurveyCode rdf:datatype="http://www.w3.org/2001/XMLSchema#string">AT</ARI_SurveyCode>
   <ARI_ChangeLog rdf:datatype="http://www.w3.org/2001/XMLSchema#string">2026-06-15 10:37 | Importer | Imported from ARI core reports</ARI_ChangeLog>
-  <ARI_MONDO rdf:datatype="http://www.w3.org/2001/XMLSchema#string">0005623</ARI_MONDO>
+  <ARI_MONDO rdf:datatype="http://www.w3.org/2001/XMLSchema#string">0007699</ARI_MONDO>
   <ARI_ChangeLog rdf:datatype="http://www.w3.org/2001/XMLSchema#string">2026-07-11 03:49 | user | Edited: mondo</ARI_ChangeLog>
   <ARI_ChangeLog rdf:datatype="http://www.w3.org/2001/XMLSchema#string">2026-07-11 04:00 | user | Edited: omim</ARI_ChangeLog>
   <ARI_ChangeLog rdf:datatype="http://www.w3.org/2001/XMLSchema#string">2026-07-11 04:01 | user | Edited: omim</ARI_ChangeLog>
   <ARI_ChangeLog rdf:datatype="http://www.w3.org/2001/XMLSchema#string">2026-07-11 04:34 | KrishnaTO | Cross-reference review: confirmed SNOMED 66944004; confirmed OMOP 4281109; confirmed DOID 7188; confirmed NCI C38766; confirmed ICD10 E06.3; confirmed UMLS C0920350; confirmed MESH D013967; flagged SNOMED 21983002; flagged OMOP 4130018, 4034815, 135215</ARI_ChangeLog>
   <ARI_DXCODE rdf:datatype="http://www.w3.org/2001/XMLSchema#string">66944004</ARI_DXCODE>
   <ARI_OMOP rdf:datatype="http://www.w3.org/2001/XMLSchema#string">4281109</ARI_OMOP>
+  <ARI_ChangeLog rdf:datatype="http://www.w3.org/2001/XMLSchema#string">2026-09-07T18:40:00+00:00 | KrishnaTO | Corrected mondo 0005623 (autoimmune thyroid disease, the parent) to 0007699 (Hashimoto thyroiditis), which carries this record's own synonyms</ARI_ChangeLog>
 </owl:NamedIndividual>
 
 <owl:NamedIndividual rdf:about="#Sym_0001048_351">
@@ -8370,8 +8372,8 @@ Both UC and CD are caused by an autoimmune response that reflects the involvemen
   <ARI_Obsolete rdf:datatype="http://www.w3.org/2001/XMLSchema#string">false</ARI_Obsolete>
   <ARI_ID rdf:datatype="http://www.w3.org/2001/XMLSchema#string">ARI:0001074</ARI_ID>
   <ARI_SNOMED rdf:datatype="http://www.w3.org/2001/XMLSchema#string">719218000</ARI_SNOMED>
-  <ARI_DOID rdf:datatype="http://www.w3.org/2001/XMLSchema#string">2797</ARI_DOID>
-  <ARI_UMLS rdf:datatype="http://www.w3.org/2001/XMLSchema#string">C0085786</ARI_UMLS>
+  <ARI_DOID rdf:datatype="http://www.w3.org/2001/XMLSchema#string">0050157</ARI_DOID>
+  <ARI_UMLS rdf:datatype="http://www.w3.org/2001/XMLSchema#string">C0242770</ARI_UMLS>
   <ARI_ICD10 rdf:datatype="http://www.w3.org/2001/XMLSchema#string">516.33</ARI_ICD10>
   <ARI_ICD10 rdf:datatype="http://www.w3.org/2001/XMLSchema#string">J84.114</ARI_ICD10>
   <ARI_MESH rdf:datatype="http://www.w3.org/2001/XMLSchema#string">D000080203</ARI_MESH>
@@ -8396,6 +8398,7 @@ Both UC and CD are caused by an autoimmune response that reflects the involvemen
   <ARI_AuthorDate rdf:datatype="http://www.w3.org/2001/XMLSchema#string">2024-09</ARI_AuthorDate>
   <ARI_SurveyCode rdf:datatype="http://www.w3.org/2001/XMLSchema#string">COP</ARI_SurveyCode>
   <ARI_ChangeLog rdf:datatype="http://www.w3.org/2001/XMLSchema#string">2026-06-15 10:37 | Importer | Imported from ARI core reports</ARI_ChangeLog>
+  <ARI_ChangeLog rdf:datatype="http://www.w3.org/2001/XMLSchema#string">2026-09-07T18:40:00+00:00 | KrishnaTO | Corrected doid 2797 (idiopathic interstitial pneumonia, the parent) to 0050157 and umls C0085786 to C0242770 - both are 'cryptogenic organizing pneumonia'</ARI_ChangeLog>
 </owl:NamedIndividual>
 
 <owl:NamedIndividual rdf:about="#Sym_0001074_677">
@@ -22704,7 +22707,7 @@ The most common form of autoimmune uveitis is intermediate uveitis.</rdfs:commen
   <ARI_AuthorDate rdf:datatype="http://www.w3.org/2001/XMLSchema#string">2024-09</ARI_AuthorDate>
   <ARI_SurveyCode rdf:datatype="http://www.w3.org/2001/XMLSchema#string">UV</ARI_SurveyCode>
   <ARI_ChangeLog rdf:datatype="http://www.w3.org/2001/XMLSchema#string">2026-06-15 10:37 | Importer | Imported from ARI core reports</ARI_ChangeLog>
-  <ARI_MONDO rdf:datatype="http://www.w3.org/2001/XMLSchema#string">0000554</ARI_MONDO>
+  <ARI_MONDO rdf:datatype="http://www.w3.org/2001/XMLSchema#string">0020283</ARI_MONDO>
   <ARI_ChangeLog rdf:datatype="http://www.w3.org/2001/XMLSchema#string">2026-07-07 20:14 | user | Edited: mondo</ARI_ChangeLog>
   <ARI_NCI rdf:datatype="http://www.w3.org/2001/XMLSchema#string">C26909</ARI_NCI>
   <ARI_ChangeLog rdf:datatype="http://www.w3.org/2001/XMLSchema#string">2026-07-07 20:14 | user | Edited: nci</ARI_ChangeLog>
@@ -22717,6 +22720,7 @@ The most common form of autoimmune uveitis is intermediate uveitis.</rdfs:commen
   <ARI_ChangeLog rdf:datatype="http://www.w3.org/2001/XMLSchema#string">2026-07-07 20:44 | KrishnaTO | Cross-reference review: confirmed SNOMED 128473001; confirmed OMOP 4028363; confirmed DOID 0040088; flagged SNOMED 231947004; flagged OMOP 4335981</ARI_ChangeLog>
   <ARI_DXCODE rdf:datatype="http://www.w3.org/2001/XMLSchema#string">128473001</ARI_DXCODE>
   <ARI_OMOP rdf:datatype="http://www.w3.org/2001/XMLSchema#string">4028363</ARI_OMOP>
+  <ARI_ChangeLog rdf:datatype="http://www.w3.org/2001/XMLSchema#string">2026-09-07T18:40:00+00:00 | KrishnaTO | Corrected mondo 0000554 (endocervical adenocarcinoma) to 0020283 (uveitis)</ARI_ChangeLog>
 </owl:NamedIndividual>
 
 <owl:NamedIndividual rdf:about="#Sym_0001208_2167">
