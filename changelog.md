@@ -10,6 +10,38 @@ Orphanet publishes ~150 of its terms with an epidemiological annotation welded o
 `data/2-databases/orphanet.index.tsv` rebuilt: 149 rows changed and nothing else — same 11,645 terms, same six columns, and `orphanet.details.tsv` came out byte-identical, so the Orphanet release behind the committed index is still the one being served.
 
 2 new tests (352 pytest, ruff clean).
+## lada-parent-xref-ids
+
+PR #156 closed the ICD-10 route into **Latent autoimmune diabetes in adults** and said plainly what it was leaving behind: the record's own `ARI_DOID 9744` is *type 1 diabetes mellitus*, LADA's parent, and its `ARI_MONDO MONDO:0011027` is *diabetes mellitus, noninsulin-dependent, 1*, a type 2 term. Those are data, not routing, and no rule should paper over them. This is that data.
+
+MONDO and DOID both carry a dedicated LADA term — `MONDO:0850306` and `DOID:0080846`, each labelled *latent autoimmune diabetes in adults*, and `DOID:0080846` is a **direct child** of the 9744 that was stored. Correcting the two ids takes LADA's enrichment from 11 proposed synonyms and 21 proposed subtypes to one synonym and none: gone are *type 1 diabetes mellitus*, *IDDM*, *insulin-dependent diabetes mellitus*, *immune mediated diabetes*, thirteen numbered *type 1 diabetes mellitus N* forms — and *latent autoimmune diabetes in adults* itself, which the parent's child list had been proposing as a subtype of LADA.
+
+### The sweep, and the four other records it found
+
+Comparing every disease's label and synonyms against the label of each stored MONDO/DOID id, then asking whether the stored term is an **ancestor** of one that names the disease exactly, turned up four more of the same defect. Each is corrected here, with the reasoning on the record's own `ARI_ChangeLog`:
+
+| Disease | Stored | Was | Now |
+|---|---|---|---|
+| Latent autoimmune diabetes in adults | `doid`, `mondo` | 9744 *type 1 diabetes mellitus* (parent), MONDO:0011027 *diabetes mellitus, noninsulin-dependent, 1* | 0080846, 0850306 |
+| Autoimmune thyroiditis | `mondo` | 0005623 *autoimmune thyroid disease* (parent) | 0007699 *Hashimoto thyroiditis* |
+| Cryptogenic organizing pneumonia | `doid`, `umls` | 2797 *idiopathic interstitial pneumonia* (parent), C0085786 | 0050157, C0242770 |
+| Uveitis | `mondo` | 0000554 *endocervical adenocarcinoma* | 0020283 *uveitis* |
+| Acquired hemophilia | `doid` | 12134 *factor VIII deficiency* — congenital hemophilia A | removed |
+
+- **Autoimmune thyroiditis** listed *Hashimoto thyroiditis*, *Hashimoto's disease*, *Hashimoto's thyroiditis* and *Chronic lymphocytic thyroiditis* as its own synonyms — which is `MONDO:0007699`'s synonym list — while storing that term's parent. The parent's children were being offered as its clinical subtypes, **Graves disease** among them: a sibling disease proposed as a subtype of its neighbour.
+- **Cryptogenic organizing pneumonia** stored the parent in two columns, and only fixing both accomplishes anything: `enrich_service.build_id_index` registers a record under every cross-reference it declares, so `umls C0085786` reaches *idiopathic interstitial pneumonia* whether or not the DOID does. `C0242770` is COP's own CUI in both DOID and MONDO. Ten real synonyms (*BOOP*, *bronchiolitis obliterans organizing pneumonia*, …) replace *Idiopathic fibrosing alveolitis* and ten interstitial-pneumonia siblings offered as subtypes.
+- **Uveitis** was not a parent at all: `MONDO:0000554` is *endocervical adenocarcinoma*, and the record was being offered that as a name for itself. `MONDO:0020283` *uveitis* carries the SNOMED id (`128473001`) the record already had curated and confirmed. Its eight genuine children — *anterior*, *intermediate*, *posterior*, *panuveitis*, *iritis*, *chorioretinitis* — now arrive as subtypes where nothing arrived before.
+- **Acquired hemophilia** is the one removal. `DOID:12134` is congenital hemophilia A, a sibling under `DOID:0061030` *hemophilia*; the Disease Ontology has no term for the acquired autoimmune disease, so there is nothing to correct it to. The record's MONDO (`0019139` *acquired hemophilia*), UMLS and ICD-10 were right all along, and alone they propose *acquired hemophilia A*, *acquired hemophilia B* and *acquired factor XI deficiency* — instead of *Hemophilia A*, *Congenital factor VIII disorder* and *severe/moderately severe/mild hemophilia A*. No published mapping row asserted 12134, so `ari.sssom.tsv` is unchanged.
+
+Nine other diseases whose label does not literally match their stored term's were read and left alone: *Cogan's syndrome* against `Cogan syndrome`, *Bickerstaff's brainstem encephalitis*, *Anti-CASPR2 autoimmune encephalitis* against `limbic encephalitis with caspr2 antibodies`, *LRBA deficiency* against `common variable immunodeficiency 8`. Those are the same concept under another name, which is exactly what a synonym route is for.
+
+### Tests
+
+10 in `tests/test_curated_xrefs.py`, all ten watched fail against the pre-fix ontology. Half pin the stored ids; half assert the consequence — that these records' cross-references no longer propose a neighbour's names or a neighbour's children — so a future wrong id fails whatever its number. They run against the **real** reference indexes rather than a fixture, because the defect was in curated data and a stub index could not have caught it.
+
+Not fixed here, because neither is an identifier: **Cryptogenic organizing pneumonia** still carries *Interstitial pneumonia* and *idiopathic interstitial pneumonia* as its own `ARI_Synonym`s — the parent's names, already folded in before this — and **LADA**'s `ARI_UMLS C2987933` appears in no local index, so nothing here can say what it names. Both want a curator, and their own issues.
+
+360 pytest, 33 `node --test`, ruff clean, `validate_mappings` clean.
 
 ## icd10-synonyms-filtering
 
