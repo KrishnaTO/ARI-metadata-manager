@@ -1,5 +1,15 @@
 # Changelog
 
+## orpha-non-rare-prefix
+
+Orphanet publishes ~150 of its terms with an epidemiological annotation welded onto the front of the name: ORPHA:825 is `NON RARE IN EUROPE: Ankylosing spondylitis`, and so is every one of its synonyms. `enrich_service` takes an external term's label and synonyms as name-variants of the same disease and offers them verbatim, so the ontology was set to accumulate synonyms reading `NON RARE IN EUROPE: Bechterew syndrome` — three of them on ankylosing spondylitis alone. The predictor saw the same thing from the other side: four words of annotation ahead of two words of disease name is most of the token set a `fuzzy` candidate's overlap is scored on, and it is shared with every other non-rare disorder in the file.
+
+- **Stripped where the index is built.** `parse_orphanet_xml` drops it off the label and off each synonym, so the one place that turns Orphanet's XML into a name is the place the annotation stops — rather than a filter in `predict_service` and a second one in `enrich_service`, each having to know Orphanet's spelling of it.
+- **`OBSOLETE:` stays.** Enumerating the labels and synonyms of all 11,645 terms turns up exactly two prefixes of this shape and no third, in one spelling each. The other is `OBSOLETE:`, on 1,058 rows, and it is the sibling to leave alone: en_product1 gives no other signal that a term is retired, so folding it into the name would let a dead term match as confidently as a live one. So the rule is that one exact prefix and not a pattern over leading upper-case words — `test_parse_orphanet_xml_keeps_obsolete_prefix` pins the boundary, and fails against the broader rule.
+
+`data/2-databases/orphanet.index.tsv` rebuilt: 149 rows changed and nothing else — same 11,645 terms, same six columns, and `orphanet.details.tsv` came out byte-identical, so the Orphanet release behind the committed index is still the one being served.
+
+2 new tests (352 pytest, ruff clean).
 ## lada-parent-xref-ids
 
 PR #156 closed the ICD-10 route into **Latent autoimmune diabetes in adults** and said plainly what it was leaving behind: the record's own `ARI_DOID 9744` is *type 1 diabetes mellitus*, LADA's parent, and its `ARI_MONDO MONDO:0011027` is *diabetes mellitus, noninsulin-dependent, 1*, a type 2 term. Those are data, not routing, and no rule should paper over them. This is that data.
