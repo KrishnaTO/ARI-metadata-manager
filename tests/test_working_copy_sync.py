@@ -73,7 +73,7 @@ COMMENT = "http://www.w3.org/2000/01/rdf-schema#comment"
 @pytest.fixture
 def branch(curator, monkeypatch, make_service):
     """Signed in as ada, with GitHub stubbed to serve ``branch['svc']`` at ``branch['sha']``."""
-    state = {"svc": make_service(), "sha": "sha-2"}
+    state = {"svc": make_service(), "sha": "sha-2", "refs": []}
     monkeypatch.setattr(config, "GH_ENABLED", True)
     monkeypatch.setattr(sessions, "_user", lambda r: {"token": "t", "identity": {"login": "ada"}})
     monkeypatch.setattr(sessions, "_login", lambda r: "ada")
@@ -81,7 +81,8 @@ def branch(curator, monkeypatch, make_service):
     async def _sha(*a):
         return state["sha"]
 
-    async def _file(*a):
+    async def _file(token, owner, repo, path, ref):
+        state["refs"].append(ref)
         state["svc"]._save()
         return state["svc"].path.read_bytes()
 
@@ -128,7 +129,7 @@ def test_resolve_applies_the_choices(branch):
     svc.update_disease(d, {"definition": "mine"}, editor="ada")
     branch["svc"].update_disease(d, {"definition": "theirs"}, editor="bob")
 
-    r = client.post("/api/v2/resolve", json={"choices": {d: {f"{d}|{COMMENT}": "theirs"}}})
+    r = client.post("/api/v2/resolve", json={"sha": "sha-2", "choices": {d: {f"{d}|{COMMENT}": "theirs"}}})
 
     assert r.status_code == 200 and r.json()["merged"] == [d]
     assert workspace.user_service("ada").get_disease_detail(d)["definition"] == "theirs"
@@ -140,7 +141,7 @@ def test_resolve_with_an_unanswered_conflict_hands_it_back(branch):
     svc.update_disease(d, {"definition": "mine"}, editor="ada")
     branch["svc"].update_disease(d, {"definition": "theirs"}, editor="bob")
 
-    r = client.post("/api/v2/resolve", json={"choices": {d: {}}})
+    r = client.post("/api/v2/resolve", json={"sha": "sha-2", "choices": {d: {}}})
 
     assert r.status_code == 409
     assert r.json()["conflicts"][0]["fields"][0]["key"] == f"{d}|{COMMENT}"
@@ -148,7 +149,7 @@ def test_resolve_with_an_unanswered_conflict_hands_it_back(branch):
 
 def test_resolve_rejects_a_choice_that_is_not_mine_or_theirs(branch):
     workspace.user_service("ada", create=True)
-    r = client.post("/api/v2/resolve", json={"choices": {"x": {"k": "both"}}})
+    r = client.post("/api/v2/resolve", json={"sha": "sha-2", "choices": {"x": {"k": "both"}}})
     assert r.status_code == 400
 
 
@@ -171,7 +172,7 @@ def test_resolve_without_a_working_copy_refuses_and_leaves_the_base_alone(branch
     d = _first(branch["svc"])
     branch["svc"].update_disease(d, {"definition": "theirs"}, editor="bob")
 
-    r = client.post("/api/v2/resolve", json={"choices": {d: {}}})
+    r = client.post("/api/v2/resolve", json={"sha": "sha-2", "choices": {d: {}}})
 
     assert r.status_code == 400
     assert open(config.ONTOLOGY_FILE, "rb").read() == before
@@ -237,3 +238,192 @@ def test_recording_the_branch_commit_keeps_the_revision(branch):
     rev = workspace.copy_revision("ada")
     workspace.set_ancestor_sha("ada", "sha-9")
     assert workspace.copy_revision("ada") == rev
+
+
+# ------------------------------------------------------- a source branch that is gone
+# A curator can source from an edit/* branch; once its PR merges the branch is
+# deleted, and every load used to say only "Couldn't check … for updates" (#165).
+def _github(monkeypatch, handler):
+    """Route github_service's HTTP calls to ``handler`` (an httpx MockTransport handler)."""
+    import httpx
+    real = httpx.AsyncClient
+    monkeypatch.setattr(gh.httpx, "AsyncClient",
+                        lambda **kw: real(transport=httpx.MockTransport(handler), **kw))
+
+
+def test_branch_sha_reads_the_branch_head(monkeypatch):
+    import asyncio
+
+    import httpx
+    seen = []
+
+    def handler(request):
+        seen.append(request.url.path)
+        return httpx.Response(200, json={"name": "edit/ada/x", "commit": {"sha": "abc123"}})
+
+    _github(monkeypatch, handler)
+    assert asyncio.run(gh.branch_sha("t", "o", "r", "edit/ada/x")) == "abc123"
+    assert seen == ["/repos/o/r/branches/edit/ada/x"]
+
+
+def test_a_deleted_branch_is_reported_as_such(monkeypatch):
+    import asyncio
+
+    import httpx
+    _github(monkeypatch, lambda request: httpx.Response(404, json={"message": "Branch not found"}))
+    with pytest.raises(gh.BranchNotFound):
+        asyncio.run(gh.branch_sha("t", "o", "r", "edit/ada/x"))
+
+
+def _gone(branch, monkeypatch, name="edit/ada/merged"):
+    """Point ada at ``name`` and make GitHub say it no longer exists."""
+    workspace._set_branch_state("ada", source_branch=name, pr_base=name)
+
+    async def _missing(token, owner, repo, b):
+        if b == name:
+            raise gh.BranchNotFound(b)
+        return branch["sha"]
+
+    monkeypatch.setattr(gh, "branch_sha", _missing)
+
+
+def test_sync_says_the_source_branch_is_gone_and_leaves_the_copy(branch, monkeypatch):
+    svc = workspace.user_service("ada", create=True)
+    before = svc.path.read_bytes()
+    _gone(branch, monkeypatch)
+
+    r = client.post("/api/v2/sync")
+
+    assert r.status_code == 409
+    assert r.json()["missing_branch"] == "edit/ada/merged"
+    assert r.json()["base_branch"] == config.GH_BASE_BRANCH
+    assert (config.USER_DIR / "ada.owl").read_bytes() == before
+
+
+def test_following_the_base_keeps_the_working_copy_and_its_work(branch, monkeypatch):
+    svc = workspace.user_service("ada", create=True)
+    d = _first(svc)
+    svc.update_disease(d, {"definition": "mine, unsubmitted"}, editor="ada")
+    workspace.mark("ada", d)
+    _gone(branch, monkeypatch)
+
+    r = client.post("/api/v2/source/follow-base")
+
+    assert r.status_code == 200
+    assert workspace._branch_state("ada") == {"source_branch": config.GH_BASE_BRANCH,
+                                              "pr_base": config.GH_BASE_BRANCH}
+    assert workspace.touched("ada") == {d}
+    # The next sync merges the base in three-way; the curator's edit stands.
+    assert client.post("/api/v2/sync").status_code == 200
+    assert workspace.user_service("ada").get_disease_detail(d)["definition"] == "mine, unsubmitted"
+
+
+def test_following_the_base_is_refused_while_the_branch_still_exists(branch):
+    workspace.user_service("ada", create=True)
+    workspace._set_branch_state("ada", source_branch="edit/ada/live", pr_base="edit/ada/live")
+
+    r = client.post("/api/v2/source/follow-base")
+
+    assert r.status_code == 400
+    assert workspace._branch_state("ada")["source_branch"] == "edit/ada/live"
+
+
+# ------------------------------------------------ one write at a time per curator
+# A publish holds the working copy across its GitHub calls and restores it if
+# they fail. A sync from a second window used to be able to land inside that
+# gap, and the rollback then put back the pre-sync copy while the ancestor had
+# already moved on — the branch's changes looked reverted by the curator (#163).
+def test_a_sync_waits_for_a_publish_in_flight(branch, monkeypatch):
+    import asyncio
+
+    import httpx
+
+    svc = workspace.user_service("ada", create=True)
+    mine, upstream = _first(svc), svc.get_diseases_list()[1]["iri"]
+    svc.update_disease(mine, {"definition": "mine"}, editor="ada")
+    workspace.mark("ada", mine)
+    branch["svc"].update_disease(upstream, {"definition": "theirs"}, editor="bob")
+    order = []
+
+    async def scenario():
+        entered, release = asyncio.Event(), asyncio.Event()
+
+        async def _publish_file(**kw):
+            entered.set()
+            await release.wait()                 # the GitHub calls, taking their time
+            order.append("publish")
+            return {"pr_number": 1, "pr_url": "https://example.invalid/pr/1"}
+
+        async def _sha(*a):
+            if entered.is_set():                 # publish asked before its GitHub calls
+                order.append("sync")
+            return branch["sha"]
+
+        monkeypatch.setattr(gh, "publish_file", _publish_file)
+        monkeypatch.setattr(gh, "branch_sha", _sha)
+        transport = httpx.ASGITransport(app=main.app)
+        async with httpx.AsyncClient(transport=transport, base_url="http://t") as c:
+            pub = asyncio.create_task(c.post("/api/v2/publish", json={}))
+            await entered.wait()
+            syn = asyncio.create_task(c.post("/api/v2/sync"))
+            await asyncio.sleep(0.3)
+            release.set()
+            r_pub, r_syn = await pub, await syn
+        return r_pub, r_syn
+
+    r_pub, r_syn = asyncio.run(scenario())
+
+    assert (r_pub.status_code, r_syn.status_code) == (200, 200)
+    assert order == ["publish", "sync"]
+    assert r_syn.json()["merged"] == [upstream]
+
+
+# ------------------------------------------ answers apply to the commit shown
+# A conflict is shown against one commit of the branch. Resolving against
+# whatever the branch holds by then could apply a "theirs" the curator never
+# saw (#164), so every conflict list names its commit and resolve merges there.
+def _clash(branch):
+    svc = workspace.user_service("ada", create=True)
+    d = _first(svc)
+    svc.update_disease(d, {"definition": "mine"}, editor="ada")
+    workspace.mark("ada", d)
+    branch["svc"].update_disease(d, {"definition": "theirs"}, editor="bob")
+    return d
+
+
+def test_sync_names_the_commit_its_conflicts_came_from(branch):
+    _clash(branch)
+    assert client.post("/api/v2/sync").json()["sha"] == "sha-2"
+
+
+def test_publish_merges_at_a_pinned_commit_and_names_it(branch):
+    _clash(branch)
+
+    r = client.post("/api/v2/publish", json={})
+
+    assert r.status_code == 409 and r.json()["sha"] == "sha-2"
+    assert branch["refs"] == ["sha-2"]            # never the moving branch name
+
+
+def test_resolve_merges_at_the_commit_the_curator_saw(branch):
+    d = _clash(branch)
+    branch["sha"] = "sha-3"                       # the branch moved on meanwhile
+
+    r = client.post("/api/v2/resolve", json={"sha": "sha-2",
+                                             "choices": {d: {f"{d}|{COMMENT}": "theirs"}}})
+
+    assert r.status_code == 200
+    assert branch["refs"] == ["sha-2"]
+
+
+def test_resolve_names_the_commit_of_what_is_still_open(branch):
+    d = _clash(branch)
+    r = client.post("/api/v2/resolve", json={"sha": "sha-2", "choices": {d: {}}})
+    assert r.status_code == 409 and r.json()["sha"] == "sha-2"
+
+
+def test_resolve_without_a_commit_is_refused(branch):
+    d = _clash(branch)
+    r = client.post("/api/v2/resolve", json={"choices": {d: {f"{d}|{COMMENT}": "theirs"}}})
+    assert r.status_code == 400
+    assert branch["refs"] == []

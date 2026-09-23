@@ -1573,7 +1573,7 @@
       // attempt, which the server can recognise if the first one actually landed.
       reflectPr(); counts();
       if (e.status === 409 && e.data && e.data.conflicts) {
-        if (await resolveConflicts(e.data.conflicts)) {
+        if (await resolveConflicts(e.data)) {
           ROWS = await api('xrefs');           // merged values, before the retry reads them
           renderMatrix();
           return publish(newPr);
@@ -1587,20 +1587,39 @@
   // Where this curator and the source branch both changed a field, ask which
   // version to keep, and apply the answers. True once nothing is left to decide.
   // Verdicts live in the session, not the working copy, so they are untouched.
-  async function resolveConflicts(conflicts) {
-    let pending = conflicts;
+  // `refusal` is the server's {conflicts, sha}: the answers are applied at the
+  // commit the conflicts were shown against, never a newer one (#164).
+  async function resolveConflicts(refusal) {
+    let pending = refusal;
     for (;;) {
-      const choices = await UIDialog.merge(pending);
+      const choices = await UIDialog.merge(pending.conflicts);
       if (!choices) return false;
       try {
-        await api('resolve', { method: 'POST', body: { choices } });
+        await api('resolve', { method: 'POST', body: { sha: pending.sha, choices } });
         return true;
       } catch (e) {
-        if (e.status === 409 && e.data && e.data.conflicts) { pending = e.data.conflicts; continue; }
+        if (e.status === 409 && e.data && e.data.conflicts) { pending = e.data; continue; }
         note('Could not apply your choices: ' + e.message, 'error');
         return false;
       }
     }
+  }
+
+  // The source branch was deleted, usually because its pull request merged.
+  // Following the base branch keeps the working copy; the reload syncs it in.
+  function showMissingBranchBanner(gone) {
+    document.querySelector('.sync-banner')?.remove();   // a re-sync replaces, not stacks
+    const b = document.createElement('div');
+    b.className = 'sync-banner';
+    b.setAttribute('role', 'status');
+    b.innerHTML = `${esc(gone.missing_branch)} no longer exists — its ${esc(Words.submission)} was probably accepted. ` +
+                  `<button class="btn">Follow ${esc(gone.base_branch)}</button>`;
+    b.querySelector('button').addEventListener('click', async () => {
+      try { await api('source/follow-base', { method: 'POST' }); }
+      catch (e) { note(`Could not switch to ${gone.base_branch}: ` + e.message, 'error'); return; }
+      location.reload();
+    });
+    document.body.appendChild(b);
   }
 
   // Bring the working copy up to date with the source branch. Clean merges are
@@ -1615,7 +1634,11 @@
   async function syncWorkingCopy() {
     let r;
     try { r = await api('sync', { method: 'POST' }); }
-    catch (e) { note("Couldn't check for updates: " + e.message, 'error'); return; }
+    catch (e) {
+      if (e.status === 409 && e.data && e.data.missing_branch) { showMissingBranchBanner(e.data); return; }
+      note("Couldn't check for updates: " + e.message, 'error');
+      return;
+    }
     if (copyRevision !== undefined && r.revision !== copyRevision) {
       await saveSession(true);
       location.reload();
@@ -1631,7 +1654,7 @@
     b.innerHTML = `${n === 1 ? 'A disease' : n + ' diseases'} changed on the source branch in fields you edited. ` +
                   '<button class="btn">Choose versions</button>';
     b.querySelector('button').addEventListener('click', async () => {
-      if (await resolveConflicts(r.conflicts)) location.reload();
+      if (await resolveConflicts(r)) location.reload();
     });
     document.body.appendChild(b);
   }

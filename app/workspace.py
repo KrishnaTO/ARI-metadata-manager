@@ -6,6 +6,8 @@ the moment it is created through every edit marker, the branch it was populated
 from, the in-progress review session beside it, and the sweep that eventually
 retires it.
 """
+import asyncio
+import functools
 import logging
 import os
 import shutil
@@ -64,6 +66,28 @@ def _source_branch(request: Request) -> str:
 
 def _pr_base(request: Request) -> str:
     return _branch_state(sessions._login(request))["pr_base"]
+
+
+# One writer at a time per curator. A publish holds the working copy across its
+# GitHub calls and restores it if they fail; a sync or fetch from a second
+# window used to land inside that gap, and the rollback then put back the
+# pre-sync copy while the ancestor had already moved on, so the branch's changes
+# looked reverted by the curator (#163). The app runs one event loop in one
+# process, so an asyncio lock per login is the whole of it.
+_LOCKS: dict = {}
+
+
+def one_at_a_time(handler):
+    """Run a route handler holding its caller's working-copy lock.
+
+    The handler must take ``request``; FastAPI passes every argument by name.
+    """
+    @functools.wraps(handler)
+    async def run(**kwargs):
+        login = sessions._login(kwargs["request"])
+        async with _LOCKS.setdefault(login, asyncio.Lock()):
+            return await handler(**kwargs)
+    return run
 
 
 # The version each working copy started from. A three-way merge needs it to
