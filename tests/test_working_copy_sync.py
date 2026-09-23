@@ -23,6 +23,9 @@ def curator(tmp_path, monkeypatch, base_owl):
     shutil.copy2(base_owl, base)
     monkeypatch.setattr(config, "USER_DIR", tmp_path / "user")
     monkeypatch.setattr(config, "ONTOLOGY_FILE", str(base))
+    # BASE is loaded from the real file at import; a curator without a working
+    # copy is served it, so it must point at the temp base too.
+    monkeypatch.setattr(workspace, "BASE", OntologyService(str(base)))
     monkeypatch.setattr(workspace, "USER_SVC", OrderedDict())
     return "ada"
 
@@ -160,3 +163,14 @@ def test_publish_refuses_with_field_level_conflicts(branch):
     assert r.status_code == 409
     [c] = r.json()["conflicts"]
     assert c["iri"] == d and c["fields"][0]["label"] == "Definition"
+
+
+def test_resolve_without_a_working_copy_refuses_and_leaves_the_base_alone(branch):
+    before = open(config.ONTOLOGY_FILE, "rb").read()
+    d = _first(branch["svc"])
+    branch["svc"].update_disease(d, {"definition": "theirs"}, editor="bob")
+
+    r = client.post("/api/v2/resolve", json={"choices": {d: {}}})
+
+    assert r.status_code == 400
+    assert open(config.ONTOLOGY_FILE, "rb").read() == before

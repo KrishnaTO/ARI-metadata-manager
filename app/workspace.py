@@ -326,7 +326,11 @@ def merge_from(login, theirs, iris, choices=None) -> dict:
     The working copy is snapshotted first and restored if the merge refuses
     part-way. Afterwards it is evicted: the merge writes triples underneath
     owlready2's per-object cache, so the loaded copy would read back stale values.
+    Refuses without a working copy: ``user_service`` would hand back the shared
+    base ontology, and the merge would write the branch into it.
     """
+    if not (config.USER_DIR / f"{login}.owl").exists():
+        raise ValueError("You have no working copy, so there is nothing to merge.")
     svc = user_service(login)
     anc = ancestor(login)
     snapshot = svc.path.read_bytes()
