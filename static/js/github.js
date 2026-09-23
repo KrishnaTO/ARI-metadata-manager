@@ -158,10 +158,18 @@
   // Bring the working copy up to date with the source branch. Anything that
   // merges cleanly is folded in and the page reloads onto it; a field both sides
   // changed waits behind a banner until the curator chooses.
+  //
+  // It runs again whenever the tab comes back into view. A window left in the
+  // background does not see another window's sync, and its own would then say
+  // "up to date" over records that predate the merge; the copy's revision is
+  // how it tells, and a changed one reloads the page (#162).
+  let copyRevision;                                    // the copy this page was drawn from
   async function syncWorkingCopy() {
     let r;
     try { r = await api('/api/v2/sync', { method: 'POST' }); }
     catch (e) { toastError(explainError(e, "Couldn't check for updates")); return; }
+    if (copyRevision !== undefined && r.revision !== copyRevision) { location.reload(); return; }
+    copyRevision = r.revision;
     if (r.up_to_date) return;
     // Anything merged makes the open record stale, and saving a list field from
     // it would write the old list back over the branch's additions. Reload even
@@ -171,6 +179,7 @@
   }
 
   function showSyncBanner(conflicts) {
+    document.querySelector('.sync-banner')?.remove();   // a re-sync replaces, not stacks
     const n = conflicts.length;
     const b = el(`<div class="sync-banner" role="status">${n === 1 ? 'A record' : n + ' records'} changed on the source branch in fields you edited.
       <button class="hbtn primary">Choose versions</button></div>`);
@@ -179,6 +188,10 @@
     });
     document.body.appendChild(b);
   }
+
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible' && state.authenticated) syncWorkingCopy();
+  });
 
   if (document.readyState !== 'loading') refresh();
   else document.addEventListener('DOMContentLoaded', refresh);

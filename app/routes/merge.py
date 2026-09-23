@@ -36,12 +36,12 @@ async def sync(request: Request):
         return JSONResponse(status_code=401, content={"detail": "Sign in with GitHub first"})
     login = u["identity"]["login"]
     if not (config.USER_DIR / f"{login}.owl").exists():
-        return {"up_to_date": True}               # nothing of theirs to bring up to date
+        return {"up_to_date": True, "revision": None}   # nothing of theirs to bring up to date
     branch = workspace._source_branch(request)
     try:
         sha = await gh.branch_sha(u["token"], config.GH_OWNER, config.GH_REPO, branch)
         if sha == workspace.ancestor_sha(login):
-            return {"up_to_date": True}
+            return {"up_to_date": True, "revision": workspace.copy_revision(login)}
         theirs = await _baseline_service(request, u, ref=sha)
     except Exception as e:
         log.warning("Could not check %s for updates for @%s: %s", branch, login, e)
@@ -63,7 +63,7 @@ async def sync(request: Request):
             workspace.set_ancestor(login, theirs_bytes, sha)
     log.info("Synced @%s with %s@%s: %d merged, %d in conflict", login, branch, sha[:7],
              len(out["merged"]), len(out["conflicts"]))
-    return out
+    return {**out, "revision": workspace.copy_revision(login)}
 
 
 @router.post("/api/v2/resolve")

@@ -94,7 +94,8 @@ def test_sync_is_a_no_op_when_the_branch_has_not_moved(branch):
     workspace.user_service("ada", create=True)
     workspace.set_ancestor_sha("ada", "sha-2")
 
-    assert client.post("/api/v2/sync").json() == {"up_to_date": True}
+    assert client.post("/api/v2/sync").json() == {"up_to_date": True,
+                                                  "revision": workspace.copy_revision("ada")}
 
 
 def test_sync_merges_the_branch_and_records_its_commit(branch):
@@ -206,3 +207,33 @@ def test_merge_from_with_nothing_to_merge_leaves_both_files_alone(curator, make_
 
 def _all(svc):
     return {d["iri"] for d in svc.get_diseases_list()}
+
+
+# ------------------------------------------------ telling a stale window it is stale
+# A window left in the background does not see another window's sync: by the
+# time it comes back the branch is merged, its own sync says "up to date", and
+# a list saved from its old rows writes the branch's additions away (#162).
+# Every sync answer carries the working copy's revision, which changes whenever
+# a merge or fetch rewrites the copy, so the window can tell.
+def test_sync_reports_a_revision_that_moves_only_when_the_copy_changes(branch):
+    d = _first(workspace.user_service("ada", create=True))
+    first = client.post("/api/v2/sync").json()          # nothing new: identical branch
+    assert first["merged"] == [] and first["revision"]
+
+    again = client.post("/api/v2/sync").json()
+    assert again == {"up_to_date": True, "revision": first["revision"]}
+
+    branch["svc"].update_disease(d, {"definition": "theirs"}, editor="bob")
+    branch["sha"] = "sha-3"
+    moved = client.post("/api/v2/sync").json()           # another window's sync
+    assert moved["merged"] == [d] and moved["revision"] != first["revision"]
+
+    later = client.post("/api/v2/sync").json()           # the stale window, back again
+    assert later == {"up_to_date": True, "revision": moved["revision"]}
+
+
+def test_recording_the_branch_commit_keeps_the_revision(branch):
+    workspace.user_service("ada", create=True)
+    rev = workspace.copy_revision("ada")
+    workspace.set_ancestor_sha("ada", "sha-9")
+    assert workspace.copy_revision("ada") == rev
