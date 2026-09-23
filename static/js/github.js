@@ -163,8 +163,11 @@
     try { r = await api('/api/v2/sync', { method: 'POST' }); }
     catch (e) { toastError(explainError(e, "Couldn't check for updates")); return; }
     if (r.up_to_date) return;
-    if (r.conflicts.length) showSyncBanner(r.conflicts);
-    else if (r.merged.length) location.reload();
+    // Anything merged makes the open record stale, and saving a list field from
+    // it would write the old list back over the branch's additions. Reload even
+    // with conflicts: the next sync merges nothing new and shows the banner.
+    if (r.merged.length) location.reload();
+    else if (r.conflicts.length) showSyncBanner(r.conflicts);
   }
 
   function showSyncBanner(conflicts) {

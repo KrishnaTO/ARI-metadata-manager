@@ -174,3 +174,35 @@ def test_resolve_without_a_working_copy_refuses_and_leaves_the_base_alone(branch
 
     assert r.status_code == 400
     assert open(config.ONTOLOGY_FILE, "rb").read() == before
+
+
+def test_a_clean_sync_gives_a_copy_without_an_ancestor_one(branch):
+    # Copies made before ancestors existed have neither file.
+    d = _first(workspace.user_service("ada", create=True))
+    workspace._drop_ancestor("ada")
+    branch["svc"].update_disease(d, {"definition": "theirs"}, editor="bob")
+
+    r = client.post("/api/v2/sync").json()
+
+    assert r["conflicts"] == []
+    assert workspace.ancestor_path("ada").exists()
+    assert workspace.ancestor_sha("ada") == "sha-2"
+    assert workspace.ancestor("ada").get_disease_detail(d)["definition"] == "theirs"
+
+
+def test_merge_from_with_nothing_to_merge_leaves_both_files_alone(curator, make_service):
+    import os
+    workspace.user_service(curator, create=True)
+    paths = [config.USER_DIR / f"{curator}.owl", workspace.ancestor_path(curator)]
+    for p in paths:
+        os.utime(p, (1_000_000, 1_000_000))
+
+    out = workspace.merge_from(curator, make_service(),
+                               _all(workspace.user_service(curator)))
+
+    assert out["merged"] == [] and out["advanced"] == []
+    assert [p.stat().st_mtime for p in paths] == [1_000_000, 1_000_000]
+
+
+def _all(svc):
+    return {d["iri"] for d in svc.get_diseases_list()}

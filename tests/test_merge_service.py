@@ -183,7 +183,7 @@ def test_merge_into_writes_clean_diseases_and_advances_their_ancestor(trio):
 
     out = merge_service.merge_into(mine, base, theirs, [d], touched=set())
 
-    assert out == {"merged": [d], "conflicts": []}
+    assert out == {"merged": [d], "conflicts": [], "advanced": [d]}
     assert _reloaded(mine).get_disease_detail(d)["definition"] == "theirs"
     assert _reloaded(base).get_disease_detail(d)["definition"] == "theirs"
 
@@ -198,7 +198,7 @@ def test_merge_into_leaves_a_conflicting_disease_and_its_ancestor_alone(trio):
 
     out = merge_service.merge_into(mine, base, theirs, [clash, clean], touched={clash})
 
-    assert out["merged"] == [clean]
+    assert out["merged"] == [clean] and out["advanced"] == [clean]
     [c] = out["conflicts"]
     assert c["iri"] == clash and c["fields"][0]["label"] == "Definition"
     assert any("| bob |" in e for e in c["upstream_log"])
@@ -209,7 +209,7 @@ def test_merge_into_leaves_a_conflicting_disease_and_its_ancestor_alone(trio):
 def test_merge_into_reports_nothing_for_diseases_already_equal(trio):
     base, mine, theirs = trio
     assert merge_service.merge_into(mine, base, theirs, [_iri(mine)], touched=set()) == \
-        {"merged": [], "conflicts": []}
+        {"merged": [], "conflicts": [], "advanced": []}
 
 
 def test_without_an_ancestor_an_untouched_disease_takes_theirs(trio):
@@ -234,7 +234,7 @@ def test_merge_into_applies_choices_per_disease(trio):
     out = merge_service.merge_into(mine, base, theirs, [d], touched={d},
                                    choices={d: {key: "mine"}})
 
-    assert out == {"merged": [d], "conflicts": []}
+    assert out == {"merged": [d], "conflicts": [], "advanced": [d]}
     reloaded = _reloaded(mine).get_disease_detail(d)
     assert reloaded["definition"] == "mine"
     assert any("| bob |" in e for e in reloaded["changelog"])

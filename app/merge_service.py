@@ -300,6 +300,9 @@ def merge_into(working, ancestor, theirs, iris, touched, choices=None) -> dict:
     only newer changes. A disease with a conflict is left exactly as it was, on
     both. Without an ancestor, a disease the curator has not touched simply
     takes the branch's version — there is no work of theirs in it to protect.
+
+    ``merged`` lists the diseases written into ``working`` and ``advanced`` those
+    whose ancestor moved, so the caller saves only what actually changed.
     """
     choices = choices or {}
     merged, conflicts, clean = [], [], []
@@ -321,8 +324,9 @@ def merge_into(working, ancestor, theirs, iris, touched, choices=None) -> dict:
         if any(m.subjects[s] != current.get(s) for s in m.subjects):
             apply(working, m, (working, theirs))
             merged.append(iri)
+    advanced = []
     if ancestor is not None:
-        stale = [i for i in clean if _record(ancestor, i) != _record(theirs, i)]
-        if stale:
-            graft_diseases(theirs, ancestor, stale)
-    return {"merged": merged, "conflicts": conflicts}
+        advanced = [i for i in clean if _record(ancestor, i) != _record(theirs, i)]
+        if advanced:
+            graft_diseases(theirs, ancestor, advanced)
+    return {"merged": merged, "conflicts": conflicts, "advanced": advanced}

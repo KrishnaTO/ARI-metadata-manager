@@ -165,8 +165,8 @@ merged into the branch since — the incident in issue #146. Each working copy n
 version it started from (`.user-data/ancestor/<login>.owl` and the commit it came from), and
 `app/merge_service.py` compares ancestor, working copy and branch triple by triple: list
 fields (synonyms, subtypes, ids, changelog, item links) combine value by value, a single-valued
-field takes whichever side changed it, and only a field both sides changed the same way needs a
-person. `POST /api/v2/sync` runs this at page load when the branch has moved; publish runs it
+field takes whichever side changed it, and only a field both sides changed differently needs a
+person. A copy made before ancestors were kept gains one on its first clean sync. `POST /api/v2/sync` runs this at page load when the branch has moved; publish runs it
 again before committing. Where both sides changed the same field, a dialog shows both values
 and the branch's changelog line — who changed it and why — and the curator picks **Keep all
 mine** / **Keep all theirs** or resolves field by field; `POST /api/v2/resolve` applies the

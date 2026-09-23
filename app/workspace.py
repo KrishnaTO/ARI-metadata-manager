@@ -326,6 +326,8 @@ def merge_from(login, theirs, iris, choices=None) -> dict:
     The working copy is snapshotted first and restored if the merge refuses
     part-way. Afterwards it is evicted: the merge writes triples underneath
     owlready2's per-object cache, so the loaded copy would read back stale values.
+    Each file is saved only when the merge changed it: a save bumps the mtime,
+    and the idle sweep reads that as the curator still working.
     Refuses without a working copy: ``user_service`` would hand back the shared
     base ontology, and the merge would write the branch into it.
     """
@@ -336,8 +338,9 @@ def merge_from(login, theirs, iris, choices=None) -> dict:
     snapshot = svc.path.read_bytes()
     try:
         out = merge_service.merge_into(svc, anc, theirs, iris, touched(login), choices)
-        svc._save()
-        if anc is not None:
+        if out["merged"]:
+            svc._save()
+        if out["advanced"]:
             anc._save()
     except Exception:
         _restore_working_copy(login, svc, snapshot)

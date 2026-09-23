@@ -47,13 +47,20 @@ async def sync(request: Request):
         log.warning("Could not check %s for updates for @%s: %s", branch, login, e)
         return JSONResponse(status_code=502, content={
             "detail": f"Couldn't check {branch} for updates. Your working copy is unchanged."})
+    theirs_bytes = theirs.path.read_bytes()
     try:
         out = workspace.merge_from(login, theirs,
                                    _all_diseases(theirs, workspace.user_service(login)))
     finally:
         _discard(theirs.path)
     if not out["conflicts"]:
-        workspace.set_ancestor_sha(login, sha)
+        if workspace.ancestor_path(login).exists():
+            workspace.set_ancestor_sha(login, sha)
+        else:
+            # A copy made before ancestors were kept. After a clean merge with no
+            # ancestor every single-valued field equals the branch's, so the
+            # branch is a valid ancestor from here on.
+            workspace.set_ancestor(login, theirs_bytes, sha)
     log.info("Synced @%s with %s@%s: %d merged, %d in conflict", login, branch, sha[:7],
              len(out["merged"]), len(out["conflicts"]))
     return out

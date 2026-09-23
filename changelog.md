@@ -6,14 +6,14 @@ Submitting from the review page was refused with *"someone else has edited it si
 
 - **Each working copy records the version it started from** (`.user-data/ancestor/<login>.owl` and the commit it came from), written on create and fetch.
 - **The branch is merged in, not swapped in.** `merge_service.merge_disease` compares ancestor, working copy and branch triple by triple: list fields (synonyms, subtypes, ids, changelog, item links) combine value by value; a single-valued field takes whichever side changed it; an item deleted on one side and edited on the other is a question. Submitted-but-unmerged work survives, because it is simply the working copy's side.
-- **`POST /api/v2/sync` runs it at page load** when the branch head has moved; `publish` runs it before committing.
+- **`POST /api/v2/sync` runs it at page load** when the branch head has moved; `publish` runs it before committing. The editor reloads whenever anything merged — even alongside conflicts — so no open record predates the merge and a list saved from it cannot write the branch's additions away; the choice banner shows on the reload. The working copy and its ancestor are saved only when the merge changed them, so an idle copy keeps its mtime for the sweep.
 - **Where both sides changed the same field, the curator chooses.** A dialog shows both values and the branch's changelog lines — who changed it and why — with *Keep all mine* / *Keep all theirs*. `POST /api/v2/resolve` applies the answers. Review verdicts are never dropped.
 - **`POST /api/v2/discard` is gone**, and with it `merge_service.upstream_edits` and `workspace.forget`: choosing *theirs* throughout is the same operation.
-- Copies made before this have no ancestor: untouched diseases take the branch's version, and touched ones ask about every differing single-valued field.
+- Copies made before this have no ancestor: untouched diseases take the branch's version, and touched ones ask about every differing single-valued field. Their first clean sync records the branch as their ancestor, after which they merge like any other copy.
 
 Verified against a local stub harness in the browser: a disease refused before this change (the lupus case) now merges silently and submits; a disease with a definition changed on both sides shows the choice dialog with the branch's changelog line, and taking theirs leaves the working copy in sync with the branch.
 
-385 pytest, 33 `node --test`.
+387 pytest, 33 `node --test`.
 
 ## orpha-non-rare-prefix
 
