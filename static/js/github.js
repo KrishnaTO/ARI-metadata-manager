@@ -28,6 +28,7 @@
     // Curate segment once it has landed.
     syncCurateAccess();
     if (!me.github_enabled) return;          // feature off -> no identity control
+    if (me.authenticated) syncWorkingCopy();
     render();
   }
 
@@ -121,45 +122,59 @@
       try {
         const r = await api('/api/v2/publish', { method: 'POST', body: { disease, message, comment } });
         close();
+        if (state.activeIri) selectDisease(state.activeIri, { history: false });
         const link = el(`<div class="toast" style="cursor:pointer">${esc(Words.submissionName(r.pr_number))} sent for review — click to view it on GitHub</div>`);
         link.addEventListener('click', () => window.open(r.pr_url, '_blank'));
         document.body.appendChild(link); setTimeout(() => link.remove(), 8000);
       } catch (e) {
         $('#pub-go').disabled = false; $('#pub-go').textContent = Words.publish;
-        if (e.status === 409 && e.data && e.data.conflicts) { takeTheirs(e.data.conflicts); return; }
+        if (e.status === 409 && e.data && e.data.conflicts) {
+          if (await resolveConflicts(e.data.conflicts)) $('#pub-go').click();
+          return;
+        }
         toastError(explainError(e, 'Could not send it for review'));
       }
     });
   }
 
-  // A submission that would revert someone else's work is refused and names the
-  // diseases it collided with. The only way out used to be fetching the source
-  // branch again, which discards the whole working copy — one collision cost
-  // every unpublished edit the curator held, on records that had nothing to do
-  // with it. This takes the branch's version of the named diseases alone.
-  async function takeTheirs(conflicts) {
-    const one = conflicts.length === 1;
-    if (!await UIDialog.confirm({
-      title: one ? 'One record changed while you were working'
-                 : `${conflicts.length} records changed while you were working`,
-      detail: `${conflicts.map(c => c.name).join(', ')} — someone else has edited ` +
-              `${one ? 'it' : 'them'} since your copy was made, and this ${Words.submission} ` +
-              `would revert that. Take their version instead? Your edits to ` +
-              `${one ? 'that record' : 'those records'} are dropped; your work on everything ` +
-              'else is kept.',
-      confirmLabel: one ? 'Take their version' : 'Take their versions',
-      cancelLabel: 'Leave it for now',
-      danger: true,
-    })) return;
-    try {
-      await api('/api/v2/discard', { method: 'POST', body: { iris: conflicts.map(c => c.iri) } });
-    } catch (err) {
-      toastError(explainError(err, 'Could not take their version'));
-      return;
+  // Where this curator and the source branch both changed a field, ask which
+  // version to keep, and apply the answers. True once nothing is left to decide.
+  async function resolveConflicts(conflicts) {
+    let pending = conflicts;
+    for (;;) {
+      const choices = await UIDialog.merge(pending);
+      if (!choices) return false;
+      try {
+        await api('/api/v2/resolve', { method: 'POST', body: { choices } });
+        return true;
+      } catch (e) {
+        if (e.status === 409 && e.data && e.data.conflicts) { pending = e.data.conflicts; continue; }
+        toastError(explainError(e, 'Could not apply your choices'));
+        return false;
+      }
     }
-    // The working copy has moved under the record on screen; reload rather than
-    // reconciling the open form against data it was never loaded from.
-    location.reload();
+  }
+
+  // Bring the working copy up to date with the source branch. Anything that
+  // merges cleanly is folded in and the page reloads onto it; a field both sides
+  // changed waits behind a banner until the curator chooses.
+  async function syncWorkingCopy() {
+    let r;
+    try { r = await api('/api/v2/sync', { method: 'POST' }); }
+    catch (e) { toastError(explainError(e, "Couldn't check for updates")); return; }
+    if (r.up_to_date) return;
+    if (r.conflicts.length) showSyncBanner(r.conflicts);
+    else if (r.merged.length) location.reload();
+  }
+
+  function showSyncBanner(conflicts) {
+    const n = conflicts.length;
+    const b = el(`<div class="sync-banner" role="status">${n === 1 ? 'A record' : n + ' records'} changed on the source branch in fields you edited.
+      <button class="hbtn primary">Choose versions</button></div>`);
+    b.querySelector('button').addEventListener('click', async () => {
+      if (await resolveConflicts(conflicts)) location.reload();
+    });
+    document.body.appendChild(b);
   }
 
   if (document.readyState !== 'loading') refresh();

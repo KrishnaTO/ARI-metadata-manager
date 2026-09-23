@@ -148,6 +148,70 @@
     });
   }
 
+  // ------------------------------------------------------------------ merge
+  // Where the curator and the source branch both changed the same field, the
+  // curator chooses. Everything else has already been combined by the server.
+  // Resolves to {iri: {key: 'mine'|'theirs'}}, or null when put off.
+  function mergeDialog(conflicts) {
+    return new Promise(resolve => {
+      const sections = conflicts.map((c, ci) => `
+        <section class="merge-disease" data-iri="${esc(c.iri)}">
+          <h3 class="merge-name">${esc(c.name)}</h3>
+          ${c.upstream_log.length ? `<details class="merge-log" open>
+            <summary>What changed on the branch</summary>
+            <ul>${c.upstream_log.map(l => `<li>${esc(l)}</li>`).join('')}</ul></details>` : ''}
+          <div class="merge-all">
+            <button type="button" class="ui-btn" data-all="mine">Keep all mine</button>
+            <button type="button" class="ui-btn" data-all="theirs">Keep all theirs</button>
+          </div>
+          ${c.fields.map((f, fi) => `
+            <fieldset class="merge-field">
+              <legend>${f.subject && f.subject !== c.name ? esc(f.subject) + ' · ' : ''}${esc(f.label)}</legend>
+              <label><input type="radio" name="m${ci}_${fi}" value="mine" data-key="${esc(f.key)}">
+                <span class="merge-side">Yours</span><span class="merge-val">${esc(f.mine)}</span></label>
+              <label><input type="radio" name="m${ci}_${fi}" value="theirs" data-key="${esc(f.key)}">
+                <span class="merge-side">Theirs</span><span class="merge-val">${esc(f.theirs)}</span></label>
+            </fieldset>`).join('')}
+        </section>`).join('');
+      const one = conflicts.length === 1;
+      const dlg = el(`<dialog class="ui-dialog merge-dialog">
+        <form method="dialog" class="ui-dialog-form">
+          <h2 class="ui-dialog-title">${one ? 'A disease' : conflicts.length + ' diseases'} changed on both sides</h2>
+          <p class="ui-dialog-detail">For each field, choose which version to keep. Everything else has already been combined, and your review verdicts are kept either way.</p>
+          <div class="merge-body">${sections}</div>
+          <div class="ui-dialog-actions">
+            <button value="cancel" class="ui-btn">Leave it for now</button>
+            <button value="ok" class="ui-btn primary" disabled>Apply</button>
+          </div>
+        </form>
+      </dialog>`);
+      const applyBtn = dlg.querySelector('button[value="ok"]');
+      const refresh = () => {
+        const names = new Set([...dlg.querySelectorAll('input[type=radio]')].map(r => r.name));
+        applyBtn.disabled = [...names].some(n => !dlg.querySelector(`input[name="${n}"]:checked`));
+      };
+      dlg.addEventListener('change', refresh);
+      dlg.querySelectorAll('[data-all]').forEach(b => b.addEventListener('click', () => {
+        b.closest('.merge-disease').querySelectorAll(`input[value="${b.dataset.all}"]`)
+          .forEach(r => { r.checked = true; });
+        refresh();
+      }));
+      document.body.appendChild(dlg);
+      wireDialog(dlg, resolve, outcome => {
+        if (outcome !== 'ok') return null;
+        const out = {};
+        dlg.querySelectorAll('.merge-disease').forEach(sec => {
+          const picks = {};
+          sec.querySelectorAll('input[type=radio]:checked').forEach(r => { picks[r.dataset.key] = r.value; });
+          out[sec.dataset.iri] = picks;
+        });
+        return out;
+      });
+      dlg.showModal();
+      dlg.querySelector('button[value="cancel"]').focus();
+    });
+  }
+
   // ------------------------------------------------------------ validation
   // Validation used to arrive as a 2.6-second toast at the bottom of the
   // viewport, with no connection to the field it described, nothing announced,
@@ -209,7 +273,7 @@
     });
   }
 
-  root.UIDialog = { confirm: confirmDialog, text: textDialog, announce,
+  root.UIDialog = { confirm: confirmDialog, text: textDialog, merge: mergeDialog, announce,
                     showFieldErrors, clearFieldErrors };
   if (typeof module !== 'undefined' && module.exports) root.UIDialog.__esc = esc;
 })(typeof globalThis !== 'undefined' ? globalThis : this);
