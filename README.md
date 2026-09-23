@@ -159,15 +159,19 @@ there, and opens a cross-repo PR with `maintainer_can_modify`. Re-publishing the
 appends commits to the existing PR. The only persistent secret is the OAuth client secret,
 which never leaves the server. `app/github_service.py` owns this logic.
 
-### Publishing rebases onto the source branch
+### Publishing merges the working copy with the source branch
 A working copy is made once and lives for days, so committing it whole reverted every record
-merged into the branch since — the incident in issue #146. Publishing now fetches
-`GH_ONTOLOGY_PATH` at the source branch, writes **only the diseases in this curator's touched
-set** over it (`app/merge_service.py`), and commits that; the mapping files were always built
-this way, which is why no mapping row was ever lost. The touched set lives at
-`.user-data/<login>.touched.json` so a restart cannot empty it, and it is cleared on a
-successful publish. A disease the curator edited that also changed on the branch fails the
-publish with **409** naming it, rather than silently winning.
+merged into the branch since — the incident in issue #146. Each working copy now records the
+version it started from (`.user-data/ancestor/<login>.owl` and the commit it came from), and
+`app/merge_service.py` compares ancestor, working copy and branch triple by triple: list
+fields (synonyms, subtypes, ids, changelog, item links) combine value by value, a single-valued
+field takes whichever side changed it, and only a field both sides changed the same way needs a
+person. `POST /api/v2/sync` runs this at page load when the branch has moved; publish runs it
+again before committing. Where both sides changed the same field, a dialog shows both values
+and the branch's changelog line — who changed it and why — and the curator picks **Keep all
+mine** / **Keep all theirs** or resolves field by field; `POST /api/v2/resolve` applies the
+answers. The touched set lives at `.user-data/<login>.touched.json` so a restart cannot empty
+it, and it is cleared on a successful publish.
 
 ### Per-user working copies & isolation
 Each signed-in editor edits an isolated copy of the ontology at `.user-data/<login>.owl`
@@ -413,6 +417,8 @@ when its target actually changes.
 | POST | `/api/v2/publish` | Commit the curator's diseases onto the source branch + open/append PR (+ SSSOM files) |
 | GET | `/api/v2/settings` | Source branch, PR target, allowed branches |
 | POST | `/api/v2/fetch` | Pull latest from the source branch |
+| POST | `/api/v2/sync` | Merge the source branch into the curator's working copy (three-way, against the version it started from) |
+| POST | `/api/v2/resolve` | Apply the curator's per-field choices where both sides changed the same field |
 | POST | `/api/v2/source` | Switch the source branch |
 | POST | `/api/v2/pr-base` | Set the PR target branch |
 | GET | `/api/v2/export` | Download current state as `1_Core_ARI_Diseases.xlsx` |
