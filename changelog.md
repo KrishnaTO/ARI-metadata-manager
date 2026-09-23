@@ -1,5 +1,14 @@
 # Changelog
 
+## issue-165-deleted-source-branch
+Closes #165.
+
+A curator can source from an `edit/*` branch. Once that branch's PR merged and the branch was deleted, every page load said only *"Couldn't check … for updates"*, and the one way out, switching source, re-fetched and threw away the working copy.
+
+- **A deleted branch is recognised.** `github_service.branch_sha` reads `GET /branches/{branch}`, which answers a missing branch with 404, and raises `BranchNotFound`. The `commits/{ref}` endpoint it used before answers 422 *"No commit found"*, indistinguishable from other refusals.
+- **Sync says so.** It returns 409 with `missing_branch` and `base_branch`, and both pages show a banner: *"edit/… no longer exists — its submission was probably accepted. Follow main"*.
+- **Following the base keeps the work.** `POST /api/v2/source/follow-base` points the source and PR base back at the base branch without touching the working copy. The reload's sync then merges the base in three-way against the ancestor the copy came from, so unsubmitted edits survive. It is refused while the branch still exists, when an ordinary switch is the right tool.
+
 ## working-copy-merge
 
 Submitting from the review page was refused with *"someone else has edited it since your copy was made"* and the only way out dropped the curator's work on that disease. The someone was ARI PR #84 — the synonym review merged straight into `main` on 2026-09-07 — and the cause was structural: a working copy was snapshotted once and never caught up with the branch, so every edit made on `main` outside the app refused every later submission of the diseases it touched.

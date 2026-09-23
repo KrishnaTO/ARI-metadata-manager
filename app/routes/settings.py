@@ -95,6 +95,34 @@ async def set_source(request: Request, payload: dict = Body(...)):
     return {"ok": True, "source_branch": branch}
 
 
+@router.post("/api/v2/source/follow-base")
+async def follow_base(request: Request):
+    """Point a curator whose source branch was deleted back at the base branch.
+
+    Switching source normally re-fetches and replaces the working copy; here the
+    branch is gone because its PR merged into the base, so the copy is kept and
+    the next sync merges the base in three-way against the ancestor it came
+    from. Unsubmitted work survives (#165). Refused while the branch exists:
+    then it is an ordinary switch, and belongs to ``/api/v2/source``.
+    """
+    if not config.GH_ENABLED:
+        raise ValueError("GitHub integration is not configured")
+    u = sessions._user(request)
+    if not u:
+        return JSONResponse(status_code=401, content={"detail": "Sign in with GitHub first"})
+    login = u["identity"]["login"]
+    branch = workspace._source_branch(request)
+    try:
+        await gh.branch_sha(u["token"], config.GH_OWNER, config.GH_REPO, branch)
+    except gh.BranchNotFound:
+        workspace._set_branch_state(login, source_branch=config.GH_BASE_BRANCH,
+                                    pr_base=config.GH_BASE_BRANCH)
+        log.info("@%s's source branch %s is gone; following %s with the working copy kept",
+                 login, branch, config.GH_BASE_BRANCH)
+        return {"ok": True, "source_branch": config.GH_BASE_BRANCH}
+    raise ValueError(f"{branch} still exists — switch branches from Settings instead.")
+
+
 @router.post("/api/v2/pr-base")
 async def set_pr_base(request: Request, payload: dict = Body(...)):
     """Set the branch that edits open PRs against."""

@@ -1599,13 +1599,33 @@
     }
   }
 
+  // The source branch was deleted, usually because its pull request merged.
+  // Following the base branch keeps the working copy; the reload syncs it in.
+  function showMissingBranchBanner(gone) {
+    const b = document.createElement('div');
+    b.className = 'sync-banner';
+    b.setAttribute('role', 'status');
+    b.innerHTML = `${esc(gone.missing_branch)} no longer exists — its ${esc(Words.submission)} was probably accepted. ` +
+                  `<button class="btn">Follow ${esc(gone.base_branch)}</button>`;
+    b.querySelector('button').addEventListener('click', async () => {
+      try { await api('source/follow-base', { method: 'POST' }); }
+      catch (e) { note(`Could not switch to ${gone.base_branch}: ` + e.message, 'error'); return; }
+      location.reload();
+    });
+    document.body.appendChild(b);
+  }
+
   // Bring the working copy up to date with the source branch. Clean merges are
   // folded in silently (the matrix loads afterwards); a field both sides changed
   // waits behind a banner until the curator chooses.
   async function syncWorkingCopy() {
     let r;
     try { r = await api('sync', { method: 'POST' }); }
-    catch (e) { note("Couldn't check for updates: " + e.message, 'error'); return; }
+    catch (e) {
+      if (e.status === 409 && e.data && e.data.missing_branch) { showMissingBranchBanner(e.data); return; }
+      note("Couldn't check for updates: " + e.message, 'error');
+      return;
+    }
     if (r.up_to_date || !r.conflicts.length) return;
     const n = r.conflicts.length;
     const b = document.createElement('div');
