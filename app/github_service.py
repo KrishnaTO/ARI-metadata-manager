@@ -348,6 +348,18 @@ async def get_file_at(token: str | None, owner: str, repo: str, path: str, ref: 
         return r.content
 
 
+async def branch_sha(token: str | None, owner: str, repo: str, branch: str) -> str:
+    """The commit ``branch`` points at (token optional for public repos)."""
+    hdrs = {"Accept": "application/vnd.github.sha"}
+    if token:
+        hdrs["Authorization"] = f"Bearer {token}"
+    async with httpx.AsyncClient(timeout=20, headers=hdrs) as c:
+        r = await c.get(f"{API}/repos/{owner}/{repo}/commits/{branch}")
+        if r.status_code >= 300:
+            raise ValueError(f"Could not read the head of {branch}: {r.status_code} {r.text[:200]}")
+        return r.text.strip()
+
+
 async def list_open_prs(token: str | None, owner: str, repo: str) -> list[dict]:
     """Open pull requests in the repo (token optional for public repos).
 

@@ -31,11 +31,13 @@ async def _fetch_branch(token, branch, login):
     other curator and every anonymous reader saw, and left `deploy/update.sh`
     finding a dirty tree (and autostashing) every ten minutes forever.
     """
+    sha = await gh.branch_sha(token, config.GH_OWNER, config.GH_REPO, branch)
     data = await gh.get_file_at(token, config.GH_OWNER, config.GH_REPO,
-                                config.GH_ONTOLOGY_PATH, branch)
+                                config.GH_ONTOLOGY_PATH, sha)
     workspace._reset_user(login)       # verdicts and edits reference the old base
     config.USER_DIR.mkdir(parents=True, exist_ok=True)
     atomic_store.write_bytes(config.USER_DIR / f"{login}.owl", data, mode=0o644)
+    workspace.set_ancestor(login, data, sha)
     workspace.USER_SVC.pop(login, None)   # reload on next use, from the file just written
     workspace._set_branch_state(login, source_branch=branch, pr_base=branch)
 

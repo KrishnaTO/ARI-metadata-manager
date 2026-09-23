@@ -15,7 +15,7 @@ from pathlib import Path
 
 from fastapi import HTTPException, Request
 
-from . import atomic_store, config, sessions
+from . import atomic_store, config, merge_service, sessions
 from .ontology_service import OntologyService
 
 log = logging.getLogger(__name__)
@@ -65,6 +65,42 @@ def _pr_base(request: Request) -> str:
     return _branch_state(sessions._login(request))["pr_base"]
 
 
+# The version each working copy started from. A three-way merge needs it to
+# tell a field the curator changed from one the branch changed; without it the
+# two only "differ". Kept in a subdirectory: the idle sweep treats every
+# ``USER_DIR/*.owl`` as a working copy.
+def _ancestor_dir() -> Path:
+    return config.USER_DIR / "ancestor"
+
+
+def ancestor_path(login) -> Path:
+    return _ancestor_dir() / f"{login}.owl"
+
+
+def ancestor(login) -> OntologyService | None:
+    p = ancestor_path(login)
+    return OntologyService(str(p)) if p.exists() else None
+
+
+def ancestor_sha(login) -> str | None:
+    return atomic_store.read_json(_ancestor_dir() / f"{login}.json", {}).get("sha")
+
+
+def set_ancestor(login, data: bytes, sha):
+    _ancestor_dir().mkdir(parents=True, exist_ok=True)
+    atomic_store.write_bytes(ancestor_path(login), data, mode=0o644)
+    atomic_store.write_json(_ancestor_dir() / f"{login}.json", {"sha": sha})
+
+
+def set_ancestor_sha(login, sha):
+    atomic_store.write_json(_ancestor_dir() / f"{login}.json", {"sha": sha})
+
+
+def _drop_ancestor(login):
+    ancestor_path(login).unlink(missing_ok=True)
+    (_ancestor_dir() / f"{login}.json").unlink(missing_ok=True)
+
+
 def _adopt_working_copy(login) -> OntologyService:
     """Load ``login``'s working copy into USER_SVC, bounding how many we hold."""
     if len(USER_SVC) >= config.MAX_LOADED_WORLDS:
@@ -101,6 +137,9 @@ def user_service(login, create=False):
         os.utime(f, None)                         # copy2 keeps the BASE's mtime, and the
                                                   # sweep reads mtime as "last touched" —
                                                   # a new copy would look idle from birth
+        # Made from the local copy of the branch, whose commit is not known
+        # here: a null sha makes the first sync merge rather than skip.
+        set_ancestor(login, Path(config.ONTOLOGY_FILE).read_bytes(), None)
         return _adopt_working_copy(login)
     return BASE
 
@@ -195,6 +234,7 @@ def _reset_user(login):
     USER_DIRTY.discard(login)
     _clear_touched(login)
     _clear_ref_session(login)                   # verdicts reference the old data — drop them
+    _drop_ancestor(login)
     try:
         (config.USER_DIR / f"{login}.owl").unlink()
     except FileNotFoundError:
@@ -309,6 +349,28 @@ def _restore_working_copy(login, svc, snapshot: bytes):
                   "and republishing will repeat them", login, e)
 
 
+def merge_from(login, theirs, iris, choices=None) -> dict:
+    """Merge ``theirs`` into ``login``'s working copy for ``iris``, and save.
+
+    The working copy is snapshotted first and restored if the merge refuses
+    part-way. Afterwards it is evicted: the merge writes triples underneath
+    owlready2's per-object cache, so the loaded copy would read back stale values.
+    """
+    svc = user_service(login)
+    anc = ancestor(login)
+    snapshot = svc.path.read_bytes()
+    try:
+        out = merge_service.merge_into(svc, anc, theirs, iris, touched(login), choices)
+        svc._save()
+        if anc is not None:
+            anc._save()
+    except Exception:
+        _restore_working_copy(login, svc, snapshot)
+        raise
+    USER_SVC.pop(login, None)
+    return out
+
+
 # ----------------------------------------------------------------- retirement
 def _has_unpublished_work(login: str) -> bool:
     """Whether ``login``'s working copy differs from the published base.
@@ -360,6 +422,7 @@ def _sweep_user_data():
             USER_DIRTY.discard(login)
             _clear_touched(login)           # the copy those IRIs referred to is gone
             _clear_ref_session(login)       # verdicts reference a copy that is no longer live
+            _drop_ancestor(login)
         except OSError as e:
             log.warning("Could not sweep idle working copy %s: %s", f.name, e)
 
