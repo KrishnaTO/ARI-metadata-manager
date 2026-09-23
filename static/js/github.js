@@ -129,7 +129,7 @@
       } catch (e) {
         $('#pub-go').disabled = false; $('#pub-go').textContent = Words.publish;
         if (e.status === 409 && e.data && e.data.conflicts) {
-          if (await resolveConflicts(e.data.conflicts)) $('#pub-go').click();
+          if (await resolveConflicts(e.data)) $('#pub-go').click();
           return;
         }
         toastError(explainError(e, 'Could not send it for review'));
@@ -139,16 +139,18 @@
 
   // Where this curator and the source branch both changed a field, ask which
   // version to keep, and apply the answers. True once nothing is left to decide.
-  async function resolveConflicts(conflicts) {
-    let pending = conflicts;
+  // `refusal` is the server's {conflicts, sha}: the answers are applied at the
+  // commit the conflicts were shown against, never a newer one (#164).
+  async function resolveConflicts(refusal) {
+    let pending = refusal;
     for (;;) {
-      const choices = await UIDialog.merge(pending);
+      const choices = await UIDialog.merge(pending.conflicts);
       if (!choices) return false;
       try {
-        await api('/api/v2/resolve', { method: 'POST', body: { choices } });
+        await api('/api/v2/resolve', { method: 'POST', body: { sha: pending.sha, choices } });
         return true;
       } catch (e) {
-        if (e.status === 409 && e.data && e.data.conflicts) { pending = e.data.conflicts; continue; }
+        if (e.status === 409 && e.data && e.data.conflicts) { pending = e.data; continue; }
         toastError(explainError(e, 'Could not apply your choices'));
         return false;
       }
@@ -167,15 +169,15 @@
     // it would write the old list back over the branch's additions. Reload even
     // with conflicts: the next sync merges nothing new and shows the banner.
     if (r.merged.length) location.reload();
-    else if (r.conflicts.length) showSyncBanner(r.conflicts);
+    else if (r.conflicts.length) showSyncBanner(r);
   }
 
-  function showSyncBanner(conflicts) {
-    const n = conflicts.length;
+  function showSyncBanner(refusal) {
+    const n = refusal.conflicts.length;
     const b = el(`<div class="sync-banner" role="status">${n === 1 ? 'A record' : n + ' records'} changed on the source branch in fields you edited.
       <button class="hbtn primary">Choose versions</button></div>`);
     b.querySelector('button').addEventListener('click', async () => {
-      if (await resolveConflicts(conflicts)) location.reload();
+      if (await resolveConflicts(refusal)) location.reload();
     });
     document.body.appendChild(b);
   }

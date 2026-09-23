@@ -193,9 +193,12 @@ async def publish(request: Request, payload: dict = Body(default={})):
     # The source branch as it stands now. This is the base of the commit, not
     # just something to diff against: publishing committed the working copy
     # wholesale, so every disease merged into the branch since that copy was
-    # taken was reverted by the next save (issue #146).
+    # taken was reverted by the next save (issue #146). Pinned to one commit:
+    # a conflict reported below names it, and resolving must merge against the
+    # same bytes the curator was shown (#164).
     try:
-        baseline = await _baseline_service(request, u)
+        sha = await gh.branch_sha(u["token"], config.GH_OWNER, config.GH_REPO, source_branch)
+        baseline = await _baseline_service(request, u, ref=sha)
     except Exception as e:
         log.error("Could not read %s at %s to rebase this publish onto: %s",
                   config.GH_ONTOLOGY_PATH, source_branch, e)
@@ -217,7 +220,7 @@ async def publish(request: Request, payload: dict = Body(default={})):
             "detail": "These diseases changed on " + source_branch + " in the same fields "
                       "you edited: " + ", ".join(c["name"] for c in merged["conflicts"]) +
                       ". Choose which version of each to keep, then submit again.",
-            "conflicts": merged["conflicts"]})
+            "conflicts": merged["conflicts"], "sha": sha})
     # merge_from evicted the loaded copy; resolve it again from the merged file.
     svc = workspace.service_for(request, write=True) if any_review else workspace.service_for(request)
 
