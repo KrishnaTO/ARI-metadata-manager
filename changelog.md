@@ -1,5 +1,20 @@
 # Changelog
 
+## working-copy-merge
+
+Submitting from the review page was refused with *"someone else has edited it since your copy was made"* and the only way out dropped the curator's work on that disease. The someone was ARI PR #84 — the synonym review merged straight into `main` on 2026-09-07 — and the cause was structural: a working copy was snapshotted once and never caught up with the branch, so every edit made on `main` outside the app refused every later submission of the diseases it touched.
+
+- **Each working copy records the version it started from** (`.user-data/ancestor/<login>.owl` and the commit it came from), written on create and fetch.
+- **The branch is merged in, not swapped in.** `merge_service.merge_disease` compares ancestor, working copy and branch triple by triple: list fields (synonyms, subtypes, ids, changelog, item links) combine value by value; a single-valued field takes whichever side changed it; an item deleted on one side and edited on the other is a question. Submitted-but-unmerged work survives, because it is simply the working copy's side.
+- **`POST /api/v2/sync` runs it at page load** when the branch head has moved; `publish` runs it before committing. The editor reloads whenever anything merged — even alongside conflicts — so no open record predates the merge and a list saved from it cannot write the branch's additions away; the choice banner shows on the reload. The working copy and its ancestor are saved only when the merge changed them, so an idle copy keeps its mtime for the sweep.
+- **Where both sides changed the same field, the curator chooses.** A dialog shows both values and the branch's changelog lines — who changed it and why — with *Keep all mine* / *Keep all theirs*. `POST /api/v2/resolve` applies the answers. Review verdicts are never dropped.
+- **`POST /api/v2/discard` is gone**, and with it `merge_service.upstream_edits` and `workspace.forget`: choosing *theirs* throughout is the same operation.
+- Copies made before this have no ancestor: untouched diseases take the branch's version, and touched ones ask about every differing single-valued field. Their first clean sync records the branch as their ancestor, after which they merge like any other copy.
+
+Verified against a local stub harness in the browser: a disease refused before this change (the lupus case) now merges silently and submits; a disease with a definition changed on both sides shows the choice dialog with the branch's changelog line, and taking theirs leaves the working copy in sync with the branch.
+
+387 pytest, 33 `node --test`.
+
 ## orpha-non-rare-prefix
 
 Orphanet publishes ~150 of its terms with an epidemiological annotation welded onto the front of the name: ORPHA:825 is `NON RARE IN EUROPE: Ankylosing spondylitis`, and so is every one of its synonyms. `enrich_service` takes an external term's label and synonyms as name-variants of the same disease and offers them verbatim, so the ontology was set to accumulate synonyms reading `NON RARE IN EUROPE: Bechterew syndrome` — three of them on ankylosing spondylitis alone. The predictor saw the same thing from the other side: four words of annotation ahead of two words of disease name is most of the token set a `fuzzy` candidate's overlap is scored on, and it is shared with every other non-rare disorder in the file.

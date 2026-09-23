@@ -1568,44 +1568,55 @@
       // pendingPublishId is deliberately kept: the next click retries the SAME
       // attempt, which the server can recognise if the first one actually landed.
       reflectPr(); counts();
-      if (e.status === 409 && e.data && e.data.conflicts) { takeTheirs(e.data.conflicts); return; }
+      if (e.status === 409 && e.data && e.data.conflicts) {
+        if (await resolveConflicts(e.data.conflicts)) {
+          ROWS = await api('xrefs');           // merged values, before the retry reads them
+          renderMatrix();
+          return publish(newPr);
+        }
+        return;
+      }
       note('Publish failed: ' + e.message, 'error');
     }
   }
 
-  // A publish that would revert someone else's work is refused and names the
-  // diseases it collided with. The only way out used to be fetching the branch
-  // again, which discards the entire working copy — one collision cost a whole
-  // afternoon of unrelated verdicts. This takes the branch's version of the
-  // named diseases alone; everything else reviewed this session survives, and
-  // the refused publish can go straight back out.
-  async function takeTheirs(conflicts) {
-    const one = conflicts.length === 1;
-    if (!await UIDialog.confirm({
-      title: one ? 'One disease changed while you were working'
-                 : `${conflicts.length} diseases changed while you were working`,
-      detail: `${conflicts.map(c => c.name).join(', ')} — someone else has edited ` +
-              `${one ? 'it' : 'them'} since your copy was made, and submitting would revert ` +
-              `that. Take their version instead? Your verdicts on ${one ? 'that disease' : 'those diseases'} ` +
-              'are dropped; everything else you have reviewed is kept.',
-      confirmLabel: one ? 'Take their version' : 'Take their versions',
-      cancelLabel: 'Leave it for now',
-      danger: true,
-    })) return;
-    try {
-      // Flush first: the server is about to rewrite this session, and a verdict
-      // still sitting in the debounced patch would be lost with it.
-      await saveSession(true);
-      await api('discard', { method: 'POST', body: { iris: conflicts.map(c => c.iri) } });
-    } catch (e) {
-      note('Could not take their version: ' + e.message, 'error');
-      return;
+  // Where this curator and the source branch both changed a field, ask which
+  // version to keep, and apply the answers. True once nothing is left to decide.
+  // Verdicts live in the session, not the working copy, so they are untouched.
+  async function resolveConflicts(conflicts) {
+    let pending = conflicts;
+    for (;;) {
+      const choices = await UIDialog.merge(pending);
+      if (!choices) return false;
+      try {
+        await api('resolve', { method: 'POST', body: { choices } });
+        return true;
+      } catch (e) {
+        if (e.status === 409 && e.data && e.data.conflicts) { pending = e.data.conflicts; continue; }
+        note('Could not apply your choices: ' + e.message, 'error');
+        return false;
+      }
     }
-    // The working copy and the stored verdicts have both moved; the server holds
-    // what is left, so reload rather than reconciling the matrix in place.
-    clearTimeout(_saveTimer);
-    patch = emptyPatch();
-    location.reload();
+  }
+
+  // Bring the working copy up to date with the source branch. Clean merges are
+  // folded in silently (the matrix loads afterwards); a field both sides changed
+  // waits behind a banner until the curator chooses.
+  async function syncWorkingCopy() {
+    let r;
+    try { r = await api('sync', { method: 'POST' }); }
+    catch (e) { note("Couldn't check for updates: " + e.message, 'error'); return; }
+    if (r.up_to_date || !r.conflicts.length) return;
+    const n = r.conflicts.length;
+    const b = document.createElement('div');
+    b.className = 'sync-banner';
+    b.setAttribute('role', 'status');
+    b.innerHTML = `${n === 1 ? 'A disease' : n + ' diseases'} changed on the source branch in fields you edited. ` +
+                  '<button class="btn">Choose versions</button>';
+    b.querySelector('button').addEventListener('click', async () => {
+      if (await resolveConflicts(r.conflicts)) location.reload();
+    });
+    document.body.appendChild(b);
   }
 
   // What creating a subtype actually did, and what is left to do. The record is
@@ -1863,6 +1874,8 @@
     // Fetching is a signed-in action (it rewrites this curator's working copy),
     // so a signed-out viewer sees it disabled rather than getting a 401 toast.
     $('#pref-fetch').disabled = !me.authenticated;
+    // Merge the branch in before the matrix loads, so it shows current data.
+    if (me.authenticated) await syncWorkingCopy();
     try { buildDatabases(await api('xref-databases')); }
     catch (e) { $('#matrix').innerHTML = '<p class="muted" style="padding:16px">Failed to load the database registry: ' + esc(e.message) + '</p>'; return; }
     try { ROWS = await api('xrefs'); } catch (e) { $('#matrix').innerHTML = '<p class="muted" style="padding:16px">Failed to load: ' + esc(e.message) + '</p>'; return; }
