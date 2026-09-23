@@ -209,6 +209,94 @@ def _all(svc):
     return {d["iri"] for d in svc.get_diseases_list()}
 
 
+# ------------------------------------------------------- a source branch that is gone
+# A curator can source from an edit/* branch; once its PR merges the branch is
+# deleted, and every load used to say only "Couldn't check … for updates" (#165).
+def _github(monkeypatch, handler):
+    """Route github_service's HTTP calls to ``handler`` (an httpx MockTransport handler)."""
+    import httpx
+    real = httpx.AsyncClient
+    monkeypatch.setattr(gh.httpx, "AsyncClient",
+                        lambda **kw: real(transport=httpx.MockTransport(handler), **kw))
+
+
+def test_branch_sha_reads_the_branch_head(monkeypatch):
+    import asyncio
+
+    import httpx
+    seen = []
+
+    def handler(request):
+        seen.append(request.url.path)
+        return httpx.Response(200, json={"name": "edit/ada/x", "commit": {"sha": "abc123"}})
+
+    _github(monkeypatch, handler)
+    assert asyncio.run(gh.branch_sha("t", "o", "r", "edit/ada/x")) == "abc123"
+    assert seen == ["/repos/o/r/branches/edit/ada/x"]
+
+
+def test_a_deleted_branch_is_reported_as_such(monkeypatch):
+    import asyncio
+
+    import httpx
+    _github(monkeypatch, lambda request: httpx.Response(404, json={"message": "Branch not found"}))
+    with pytest.raises(gh.BranchNotFound):
+        asyncio.run(gh.branch_sha("t", "o", "r", "edit/ada/x"))
+
+
+def _gone(branch, monkeypatch, name="edit/ada/merged"):
+    """Point ada at ``name`` and make GitHub say it no longer exists."""
+    workspace._set_branch_state("ada", source_branch=name, pr_base=name)
+
+    async def _missing(token, owner, repo, b):
+        if b == name:
+            raise gh.BranchNotFound(b)
+        return branch["sha"]
+
+    monkeypatch.setattr(gh, "branch_sha", _missing)
+
+
+def test_sync_says_the_source_branch_is_gone_and_leaves_the_copy(branch, monkeypatch):
+    svc = workspace.user_service("ada", create=True)
+    before = svc.path.read_bytes()
+    _gone(branch, monkeypatch)
+
+    r = client.post("/api/v2/sync")
+
+    assert r.status_code == 409
+    assert r.json()["missing_branch"] == "edit/ada/merged"
+    assert r.json()["base_branch"] == config.GH_BASE_BRANCH
+    assert (config.USER_DIR / "ada.owl").read_bytes() == before
+
+
+def test_following_the_base_keeps_the_working_copy_and_its_work(branch, monkeypatch):
+    svc = workspace.user_service("ada", create=True)
+    d = _first(svc)
+    svc.update_disease(d, {"definition": "mine, unsubmitted"}, editor="ada")
+    workspace.mark("ada", d)
+    _gone(branch, monkeypatch)
+
+    r = client.post("/api/v2/source/follow-base")
+
+    assert r.status_code == 200
+    assert workspace._branch_state("ada") == {"source_branch": config.GH_BASE_BRANCH,
+                                              "pr_base": config.GH_BASE_BRANCH}
+    assert workspace.touched("ada") == {d}
+    # The next sync merges the base in three-way; the curator's edit stands.
+    assert client.post("/api/v2/sync").status_code == 200
+    assert workspace.user_service("ada").get_disease_detail(d)["definition"] == "mine, unsubmitted"
+
+
+def test_following_the_base_is_refused_while_the_branch_still_exists(branch):
+    workspace.user_service("ada", create=True)
+    workspace._set_branch_state("ada", source_branch="edit/ada/live", pr_base="edit/ada/live")
+
+    r = client.post("/api/v2/source/follow-base")
+
+    assert r.status_code == 400
+    assert workspace._branch_state("ada")["source_branch"] == "edit/ada/live"
+
+
 # ------------------------------------------------ one write at a time per curator
 # A publish holds the working copy across its GitHub calls and restores it if
 # they fail. A sync from a second window used to be able to land inside that

@@ -348,16 +348,27 @@ async def get_file_at(token: str | None, owner: str, repo: str, path: str, ref: 
         return r.content
 
 
+class BranchNotFound(ValueError):
+    """The branch does not exist (any more) — typically an edit/* branch whose PR merged."""
+
+
 async def branch_sha(token: str | None, owner: str, repo: str, branch: str) -> str:
-    """The commit ``branch`` points at (token optional for public repos)."""
-    hdrs = {"Accept": "application/vnd.github.sha"}
+    """The commit ``branch`` points at (token optional for public repos).
+
+    Read from the branches endpoint rather than ``commits/{ref}``: that one
+    answers a deleted branch with 422 "No commit found", indistinguishable from
+    other refusals, where this one says 404.
+    """
+    hdrs = {"Accept": "application/vnd.github+json"}
     if token:
         hdrs["Authorization"] = f"Bearer {token}"
     async with httpx.AsyncClient(timeout=20, headers=hdrs) as c:
-        r = await c.get(f"{API}/repos/{owner}/{repo}/commits/{branch}")
+        r = await c.get(f"{API}/repos/{owner}/{repo}/branches/{branch}")
+        if r.status_code == 404:
+            raise BranchNotFound(f"The branch {branch} does not exist.")
         if r.status_code >= 300:
             raise ValueError(f"Could not read the head of {branch}: {r.status_code} {r.text[:200]}")
-        return r.text.strip()
+        return r.json()["commit"]["sha"]
 
 
 async def list_open_prs(token: str | None, owner: str, repo: str) -> list[dict]:

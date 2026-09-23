@@ -49,6 +49,14 @@ async def sync(request: Request):
         if sha == workspace.ancestor_sha(login):
             return {"up_to_date": True}
         theirs = await _baseline_service(request, u, ref=sha)
+    except gh.BranchNotFound:
+        # An edit/* branch deleted once its PR merged. Say so, and offer the way
+        # on that keeps the working copy (settings.follow_base), rather than a
+        # generic failure on every load (#165).
+        return JSONResponse(status_code=409, content={
+            "detail": f"{branch} no longer exists — its pull request was probably merged. "
+                      f"Follow {config.GH_BASE_BRANCH} instead; your working copy is kept.",
+            "missing_branch": branch, "base_branch": config.GH_BASE_BRANCH})
     except Exception as e:
         log.warning("Could not check %s for updates for @%s: %s", branch, login, e)
         return JSONResponse(status_code=502, content={

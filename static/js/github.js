@@ -163,13 +163,30 @@
   async function syncWorkingCopy() {
     let r;
     try { r = await api('/api/v2/sync', { method: 'POST' }); }
-    catch (e) { toastError(explainError(e, "Couldn't check for updates")); return; }
+    catch (e) {
+      if (e.status === 409 && e.data && e.data.missing_branch) { showMissingBranchBanner(e.data); return; }
+      toastError(explainError(e, "Couldn't check for updates"));
+      return;
+    }
     if (r.up_to_date) return;
     // Anything merged makes the open record stale, and saving a list field from
     // it would write the old list back over the branch's additions. Reload even
     // with conflicts: the next sync merges nothing new and shows the banner.
     if (r.merged.length) location.reload();
     else if (r.conflicts.length) showSyncBanner(r);
+  }
+
+  // The source branch was deleted, usually because its pull request merged.
+  // Following the base branch keeps the working copy; the reload syncs it in.
+  function showMissingBranchBanner(gone) {
+    const b = el(`<div class="sync-banner" role="status">${esc(gone.missing_branch)} no longer exists — its ${esc(Words.submission)} was probably accepted.
+      <button class="hbtn primary">Follow ${esc(gone.base_branch)}</button></div>`);
+    b.querySelector('button').addEventListener('click', async () => {
+      try { await api('/api/v2/source/follow-base', { method: 'POST' }); }
+      catch (e) { toastError(explainError(e, `Could not switch to ${gone.base_branch}`)); return; }
+      location.reload();
+    });
+    document.body.appendChild(b);
   }
 
   function showSyncBanner(refusal) {
