@@ -37,8 +37,10 @@ so it would vanish from the curator's view until the merge.
 
 ### Ancestor (starting version)
 
-Each working copy gains an ancestor: `.user-data/<login>.base.owl` plus
-`.user-data/<login>.base.json` holding `{"sha": <source-branch commit>}`.
+Each working copy gains an ancestor: `.user-data/ancestor/<login>.owl` plus
+`.user-data/ancestor/<login>.json` holding `{"sha": <source-branch commit>}`.
+It lives in a subdirectory because the idle sweep treats every
+`.user-data/*.owl` as a working copy.
 
 - Written wherever the working copy is (re)created: `workspace.user_service(create=True)`
   (a copy of `config.ONTOLOGY_FILE`; sha unknown → `null`, so the first sync
@@ -77,18 +79,23 @@ merge with any unanswered conflict returns the conflicts and writes nothing.
 The result is written into the working copy with the existing `_graft`
 primitives, per subject.
 
-**Diseases the curator has not touched** (`workspace.touched(login)` does not
-contain them) skip the merge: the branch's version is grafted over the working
-copy. They hold no work of the curator's.
+**With an ancestor, every disease goes through the three-way merge**, touched
+or not. An untouched disease has `mine == base`, so the branch's version wins
+without a special case — and a disease submitted but not yet merged (the
+touched set is cleared on publish) keeps the curator's version instead of
+vanishing from their view until the PR merges.
 
-**No ancestor**: a touched disease in a copy with no ancestor is merged with
+**No ancestor**: a disease the curator has not touched takes the branch's
+version wholesale. A touched disease in a copy with no ancestor is merged with
 `B = ∅` for single-valued predicates (every differing value is a conflict) and
 `B = M ∩ T` for multi-valued ones (both sides' extra values are kept).
 
 ### When it runs
 
 - **`POST /api/v2/sync`** — called at boot by both pages when signed in. Reads
-  the source branch head sha (a new `github_service.branch_sha` helper); if it equals the ancestor's sha, returns
+  the source branch head sha (a new `github_service.branch_sha` helper) and
+fetches the ontology *at that sha*, so the recorded sha and the merged bytes
+always agree; if it equals the ancestor's sha, returns
   `{up_to_date: true}`. Otherwise fetches the branch ontology, merges every
   disease with no conflict, leaves conflicting diseases untouched, and returns
   `{merged: [iri...], conflicts: [...]}`. Pages show a banner for conflicts
@@ -108,28 +115,29 @@ copy. They hold no work of the curator's.
                             "mine": "...", "theirs": "...", "base": "..."}]}]}
 ```
 
-`upstream_log` is the branch's changelog entries absent from the working copy
-(what `upstream_edits` already computes).
+`upstream_log` is the branch's changelog entries absent from the working copy,
+computed from the same triple snapshots the merge reads. `upstream_edits` and
+`workspace.forget` lose their only callers and are removed.
 
 ### `POST /api/v2/resolve`
 
 Body `{"choices": {<iri>: {<conflict key>: "mine" | "theirs"}}}`. Re-fetches
-the branch, re-runs the merge with the choices for the named diseases, and:
-
-- **400** if any conflict for a named disease is unanswered;
-- **409** with a fresh `conflicts` list if the branch moved and produced
-  conflicts the curator has not answered;
-- otherwise writes the merged diseases into the working copy, advances their
-  ancestor, and returns `{merged: [iri...]}`.
+the branch, re-runs the merge with the choices for the named diseases, writes
+every disease that now merges cleanly and advances its ancestor. If any
+conflict is still unanswered — an answer was missing, or the branch moved and
+produced a new one — it returns **409** with those conflicts and the dialog
+reopens on them; otherwise `{merged: [iri...]}`. There is one answer to
+"not done yet", not two.
 
 The working copy is snapshotted before writing and restored if any graft
 refuses. Review verdicts are never dropped. `POST /api/v2/discard` and its
 callers are removed — choosing *theirs* throughout is the same operation.
 
-### Choice screen (`static/js/merge-dialog.js`)
+### Choice screen (`UIDialog.merge` in `static/js/ui-dialog.js`)
 
-Shared by `static/js/github.js` (editor) and `static/ref-edits/ref-edits.js`,
-built on `ui-dialog.js`. One section per disease: the upstream changelog lines,
+Shared by `static/js/github.js` (editor) and `static/ref-edits/ref-edits.js`.
+It lives in `ui-dialog.js` beside `confirm` and `text` so it reuses the
+dialog wiring rather than exporting it. One section per disease: the upstream changelog lines,
 then a row per conflict with the field label, *Yours* and *Theirs* values and a
 two-way choice. *Keep all mine* / *Keep all theirs* per disease. *Apply* is
 disabled until every row is answered. Returns the choices, or `null` on cancel.
@@ -159,7 +167,8 @@ sync banner, the page reloads.
 ## Delivery
 
 One branch and PR (`claude/ari-edits-submit-conflict-f23669`); README and
-changelog updated; app version bumped.
+changelog updated. The app version is derived from git (`config.APP_VERSION`),
+so the merge itself bumps it.
 
 ## Out of scope
 
