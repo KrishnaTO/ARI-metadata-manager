@@ -327,3 +327,44 @@ def apply(dst, merge: Merge, sources) -> None:
         raise ValueError(f"{merge.name} still has {len(merge.conflicts)} unresolved conflict(s)")
     for s, props in merge.subjects.items():
         _write(dst, s, props, sources)
+
+
+def _record(svc, iri) -> dict:
+    """A disease and its items as triple snapshots, for equality checks."""
+    return {s: _triples(svc, s) for s in sorted({iri} | _item_iris(svc, iri))}
+
+
+def merge_into(working, ancestor, theirs, iris, touched, choices=None) -> dict:
+    """Merge ``theirs`` into ``working`` for each disease in ``iris``.
+
+    Every disease that merges without an open question is written into
+    ``working``, and its ancestor moves up to ``theirs`` so the next merge sees
+    only newer changes. A disease with a conflict is left exactly as it was, on
+    both. Without an ancestor, a disease the curator has not touched simply
+    takes the branch's version — there is no work of theirs in it to protect.
+    """
+    choices = choices or {}
+    merged, conflicts, clean = [], [], []
+    for iri in sorted(iris):
+        if ancestor is None and iri not in touched:
+            if _record(working, iri) != _record(theirs, iri):
+                graft_diseases(theirs, working, {iri})
+                merged.append(iri)
+            continue
+        m = merge_disease(ancestor, working, theirs, iri, choices.get(iri))
+        if m.conflicts:
+            conflicts.append({"iri": iri, "name": m.name,
+                              "upstream_log": m.upstream_log, "fields": m.conflicts})
+            continue
+        clean.append(iri)
+        # The merge's subjects are a superset of the working copy's, so
+        # comparing over them is exact.
+        current = _record(working, iri)
+        if any(m.subjects[s] != current.get(s) for s in m.subjects):
+            apply(working, m, (working, theirs))
+            merged.append(iri)
+    if ancestor is not None:
+        stale = [i for i in clean if _record(ancestor, i) != _record(theirs, i)]
+        if stale:
+            graft_diseases(theirs, ancestor, stale)
+    return {"merged": merged, "conflicts": conflicts}

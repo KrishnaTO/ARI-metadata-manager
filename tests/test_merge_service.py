@@ -173,3 +173,68 @@ def test_without_an_ancestor_list_fields_keep_both_sides(trio):
     merge_service.apply(mine, m, (mine, theirs))
 
     assert set(_reloaded(mine).get_disease_detail(d)["synonyms"]) >= {"only mine", "only theirs"}
+
+
+# ------------------------------------------------------------- many diseases
+def test_merge_into_writes_clean_diseases_and_advances_their_ancestor(trio):
+    base, mine, theirs = trio
+    d = _iri(mine)
+    theirs.update_disease(d, {"definition": "theirs"}, editor="bob")
+
+    out = merge_service.merge_into(mine, base, theirs, [d], touched=set())
+
+    assert out == {"merged": [d], "conflicts": []}
+    assert _reloaded(mine).get_disease_detail(d)["definition"] == "theirs"
+    assert _reloaded(base).get_disease_detail(d)["definition"] == "theirs"
+
+
+def test_merge_into_leaves_a_conflicting_disease_and_its_ancestor_alone(trio):
+    base, mine, theirs = trio
+    clash, clean = _iri(mine, 0), _iri(mine, 1)
+    mine.update_disease(clash, {"definition": "mine"}, editor="ada")
+    theirs.update_disease(clash, {"definition": "theirs"}, editor="bob")
+    theirs.update_disease(clean, {"definition": "theirs too"}, editor="bob")
+    before = base.get_disease_detail(clash)["definition"]
+
+    out = merge_service.merge_into(mine, base, theirs, [clash, clean], touched={clash})
+
+    assert out["merged"] == [clean]
+    [c] = out["conflicts"]
+    assert c["iri"] == clash and c["fields"][0]["label"] == "Definition"
+    assert any("| bob |" in e for e in c["upstream_log"])
+    assert _reloaded(mine).get_disease_detail(clash)["definition"] == "mine"
+    assert _reloaded(base).get_disease_detail(clash)["definition"] == before
+
+
+def test_merge_into_reports_nothing_for_diseases_already_equal(trio):
+    base, mine, theirs = trio
+    assert merge_service.merge_into(mine, base, theirs, [_iri(mine)], touched=set()) == \
+        {"merged": [], "conflicts": []}
+
+
+def test_without_an_ancestor_an_untouched_disease_takes_theirs(trio):
+    _, mine, theirs = trio
+    d = _iri(mine)
+    mine.update_disease(d, {"definition": "stale mine"}, editor="ada")   # not in touched
+    theirs.update_disease(d, {"definition": "theirs"}, editor="bob")
+
+    out = merge_service.merge_into(mine, None, theirs, [d], touched=set())
+
+    assert out["conflicts"] == []
+    assert _reloaded(mine).get_disease_detail(d)["definition"] == "theirs"
+
+
+def test_merge_into_applies_choices_per_disease(trio):
+    base, mine, theirs = trio
+    d = _iri(mine)
+    mine.update_disease(d, {"definition": "mine"}, editor="ada")
+    theirs.update_disease(d, {"definition": "theirs"}, editor="bob")
+    key = f"{d}|http://www.w3.org/2000/01/rdf-schema#comment"
+
+    out = merge_service.merge_into(mine, base, theirs, [d], touched={d},
+                                   choices={d: {key: "mine"}})
+
+    assert out == {"merged": [d], "conflicts": []}
+    reloaded = _reloaded(mine).get_disease_detail(d)
+    assert reloaded["definition"] == "mine"
+    assert any("| bob |" in e for e in reloaded["changelog"])
