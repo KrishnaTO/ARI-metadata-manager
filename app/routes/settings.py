@@ -61,6 +61,7 @@ async def get_settings(request: Request):
 
 
 @router.post("/api/v2/fetch")
+@workspace.one_at_a_time
 async def fetch_changes(request: Request, payload: dict = Body(default={})):
     """Pull the latest of the current source branch into the app."""
     if not config.GH_ENABLED:
@@ -77,6 +78,7 @@ async def fetch_changes(request: Request, payload: dict = Body(default={})):
 
 
 @router.post("/api/v2/source")
+@workspace.one_at_a_time
 async def set_source(request: Request, payload: dict = Body(...)):
     """Switch which branch the app populates from (working or any edit/* branch)."""
     if not config.GH_ENABLED:
@@ -96,6 +98,7 @@ async def set_source(request: Request, payload: dict = Body(...)):
 
 
 @router.post("/api/v2/source/follow-base")
+@workspace.one_at_a_time
 async def follow_base(request: Request):
     """Point a curator whose source branch was deleted back at the base branch.
 

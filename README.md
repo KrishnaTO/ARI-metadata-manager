@@ -418,7 +418,7 @@ when its target actually changes.
 | GET | `/api/v2/settings` | Source branch, PR target, allowed branches |
 | POST | `/api/v2/fetch` | Pull latest from the source branch |
 | POST | `/api/v2/sync` | Merge the source branch into the curator's working copy (three-way, against the version it started from) |
-| POST | `/api/v2/resolve` | Apply the curator's per-field choices where both sides changed the same field |
+| POST | `/api/v2/resolve` | Apply the curator's per-field choices where both sides changed the same field, at the commit (`sha`) the conflicts were shown against |
 | POST | `/api/v2/source` | Switch the source branch |
 | POST | `/api/v2/source/follow-base` | After the source branch was deleted (its PR merged), follow the base branch and keep the working copy |
 | POST | `/api/v2/pr-base` | Set the PR target branch |

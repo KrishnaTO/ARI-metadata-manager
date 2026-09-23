@@ -7,7 +7,23 @@ A curator can source from an `edit/*` branch. Once that branch's PR merged and t
 
 - **A deleted branch is recognised.** `github_service.branch_sha` reads `GET /branches/{branch}`, which answers a missing branch with 404, and raises `BranchNotFound`. The `commits/{ref}` endpoint it used before answers 422 *"No commit found"*, indistinguishable from other refusals.
 - **Sync says so.** It returns 409 with `missing_branch` and `base_branch`, and both pages show a banner: *"edit/… no longer exists — its submission was probably accepted. Follow main"*.
-- **Following the base keeps the work.** `POST /api/v2/source/follow-base` points the source and PR base back at the base branch without touching the working copy. The reload's sync then merges the base in three-way against the ancestor the copy came from, so unsubmitted edits survive. It is refused while the branch still exists, when an ordinary switch is the right tool.
+- **Following the base keeps the work.** `POST /api/v2/source/follow-base` points the source and PR base back at the base branch without touching the working copy. The reload's sync then merges the base in three-way against the ancestor the copy came from, so unsubmitted edits survive. It is refused while the branch still exists, when an ordinary switch is the right tool. Like the other working-copy writes it runs under the curator's lock (#163).
+
+## issue-163-curator-lock
+Closes #163.
+
+A publish snapshots the working copy and holds it across its GitHub calls, restoring the snapshot if they fail. A sync from a second window could land inside that gap. The rollback then put back the pre-sync copy while the ancestor had already moved on, so the branch's changes looked like the curator had reverted them, and the next publish would have committed the revert.
+
+- **One working-copy writer at a time per curator.** `workspace.one_at_a_time` wraps publish, sync, resolve, fetch and source-switch, so each runs under its caller's lock. The app is one event loop in one process, so a per-login `asyncio.Lock` covers it. Fetch and source-switch replace the working copy outright, so a failed publish's rollback would clobber them the same way.
+- **Cost:** a page load in a second window waits for an in-flight publish, usually a few seconds, before its sync runs.
+
+## issue-164-resolve-at-sha
+Closes #164.
+
+`POST /api/v2/resolve` fetched the source branch by *name*, while the conflicts it answered came from a sync or publish that had read an earlier commit. If the branch moved in between and changed a field already in conflict, the conflict key was unchanged, so *theirs* quietly took the newer value, one the dialog never showed.
+
+- **Every conflict list names its commit.** Sync returns `sha` with its result, and a refused publish returns it with its `conflicts`. Publish now reads the branch at a pinned commit, as sync already did, rather than by name.
+- **Resolve merges at that commit.** Both pages send the `sha` back with the choices, and a request without one is refused with 400. Anything the branch gained since then arrives through the next sync, three-way like everything else, so there is nothing to refuse when the head has moved.
 
 ## working-copy-merge
 
