@@ -8,6 +8,14 @@ A publish snapshots the working copy and holds it across its GitHub calls, resto
 - **One working-copy writer at a time per curator.** `workspace.one_at_a_time` wraps publish, sync, resolve, fetch and source-switch, so each runs under its caller's lock. The app is one event loop in one process, so a per-login `asyncio.Lock` covers it. Fetch and source-switch replace the working copy outright, so a failed publish's rollback would clobber them the same way.
 - **Cost:** a page load in a second window waits for an in-flight publish, usually a few seconds, before its sync runs.
 
+## issue-164-resolve-at-sha
+Closes #164.
+
+`POST /api/v2/resolve` fetched the source branch by *name*, while the conflicts it answered came from a sync or publish that had read an earlier commit. If the branch moved in between and changed a field already in conflict, the conflict key was unchanged, so *theirs* quietly took the newer value, one the dialog never showed.
+
+- **Every conflict list names its commit.** Sync returns `sha` with its result, and a refused publish returns it with its `conflicts`. Publish now reads the branch at a pinned commit, as sync already did, rather than by name.
+- **Resolve merges at that commit.** Both pages send the `sha` back with the choices, and a request without one is refused with 400. Anything the branch gained since then arrives through the next sync, three-way like everything else, so there is nothing to refuse when the head has moved.
+
 ## working-copy-merge
 
 Submitting from the review page was refused with *"someone else has edited it since your copy was made"* and the only way out dropped the curator's work on that disease. The someone was ARI PR #84 — the synonym review merged straight into `main` on 2026-09-07 — and the cause was structural: a working copy was snapshotted once and never caught up with the branch, so every edit made on `main` outside the app refused every later submission of the diseases it touched.
