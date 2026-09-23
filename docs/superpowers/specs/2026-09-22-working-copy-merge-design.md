@@ -93,17 +93,17 @@ version wholesale. A touched disease in a copy with no ancestor is merged with
 ### When it runs
 
 - **`POST /api/v2/sync`** — called at boot by both pages when signed in. Reads
-  the source branch head sha (a new `github_service.branch_sha` helper) and
-fetches the ontology *at that sha*, so the recorded sha and the merged bytes
-always agree; if it equals the ancestor's sha, returns
-  `{up_to_date: true}`. Otherwise fetches the branch ontology, merges every
-  disease with no conflict, leaves conflicting diseases untouched, and returns
-  `{merged: [iri...], conflicts: [...]}`. Pages show a banner for conflicts
-  that opens the choice screen.
-- **Publish** — before `upstream_edits`, merge the publish scope against the
-  baseline already fetched. Any conflict → **409** with `conflicts`. Auto-merged
-  diseases are written to the working copy and the publish continues, so
-  `upstream_edits` finds nothing unseen.
+  the source branch head sha (a new `github_service.branch_sha` helper); if it
+  equals the ancestor's sha, returns `{up_to_date: true}`. Otherwise fetches
+  the ontology *at that sha* (so the recorded sha and the merged bytes always
+  agree), merges every disease with no conflict, leaves conflicting diseases
+  untouched, and returns `{merged: [iri...], conflicts: [...]}`. Pages show a
+  banner for conflicts that opens the choice screen.
+- **Publish** — replaces the `upstream_edits` check: merge the publish scope
+  against the baseline already fetched. Any conflict → **409** with
+  `conflicts`. Auto-merged diseases are written to the working copy and the
+  publish continues; after a merge the branch holds no changelog entry the
+  working copy lacks, so the old check has nothing left to find.
 
 ### Conflict payload
 
