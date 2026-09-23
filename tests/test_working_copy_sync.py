@@ -209,6 +209,56 @@ def _all(svc):
     return {d["iri"] for d in svc.get_diseases_list()}
 
 
+# ------------------------------------------------ one write at a time per curator
+# A publish holds the working copy across its GitHub calls and restores it if
+# they fail. A sync from a second window used to be able to land inside that
+# gap, and the rollback then put back the pre-sync copy while the ancestor had
+# already moved on — the branch's changes looked reverted by the curator (#163).
+def test_a_sync_waits_for_a_publish_in_flight(branch, monkeypatch):
+    import asyncio
+
+    import httpx
+
+    svc = workspace.user_service("ada", create=True)
+    mine, upstream = _first(svc), svc.get_diseases_list()[1]["iri"]
+    svc.update_disease(mine, {"definition": "mine"}, editor="ada")
+    workspace.mark("ada", mine)
+    branch["svc"].update_disease(upstream, {"definition": "theirs"}, editor="bob")
+    order = []
+
+    async def scenario():
+        entered, release = asyncio.Event(), asyncio.Event()
+
+        async def _publish_file(**kw):
+            entered.set()
+            await release.wait()                 # the GitHub calls, taking their time
+            order.append("publish")
+            return {"pr_number": 1, "pr_url": "https://example.invalid/pr/1"}
+
+        async def _sha(*a):
+            if entered.is_set():                 # publish asked before its GitHub calls
+                order.append("sync")
+            return branch["sha"]
+
+        monkeypatch.setattr(gh, "publish_file", _publish_file)
+        monkeypatch.setattr(gh, "branch_sha", _sha)
+        transport = httpx.ASGITransport(app=main.app)
+        async with httpx.AsyncClient(transport=transport, base_url="http://t") as c:
+            pub = asyncio.create_task(c.post("/api/v2/publish", json={}))
+            await entered.wait()
+            syn = asyncio.create_task(c.post("/api/v2/sync"))
+            await asyncio.sleep(0.3)
+            release.set()
+            r_pub, r_syn = await pub, await syn
+        return r_pub, r_syn
+
+    r_pub, r_syn = asyncio.run(scenario())
+
+    assert (r_pub.status_code, r_syn.status_code) == (200, 200)
+    assert order == ["publish", "sync"]
+    assert r_syn.json()["merged"] == [upstream]
+
+
 # ------------------------------------------ answers apply to the commit shown
 # A conflict is shown against one commit of the branch. Resolving against
 # whatever the branch holds by then could apply a "theirs" the curator never

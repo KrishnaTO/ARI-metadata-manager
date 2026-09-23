@@ -1,5 +1,13 @@
 # Changelog
 
+## issue-163-curator-lock
+Closes #163.
+
+A publish snapshots the working copy and holds it across its GitHub calls, restoring the snapshot if they fail. A sync from a second window could land inside that gap. The rollback then put back the pre-sync copy while the ancestor had already moved on, so the branch's changes looked like the curator had reverted them, and the next publish would have committed the revert.
+
+- **One working-copy writer at a time per curator.** `workspace.one_at_a_time` wraps publish, sync, resolve, fetch and source-switch, so each runs under its caller's lock. The app is one event loop in one process, so a per-login `asyncio.Lock` covers it. Fetch and source-switch replace the working copy outright, so a failed publish's rollback would clobber them the same way.
+- **Cost:** a page load in a second window waits for an in-flight publish, usually a few seconds, before its sync runs.
+
 ## issue-164-resolve-at-sha
 Closes #164.
 

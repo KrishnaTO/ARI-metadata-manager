@@ -122,6 +122,7 @@ def _discard(path):
 
 
 @router.post("/api/v2/publish")
+@workspace.one_at_a_time
 async def publish(request: Request, payload: dict = Body(default={})):
     """Commit the current ontology file to GitHub as the signed-in user (PR)."""
     if not config.GH_ENABLED:

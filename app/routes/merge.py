@@ -34,6 +34,7 @@ def _all_diseases(*services) -> set:
 
 
 @router.post("/api/v2/sync")
+@workspace.one_at_a_time
 async def sync(request: Request):
     """Merge the source branch into this curator's working copy."""
     u = _signed_in(request)
@@ -72,6 +73,7 @@ async def sync(request: Request):
 
 
 @router.post("/api/v2/resolve")
+@workspace.one_at_a_time
 async def resolve(request: Request, payload: dict = Body(...)):
     """Apply the curator's choices where both sides changed the same field."""
     u = _signed_in(request)
