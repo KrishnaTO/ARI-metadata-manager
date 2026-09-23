@@ -12,6 +12,7 @@ import logging
 import os
 import shutil
 import time
+import uuid
 from collections import OrderedDict
 from pathlib import Path
 
@@ -106,18 +107,39 @@ def ancestor(login) -> OntologyService | None:
     return OntologyService(str(p)) if p.exists() else None
 
 
+def _ancestor_meta(login) -> dict:
+    return atomic_store.read_json(_ancestor_dir() / f"{login}.json", {})
+
+
+def _update_ancestor_meta(login, **kw):
+    _ancestor_dir().mkdir(parents=True, exist_ok=True)
+    atomic_store.write_json(_ancestor_dir() / f"{login}.json", {**_ancestor_meta(login), **kw})
+
+
 def ancestor_sha(login) -> str | None:
-    return atomic_store.read_json(_ancestor_dir() / f"{login}.json", {}).get("sha")
+    return _ancestor_meta(login).get("sha")
+
+
+# The working copy's revision: an opaque token that changes whenever a merge or
+# a fetch rewrites the copy underneath any open page. A window left in the
+# background compares it with the one it loaded, because its own sync would
+# say "up to date" once another window has merged the branch (#162).
+def copy_revision(login) -> str | None:
+    return _ancestor_meta(login).get("revision")
+
+
+def _new_revision(login):
+    _update_ancestor_meta(login, revision=uuid.uuid4().hex)
 
 
 def set_ancestor(login, data: bytes, sha):
     _ancestor_dir().mkdir(parents=True, exist_ok=True)
     atomic_store.write_bytes(ancestor_path(login), data, mode=0o644)
-    atomic_store.write_json(_ancestor_dir() / f"{login}.json", {"sha": sha})
+    _update_ancestor_meta(login, sha=sha, revision=uuid.uuid4().hex)
 
 
 def set_ancestor_sha(login, sha):
-    atomic_store.write_json(_ancestor_dir() / f"{login}.json", {"sha": sha})
+    _update_ancestor_meta(login, sha=sha)
 
 
 def _drop_ancestor(login):
@@ -364,6 +386,7 @@ def merge_from(login, theirs, iris, choices=None) -> dict:
         out = merge_service.merge_into(svc, anc, theirs, iris, touched(login), choices)
         if out["merged"]:
             svc._save()
+            _new_revision(login)
         if out["advanced"]:
             anc._save()
     except Exception:

@@ -1,5 +1,15 @@
 # Changelog
 
+## issue-162-resync-on-visible
+Closes #162.
+
+Since the working-copy merge, the copy can change underneath an open page. A window left in the background kept showing records from before another window's sync. A list saved from it (synonyms, cross-reference ids) wrote the branch's additions away, and a branch-added id missing from the old list was recorded as this curator's removal and published as a negative judgment.
+
+Re-syncing when the tab comes back was not enough on its own: once another window has merged the branch, this window's sync says *up to date*.
+
+- **The working copy has a revision.** It is an opaque token beside the ancestor (`.user-data/ancestor/<login>.json`) that changes whenever a merge (sync, resolve, publish) or a fetch rewrites the copy. Sync returns it with every answer.
+- **Both pages re-sync when the tab becomes visible**, and reload when the revision differs from the one they loaded with. The review page saves pending verdicts first; the editor's unsaved-form guard and draft still apply. With nothing changed there is no reload, and a repeated conflict banner replaces the old one instead of stacking.
+
 ## issue-165-deleted-source-branch
 Closes #165.
 

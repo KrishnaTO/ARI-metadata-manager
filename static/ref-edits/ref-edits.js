@@ -599,6 +599,10 @@
   // the page. `visibilitychange` rather than `beforeunload`: it is the one signal
   // that reliably fires when a tab is closed or backgrounded.
   document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible' && me && me.authenticated) syncWorkingCopy();
+  });
+
+  document.addEventListener('visibilitychange', () => {
     if (document.visibilityState !== 'hidden') return;
     if (!(me && me.authenticated) || patchIsEmpty()) return;
     clearTimeout(_saveTimer);
@@ -1604,6 +1608,7 @@
   // The source branch was deleted, usually because its pull request merged.
   // Following the base branch keeps the working copy; the reload syncs it in.
   function showMissingBranchBanner(gone) {
+    document.querySelector('.sync-banner')?.remove();   // a re-sync replaces, not stacks
     const b = document.createElement('div');
     b.className = 'sync-banner';
     b.setAttribute('role', 'status');
@@ -1620,6 +1625,12 @@
   // Bring the working copy up to date with the source branch. Clean merges are
   // folded in silently (the matrix loads afterwards); a field both sides changed
   // waits behind a banner until the curator chooses.
+  //
+  // It runs again whenever the tab comes back into view. A window left in the
+  // background does not see another window's sync, and its own would then say
+  // "up to date" over rows that predate the merge; the copy's revision is how it
+  // tells, and a changed one saves pending verdicts and reloads (#162).
+  let copyRevision;                                    // the copy this page was drawn from
   async function syncWorkingCopy() {
     let r;
     try { r = await api('sync', { method: 'POST' }); }
@@ -1628,7 +1639,14 @@
       note("Couldn't check for updates: " + e.message, 'error');
       return;
     }
+    if (copyRevision !== undefined && r.revision !== copyRevision) {
+      await saveSession(true);
+      location.reload();
+      return;
+    }
+    copyRevision = r.revision;
     if (r.up_to_date || !r.conflicts.length) return;
+    document.querySelector('.sync-banner')?.remove();  // a re-sync replaces, not stacks
     const n = r.conflicts.length;
     const b = document.createElement('div');
     b.className = 'sync-banner';
