@@ -61,48 +61,6 @@ def _field_labels(base: str) -> dict:
     return out
 
 
-class Conflict(RuntimeError):
-    """A disease this curator edited also changed on the source branch.
-
-    Silently winning is what caused the incident this module exists to prevent,
-    so the publish stops and the curator is told which records collided.
-    """
-
-    def __init__(self, diseases: list):
-        self.diseases = diseases
-        names = ", ".join(d["name"] for d in diseases)
-        super().__init__(f"changed on the source branch since this session began: {names}")
-
-
-def _changelog(svc, iri):
-    """``(entity, changelog entries)`` for ``iri``, or ``(None, [])`` if absent."""
-    try:
-        e = svc._entity(iri)
-    except KeyError:
-        return None, []
-    return e, svc._get_annotation(e, svc.base + CHANGELOG)
-
-
-def upstream_edits(working, baseline, iris) -> list:
-    """Diseases in ``iris`` that someone else has edited on the source branch.
-
-    Every write path appends to the disease's own ``ARI_ChangeLog``, so an entry
-    present on the source branch and absent from the working copy is an edit made
-    after this curator's copy was taken. Returns
-    ``[{iri, name, entries}]`` — empty when the rebase is safe.
-    """
-    out = []
-    for iri in sorted(iris):
-        base_e, base_log = _changelog(baseline, iri)
-        if base_e is None:
-            continue                       # new here, or gone upstream: nothing to collide with
-        _, mine = _changelog(working, iri)
-        unseen = [x for x in base_log if x not in set(mine)]
-        if unseen:
-            out.append({"iri": iri, "name": baseline._get_label(base_e), "entries": unseen})
-    return out
-
-
 def _item_iris(svc, iri) -> set:
     """IRIs of the item individuals ``iri`` owns, in ``svc``."""
     w = svc.world
