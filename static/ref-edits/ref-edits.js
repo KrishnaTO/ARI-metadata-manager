@@ -1278,9 +1278,11 @@
              <summary>Full ${esc(db.label)} page</summary>
              <iframe id="p-frame" loading="lazy" src="${esc(db.link(ent.id))}"></iframe>
            </details>`}
+      ${commentsHTML(r)}
       <div class="p-foot">${esc(foot)}</div>`;
 
     $('#side').classList.add('open');
+    wireComments(r);
     $('#divider').classList.add('show');
     $('#p-close').addEventListener('click', closePanel);
     // ✎ / ＋ swaps the id box into its edit form; Save writes just this id.
@@ -1319,6 +1321,68 @@
             String(active.id) === String(ent.id)) renderCandidate(c, db, ent);
       });
     }
+  }
+
+  // ------------------------------------------------------ DISEASE COMMENTS
+  // The same per-disease feedback log the main browser shows. Comments post
+  // straight to the shared log (no pull request, no review) and are attributed
+  // to the signed-in GitHub login, which the server takes from the session.
+  function commentsHTML(r) {
+    const form = me && me.authenticated
+      ? `<div class="p-cform">
+          <textarea id="p-cmsg" rows="3" placeholder="Comment on “${esc(r.name)}”…"></textarea>
+          <div class="p-cform-row">
+            <label class="p-ckeep"><input type="checkbox" id="p-ckeep"> Keep after release</label>
+            <span class="muted">Posting as @${esc(me.login)}</span>
+            <button class="btn primary" id="p-cpost">Add comment</button>
+          </div>
+        </div>`
+      : '<div class="p-note">Sign in with GitHub to add a comment — comments are attributed to your account.</div>';
+    return `<div class="p-comments">
+      <div class="p-switch-h">Disease comments</div>
+      <div id="p-clist"><div class="p-note">Loading…</div></div>
+      ${form}
+    </div>`;
+  }
+
+  async function loadComments(r) {
+    let items;
+    try { items = await api('feedback?disease=' + enc(r.iri)); }
+    catch (e) { items = null; note('Could not load comments: ' + e.message, 'error'); }
+    const list = $('#p-clist');
+    // The panel may have moved on to another disease while this was in flight.
+    if (!list || !active || active.iri !== r.iri) return;
+    if (!items) { list.innerHTML = '<div class="p-note">Comments could not be loaded.</div>'; return; }
+    list.innerHTML = items.length
+      ? items.map(it => `<div class="p-citem">
+          <div class="p-cmsg">${esc(it.message)}</div>
+          <div class="p-cmeta">@${esc(it.author || 'anonymous')} · ${esc(it.updated || it.created)}${
+            it.keep ? ' · <span class="p-cpill">kept after release</span>' : ''}</div>
+        </div>`).join('')
+      : '<div class="p-note">No comments on this disease yet.</div>';
+  }
+
+  function wireComments(r) {
+    loadComments(r);
+    const btn = $('#p-cpost');
+    if (!btn) return;
+    const post = async () => {
+      const message = $('#p-cmsg').value.trim();
+      if (!message) { note('Write a comment first.', 'error'); $('#p-cmsg').focus(); return; }
+      btn.disabled = true;
+      try {
+        await api('feedback', { method: 'POST',
+          body: { disease: r.iri, term: r.name, message, keep: $('#p-ckeep').checked } });
+        $('#p-cmsg').value = ''; $('#p-ckeep').checked = false;
+        note('Comment posted.', 'ok');
+        await loadComments(r);
+      } catch (e) { note('Could not post your comment: ' + e.message, 'error'); }
+      finally { btn.disabled = false; }
+    };
+    btn.addEventListener('click', post);
+    $('#p-cmsg').addEventListener('keydown', e => {
+      if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) post();
+    });
   }
 
   function closePanel() {
