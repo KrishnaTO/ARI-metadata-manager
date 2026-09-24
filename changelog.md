@@ -1,5 +1,13 @@
 # Changelog
 
+## disease-comments-ari-edits
+
+The review page's side panel now shows the disease's comments, the same per-disease feedback log the main browser shows, so a curator judging a mapping sees what others have said about the disease.
+
+- **Read in the panel.** Each comment shows its author (`@login`), time and whether it is kept after release.
+- **Add from the panel.** A signed-in curator can add a comment (Ctrl/Cmd+Enter posts), optionally kept after release. The author is taken from the session, never from the form. Signed-out viewers see a sign-in prompt instead.
+- **Posts immediately.** Comments go through the existing `/api/v2/feedback` endpoint to the shared log, not through a pull request, so there is no review step.
+
 ## issue-162-resync-on-visible
 Closes #162.
 
