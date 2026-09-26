@@ -40,8 +40,14 @@ a { color: var(--accent); }
 .plain { background: var(--info-bg); color: var(--info); }
 main { padding: 12px 20px 40px; }
 .tablewrap { overflow-x: auto; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; }
-table { border-collapse: collapse; width: 100%; min-width: 1100px; }
-th, td { text-align: left; vertical-align: top; padding: 7px 9px; border-bottom: 1px solid var(--line); }
+table { border-collapse: collapse; table-layout: fixed; }
+th, td { text-align: left; vertical-align: top; padding: 7px 9px; border-bottom: 1px solid var(--line);
+  overflow-wrap: anywhere; }
+th { overflow: hidden; text-overflow: ellipsis; }
+.resizer { position: absolute; top: 0; right: 0; width: 7px; height: 100%; cursor: col-resize;
+  user-select: none; touch-action: none; }
+.resizer:hover, .resizer.active { background: var(--accent); opacity: .5; }
+body.resizing { cursor: col-resize; user-select: none; }
 th { position: sticky; top: 0; background: var(--panel); font-size: 12px; color: var(--muted);
   text-transform: uppercase; letter-spacing: .03em; cursor: pointer; white-space: nowrap; }
 tr.item:hover { background: var(--bg); cursor: pointer; }
@@ -95,17 +101,17 @@ mark { background: var(--hl); color: inherit; padding: 0 1px; }
 <main>
   <div class="tablewrap"><table>
     <thead><tr>
-      <th data-sort="line" title="Line in mappings/ari.equivalencies.tsv; opens that line in the PR's Files changed tab, where you can comment on it">Line</th>
-      <th data-sort="marked" title="Mark for review (saved locally in .pr-review/marks.json)">Mark</th>
-      <th data-sort="ari_label">ARI term</th>
-      <th data-sort="db">Target</th>
-      <th data-sort="judgment">Judgment</th>
-      <th data-sort="name">Name / synonym match</th>
-      <th data-sort="def">Definition</th>
-      <th data-sort="support">Xref support</th>
-      <th>Flags</th>
-      <th data-sort="on_main">Main</th>
-      <th data-sort="hint">Hint</th>
+      <th data-sort="line" data-w="64" title="Line in mappings/ari.equivalencies.tsv; opens that line in the PR's Files changed tab, where you can comment on it">Line</th>
+      <th data-sort="marked" data-w="56" title="Mark for review (saved locally in .pr-review/marks.json)">Mark</th>
+      <th data-sort="ari_label" data-w="260">ARI term</th>
+      <th data-sort="db" data-w="210">Target</th>
+      <th data-sort="judgment" data-w="110">Judgment</th>
+      <th data-sort="name" data-w="250">Name / synonym match</th>
+      <th data-sort="def" data-w="130">Definition</th>
+      <th data-sort="support" data-w="200">Xref support</th>
+      <th data-w="240">Flags</th>
+      <th data-sort="on_main" data-w="120">Main</th>
+      <th data-sort="hint" data-w="140">Hint</th>
     </tr></thead>
     <tbody id="body"><tr><td colspan="11" class="empty">Loading pull requests…</td></tr></tbody>
   </table></div>
@@ -308,6 +314,53 @@ document.querySelectorAll("th[data-sort]").forEach((th) => th.addEventListener("
   const k = th.dataset.sort;
   sortDir = sortKey === k ? -sortDir : 1; sortKey = k; render();
 }));
+// Resizable columns: drag a header's right edge; double-click it to restore the default.
+// Widths are a per-browser convenience, so storage failures just mean defaults.
+const WIDTHS_KEY = "pr-review-column-widths";
+const headers = [...document.querySelectorAll("thead th")];
+let widths = {};
+try { widths = JSON.parse(localStorage.getItem(WIDTHS_KEY)) || {}; } catch { widths = {}; }
+
+function applyWidths() {
+  let total = 0;
+  headers.forEach((th, i) => {
+    const w = widths[i] || Number(th.dataset.w);
+    th.style.width = `${w}px`;
+    total += w;
+  });
+  document.querySelector("table").style.width = `${total}px`;
+}
+
+function saveWidths() {
+  try { localStorage.setItem(WIDTHS_KEY, JSON.stringify(widths)); } catch { /* defaults next time */ }
+}
+
+headers.forEach((th, i) => {
+  const grip = document.createElement("span");
+  grip.className = "resizer";
+  grip.title = "Drag to resize · double-click to reset";
+  th.appendChild(grip);
+  grip.addEventListener("click", (e) => e.stopPropagation());
+  grip.addEventListener("dblclick", (e) => {
+    e.stopPropagation(); delete widths[i]; saveWidths(); applyWidths();
+  });
+  grip.addEventListener("pointerdown", (e) => {
+    e.preventDefault(); e.stopPropagation();
+    const startX = e.clientX, startW = th.getBoundingClientRect().width;
+    grip.setPointerCapture(e.pointerId);
+    grip.classList.add("active"); document.body.classList.add("resizing");
+    const move = (ev) => { widths[i] = Math.max(40, Math.round(startW + ev.clientX - startX)); applyWidths(); };
+    const up = () => {
+      grip.removeEventListener("pointermove", move);
+      grip.classList.remove("active"); document.body.classList.remove("resizing");
+      saveWidths();
+    };
+    grip.addEventListener("pointermove", move);
+    grip.addEventListener("pointerup", up, {once: true});
+  });
+});
+applyWidths();
+
 loadPRs().catch((e) => { $("body").innerHTML = `<tr><td colspan="11" class="empty">${esc(e.message)}</td></tr>`; });
 </script>
 </body>

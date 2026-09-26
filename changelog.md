@@ -8,6 +8,7 @@ A local, read-only app (`python -m pr_review`) for reviewing curators' mapping P
 - **Match types.** Label/synonym equality in each direction, word overlap, definition word overlap, cross-reference support and conflicts, subtype and other-disease name collisions, and whether main already holds the same or opposite judgment.
 - **Line numbers.** Each row shows its line in the PR's `ari.equivalencies.tsv`, and rows are listed in file order. The number opens that exact line in the PR's *Files changed* tab, ready for a review comment.
 - **Mark for review.** A per-row checkbox, saved per PR in the gitignored `.pr-review/marks.json`, with a filter, a count chip and a CSV column.
+- **Resizable columns.** Drag a header's right edge to resize (the ARI term column starts wider); double-click to reset. Widths are remembered per browser.
 - **Review aids.** Filters, sorting, a side-by-side detail view with shared definition words highlighted, a hint per row, and CSV export.
 
 ## disease-comments-ari-edits

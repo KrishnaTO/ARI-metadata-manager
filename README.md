@@ -377,7 +377,9 @@ the PR's own `ontologies/ari_t1d.owl`, and looks each target id up in the local
 PR's equivalencies file. The number opens that line in the PR's *Files changed* tab, where you
 can add a review comment on it (a removed row links to its line on the diff's left side).
 Tick **Mark** to flag a row for review; marks are kept per PR in `.pr-review/marks.json`
-(gitignored), can be filtered on, and are included in the CSV. Each changed row gets:
+(gitignored), can be filtered on, and are included in the CSV. Columns are resizable: drag a
+header's right edge (double-click it to reset); widths are remembered in the browser. Each
+changed row gets:
 
 - **Name / synonym match** — label = label, ARI label = target synonym, ARI synonym =
   target label, synonym = synonym, else the best word overlap between any two names.
