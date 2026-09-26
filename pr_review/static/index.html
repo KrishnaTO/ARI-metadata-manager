@@ -50,6 +50,9 @@ tr.item:hover { background: var(--bg); cursor: pointer; }
 .bar { display: inline-block; height: 6px; border-radius: 3px; background: var(--accent); vertical-align: middle; }
 .bartrack { display: inline-block; width: 50px; height: 6px; border-radius: 3px; background: var(--line); margin-right: 6px; vertical-align: middle; }
 tr.detail > td { background: var(--bg); }
+tr.item.marked > td { background: var(--warn-bg); }
+tr.item.marked > td:first-child { box-shadow: inset 3px 0 0 var(--warn); }
+.mark { width: 16px; height: 16px; cursor: pointer; accent-color: var(--warn); }
 .cmp { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 12px; }
 .card { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; }
 .card h3 { font-size: 13px; margin: 0 0 6px; }
@@ -74,6 +77,11 @@ mark { background: var(--hl); color: inherit; padding: 0 1px; }
       <option value="manual-negative">Rejected</option>
     </select>
     <select id="kind"><option value="">All name matches</option></select>
+    <select id="marked">
+      <option value="">Marked or not</option>
+      <option value="yes">Marked for review</option>
+      <option value="no">Not marked</option>
+    </select>
     <button id="csv">Export CSV</button>
   </div>
   <div id="meta" class="meta"></div>
@@ -87,7 +95,8 @@ mark { background: var(--hl); color: inherit; padding: 0 1px; }
 <main>
   <div class="tablewrap"><table>
     <thead><tr>
-      <th data-sort="line" title="Line in mappings/ari.equivalencies.tsv at the PR head">Line</th>
+      <th data-sort="line" title="Line in mappings/ari.equivalencies.tsv; opens that line in the PR's Files changed tab, where you can comment on it">Line</th>
+      <th data-sort="marked" title="Mark for review (saved locally in .pr-review/marks.json)">Mark</th>
       <th data-sort="ari_label">ARI term</th>
       <th data-sort="db">Target</th>
       <th data-sort="judgment">Judgment</th>
@@ -98,7 +107,7 @@ mark { background: var(--hl); color: inherit; padding: 0 1px; }
       <th data-sort="on_main">Main</th>
       <th data-sort="hint">Hint</th>
     </tr></thead>
-    <tbody id="body"><tr><td colspan="10" class="empty">Loading pull requests…</td></tr></tbody>
+    <tbody id="body"><tr><td colspan="11" class="empty">Loading pull requests…</td></tr></tbody>
   </table></div>
 </main>
 <script>
@@ -108,10 +117,11 @@ const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) =>
 const hintClass = (h) => h.startsWith("Supported") ? "Supported" : h === "Review" ? "Review"
   : h === "Check rejection" ? "Check-rejection" : h === "Weak evidence" ? "Weak" : "plain";
 
-let rows = [], hintFilter = "", sortKey = "line", sortDir = 1, open = new Set();
+let rows = [], hintFilter = "", sortKey = "line", sortDir = 1, open = new Set(), marks = new Set();
 
 const sortValue = {
   line: (r) => (r.status === "removed" ? 1e9 : 0) + r.line,
+  marked: (r) => marks.has(key(r)) ? 0 : 1,
   name: (r) => -r.name_match.points * 10 - r.name_match.overlap,
   def: (r) => -(r.definition_overlap?.score ?? -1),
   support: (r) => -r.evidence.support.length,
@@ -128,7 +138,7 @@ async function loadPRs() {
   const want = Number(new URLSearchParams(location.search).get("pr")) || 89;
   $("pr").innerHTML = prs.map((p) =>
     `<option value="${p.number}">#${p.number} · ${esc(p.author)} · ${esc(p.title.slice(0, 70))}</option>`).join("");
-  if (!prs.length) { $("body").innerHTML = `<tr><td colspan="10" class="empty">No open PRs change the equivalencies file.</td></tr>`; return; }
+  if (!prs.length) { $("body").innerHTML = `<tr><td colspan="11" class="empty">No open PRs change the equivalencies file.</td></tr>`; return; }
   $("pr").value = prs.some((p) => p.number === want) ? want : prs[0].number;
   loadMatrix();
 }
@@ -136,11 +146,11 @@ async function loadPRs() {
 async function loadMatrix() {
   const n = $("pr").value;
   history.replaceState(null, "", `?pr=${n}`);
-  $("body").innerHTML = `<tr><td colspan="10" class="empty">Building matrix for #${n}… (fetching PR files, loading ontology)</td></tr>`;
+  $("body").innerHTML = `<tr><td colspan="11" class="empty">Building matrix for #${n}… (fetching PR files, loading ontology)</td></tr>`;
   $("meta").textContent = ""; $("chips").innerHTML = "";
   try {
     const data = await getJSON(`/api/prs/${n}`);
-    rows = data.rows; open = new Set(); hintFilter = "";
+    rows = data.rows; open = new Set(); hintFilter = ""; marks = new Set(data.marks);
     const p = data.pr;
     const confirmed = rows.filter((r) => r.judgment === "manual").length;
     $("meta").innerHTML = `<a href="${esc(p.url)}" target="_blank">#${p.number}</a> by <b>${esc(p.author)}</b> ·
@@ -150,7 +160,7 @@ async function loadMatrix() {
     fillSelect("kind", [...new Set(rows.map((r) => r.name_match.label))], "All name matches");
     render();
   } catch (e) {
-    $("body").innerHTML = `<tr><td colspan="10" class="empty">${esc(e.message)}</td></tr>`;
+    $("body").innerHTML = `<tr><td colspan="11" class="empty">${esc(e.message)}</td></tr>`;
   }
 }
 
@@ -165,14 +175,15 @@ function filtered() {
     (!$("judgment").value || r.judgment === $("judgment").value) &&
     (!$("kind").value || r.name_match.label === $("kind").value) &&
     (!hintFilter || r.hint === hintFilter) &&
-    (!q || [r.line, r.ari_label, r.target_id, r.target_label, r.db, ...r.ari_synonyms]
+    (!$("marked").value || marks.has(key(r)) === ($("marked").value === "yes")) &&
+    (!q || [r.line, r.ari_id, r.ari_label, r.target_id, r.target_label, r.db, ...r.ari_synonyms]
       .join(" ").toLowerCase().includes(q)));
 }
 
 function renderChips() {
   const counts = {};
   rows.forEach((r) => counts[r.hint] = (counts[r.hint] || 0) + 1);
-  $("chips").innerHTML = Object.entries(counts).sort((a, b) => b[1] - a[1]).map(([h, c]) =>
+  $("chips").innerHTML = `<span class="chip Review ${$("marked").value === "yes" ? "on" : ""}" data-marked="1">Marked for review · ${rows.filter((r) => marks.has(key(r))).length}</span>` + Object.entries(counts).sort((a, b) => b[1] - a[1]).map(([h, c]) =>
     `<span class="chip ${hintClass(h)} ${hintFilter === h ? "on" : ""}" data-hint="${esc(h)}">${esc(h)} · ${c}</span>`).join("");
 }
 
@@ -183,7 +194,7 @@ function render() {
     const x = f(a), y = f(b);
     return (x < y ? -1 : x > y ? 1 : 0) * sortDir;
   });
-  if (!list.length) { $("body").innerHTML = `<tr><td colspan="10" class="empty">No rows match.</td></tr>`; return; }
+  if (!list.length) { $("body").innerHTML = `<tr><td colspan="11" class="empty">No rows match.</td></tr>`; return; }
   $("body").innerHTML = list.map((r, i) => rowHTML(r) + (open.has(key(r)) ? detailHTML(r) : "")).join("");
 }
 
@@ -208,10 +219,12 @@ function rowHTML(r) {
   const flags = r.flags.map((f) => `<div class="tag conflict">${esc(f)}</div>`).join("");
   const main = r.on_main === "same on main" ? `<span class="tag same">same</span>`
     : r.on_main === "not on main" ? `<span class="small">not yet</span>` : `<span class="tag conflict">${esc(r.on_main)}</span>`;
-  const line = `<a href="${esc(r.line_url)}" target="_blank" onclick="event.stopPropagation()"
-    title="${r.status === "removed" ? "line in the merge-base file" : "line at the PR head"}">${r.line}</a>`;
-  return `<tr class="item" data-key="${esc(key(r))}">
+  const line = `<a href="${esc(r.line_url)}" target="_blank"
+    title="Open line ${r.line} in the PR's Files changed to comment on it${r.status === "removed" ? " (removed line, merge-base numbering)" : ""}">${r.line}</a>`;
+  const marked = marks.has(key(r));
+  return `<tr class="item ${marked ? "marked" : ""}" data-key="${esc(key(r))}">
     <td class="small">${line}</td>
+    <td><input type="checkbox" class="mark" ${marked ? "checked" : ""} title="Mark for review"></td>
     <td><b>${esc(r.ari_label)}</b><div class="small">${esc(r.ari_id)}</div></td>
     <td>${target}</td><td>${judgment}${status}</td><td>${name}</td><td>${def}</td>
     <td>${sup}</td><td>${flags}</td><td>${main}</td>
@@ -245,11 +258,12 @@ function detailHTML(r) {
     <dt>Cross-references ARI rejected</dt><dd>${ev.against.length ? ev.against.map((s) => `${esc(s.db)} ${esc(s.id)} (via ${esc(s.via.join(", "))})`).join("<br>") : "none"}</dd>
     <dt>Conflicting cross-references</dt><dd>${ev.conflicts.length ? ev.conflicts.map((c) => `${esc(c.db)}: target ${esc(c.target_ids.join(", "))} vs ARI ${esc(c.ari_ids.join(", "))}`).join("<br>") : "none"}</dd>
     <dt>Shared definition words</dt><dd>${shared ? esc(shared.join(", ")) : "—"}</dd></dl></div>`;
-  return `<tr class="detail"><td colspan="10"><div class="cmp">${ari}${targets}${evidence}</div></td></tr>`;
+  return `<tr class="detail"><td colspan="11"><div class="cmp">${ari}${targets}${evidence}</div></td></tr>`;
 }
 
 function exportCSV() {
-  const cols = [["Line", (r) => r.line], ["ARI id", (r) => r.ari_id], ["ARI label", (r) => r.ari_label], ["Database", (r) => r.db],
+  const cols = [["Line", (r) => r.line], ["Marked for review", (r) => marks.has(key(r))],
+    ["PR line link", (r) => r.line_url], ["ARI id", (r) => r.ari_id], ["ARI label", (r) => r.ari_label], ["Database", (r) => r.db],
     ["Target id", (r) => r.target_id], ["Target label", (r) => r.target_label], ["Direct", (r) => r.direct],
     ["Status", (r) => r.status], ["Judgment", (r) => r.judgment], ["Name match", (r) => r.name_match.label],
     ["ARI name", (r) => r.name_match.ari], ["Target name", (r) => r.name_match.target],
@@ -267,15 +281,25 @@ function exportCSV() {
 
 $("pr").addEventListener("change", loadMatrix);
 $("reload").addEventListener("click", loadMatrix);
-["q", "db", "judgment", "kind"].forEach((id) => $(id).addEventListener("input", render));
+["q", "db", "judgment", "kind", "marked"].forEach((id) => $(id).addEventListener("input", render));
 $("csv").addEventListener("click", exportCSV);
 $("chips").addEventListener("click", (e) => {
+  if (e.target.dataset.marked) { $("marked").value = $("marked").value === "yes" ? "" : "yes"; render(); return; }
   const h = e.target.dataset.hint;
   if (h !== undefined) { hintFilter = hintFilter === h ? "" : h; render(); }
 });
+$("body").addEventListener("change", async (e) => {
+  if (!e.target.classList.contains("mark")) return;
+  const k = e.target.closest("tr.item").dataset.key;
+  const res = await fetch(`/api/prs/${$("pr").value}/marks`, {method: "POST",
+    headers: {"Content-Type": "application/json"}, body: JSON.stringify({key: k, marked: e.target.checked})});
+  if (!res.ok) { alert(`Saving the mark failed: ${res.status} ${await res.text()}`); e.target.checked = !e.target.checked; return; }
+  marks = new Set(await res.json());
+  render();
+});
 $("body").addEventListener("click", (e) => {
   const tr = e.target.closest("tr.item");
-  if (!tr || e.target.closest("a")) return;
+  if (!tr || e.target.closest("a") || e.target.classList.contains("mark")) return;
   const k = tr.dataset.key;
   open.has(k) ? open.delete(k) : open.add(k);
   render();
@@ -284,7 +308,7 @@ document.querySelectorAll("th[data-sort]").forEach((th) => th.addEventListener("
   const k = th.dataset.sort;
   sortDir = sortKey === k ? -sortDir : 1; sortKey = k; render();
 }));
-loadPRs().catch((e) => { $("body").innerHTML = `<tr><td colspan="10" class="empty">${esc(e.message)}</td></tr>`; });
+loadPRs().catch((e) => { $("body").innerHTML = `<tr><td colspan="11" class="empty">${esc(e.message)}</td></tr>`; });
 </script>
 </body>
 </html>

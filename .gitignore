@@ -235,3 +235,6 @@ assignments/
 provenance/
 releases/
 feedback/
+
+# Local PR-review marks (pr_review/)
+.pr-review/

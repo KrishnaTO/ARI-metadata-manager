@@ -21,6 +21,7 @@ are compared against the hub terms and marked ``via``. Nothing here writes anyth
 from __future__ import annotations
 
 import csv
+import hashlib
 import io
 import os
 import tempfile
@@ -37,6 +38,10 @@ from . import github
 PREFIX_TO_DB = {d["prefix"].casefold(): d["key"] for d in XREF_DATABASES if d["key"] != "dxcode"}
 
 CONFIRMED, REJECTED = "manual", "manual-negative"
+
+# GitHub names a file's block in a PR's "Files changed" view by the SHA-256 of its path;
+# appending ``R<n>``/``L<n>`` targets one line, where a review comment can be added.
+DIFF_ANCHOR = "diff-" + hashlib.sha256(github.EQUIV_PATH.encode()).hexdigest()
 
 # Name-match kinds, strongest first, with the points each adds to a row's evidence.
 NAME_KINDS = {
@@ -353,11 +358,11 @@ def _compare_row(change, refs, ari, owners, head_equiv, main_equiv, comments, pr
         "db": meta.get("label", key[1]), "db_key": db or "", "target_id": ident,
         "target_url": (meta.get("link") or "").replace("{num}", ident).replace("{id}", ident)
         or None,
-        # Removed rows only exist in the merge-base file, so their line is from there.
+        # Removed rows only exist in the merge-base file, so their line is from there
+        # and sits on the diff's left side (L); every other row is on the right (R).
         "line": row["line"],
-        "line_url": f"https://github.com/{github.REPO}/blob/"
-                    f"{refs['merge_base'] if change['status'] == 'removed' else refs['head_sha']}"
-                    f"/{github.EQUIV_PATH}#L{row['line']}",
+        "line_url": f"{refs['url']}/files#{DIFF_ANCHOR}"
+                    f"{'L' if change['status'] == 'removed' else 'R'}{row['line']}",
         "status": change["status"], "judgment": row["type"],
         "previous_type": change["previous_type"], "curator": row["source"],
         "comment": sssom.get("comment", ""),
