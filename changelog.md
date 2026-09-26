@@ -1,5 +1,13 @@
 # Changelog
 
+## ari-pr-review-app
+
+A local, read-only app (`python -m pr_review`) for reviewing curators' mapping PRs on KrishnaTO/ARI, such as #89.
+
+- **Per-PR comparison matrix.** Diffs `mappings/ari.equivalencies.tsv` between the PR's merge base and head, and sets each added, re-judged or removed row's ARI disease (from the PR's own ontology) beside the target concept from the local reference indexes.
+- **Match types.** Label/synonym equality in each direction, word overlap, definition word overlap, cross-reference support and conflicts, subtype and other-disease name collisions, and whether main already holds the same or opposite judgment.
+- **Review aids.** Filters, sorting, a side-by-side detail view with shared definition words highlighted, a hint per row, and CSV export.
+
 ## disease-comments-ari-edits
 
 The review page's side panel now shows the disease's comments, the same per-disease feedback log the main browser shows, so a curator judging a mapping sees what others have said about the disease.
