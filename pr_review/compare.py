@@ -14,11 +14,12 @@ target id, and measures how the two agree:
 * **name collisions** — the target's names equal an ARI clinical subtype (a narrower
   concept) or a *different* ARI disease.
 
-SNOMED, OMOP, ICD-10 and UMLS have no index of their own here; their ids are only known
-through the MONDO/DOID/NCIt/MeSH/Orphanet terms that cross-reference them, so those rows
-are compared against the hub terms and marked ``via``. SNOMED and OMOP additionally get
-their own term from public terminology servers (``terminology.py``), compared first; the
-hub terms stay alongside it for their cross-references. Nothing here writes anything.
+Every target id's *current* term is fetched live from its source (``terminology.py``) and
+compared first. The local indexes still contribute what the live lookups don't return:
+for MONDO/DOID/NCIt/MeSH/Orphanet their copy of the term's cross-references and parents
+(and its older name, when it has changed); for SNOMED, OMOP, ICD-10 and UMLS, which have
+no index of their own, the MONDO/DOID/... "hub" terms that cross-reference the id, kept
+alongside as cross-reference evidence and marked ``via``. Nothing here writes anything.
 """
 from __future__ import annotations
 
@@ -38,10 +39,6 @@ from . import github, terminology
 # SSSOM/equivalencies prefix -> review db key. DXCODE shares SNOMEDCT's prefix but is
 # not a mapping target, so SNOMEDCT resolves to ``snomed``.
 PREFIX_TO_DB = {d["prefix"].casefold(): d["key"] for d in XREF_DATABASES if d["key"] != "dxcode"}
-
-# Databases whose own term is fetched from a terminology server: db key -> (lookup, source).
-TERMINOLOGY = {"snomed": (terminology.snomed, terminology.SNOMED_SOURCE),
-               "omop": (terminology.omop, terminology.OMOP_SOURCE)}
 
 CONFIRMED, REJECTED = "manual", "manual-negative"
 
@@ -147,10 +144,15 @@ def _name_owners(ari: dict[int, dict]) -> dict[str, set[int]]:
 
 # --------------------------------------------------------------------- target side
 def target_views(db: str, ident: str, indexes) -> list[dict]:
-    """What is known about ``db:ident``: its own term, else the hub terms that
-    cross-reference it. Each view carries names, definition and xrefs. SNOMED's own
-    term comes from the terminology server and carries no xrefs, so its hub terms are
-    kept after it as the cross-reference evidence."""
+    """What is known about ``db:ident``, its own term first. Each view carries names,
+    definition and xrefs.
+
+    The own term is the live one from ``terminology``. Where the local indexes hold the
+    term too (MONDO, DOID, NCIt, MeSH, Orphanet) the live term replaces that copy but
+    keeps its cross-references and parents, which the live lookups don't return. Where
+    they don't, the hub terms that cross-reference the id follow the live term, as the
+    cross-reference evidence.
+    """
     views = []
     for idx in indexes:
         for rec in idx.records_for(db, ident):
@@ -160,19 +162,28 @@ def target_views(db: str, ident: str, indexes) -> list[dict]:
                           "label": rec["label"], "synonyms": rec["synonyms"],
                           "definition": info["definition"], "parents": info["parents"],
                           "url": info["url"], "by_db": rec["by_db"], "inactive": False,
-                          "standard": True, "facts": []})
-    if db in TERMINOLOGY:
-        fetch, source = TERMINOLOGY[db]
-        concept = fetch(ident)
-        own = [] if concept is None else [{
-            "source": source, "direct": True, "id": f"{BY_KEY[db]['prefix']}:{ident}",
-            "label": concept["label"], "synonyms": concept["synonyms"], "definition": "",
-            "parents": concept["parents"], "url": BY_KEY[db]["link"].replace("{num}", ident),
-            "by_db": concept["xrefs"], "inactive": concept["inactive"],
-            "standard": concept.get("standard", True), "facts": concept["facts"]}]
-        return own + views
-    direct = [v for v in views if v["direct"]]
-    return direct or views
+                          "standard": True, "facts": [], "narrow": [], "broad": [],
+                          "previous_label": ""})
+    local = [v for v in views if v["direct"]]
+    hubs = [v for v in views if not v["direct"]]
+    concept = terminology.lookup(db, ident) if db in terminology.SOURCES else None
+    if concept is None:
+        return local or hubs
+    by_db = {k: list(ids) for k, ids in concept["xrefs"].items()}
+    for v in local:
+        for k, ids in v["by_db"].items():
+            by_db[k] = sorted(set(by_db.get(k, [])) | set(ids))
+    renamed = [v["label"] for v in local if normalize(v["label"]) != normalize(concept["label"])]
+    own = {"source": terminology.SOURCES[db], "direct": True,
+           "id": f"{BY_KEY[db]['prefix']}:{ident}", "label": concept["label"],
+           "synonyms": concept["synonyms"], "narrow": concept["narrow"],
+           "broad": concept["broad"],
+           "definition": concept["definition"] or next((v["definition"] for v in local), ""),
+           "parents": concept["parents"] or next((v["parents"] for v in local), []),
+           "url": BY_KEY[db]["link"].replace("{num}", ident).replace("{id}", ident),
+           "by_db": by_db, "inactive": concept["inactive"], "standard": concept["standard"],
+           "facts": concept["facts"], "previous_label": renamed[0] if renamed else ""}
+    return [own] if local else [own, *hubs]
 
 
 def name_match(ari_label: str, ari_synonyms: list[str], view: dict) -> dict:
@@ -304,6 +315,9 @@ def build_matrix(refs: dict) -> dict:
     indexes = get_indexes()
 
     changes = diff_equivalencies(base_equiv, head_equiv)
+    # Fetch every live term up front; the rows then read the cache.
+    terminology.prefetch({(PREFIX_TO_DB[c["key"][1]], c["row"]["target_id"]) for c in changes
+                          if PREFIX_TO_DB.get(c["key"][1]) in terminology.SOURCES})
     pr_keys = {c["key"] for c in changes if c["status"] != "removed"}
     rows = [_compare_row(c, refs, ari, owners, head_equiv, main_equiv, comments, pr_keys,
                          indexes) for c in changes]
@@ -346,11 +360,21 @@ def _compare_row(change, refs, ari, owners, head_equiv, main_equiv, comments, pr
             other_diseases |= owners.get(normalize(n), set()) - {num}
     flags = [f"Target is named like ARI clinical subtype '{s}' (narrower?)"
              for s in sorted(subtype_hits)]
+    # The source itself says how an ARI name relates: listed as a *narrow* synonym, the
+    # target is broader than the disease; as a *broad* one, it is narrower.
+    ari_names = {normalize(n) for n in [ari_label, *ari_syns] if normalize(n)}
+    scoped = [f"{v['id']} lists '{n}' as a {scope} synonym: the target is {relation} "
+              f"than this disease"
+              for v in views
+              for scope, relation in (("narrow", "broader"), ("broad", "narrower"))
+              for n in v[scope] if normalize(n) in ari_names]
+    flags += scoped
     for other in sorted(other_diseases):
         flags.append(f"Target name matches another ARI disease: "
                      f"ARI:{other:07d} {ari[other]['name']}")
-    if db in TERMINOLOGY and not any(v["direct"] for v in views):
-        flags.append(f"{BY_KEY[db]['label']} has no such concept ({TERMINOLOGY[db][1]})")
+    if db in terminology.SOURCES and not any(v["source"] == terminology.SOURCES[db]
+                                             for v in views):
+        flags.append(f"Not found in {terminology.SOURCES[db]}")
     if any(v["inactive"] for v in views):
         flags.append(f"{BY_KEY[db]['label']} concept is inactive")
     if not all(v["standard"] for v in views):
@@ -364,7 +388,7 @@ def _compare_row(change, refs, ari, owners, head_equiv, main_equiv, comments, pr
     score = best["points"]
     score += 2 if evidence["support"] else 0
     score += 1 if best_def and best_def["score"] >= DEFINITION_THRESHOLD else 0
-    score -= 2 if other_diseases or subtype_hits else 0
+    score -= 2 if other_diseases or subtype_hits or scoped else 0
     score -= 1 if evidence["against"] or evidence["conflicts"] else 0
 
     main_row = main_equiv.get(key)
@@ -393,9 +417,11 @@ def _compare_row(change, refs, ari, owners, head_equiv, main_equiv, comments, pr
         "comment": sssom.get("comment", ""),
         "found": bool(views), "direct": any(v["direct"] for v in views),
         "views": [{k: v[k] for k in ("source", "direct", "id", "label", "synonyms",
-                                      "definition", "parents", "url", "inactive", "facts")}
+                                      "definition", "parents", "url", "inactive", "facts", "narrow",
+                                      "broad", "previous_label")}
                   for v in views],
         "target_label": views[0]["label"] if views else "",
+        "target_previous_label": views[0]["previous_label"] if views else "",
         "name_match": best, "definition_overlap": best_def, "evidence": evidence,
         "flags": flags, "score": score, "on_main": on_main,
         "hint": hint(change["status"], row["type"], bool(views), score, flags),

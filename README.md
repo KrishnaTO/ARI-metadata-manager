@@ -372,8 +372,8 @@ python -m pr_review           # serves http://127.0.0.1:8002 and opens the brows
 
 Pick an open PR that changes `mappings/ari.equivalencies.tsv` (`?pr=89` opens one directly).
 The app diffs that file between the PR's merge base and head, reads the ARI diseases from
-the PR's own `ontologies/ari_t1d.owl`, and looks each target id up in the local
-`data/2-databases` indexes. Rows are listed in file order, each with its line number in the
+the PR's own `ontologies/ari_t1d.owl`, and looks each target id up at its source
+(see below) and in the local `data/2-databases` indexes. Rows are listed in file order, each with its line number in the
 PR's equivalencies file. The number opens that line in the PR's *Files changed* tab, where you
 can add a review comment on it (a removed row links to its line on the diff's left side).
 Tick **Mark** to flag a row for review; marks are kept per PR in `.pr-review/marks.json`
@@ -395,20 +395,29 @@ changed row gets:
 - **Hint** — a score from the above (Supported / Review / Weak evidence; for rejections,
   Rejection plausible / Check rejection). It is local evidence only, not a verdict.
 
-ICD-10 and UMLS have no index of their own, so those ids are compared through the
-MONDO/DOID/NCIt/MeSH/Orphanet terms that cross-reference them ("via", one point less).
-SNOMED and OMOP ids are looked up on public FHIR terminology servers, no key needed:
+Every target id is looked up **live at its source**, so names, synonyms and definitions
+are current rather than the `data/2-databases` snapshot. No keys are needed:
 
-- **SNOMED**: [tx.fhir.org](https://tx.fhir.org) (US edition): label, synonyms, parents.
-- **OMOP**: OHDSI's [fhir-terminology.ohdsi.org](https://fhir-terminology.ohdsi.org)
-  (anonymous use is rate-limited per IP): label, synonyms, vocabulary, domain, concept
-  class, standard status, validity, and the source code the concept came from. That source
-  code (e.g. SNOMED 2772003) is checked against ARI's own ids as cross-reference evidence.
+| Database | Source |
+| --- | --- |
+| SNOMED | [tx.fhir.org](https://tx.fhir.org), US edition (International + US extension) |
+| ICD-10 | tx.fhir.org, ICD-10-CM |
+| OMOP | OHDSI's [fhir-terminology.ohdsi.org](https://fhir-terminology.ohdsi.org) (rate-limited per IP), incl. vocabulary, domain, class, standard status, validity and source code |
+| MONDO, DOID, NCIt, Orphanet | EBI [OLS4](https://www.ebi.ac.uk/ols4) |
+| MeSH | NLM's [MeSH lookup API](https://id.nlm.nih.gov/mesh/) |
+| UMLS | NCBI [MedGen](https://www.ncbi.nlm.nih.gov/medgen/), which carries UMLS CUIs for diseases (UMLS itself needs a licence key); a PR's CUIs are fetched in one batch |
 
-Their own term is compared first, with the hub terms kept alongside for their
-cross-references. A code the server lacks, an inactive concept (for OMOP, also one whose
-validity has ended), and a non-standard OMOP concept are flagged. These are the only
-network calls the matrix makes; if a server is unreachable the matrix fails with that error. Rows can be filtered, sorted and exported to CSV.
+Only **exact** synonyms are matched. When the source lists an ARI name as a *narrow* synonym
+the target is flagged as broader than the disease, and as a *broad* synonym, narrower. A
+code the source lacks, an inactive or obsolete concept (for OMOP, also one whose validity has
+ended) and a non-standard OMOP concept are flagged too. When a name has changed since the
+local snapshot, the Target column shows the old one ("was …").
+
+The local indexes still supply what the live lookups don't: the MONDO/DOID/NCIt/MeSH/Orphanet
+term's cross-references and parents, and for SNOMED, OMOP, ICD-10 and UMLS the hub terms that
+cross-reference the id, kept alongside as cross-reference evidence ("via"). A PR's lookups
+run in parallel and are cached while the app runs. If a source is unreachable or refuses a
+request, the matrix fails with that error rather than showing partial data. Rows can be filtered, sorted and exported to CSV.
 
 ## Development & tests
 

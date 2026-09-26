@@ -92,11 +92,11 @@ mark { background: var(--hl); color: inherit; padding: 0 1px; }
   </div>
   <div id="meta" class="meta"></div>
   <div id="chips" class="chips"></div>
-  <div class="legend">Hint = local evidence only: name match (3 exact, 2 synonym, 1 partial) + 2 if another
-    id on the target term is already mapped by ARI + 1 if definitions share ≥40% of words, minus
-    collisions/conflicts. "via" = no own index for that database; compared through the hub term that
-    cross-references the id (one point less); SNOMED and OMOP ids also get their own term from public terminology servers. Xref marked * was itself added by this PR. Click a row to
-    compare both sides.</div>
+  <div class="legend">Target names are the current ones, fetched live from each database. Hint = evidence
+    score: name match (3 exact, 2 synonym, 1 partial) + 2 if another id on the target term is already
+    mapped by ARI + 1 if definitions share ≥40% of words, minus collisions/conflicts. "via" = compared
+    through a hub term that cross-references the id (one point less). Xref marked * was itself added by
+    this PR. Click a row to compare both sides.</div>
 </header>
 <main>
   <div class="tablewrap"><table>
@@ -213,12 +213,15 @@ function rowHTML(r) {
   const status = r.status === "added" ? "" : `<div class="small">${esc(r.status)}${r.previous_type ? " from " + esc(r.previous_type) : ""}</div>`;
   const target = `<a href="${esc(r.target_url || "#")}" target="_blank" onclick="event.stopPropagation()">${esc(r.db)} ${esc(r.target_id)}</a>
     <div>${esc(r.target_label) || '<span class="small">—</span>'}</div>
+    ${r.target_previous_label ? `<div class="small" title="Name in the local data/2-databases snapshot">was “${esc(r.target_previous_label)}”</div>` : ""}
     ${r.found && !r.direct ? `<div class="small">via ${esc(r.views.map((v) => v.id).join(", "))}</div>` : ""}`;
   const name = m.kind === "no_data" ? `<span class="small">${esc(m.label)}</span>`
     : `<div>${esc(m.label)}${["partial", "weak"].includes(m.kind) ? ` (${Math.round(m.overlap * 100)}%)` : ""}</div>
        <div class="small">“${esc(m.ari)}” ↔ “${esc(m.target)}”</div>`;
   const def = d ? `<span class="bartrack"><span class="bar" style="width:${Math.round(d.score * 50)}px"></span></span>${Math.round(d.score * 100)}%`
-    : `<span class="small">${r.ari_definition ? "no target definition" : "no ARI definition"}</span>`;
+    : `<span class="small">${!r.ari_definition ? "no ARI definition"
+      : !r.views.some((v) => v.definition) ? "no target definition"
+      : "no words to compare"}</span>`;
   const sup = ev.support.length ? ev.support.map((s) =>
     `<span class="tag same" title="${esc(s.origin)} · via ${esc(s.via.join(", "))}">${esc(s.db)} ${esc(s.id)}${s.origin === "this PR" ? "*" : ""}</span>`).join("")
     : `<span class="small">none</span>`;
@@ -254,11 +257,14 @@ function detailHTML(r) {
     <h3>${v.direct ? "" : "Hub · "}<a href="${esc(v.url || "#")}" target="_blank">${esc(v.id)}</a> ${esc(v.label)}</h3>
     <div class="small">${esc(v.source)}${v.inactive ? " · inactive concept" : ""}</div><dl>
     ${v.facts.length ? `<dt>Concept</dt><dd>${esc(v.facts.join(" · "))}</dd>` : ""}
-    <dt>Synonyms</dt><dd>${list(v.synonyms)}</dd>
+    ${v.previous_label ? `<dt>Local index name</dt><dd>${esc(v.previous_label)}</dd>` : ""}
+    <dt>Exact synonyms</dt><dd>${list(v.synonyms)}</dd>
+    ${v.narrow.length ? `<dt>Narrow synonyms</dt><dd>${list(v.narrow)}</dd>` : ""}
+    ${v.broad.length ? `<dt>Broad synonyms</dt><dd>${list(v.broad)}</dd>` : ""}
     <dt>Parents</dt><dd>${list(v.parents)}</dd>
     <dt>Definition</dt><dd>${v.definition ? highlight(v.definition, shared) : '<span class="small">—</span>'}</dd></dl></div>`).join("")
-    : `<div class="card"><h3>${esc(r.db)} ${esc(r.target_id)}</h3><p class="small">Not in the local reference indexes
-       or the terminology server. Open the link to check it by hand.</p></div>`;
+    : `<div class="card"><h3>${esc(r.db)} ${esc(r.target_id)}</h3><p class="small">Not found at the source or in the
+       local reference indexes. Open the link to check it by hand.</p></div>`;
   const ev = r.evidence;
   const evidence = `<div class="card"><h3>Evidence</h3><dl>
     <dt>Curator</dt><dd>${esc(r.curator)}${r.comment ? " — “" + esc(r.comment) + "”" : ""}</dd>
@@ -272,7 +278,8 @@ function detailHTML(r) {
 function exportCSV() {
   const cols = [["Line", (r) => r.line], ["Marked for review", (r) => marks.has(key(r))],
     ["PR line link", (r) => r.line_url], ["ARI id", (r) => r.ari_id], ["ARI label", (r) => r.ari_label], ["Database", (r) => r.db],
-    ["Target id", (r) => r.target_id], ["Target label", (r) => r.target_label], ["Direct", (r) => r.direct],
+    ["Target id", (r) => r.target_id], ["Target label", (r) => r.target_label],
+    ["Target label in local index", (r) => r.target_previous_label], ["Direct", (r) => r.direct],
     ["Status", (r) => r.status], ["Judgment", (r) => r.judgment], ["Name match", (r) => r.name_match.label],
     ["ARI name", (r) => r.name_match.ari], ["Target name", (r) => r.name_match.target],
     ["Word overlap", (r) => r.name_match.overlap], ["Definition overlap", (r) => r.definition_overlap?.score ?? ""],
