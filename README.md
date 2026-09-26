@@ -395,13 +395,20 @@ changed row gets:
 - **Hint** — a score from the above (Supported / Review / Weak evidence; for rejections,
   Rejection plausible / Check rejection). It is local evidence only, not a verdict.
 
-ICD-10, UMLS and OMOP have no index of their own, so those ids are compared through the
-MONDO/DOID/NCIt/MeSH/Orphanet terms that cross-reference them ("via", one point less); OMOP
-ids usually show *No local data*. SNOMED ids are looked up on the public HL7 terminology
-server ([tx.fhir.org](https://tx.fhir.org), US edition, no key needed): SNOMED's own label,
-synonyms and parents are compared first, with the hub terms kept alongside for their
-cross-references, and a code SNOMED lacks or has inactivated is flagged. This is the one
-network call the matrix makes; if the server is unreachable the matrix fails with that error. Rows can be filtered, sorted and exported to CSV.
+ICD-10 and UMLS have no index of their own, so those ids are compared through the
+MONDO/DOID/NCIt/MeSH/Orphanet terms that cross-reference them ("via", one point less).
+SNOMED and OMOP ids are looked up on public FHIR terminology servers, no key needed:
+
+- **SNOMED**: [tx.fhir.org](https://tx.fhir.org) (US edition): label, synonyms, parents.
+- **OMOP**: OHDSI's [fhir-terminology.ohdsi.org](https://fhir-terminology.ohdsi.org)
+  (anonymous use is rate-limited per IP): label, synonyms, vocabulary, domain, concept
+  class, standard status, validity, and the source code the concept came from. That source
+  code (e.g. SNOMED 2772003) is checked against ARI's own ids as cross-reference evidence.
+
+Their own term is compared first, with the hub terms kept alongside for their
+cross-references. A code the server lacks, an inactive concept (for OMOP, also one whose
+validity has ended), and a non-standard OMOP concept are flagged. These are the only
+network calls the matrix makes; if a server is unreachable the matrix fails with that error. Rows can be filtered, sorted and exported to CSV.
 
 ## Development & tests
 
