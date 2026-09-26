@@ -373,7 +373,9 @@ python -m pr_review           # serves http://127.0.0.1:8002 and opens the brows
 Pick an open PR that changes `mappings/ari.equivalencies.tsv` (`?pr=89` opens one directly).
 The app diffs that file between the PR's merge base and head, reads the ARI diseases from
 the PR's own `ontologies/ari_t1d.owl`, and looks each target id up in the local
-`data/2-databases` indexes. Each changed row gets:
+`data/2-databases` indexes. Rows are listed in file order, each with its line number in the
+PR's equivalencies file, linked to that line on GitHub (a removed row gives its line in the
+merge-base file). Each changed row gets:
 
 - **Name / synonym match** — label = label, ARI label = target synonym, ARI synonym =
   target label, synonym = synonym, else the best word overlap between any two names.

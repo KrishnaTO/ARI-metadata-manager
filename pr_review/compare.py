@@ -67,9 +67,13 @@ def _row_key(ari_num: int, prefix: str, target_id: str) -> tuple:
 
 # ----------------------------------------------------------------------- TSV inputs
 def parse_equivalencies(text: str) -> dict[tuple, dict]:
+    """Row key -> row, each row carrying its 1-based file line number as ``line``."""
     reader = csv.DictReader(io.StringIO(text), delimiter="\t")
-    return {_row_key(_ari_num(r["source_id"]), r["target_prefix"], r["target_id"]): r
-            for r in reader}
+    rows = {}
+    for r in reader:
+        r["line"] = reader.line_num
+        rows[_row_key(_ari_num(r["source_id"]), r["target_prefix"], r["target_id"])] = r
+    return rows
 
 
 def parse_sssom_comments(text: str) -> dict[tuple, dict]:
@@ -277,13 +281,14 @@ def build_matrix(refs: dict) -> dict:
 
     changes = diff_equivalencies(base_equiv, head_equiv)
     pr_keys = {c["key"] for c in changes if c["status"] != "removed"}
-    rows = [_compare_row(c, ari, owners, head_equiv, main_equiv, comments, pr_keys, indexes)
-            for c in changes]
-    rows.sort(key=lambda r: (r["ari_label"].casefold(), r["db"], r["target_id"]))
+    rows = [_compare_row(c, refs, ari, owners, head_equiv, main_equiv, comments, pr_keys,
+                         indexes) for c in changes]
+    # File order; removed rows (numbered in the merge-base file) go last.
+    rows.sort(key=lambda r: (r["status"] == "removed", r["line"]))
     return {"pr": refs, "rows": rows}
 
 
-def _compare_row(change, ari, owners, head_equiv, main_equiv, comments, pr_keys, indexes):
+def _compare_row(change, refs, ari, owners, head_equiv, main_equiv, comments, pr_keys, indexes):
     row, key = change["row"], change["key"]
     num = key[0]
     db = PREFIX_TO_DB.get(key[1])
@@ -348,6 +353,11 @@ def _compare_row(change, ari, owners, head_equiv, main_equiv, comments, pr_keys,
         "db": meta.get("label", key[1]), "db_key": db or "", "target_id": ident,
         "target_url": (meta.get("link") or "").replace("{num}", ident).replace("{id}", ident)
         or None,
+        # Removed rows only exist in the merge-base file, so their line is from there.
+        "line": row["line"],
+        "line_url": f"https://github.com/{github.REPO}/blob/"
+                    f"{refs['merge_base'] if change['status'] == 'removed' else refs['head_sha']}"
+                    f"/{github.EQUIV_PATH}#L{row['line']}",
         "status": change["status"], "judgment": row["type"],
         "previous_type": change["previous_type"], "curator": row["source"],
         "comment": sssom.get("comment", ""),
