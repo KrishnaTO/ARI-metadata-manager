@@ -1,5 +1,20 @@
 # Changelog
 
+## ari-pr-review-app
+
+A local, read-only app (`python -m pr_review`) for reviewing curators' mapping PRs on KrishnaTO/ARI, such as #89.
+
+- **Per-PR comparison matrix.** Diffs `mappings/ari.equivalencies.tsv` between the PR's merge base and head, and sets each added, re-judged or removed row's ARI disease (from the PR's own ontology) beside the target concept from the local reference indexes.
+- **Match types.** Label/synonym equality in each direction, word overlap, definition word overlap, cross-reference support and conflicts, subtype and other-disease name collisions, and whether main already holds the same or opposite judgment.
+- **Line numbers.** Each row shows its line in the PR's `ari.equivalencies.tsv`, and rows are listed in file order. The number opens that exact line in the PR's *Files changed* tab, ready for a review comment.
+- **Mark for review.** A per-row checkbox, saved per PR in the gitignored `.pr-review/marks.json`, with a filter, a count chip and a CSV column.
+- **Resizable columns.** Drag a header's right edge to resize (the ARI term column starts wider); double-click to reset. Widths are remembered per browser.
+- **SNOMED's own terms.** SNOMED ids are looked up on tx.fhir.org (US edition), so they're compared against SNOMED's own label, synonyms and parents instead of whichever MONDO/DOID term cross-references them, which could be a broader concept (PR #89 line 778 showed MONDO's "paraneoplastic neurologic syndrome" for 192877007, "Paraneoplastic cerebellar degeneration"). Unknown and inactive codes are flagged.
+- **OMOP's own terms.** OMOP ids are looked up on OHDSI's public FHIR terminology server: label, synonyms, vocabulary, domain, class, standard status and validity, plus the source code the concept came from, checked against ARI's ids. Unknown, inactive or expired, and non-standard concepts are flagged. The SNOMED and OMOP lookups share one module, `pr_review/terminology.py`.
+- **Current names for every database.** MONDO, DOID, NCIt and Orphanet (EBI OLS), MeSH (NLM), ICD-10-CM (tx.fhir.org) and UMLS (via NCBI MedGen, batched) are now looked up live too, so every target shows its current name, and a name changed since the local snapshot shows the old one. Only exact synonyms are matched, and an ARI name listed as the target's narrow or broad synonym flags the target as broader or narrower (PR #89 line 779: MONDO:0018215 is broader; line 850: MONDO:0011479 has since become "…due to NET deficiency", narrower).
+- **Grouped per disease, header always visible.** Rows sit under a header row per ARI disease (row, confirmed/rejected, marked and hint counts) that folds on click, with *Collapse all / Expand all*. The table is now its own scroll area, so the column header row stays pinned while scrolling.
+- **Review aids.** Filters, sorting, a side-by-side detail view with shared definition words highlighted, a hint per row, and CSV export.
+
 ## disease-comments-ari-edits
 
 The review page's side panel now shows the disease's comments, the same per-disease feedback log the main browser shows, so a curator judging a mapping sees what others have said about the disease.

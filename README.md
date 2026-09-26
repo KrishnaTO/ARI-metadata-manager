@@ -70,6 +70,7 @@ ARI-metadata-manager/
 │   ├── <db>.index.tsv          #   term -> label, synonyms, cross-referenced ids
 │   ├── <db>.details.tsv        #   term -> definition, parent labels (on-demand lookup)
 │   └── <db>.subtypes.tsv       #   direct is_a parent->child edge ids (OBO sources)
+├── pr_review/                  # Local reviewer for mapping PRs on KrishnaTO/ARI (see below)
 ├── tests/                      # pytest suite for the service layer
 ├── mappings/                   # Accumulated cross-reference judgments (merged into PRs)
 │   ├── ari.sssom.tsv           #   SSSOM exactMatch mappings
@@ -358,6 +359,68 @@ python run.py                 # serves http://127.0.0.1:8001 and opens the brows
 GitHub sign-in needs a `.env` with OAuth credentials and an OAuth App whose callback is
 `http://localhost:8001/auth/github/callback`; without it the app still browses anonymously.
 Custom port / ontology: `python run.py --port 8002 --file path/to.owl`.
+
+### Reviewing mapping pull requests (`pr_review/`)
+
+A separate, read-only local app for the maintainer reviewing curators' mapping PRs on
+[`KrishnaTO/ARI`](https://github.com/KrishnaTO/ARI). It needs the GitHub CLI signed in
+(`gh auth login`); no token is read or stored by the app.
+
+```bash
+python -m pr_review           # serves http://127.0.0.1:8002 and opens the browser
+```
+
+Pick an open PR that changes `mappings/ari.equivalencies.tsv` (`?pr=89` opens one directly).
+The app diffs that file between the PR's merge base and head, reads the ARI diseases from
+the PR's own `ontologies/ari_t1d.owl`, and looks each target id up at its source
+(see below) and in the local `data/2-databases` indexes. Rows are listed in file order, each with its line number in the
+PR's equivalencies file. The number opens that line in the PR's *Files changed* tab, where you
+can add a review comment on it (a removed row links to its line on the diff's left side).
+Tick **Mark** to flag a row for review; marks are kept per PR in `.pr-review/marks.json`
+(gitignored), can be filtered on, and are included in the CSV. Rows are grouped per ARI disease
+under a header row with its counts and hints; click it to fold the group (or use *Collapse
+all*). The table scrolls on its own so its column headers stay in view. Columns are
+resizable: drag a header's right edge (double-click it to reset); widths are remembered in
+the browser. Each
+changed row gets:
+
+- **Name / synonym match** — label = label, ARI label = target synonym, ARI synonym =
+  target label, synonym = synonym, else the best word overlap between any two names.
+- **Definition overlap** — shared content words over the shorter definition; the row's
+  detail view highlights them in both definitions.
+- **Xref support** — other ids the target term cross-references that ARI already maps
+  (`*` = added by this same PR), ids ARI has rejected, and databases where the target's
+  ids disagree with ARI's.
+- **Flags** — the target is named like one of the disease's clinical subtypes (narrower),
+  or like a *different* ARI disease.
+- **Main** — whether main already holds the same judgment, or the opposite one (a PR
+  flipping an earlier confirmation).
+- **Hint** — a score from the above (Supported / Review / Weak evidence; for rejections,
+  Rejection plausible / Check rejection). It is local evidence only, not a verdict.
+
+Every target id is looked up **live at its source**, so names, synonyms and definitions
+are current rather than the `data/2-databases` snapshot. No keys are needed:
+
+| Database | Source |
+| --- | --- |
+| SNOMED | [tx.fhir.org](https://tx.fhir.org), US edition (International + US extension) |
+| ICD-10 | tx.fhir.org, ICD-10-CM |
+| OMOP | OHDSI's [fhir-terminology.ohdsi.org](https://fhir-terminology.ohdsi.org) (rate-limited per IP), incl. vocabulary, domain, class, standard status, validity and source code |
+| MONDO, DOID, NCIt, Orphanet | EBI [OLS4](https://www.ebi.ac.uk/ols4) |
+| MeSH | NLM's [MeSH lookup API](https://id.nlm.nih.gov/mesh/) |
+| UMLS | NCBI [MedGen](https://www.ncbi.nlm.nih.gov/medgen/), which carries UMLS CUIs for diseases (UMLS itself needs a licence key); a PR's CUIs are fetched in one batch |
+
+Only **exact** synonyms are matched. When the source lists an ARI name as a *narrow* synonym
+the target is flagged as broader than the disease, and as a *broad* synonym, narrower. A
+code the source lacks, an inactive or obsolete concept (for OMOP, also one whose validity has
+ended) and a non-standard OMOP concept are flagged too. When a name has changed since the
+local snapshot, the Target column shows the old one ("was …").
+
+The local indexes still supply what the live lookups don't: the MONDO/DOID/NCIt/MeSH/Orphanet
+term's cross-references and parents, and for SNOMED, OMOP, ICD-10 and UMLS the hub terms that
+cross-reference the id, kept alongside as cross-reference evidence ("via"). A PR's lookups
+run in parallel and are cached while the app runs. If a source is unreachable or refuses a
+request, the matrix fails with that error rather than showing partial data. Rows can be filtered, sorted and exported to CSV.
 
 ## Development & tests
 
