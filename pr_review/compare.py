@@ -16,7 +16,9 @@ target id, and measures how the two agree:
 
 SNOMED, OMOP, ICD-10 and UMLS have no index of their own here; their ids are only known
 through the MONDO/DOID/NCIt/MeSH/Orphanet terms that cross-reference them, so those rows
-are compared against the hub terms and marked ``via``. Nothing here writes anything.
+are compared against the hub terms and marked ``via``. SNOMED additionally gets its own
+term from the public terminology server (``snomed.py``), compared first; the hub terms
+stay alongside it for their cross-references. Nothing here writes anything.
 """
 from __future__ import annotations
 
@@ -31,7 +33,7 @@ from app.ontology_service import OntologyService
 from app.predict_service import get_indexes, match_key, normalize, token_similarity
 from app.xref_registry import BY_KEY, SOURCE_DB, XREF_DATABASES
 
-from . import github
+from . import github, snomed
 
 # SSSOM/equivalencies prefix -> review db key. DXCODE shares SNOMEDCT's prefix but is
 # not a mapping target, so SNOMEDCT resolves to ``snomed``.
@@ -141,8 +143,10 @@ def _name_owners(ari: dict[int, dict]) -> dict[str, set[int]]:
 
 # --------------------------------------------------------------------- target side
 def target_views(db: str, ident: str, indexes) -> list[dict]:
-    """What the indexes know about ``db:ident``: its own term, else the hub terms
-    that cross-reference it. Each view carries names, definition and xrefs."""
+    """What is known about ``db:ident``: its own term, else the hub terms that
+    cross-reference it. Each view carries names, definition and xrefs. SNOMED's own
+    term comes from the terminology server and carries no xrefs, so its hub terms are
+    kept after it as the cross-reference evidence."""
     views = []
     for idx in indexes:
         for rec in idx.records_for(db, ident):
@@ -151,7 +155,15 @@ def target_views(db: str, ident: str, indexes) -> list[dict]:
             views.append({"source": idx.source, "direct": own_db == db, "id": rec["id"],
                           "label": rec["label"], "synonyms": rec["synonyms"],
                           "definition": info["definition"], "parents": info["parents"],
-                          "url": info["url"], "by_db": rec["by_db"]})
+                          "url": info["url"], "by_db": rec["by_db"], "inactive": False})
+    if db == "snomed":
+        concept = snomed.lookup(ident)
+        own = [] if concept is None else [{
+            "source": snomed.SOURCE, "direct": True, "id": f"SNOMEDCT:{ident}",
+            "label": concept["label"], "synonyms": concept["synonyms"], "definition": "",
+            "parents": concept["parents"], "url": BY_KEY["snomed"]["link"].replace("{num}", ident),
+            "by_db": {}, "inactive": concept["inactive"]}]
+        return own + views
     direct = [v for v in views if v["direct"]]
     return direct or views
 
@@ -330,6 +342,10 @@ def _compare_row(change, refs, ari, owners, head_equiv, main_equiv, comments, pr
     for other in sorted(other_diseases):
         flags.append(f"Target name matches another ARI disease: "
                      f"ARI:{other:07d} {ari[other]['name']}")
+    if db == "snomed" and not any(v["direct"] for v in views):
+        flags.append("SNOMED has no such concept (tx.fhir.org, US edition)")
+    if any(v["inactive"] for v in views):
+        flags.append("SNOMED concept is inactive")
     if evidence["against"]:
         flags.append("Target cross-references an id already rejected for this disease")
     if evidence["conflicts"]:
@@ -368,7 +384,8 @@ def _compare_row(change, refs, ari, owners, head_equiv, main_equiv, comments, pr
         "comment": sssom.get("comment", ""),
         "found": bool(views), "direct": any(v["direct"] for v in views),
         "views": [{k: v[k] for k in ("source", "direct", "id", "label", "synonyms",
-                                      "definition", "parents", "url")} for v in views],
+                                      "definition", "parents", "url", "inactive")}
+                  for v in views],
         "target_label": views[0]["label"] if views else "",
         "name_match": best, "definition_overlap": best_def, "evidence": evidence,
         "flags": flags, "score": score, "on_main": on_main,

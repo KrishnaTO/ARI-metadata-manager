@@ -9,6 +9,7 @@ A local, read-only app (`python -m pr_review`) for reviewing curators' mapping P
 - **Line numbers.** Each row shows its line in the PR's `ari.equivalencies.tsv`, and rows are listed in file order. The number opens that exact line in the PR's *Files changed* tab, ready for a review comment.
 - **Mark for review.** A per-row checkbox, saved per PR in the gitignored `.pr-review/marks.json`, with a filter, a count chip and a CSV column.
 - **Resizable columns.** Drag a header's right edge to resize (the ARI term column starts wider); double-click to reset. Widths are remembered per browser.
+- **SNOMED's own terms.** SNOMED ids are looked up on tx.fhir.org (US edition), so they're compared against SNOMED's own label, synonyms and parents instead of whichever MONDO/DOID term cross-references them, which could be a broader concept (PR #89 line 778 showed MONDO's "paraneoplastic neurologic syndrome" for 192877007, "Paraneoplastic cerebellar degeneration"). Unknown and inactive codes are flagged.
 - **Review aids.** Filters, sorting, a side-by-side detail view with shared definition words highlighted, a hint per row, and CSV export.
 
 ## disease-comments-ari-edits

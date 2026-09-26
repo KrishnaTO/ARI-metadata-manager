@@ -95,7 +95,7 @@ mark { background: var(--hl); color: inherit; padding: 0 1px; }
   <div class="legend">Hint = local evidence only: name match (3 exact, 2 synonym, 1 partial) + 2 if another
     id on the target term is already mapped by ARI + 1 if definitions share ≥40% of words, minus
     collisions/conflicts. "via" = no own index for that database; compared through the hub term that
-    cross-references the id (one point less). Xref marked * was itself added by this PR. Click a row to
+    cross-references the id (one point less); SNOMED ids also get SNOMED's own term from tx.fhir.org. Xref marked * was itself added by this PR. Click a row to
     compare both sides.</div>
 </header>
 <main>
@@ -251,7 +251,8 @@ function detailHTML(r) {
     <dt>Clinical subtypes</dt><dd>${list(r.ari_subtypes)}</dd>
     <dt>Definition</dt><dd>${r.ari_definition ? highlight(r.ari_definition, shared) : '<span class="small">—</span>'}</dd></dl></div>`;
   const targets = r.views.length ? r.views.map((v) => `<div class="card">
-    <h3>${v.direct ? "" : "Hub · "}<a href="${esc(v.url || "#")}" target="_blank">${esc(v.id)}</a> ${esc(v.label)}</h3><dl>
+    <h3>${v.direct ? "" : "Hub · "}<a href="${esc(v.url || "#")}" target="_blank">${esc(v.id)}</a> ${esc(v.label)}</h3>
+    <div class="small">${esc(v.source)}${v.inactive ? " · inactive concept" : ""}</div><dl>
     <dt>Synonyms</dt><dd>${list(v.synonyms)}</dd>
     <dt>Parents</dt><dd>${list(v.parents)}</dd>
     <dt>Definition</dt><dd>${v.definition ? highlight(v.definition, shared) : '<span class="small">—</span>'}</dd></dl></div>`).join("")

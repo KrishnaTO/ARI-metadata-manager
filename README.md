@@ -395,9 +395,13 @@ changed row gets:
 - **Hint** — a score from the above (Supported / Review / Weak evidence; for rejections,
   Rejection plausible / Check rejection). It is local evidence only, not a verdict.
 
-SNOMED, OMOP, ICD-10 and UMLS have no index of their own, so those ids are compared
-through the MONDO/DOID/NCIt/MeSH/Orphanet terms that cross-reference them ("via", one point
-less); OMOP ids usually show *No local data*. Rows can be filtered, sorted and exported to CSV.
+ICD-10, UMLS and OMOP have no index of their own, so those ids are compared through the
+MONDO/DOID/NCIt/MeSH/Orphanet terms that cross-reference them ("via", one point less); OMOP
+ids usually show *No local data*. SNOMED ids are looked up on the public HL7 terminology
+server ([tx.fhir.org](https://tx.fhir.org), US edition, no key needed): SNOMED's own label,
+synonyms and parents are compared first, with the hub terms kept alongside for their
+cross-references, and a code SNOMED lacks or has inactivated is flagged. This is the one
+network call the matrix makes; if the server is unreachable the matrix fails with that error. Rows can be filtered, sorted and exported to CSV.
 
 ## Development & tests
 
