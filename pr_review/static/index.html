@@ -19,8 +19,10 @@
 }
 * { box-sizing: border-box; }
 body { margin: 0; background: var(--bg); color: var(--ink);
-  font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
-header { padding: 16px 20px 8px; border-bottom: 1px solid var(--line); background: var(--panel); }
+  font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif;
+  height: 100vh; display: flex; flex-direction: column; }
+header { flex: none; max-height: 45vh; overflow-y: auto;
+  padding: 16px 20px 8px; border-bottom: 1px solid var(--line); background: var(--panel); }
 h1 { font-size: 18px; margin: 0 0 8px; }
 .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 select, input, button { font: inherit; color: var(--ink); background: var(--panel);
@@ -38,8 +40,9 @@ a { color: var(--accent); }
 .Review, .Check { background: var(--warn-bg); color: var(--warn); }
 .Weak, .Check-rejection, .conflict { background: var(--bad-bg); color: var(--bad); }
 .plain { background: var(--info-bg); color: var(--info); }
-main { padding: 12px 20px 40px; }
-.tablewrap { overflow-x: auto; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; }
+main { flex: 1; min-height: 0; display: flex; flex-direction: column; padding: 12px 20px 16px; }
+.tablewrap { flex: 1; min-height: 0; overflow: auto; background: var(--panel);
+  border: 1px solid var(--line); border-radius: 8px; }
 table { border-collapse: collapse; table-layout: fixed; }
 th, td { text-align: left; vertical-align: top; padding: 7px 9px; border-bottom: 1px solid var(--line);
   overflow-wrap: anywhere; }
@@ -48,9 +51,14 @@ th { overflow: hidden; text-overflow: ellipsis; }
   user-select: none; touch-action: none; }
 .resizer:hover, .resizer.active { background: var(--accent); opacity: .5; }
 body.resizing { cursor: col-resize; user-select: none; }
-th { position: sticky; top: 0; background: var(--panel); font-size: 12px; color: var(--muted);
+th { position: sticky; top: 0; z-index: 2; background: var(--panel); font-size: 12px; color: var(--muted);
+  box-shadow: inset 0 -1px 0 var(--line);
   text-transform: uppercase; letter-spacing: .03em; cursor: pointer; white-space: nowrap; }
 tr.item:hover { background: var(--bg); cursor: pointer; }
+tr.group > td { background: var(--info-bg); cursor: pointer; padding: 6px 9px; }
+tr.group:hover > td { filter: brightness(0.97); }
+tr.group .caret { display: inline-block; width: 1em; color: var(--muted); }
+tr.group .count { color: var(--muted); font-size: 12px; margin: 0 8px; }
 .small { font-size: 12px; color: var(--muted); }
 .tag { display: inline-block; border-radius: 4px; padding: 0 6px; font-size: 12px; margin: 1px 2px 1px 0; }
 .bar { display: inline-block; height: 6px; border-radius: 3px; background: var(--accent); vertical-align: middle; }
@@ -88,6 +96,7 @@ mark { background: var(--hl); color: inherit; padding: 0 1px; }
       <option value="yes">Marked for review</option>
       <option value="no">Not marked</option>
     </select>
+    <button id="collapse">Collapse all</button>
     <button id="csv">Export CSV</button>
   </div>
   <div id="meta" class="meta"></div>
@@ -124,6 +133,7 @@ const hintClass = (h) => h.startsWith("Supported") ? "Supported" : h === "Review
   : h === "Check rejection" ? "Check-rejection" : h === "Weak evidence" ? "Weak" : "plain";
 
 let rows = [], hintFilter = "", sortKey = "line", sortDir = 1, open = new Set(), marks = new Set();
+let collapsed = new Set();   // ARI ids whose group is folded
 
 const sortValue = {
   line: (r) => (r.status === "removed" ? 1e9 : 0) + r.line,
@@ -156,11 +166,11 @@ async function loadMatrix() {
   $("meta").textContent = ""; $("chips").innerHTML = "";
   try {
     const data = await getJSON(`/api/prs/${n}`);
-    rows = data.rows; open = new Set(); hintFilter = ""; marks = new Set(data.marks);
+    rows = data.rows; open = new Set(); hintFilter = ""; marks = new Set(data.marks); collapsed = new Set();
     const p = data.pr;
     const confirmed = rows.filter((r) => r.judgment === "manual").length;
     $("meta").innerHTML = `<a href="${esc(p.url)}" target="_blank">#${p.number}</a> by <b>${esc(p.author)}</b> ·
-      ${rows.length} changed equivalency rows (${confirmed} confirmed, ${rows.length - confirmed} rejected) ·
+      ${new Set(rows.map((r) => r.ari_id)).size} diseases · ${rows.length} changed equivalency rows (${confirmed} confirmed, ${rows.length - confirmed} rejected) ·
       head ${p.head_sha.slice(0, 7)} vs merge base ${p.merge_base.slice(0, 7)}`;
     fillSelect("db", [...new Set(rows.map((r) => r.db))].sort(), "All databases");
     fillSelect("kind", [...new Set(rows.map((r) => r.name_match.label))], "All name matches");
@@ -201,7 +211,27 @@ function render() {
     return (x < y ? -1 : x > y ? 1 : 0) * sortDir;
   });
   if (!list.length) { $("body").innerHTML = `<tr><td colspan="11" class="empty">No rows match.</td></tr>`; return; }
-  $("body").innerHTML = list.map((r, i) => rowHTML(r) + (open.has(key(r)) ? detailHTML(r) : "")).join("");
+  // One group per ARI disease, in the order its first row sorts to; rows keep the sort
+  // order within their group.
+  const groups = new Map();
+  list.forEach((r) => (groups.get(r.ari_id) || groups.set(r.ari_id, []).get(r.ari_id)).push(r));
+  $("body").innerHTML = [...groups.values()].map((g) => groupHTML(g) + (collapsed.has(g[0].ari_id) ? ""
+    : g.map((r) => rowHTML(r) + (open.has(key(r)) ? detailHTML(r) : "")).join(""))).join("");
+  $("collapse").textContent = collapsed.size >= groups.size ? "Expand all" : "Collapse all";
+}
+
+function groupHTML(g) {
+  const r = g[0], confirmed = g.filter((x) => x.judgment === "manual").length;
+  const hints = {};
+  g.forEach((x) => hints[x.hint] = (hints[x.hint] || 0) + 1);
+  const marked = g.filter((x) => marks.has(key(x))).length;
+  return `<tr class="group" data-ari="${esc(r.ari_id)}"><td colspan="11">
+    <span class="caret">${collapsed.has(r.ari_id) ? "▸" : "▾"}</span>
+    <b>${esc(r.ari_label)}</b> <span class="small">${esc(r.ari_id)}</span>
+    <span class="count">${g.length} row${g.length === 1 ? "" : "s"} · ${confirmed} confirmed · ${g.length - confirmed} rejected</span>
+    ${marked ? `<span class="tag Review">${marked} marked</span>` : ""}
+    ${Object.entries(hints).map(([h, c]) => `<span class="tag ${hintClass(h)}">${esc(h)} ${c}</span>`).join("")}
+  </td></tr>`;
 }
 
 const key = (r) => `${r.ari_id}|${r.db}|${r.target_id}`;
@@ -298,6 +328,11 @@ $("pr").addEventListener("change", loadMatrix);
 $("reload").addEventListener("click", loadMatrix);
 ["q", "db", "judgment", "kind", "marked"].forEach((id) => $(id).addEventListener("input", render));
 $("csv").addEventListener("click", exportCSV);
+$("collapse").addEventListener("click", () => {
+  const ids = new Set(filtered().map((r) => r.ari_id));
+  collapsed = [...ids].every((id) => collapsed.has(id)) ? new Set() : ids;
+  render();
+});
 $("chips").addEventListener("click", (e) => {
   if (e.target.dataset.marked) { $("marked").value = $("marked").value === "yes" ? "" : "yes"; render(); return; }
   const h = e.target.dataset.hint;
@@ -313,6 +348,13 @@ $("body").addEventListener("change", async (e) => {
   render();
 });
 $("body").addEventListener("click", (e) => {
+  const group = e.target.closest("tr.group");
+  if (group) {
+    const id = group.dataset.ari;
+    collapsed.has(id) ? collapsed.delete(id) : collapsed.add(id);
+    render();
+    return;
+  }
   const tr = e.target.closest("tr.item");
   if (!tr || e.target.closest("a") || e.target.classList.contains("mark")) return;
   const k = tr.dataset.key;
