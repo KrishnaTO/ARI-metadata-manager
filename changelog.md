@@ -1,5 +1,9 @@
 # Changelog
 
+## fix-reviewer-py310-marks
+
+- **Saving a mark or note in the PR reviewer no longer fails with a 500.** The store stamped entries with `datetime.UTC`, which Python 3.10 (the server's Ubuntu 22.04) lacks. It now uses `timezone.utc` like the rest of the app, and `ruff.toml` targets `py310` so lint matches the server.
+
 ## ari-pr-review-app
 
 A mapping-PR reviewer for KrishnaTO/ARI, such as #89 — now part of the site at `/ref-edits/reviewer/`.
