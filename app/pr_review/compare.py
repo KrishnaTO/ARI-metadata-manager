@@ -35,11 +35,10 @@ import json
 import os
 import tempfile
 
-from app.concept_service import lookup
-from app.ontology_service import OntologyService
-from app.predict_service import get_indexes, match_key, normalize, token_similarity
-from app.xref_registry import BY_KEY, SOURCE_DB, XREF_DATABASES
-
+from ..concept_service import lookup
+from ..ontology_service import OntologyService
+from ..predict_service import get_indexes, match_key, normalize, token_similarity
+from ..xref_registry import BY_KEY, SOURCE_DB, XREF_DATABASES
 from . import github, terminology
 
 # SSSOM/equivalencies prefix -> review db key. DXCODE shares SNOMEDCT's prefix but is
@@ -383,10 +382,10 @@ def hint(status: str, judgment: str, found: bool, score: int, flags: list[str]) 
 
 
 # ------------------------------------------------------------------------ matrix
-def build_matrix(refs: dict) -> dict:
-    """The matrix for the PR described by ``refs`` (from :func:`github.pr_refs`)."""
+def build_matrix(refs: dict, reader: github.Reader) -> dict:
+    """The matrix for the PR described by ``refs`` (from ``Reader.pr_refs``)."""
     def text(path, ref):
-        return github.file_at(path, ref).decode("utf-8")
+        return reader.file_at(path, ref).decode("utf-8")
 
     head_equiv = parse_equivalencies(text(github.EQUIV_PATH, refs["head_sha"]))
     changes = []
@@ -400,7 +399,7 @@ def build_matrix(refs: dict) -> dict:
             parse_predictions(text(github.PREDICTIONS_PATH, refs["merge_base"])),
             parse_predictions(text(github.PREDICTIONS_PATH, refs["head_sha"])),
             parse_predictions(text(github.PREDICTIONS_PATH, refs["base_ref"])))
-    ari = load_ari(github.file_at(github.ONTOLOGY_PATH, refs["head_sha"]))
+    ari = load_ari(reader.file_at(github.ONTOLOGY_PATH, refs["head_sha"]))
     owners = _name_owners(ari)
     indexes = get_indexes()
 
@@ -497,6 +496,12 @@ def _compare_row(change, refs, ari, owners, head_equiv, pr_keys, indexes):
         # and sits on the diff's left side (L); every other row is on the right (R).
         "line": row["line"],
         "file": change["path"],
+        # Removed lines are commented on the diff's left side, all others on the right.
+        "side": "LEFT" if change["status"] == "removed" else "RIGHT",
+        # Marks and notes are stored against this, not the line, which moves as the PR is
+        # updated. Predictions are keyed apart from judgments, which can name the same id.
+        "key": f"{'predicted|' if row['type'] == PREDICTED else ''}"
+               f"{f'ARI:{num:07d}' if num is not None else ''}|{meta.get('label', key[1])}|{ident}",
         "line_url": f"{refs['url']}/files#{diff_anchor(change['path'])}"
                     f"{'L' if change['status'] == 'removed' else 'R'}{row['line']}",
         "status": change["status"], "judgment": row["type"],

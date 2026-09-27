@@ -2,8 +2,11 @@
 
 ## ari-pr-review-app
 
-A local, read-only app (`python -m pr_review`) for reviewing curators' mapping PRs on KrishnaTO/ARI, such as #89.
+A mapping-PR reviewer for KrishnaTO/ARI, such as #89 — now part of the site at `/ref-edits/reviewer/`.
 
+- **On the site, for administrators.** The reviewer moved from a local app (`python -m pr_review`, removed) into the metadata manager: `app/pr_review/`, `app/routes/pr_review.py` and `static/ref-edits/reviewer/`, linked from the reference-review header. It is gated on `ASSIGN_ADMINS` like cutting releases, and reads GitHub with the reviewer's own OAuth token instead of the `gh` CLI. Its script is a file, as the site's CSP allows no inline scripts.
+- **Shared marks and notes.** Marks and notes are shared by a PR's reviewers, stamped with author and time, in gitignored `pr-review/<number>.json`.
+- **Notes as PR review comments.** *Post my notes to PR* submits the signed-in reviewer's unposted notes as one GitHub review under their account, each on its row's line (on the diff's left side for a removed row); notes on lines outside the diff go in the review body with their line number. Posted notes link to the review; editing one makes it postable again.
 - **Per-PR comparison matrix.** Diffs `mappings/ari.equivalencies.tsv` between the PR's merge base and head, and sets each added, re-judged or removed row's ARI disease (from the PR's own ontology) beside the target concept from the local reference indexes.
 - **Match types.** Label/synonym equality in each direction, word overlap, definition word overlap, cross-reference support and conflicts, subtype and other-disease name collisions, and whether main already holds the same or opposite judgment.
 - **Line numbers.** Each row shows its line in the PR's `ari.equivalencies.tsv`, and rows are listed in file order. The number opens that exact line in the PR's *Files changed* tab, ready for a review comment.

@@ -1,139 +1,5 @@
-<!doctype html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>ARI PR Mapping Review</title>
-<style>
-:root {
-  --bg: #f7f7f5; --panel: #ffffff; --ink: #1d1d1b; --muted: #6b6b66; --line: #e2e1dc;
-  --accent: #2f5d8a; --good: #2e7d4f; --good-bg: #e3f2e8; --warn: #9a6b00; --warn-bg: #fbf0d4;
-  --bad: #b3261e; --bad-bg: #fbe3e1; --info: #4b5563; --info-bg: #eceef1; --hl: #fff2a8;
-}
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #161616; --panel: #1f1f1f; --ink: #ecebe6; --muted: #9b9a94; --line: #333330;
-    --accent: #8cb4dc; --good: #7fcf9c; --good-bg: #1f3a2a; --warn: #e3bb5b; --warn-bg: #3a3017;
-    --bad: #f08a82; --bad-bg: #402020; --info: #c0c5cc; --info-bg: #2a2d31; --hl: #5a4d10;
-  }
-}
-* { box-sizing: border-box; }
-body { margin: 0; background: var(--bg); color: var(--ink);
-  font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif;
-  height: 100vh; display: flex; flex-direction: column; }
-header { flex: none; max-height: 45vh; overflow-y: auto;
-  padding: 16px 20px 8px; border-bottom: 1px solid var(--line); background: var(--panel); }
-h1 { font-size: 18px; margin: 0 0 8px; }
-.row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
-select, input, button { font: inherit; color: var(--ink); background: var(--panel);
-  border: 1px solid var(--line); border-radius: 6px; padding: 5px 8px; }
-button { cursor: pointer; }
-#pr { max-width: min(520px, 90vw); }
-.meta, .legend { overflow-wrap: anywhere; }
-button:hover { border-color: var(--accent); }
-a { color: var(--accent); }
-.meta { color: var(--muted); margin: 6px 0; }
-.chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0 4px; }
-.chip { border-radius: 999px; padding: 2px 10px; font-size: 12px; border: 1px solid transparent; cursor: pointer; }
-.chip.on { border-color: var(--ink); }
-.Supported, .same { background: var(--good-bg); color: var(--good); }
-.Review, .Check { background: var(--warn-bg); color: var(--warn); }
-.Weak, .Check-rejection, .conflict { background: var(--bad-bg); color: var(--bad); }
-.plain { background: var(--info-bg); color: var(--info); }
-main { flex: 1; min-height: 0; display: flex; flex-direction: column; padding: 12px 20px 16px; }
-.tablewrap { flex: 1; min-height: 0; overflow: auto; background: var(--panel);
-  border: 1px solid var(--line); border-radius: 8px; }
-table { border-collapse: collapse; table-layout: fixed; }
-th, td { text-align: left; vertical-align: top; padding: 7px 9px; border-bottom: 1px solid var(--line);
-  overflow-wrap: anywhere; }
-th { overflow: hidden; text-overflow: ellipsis; }
-.resizer { position: absolute; top: 0; right: 0; width: 7px; height: 100%; cursor: col-resize;
-  user-select: none; touch-action: none; }
-.resizer:hover, .resizer.active { background: var(--accent); opacity: .5; }
-body.resizing { cursor: col-resize; user-select: none; }
-th { position: sticky; top: 0; z-index: 2; background: var(--panel); font-size: 12px; color: var(--muted);
-  box-shadow: inset 0 -1px 0 var(--line);
-  text-transform: uppercase; letter-spacing: .03em; cursor: pointer; white-space: nowrap; }
-tr.item:hover { background: var(--bg); cursor: pointer; }
-tr.group > td { background: var(--info-bg); cursor: pointer; padding: 6px 9px; }
-tr.group:hover > td { filter: brightness(0.97); }
-tr.group .caret { display: inline-block; width: 1em; color: var(--muted); }
-tr.group .count { color: var(--muted); font-size: 12px; margin: 0 8px; }
-.small { font-size: 12px; color: var(--muted); }
-.tag { display: inline-block; border-radius: 4px; padding: 0 6px; font-size: 12px; margin: 1px 2px 1px 0; }
-.bar { display: inline-block; height: 6px; border-radius: 3px; background: var(--accent); vertical-align: middle; }
-.bartrack { display: inline-block; width: 50px; height: 6px; border-radius: 3px; background: var(--line); margin-right: 6px; vertical-align: middle; }
-tr.detail > td { background: var(--bg); }
-tr.item.marked > td { background: var(--warn-bg); }
-tr.item.marked > td:first-child { box-shadow: inset 3px 0 0 var(--warn); }
-.mark { width: 16px; height: 16px; cursor: pointer; accent-color: var(--warn); }
-.note { width: 100%; min-height: 2.8em; resize: vertical; font: inherit; font-size: 12px;
-  color: var(--ink); background: var(--bg); border: 1px solid var(--line); border-radius: 4px; padding: 3px 5px; }
-.note:focus { outline: none; border-color: var(--accent); }
-.note.has-note { border-color: var(--warn); }
-.note-status { min-height: 1em; }
-.cmp { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 12px; }
-.card { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; }
-.card h3 { font-size: 13px; margin: 0 0 6px; }
-.card dt { font-size: 11px; text-transform: uppercase; color: var(--muted); margin-top: 6px; }
-.card dd { margin: 0; }
-mark { background: var(--hl); color: inherit; padding: 0 1px; }
-.empty { padding: 30px; text-align: center; color: var(--muted); }
-.legend { font-size: 12px; color: var(--muted); margin-top: 6px; }
-</style>
-</head>
-<body>
-<header>
-  <h1>ARI PR mapping review</h1>
-  <div class="row">
-    <label>Pull request <select id="pr"><option>Loading…</option></select></label>
-    <button id="reload">Reload</button>
-    <input id="q" type="search" placeholder="Search disease, id, label, line…" size="28">
-    <select id="db"><option value="">All databases</option></select>
-    <select id="judgment">
-      <option value="">All judgments</option>
-      <option value="manual">Confirmed</option>
-      <option value="manual-negative">Rejected</option>
-      <option value="predicted">Predicted</option>
-    </select>
-    <select id="kind"><option value="">All name matches</option></select>
-    <select id="marked">
-      <option value="">Marked or not</option>
-      <option value="yes">Marked for review</option>
-      <option value="no">Not marked</option>
-    </select>
-    <button id="collapse">Collapse all</button>
-    <button id="csv">Export CSV</button>
-  </div>
-  <div id="meta" class="meta"></div>
-  <div id="chips" class="chips"></div>
-  <div class="legend">Target names are the current ones, fetched live from each database. Hint = evidence
-    score: name match (3 exact, 2 synonym, 1 partial) + 2 if another id on the target term is already
-    mapped by ARI + 1 if definitions share ≥40% of words, minus collisions/conflicts. "via" = compared
-    through a hub term that cross-references the id (one point less). Xref marked * was itself added by
-    this PR. Predicted rows are pairs whose top prediction in target_predictions.json changed; their
-    line opens that pair in the predictions file. Click a row to compare both sides.</div>
-</header>
-<main>
-  <div class="tablewrap"><table>
-    <thead><tr>
-      <th data-sort="line" data-w="64" title="Line in mappings/ari.equivalencies.tsv (or, for a prediction, in target_predictions.json); opens that line in the PR's Files changed tab, where you can comment on it">Line</th>
-      <th data-sort="marked" data-w="56" title="Mark for review (saved locally in .pr-review/marks.json)">Mark</th>
-      <th data-sort="ari_label" data-w="260">ARI term</th>
-      <th data-sort="db" data-w="210">Target</th>
-      <th data-sort="judgment" data-w="110">Judgment</th>
-      <th data-sort="name" data-w="250">Name / synonym match</th>
-      <th data-sort="def" data-w="130">Definition</th>
-      <th data-sort="support" data-w="200">Xref support</th>
-      <th data-w="240">Flags</th>
-      <th data-sort="on_main" data-w="120">Main</th>
-      <th data-sort="hint" data-w="140">Hint</th>
-      <th data-sort="note" data-w="240" title="Your note on this row, saved when you leave the box (Ctrl/Cmd+Enter) to .pr-review/notes.json">Note</th>
-    </tr></thead>
-    <tbody id="body"><tr><td colspan="12" class="empty">Loading pull requests…</td></tr></tbody>
-  </table></div>
-</main>
-<script>
+// Mapping-PR reviewer page (/ref-edits/reviewer/). Served as a file, not inline: the
+// app's Content-Security-Policy allows only same-origin scripts.
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) =>
   ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"}[c]));
@@ -142,7 +8,9 @@ const hintClass = (h) => h.startsWith("Supported") ? "Supported" : h === "Review
 
 let rows = [], hintFilter = "", sortKey = "line", sortDir = 1, open = new Set(), marks = new Set();
 let collapsed = new Set();   // ARI ids whose group is folded
-let notes = {};              // row key -> {text, updated}
+let notes = {};              // row key -> {text, by, at, posted?: {at, url}}
+let me = "";                 // the signed-in reviewer's login
+const api = (p) => new URL(`../../api/v2/pr-review/${p}`, location.href).href;
 
 const sortValue = {
   line: (r) => (r.status === "removed" ? 1e9 : 0) + r.line,
@@ -155,12 +23,32 @@ const sortValue = {
 
 async function getJSON(url) {
   const res = await fetch(url);
-  if (!res.ok) throw new Error(`${url}: ${res.status} ${await res.text()}`);
+  if (!res.ok) throw new Error(await failure(res));
   return res.json();
 }
 
+async function failure(res) {
+  let detail = await res.text();
+  try { detail = JSON.parse(detail).detail ?? detail; } catch { /* not JSON */ }
+  if (res.status === 401) return `${detail}: sign in on the editor first (← above), then reload.`;
+  return `${res.status}: ${detail}`;
+}
+
+function sendJSON(path, body) {
+  return fetch(api(path), {method: "POST", headers: {"Content-Type": "application/json"},
+    body: JSON.stringify(body)});
+}
+
+function applyState(state) {
+  marks = new Set(Object.keys(state.marks));
+  notes = state.notes;
+  const mine = Object.values(notes).filter((n) => n.by === me && !n.posted).length;
+  $("post-review").textContent = `Post my notes to PR (${mine})`;
+  $("post-review").disabled = !mine;
+}
+
 async function loadPRs() {
-  const prs = await getJSON("/api/prs");
+  const prs = await getJSON(api("prs"));
   const want = Number(new URLSearchParams(location.search).get("pr")) || 89;
   $("pr").innerHTML = prs.map((p) =>
     `<option value="${p.number}">#${p.number} · ${esc(p.author)} · ${esc(p.title.slice(0, 70))}</option>`).join("");
@@ -175,8 +63,10 @@ async function loadMatrix() {
   $("body").innerHTML = `<tr><td colspan="12" class="empty">Building matrix for #${n}… (fetching PR files, loading ontology)</td></tr>`;
   $("meta").textContent = ""; $("chips").innerHTML = "";
   try {
-    const data = await getJSON(`/api/prs/${n}`);
-    rows = data.rows; open = new Set(); hintFilter = ""; marks = new Set(data.marks); notes = data.notes; collapsed = new Set();
+    const data = await getJSON(api(`prs/${n}`));
+    me = data.me; rows = data.rows; open = new Set(); hintFilter = ""; collapsed = new Set();
+    $("posted").textContent = "";
+    applyState(data);
     const p = data.pr;
     const c = counts(rows), judged = c.confirmed + c.rejected;
     $("meta").innerHTML = `<a href="${esc(p.url)}" target="_blank">#${p.number}</a> by <b>${esc(p.author)}</b> ·
@@ -253,7 +143,8 @@ function groupHTML(g) {
 }
 
 // Prediction rows are keyed apart from judgments, which can name the same target.
-const key = (r) => `${r.judgment === "predicted" ? "predicted|" : ""}${r.ari_id}|${r.db}|${r.target_id}`;
+// The server's row key (predictions keyed apart from judgments naming the same id).
+const key = (r) => r.key;
 
 function rowHTML(r) {
   const m = r.name_match, d = r.definition_overlap, ev = r.evidence;
@@ -263,10 +154,10 @@ function rowHTML(r) {
   const status = r.status === "added" ? (r.judgment === "predicted" ? `<div class="small">new prediction</div>` : "")
     : r.judgment === "predicted" && r.previous ? `<div class="small">replaces ${esc(r.previous)}</div>`
     : `<div class="small">${esc(r.status)}${r.previous ? " from " + esc(r.previous) : ""}</div>`;
-  const target = `<a href="${esc(r.target_url || "#")}" target="_blank" onclick="event.stopPropagation()">${esc(r.db)} ${esc(r.target_id)}</a>
+  const target = `<a href="${esc(r.target_url || "#")}" target="_blank">${esc(r.db)} ${esc(r.target_id)}</a>
     <div>${esc(r.target_label) || '<span class="small">—</span>'}</div>
     ${r.target_previous_label ? `<div class="small" title="Name in the local data/2-databases snapshot">was “${esc(r.target_previous_label)}”</div>` : ""}
-    <a class="small" href="${esc(googleURL(r))}" target="_blank" onclick="event.stopPropagation()"
+    <a class="small" href="${esc(googleURL(r))}" target="_blank"
       title="Google: ${esc(googleQuery(r))}">Google ARI vs target ↗</a>
     ${r.found && !r.direct ? `<div class="small">via ${esc(r.views.map((v) => v.id).join(", "))}</div>` : ""}`;
   const name = m.kind === "no_data" ? `<span class="small">${esc(m.label)}</span>`
@@ -293,8 +184,14 @@ function rowHTML(r) {
     <td>${sup}</td><td>${flags}</td><td>${main}</td>
     <td><span class="tag ${hintClass(r.hint)}">${esc(r.hint)}</span><div class="small">score ${r.score}</div></td>
     <td><textarea class="note ${notes[key(r)] ? "has-note" : ""}" rows="2" placeholder="Add a note…"
-      title="${notes[key(r)] ? `Saved ${esc(notes[key(r)].updated)}` : "Saved when you leave the box"}">${esc(notes[key(r)]?.text || "")}</textarea>
-      <div class="small note-status"></div></td></tr>`;
+      title="${notes[key(r)] ? `Saved by @${esc(notes[key(r)].by)} ${esc(notes[key(r)].at)}` : "Saved when you leave the box"}">${esc(notes[key(r)]?.text || "")}</textarea>
+      <div class="small note-status">${noteStatus(notes[key(r)])}</div></td></tr>`;
+}
+
+function noteStatus(n) {
+  if (!n) return "";
+  const who = n.by === me ? "" : `@${esc(n.by)} · `;
+  return who + (n.posted ? `<a href="${esc(n.posted.url)}" target="_blank">posted ↗</a>` : "not posted");
 }
 
 // "ARI name" vs "target label"; without a target label, the id stands in for it.
@@ -365,6 +262,23 @@ $("pr").addEventListener("change", loadMatrix);
 $("reload").addEventListener("click", loadMatrix);
 ["q", "db", "judgment", "kind", "marked"].forEach((id) => $(id).addEventListener("input", render));
 $("csv").addEventListener("click", exportCSV);
+$("post-review").addEventListener("click", async () => {
+  const n = $("pr").value;
+  const mine = Object.values(notes).filter((x) => x.by === me && !x.posted).length;
+  if (!confirm(`Post your ${mine} unposted note${mine === 1 ? "" : "s"} to PR #${n} on GitHub as @${me}?\n\n` +
+      "They go in one review, each as a comment on its row's line; notes on lines outside the " +
+      "PR's diff are listed in the review's body. This is public on the PR and can't be undone here.")) return;
+  $("post-review").disabled = true;
+  $("posted").textContent = "Posting…";
+  const res = await sendJSON(`prs/${n}/review`, {});
+  if (!res.ok) { $("posted").textContent = `Not posted: ${await failure(res)}`; $("post-review").disabled = false; return; }
+  const out = await res.json();
+  applyState(out);
+  $("posted").innerHTML = `<a href="${esc(out.review_url)}" target="_blank">Review posted ↗</a> ·
+    ${out.on_lines} on their lines${out.in_body ? ` · ${out.in_body} in the review body (outside the diff)` : ""}
+    ${out.not_posted.length ? ` · ${out.not_posted.length} not posted (row no longer in the PR)` : ""}`;
+  render();
+});
 $("collapse").addEventListener("click", () => {
   const ids = new Set(filtered().map((r) => r.ari_id));
   collapsed = [...ids].every((id) => collapsed.has(id)) ? new Set() : ids;
@@ -379,14 +293,13 @@ $("body").addEventListener("change", async (e) => {
   if (!e.target.classList.contains("note")) return;
   const box = e.target, status = box.parentElement.querySelector(".note-status");
   status.textContent = "Saving…";
-  const res = await fetch(`/api/prs/${$("pr").value}/notes`, {method: "POST",
-    headers: {"Content-Type": "application/json"},
-    body: JSON.stringify({key: box.closest("tr.item").dataset.key, text: box.value})});
-  if (!res.ok) { status.textContent = `Not saved: ${res.status} ${await res.text()}`; return; }
-  notes = await res.json();
+  const k = box.closest("tr.item").dataset.key;
+  const res = await sendJSON(`prs/${$("pr").value}/notes`, {key: k, text: box.value});
+  if (!res.ok) { status.textContent = `Not saved: ${await failure(res)}`; return; }
+  applyState(await res.json());
   // Not re-rendered, so focus and any further typing elsewhere are kept.
   box.classList.toggle("has-note", Boolean(box.value.trim()));
-  status.textContent = box.value.trim() ? "Saved" : "Removed";
+  status.innerHTML = box.value.trim() ? `Saved · ${noteStatus(notes[k])}` : "Removed";
 });
 $("body").addEventListener("keydown", (e) => {
   if (e.target.classList.contains("note") && e.key === "Enter" && (e.ctrlKey || e.metaKey)) e.target.blur();
@@ -394,10 +307,9 @@ $("body").addEventListener("keydown", (e) => {
 $("body").addEventListener("change", async (e) => {
   if (!e.target.classList.contains("mark")) return;
   const k = e.target.closest("tr.item").dataset.key;
-  const res = await fetch(`/api/prs/${$("pr").value}/marks`, {method: "POST",
-    headers: {"Content-Type": "application/json"}, body: JSON.stringify({key: k, marked: e.target.checked})});
-  if (!res.ok) { alert(`Saving the mark failed: ${res.status} ${await res.text()}`); e.target.checked = !e.target.checked; return; }
-  marks = new Set(await res.json());
+  const res = await sendJSON(`prs/${$("pr").value}/marks`, {key: k, marked: e.target.checked});
+  if (!res.ok) { alert(`Saving the mark failed: ${await failure(res)}`); e.target.checked = !e.target.checked; return; }
+  applyState(await res.json());
   render();
 });
 $("body").addEventListener("click", (e) => {
@@ -466,6 +378,3 @@ headers.forEach((th, i) => {
 applyWidths();
 
 loadPRs().catch((e) => { $("body").innerHTML = `<tr><td colspan="12" class="empty">${esc(e.message)}</td></tr>`; });
-</script>
-</body>
-</html>

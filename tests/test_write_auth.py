@@ -39,7 +39,7 @@ OPEN_TO_ANONYMOUS = {
 
 # Stand-ins for the path parameters. The values only have to be well-formed; the
 # gate runs before the handler ever looks one up.
-PATH_PARAMS = {"iri": "http://example.org/d1", "fid": "fb_1"}
+PATH_PARAMS = {"iri": "http://example.org/d1", "fid": "fb_1", "number": "7"}
 
 
 def _write_routes() -> set[tuple[str, str]]:

@@ -1,4 +1,4 @@
-"""The two HTML pages.
+"""The HTML pages.
 
 These are registered before the catch-all StaticFiles mount so they take
 precedence and can inject the per-deploy cache-bust token. The mount still
@@ -66,3 +66,17 @@ async def _ref_page_slash(request: Request):
 @router.get("/ref-edits/index.html", include_in_schema=False)
 async def _ref_edits_html():
     return _render_html("ref-edits/index.html")
+
+
+@router.get("/ref-edits/reviewer", include_in_schema=False)
+async def _reviewer_page_slash(request: Request):
+    target = request.url.path.rsplit("/", 1)[-1] + "/"
+    if request.url.query:
+        target += "?" + request.url.query
+    return RedirectResponse(target, status_code=308)
+
+
+@router.get("/ref-edits/reviewer/", include_in_schema=False)
+@router.get("/ref-edits/reviewer/index.html", include_in_schema=False)
+async def _reviewer_html():
+    return _render_html("ref-edits/reviewer/index.html")

@@ -70,7 +70,6 @@ ARI-metadata-manager/
 │   ├── <db>.index.tsv          #   term -> label, synonyms, cross-referenced ids
 │   ├── <db>.details.tsv        #   term -> definition, parent labels (on-demand lookup)
 │   └── <db>.subtypes.tsv       #   direct is_a parent->child edge ids (OBO sources)
-├── pr_review/                  # Local reviewer for mapping PRs on KrishnaTO/ARI (see below)
 ├── tests/                      # pytest suite for the service layer
 ├── mappings/                   # Accumulated cross-reference judgments (merged into PRs)
 │   ├── ari.sssom.tsv           #   SSSOM exactMatch mappings
@@ -360,15 +359,15 @@ GitHub sign-in needs a `.env` with OAuth credentials and an OAuth App whose call
 `http://localhost:8001/auth/github/callback`; without it the app still browses anonymously.
 Custom port / ontology: `python run.py --port 8002 --file path/to.owl`.
 
-### Reviewing mapping pull requests (`pr_review/`)
+### Reviewing mapping pull requests (`/ref-edits/reviewer/`)
 
-A separate, read-only local app for the maintainer reviewing curators' mapping PRs on
-[`KrishnaTO/ARI`](https://github.com/KrishnaTO/ARI). It needs the GitHub CLI signed in
-(`gh auth login`); no token is read or stored by the app.
-
-```bash
-python -m pr_review           # serves http://127.0.0.1:8002 and opens the browser
-```
+The **PR reviewer** page (`https://aurint.ca/ari-editor/ref-edits/reviewer/`, linked from the
+reference-review page's header) is for administrators reviewing curators' mapping PRs on the
+source repository (`GITHUB_OWNER`/`GITHUB_REPO`, i.e.
+[`KrishnaTO/ARI`](https://github.com/KrishnaTO/ARI)). It is open to the logins in
+`ASSIGN_ADMINS` (anyone signed in when that is empty, as for cutting releases) and reads
+GitHub with the reviewer's own OAuth token. Code: `app/pr_review/` (comparison, live
+terminology lookups, GitHub reads, shared marks/notes) and `app/routes/pr_review.py`.
 
 Pick an open PR that changes `mappings/ari.equivalencies.tsv` or
 `notebook/ari-grounding/target_predictions.json` (`?pr=89` opens one directly).
@@ -377,11 +376,15 @@ the PR's own `ontologies/ari_t1d.owl`, and looks each target id up at its source
 (see below) and in the local `data/2-databases` indexes. Rows are listed in file order, each with its line number in the
 PR's equivalencies file. The number opens that line in the PR's *Files changed* tab, where you
 can add a review comment on it (a removed row links to its line on the diff's left side).
-Tick **Mark** to flag a row for review; marks are kept per PR in `.pr-review/marks.json`
-(gitignored), can be filtered on, and are included in the CSV. The **Note** column holds
-your own comment per row, saved when you leave the box (or press Ctrl/Cmd+Enter) to
-`.pr-review/notes.json`; clearing it deletes the note, and notes are in the CSV too. These
-notes stay on your machine; to comment on the PR itself, use the line link. Each row's
+Tick **Mark** to flag a row for review. The **Note** column holds a comment per row, saved
+when you leave the box (or press Ctrl/Cmd+Enter); clearing it deletes the note. Marks and
+notes are shared by every reviewer of the PR, stamped with who set them and when, and kept
+per PR in `pr-review/<number>.json` (gitignored server state, like `assignments/`); both
+can be filtered or sorted on and are in the CSV. **Post my notes to PR** sends *your*
+unposted notes to GitHub as one review under your account, each as a comment on its row's
+line. GitHub only anchors comments to lines inside the PR's diff, so a note on any other
+line (e.g. a prediction whose key line didn't change) goes in the review's body with its
+line number. A posted note links to its review; editing it makes it postable again. Each row's
 Target cell also links to a Google search for `"ARI name" vs "target label"`. Rows are grouped per ARI disease
 under a header row with its counts and hints; click it to fold the group (or use *Collapse
 all*). The table scrolls on its own so its column headers stay in view. Columns are
@@ -497,6 +500,11 @@ when its target actually changes.
 | POST | `/api/v2/source/follow-base` | After the source branch was deleted (its PR merged), follow the base branch and keep the working copy |
 | POST | `/api/v2/pr-base` | Set the PR target branch |
 | GET | `/api/v2/export` | Download current state as `1_Core_ARI_Diseases.xlsx` |
+| GET | `/api/v2/pr-review/prs` | Admin: open source-repo PRs that change the equivalencies or predictions file |
+| GET | `/api/v2/pr-review/prs/{number}` | Admin: a PR's comparison matrix, with its shared marks and notes |
+| POST | `/api/v2/pr-review/prs/{number}/marks` | Admin: mark / unmark one row (`key`, `marked`) |
+| POST | `/api/v2/pr-review/prs/{number}/notes` | Admin: save one row's note (`key`, `text`; blank deletes) |
+| POST | `/api/v2/pr-review/prs/{number}/review` | Admin: post the caller's unposted notes as one PR review, each on its row's line |
 
 ## Data sources / provenance
 
