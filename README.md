@@ -359,6 +359,83 @@ GitHub sign-in needs a `.env` with OAuth credentials and an OAuth App whose call
 `http://localhost:8001/auth/github/callback`; without it the app still browses anonymously.
 Custom port / ontology: `python run.py --port 8002 --file path/to.owl`.
 
+### Reviewing mapping pull requests (`/ref-edits/reviewer/`)
+
+The **PR reviewer** page (`https://aurint.ca/ari-editor/ref-edits/reviewer/`, linked from the
+reference-review page's header) is for administrators reviewing curators' mapping PRs on the
+source repository (`GITHUB_OWNER`/`GITHUB_REPO`, i.e.
+[`KrishnaTO/ARI`](https://github.com/KrishnaTO/ARI)). It is open to the logins in
+`ASSIGN_ADMINS` (anyone signed in when that is empty, as for cutting releases) and reads
+GitHub with the reviewer's own OAuth token. Code: `app/pr_review/` (comparison, live
+terminology lookups, GitHub reads, shared marks/notes) and `app/routes/pr_review.py`.
+
+Pick an open PR that changes `mappings/ari.equivalencies.tsv` or
+`notebook/ari-grounding/target_predictions.json` (`?pr=89` opens one directly).
+The app diffs that file between the PR's merge base and head, reads the ARI diseases from
+the PR's own `ontologies/ari_t1d.owl`, and looks each target id up at its source
+(see below) and in the local `data/2-databases` indexes. Rows are listed in file order, each with its line number in the
+PR's equivalencies file. The number opens that line in the PR's *Files changed* tab, where you
+can add a review comment on it (a removed row links to its line on the diff's left side).
+Tick **Mark** to flag a row for review. The **Note** column holds a comment per row, saved
+when you leave the box (or press Ctrl/Cmd+Enter); clearing it deletes the note. Marks and
+notes are shared by every reviewer of the PR, stamped with who set them and when, and kept
+per PR in `pr-review/<number>.json` (gitignored server state, like `assignments/`); both
+can be filtered or sorted on and are in the CSV. **Post my notes to PR** sends *your*
+unposted notes to GitHub as one review under your account, each as a comment on its row's
+line. GitHub only anchors comments to lines inside the PR's diff, so a note on any other
+line (e.g. a prediction whose key line didn't change) goes in the review's body with its
+line number. A posted note links to its review; editing it makes it postable again. Each row's
+Target cell also links to a Google search for `"ARI name" vs "target label"`. Rows are grouped per ARI disease
+under a header row with its counts and hints; click it to fold the group (or use *Collapse
+all*). The table scrolls on its own so its column headers stay in view. Columns are
+resizable: drag a header's right edge (double-click it to reset); widths are remembered in
+the browser. A PR that regenerates the predictions file (ARI's `predict_target_matches.py`) gets one
+**predicted** row per (disease, database) pair whose *top* prediction changed: a new pair, a
+different top candidate (the row says which one it replaces), or a pair that lost its
+prediction (removed). Its line opens that pair in the predictions file, its evidence card
+shows the prediction's method, support and route, and *Main* says whether main already
+predicts the same term. Predicted rows are measured exactly like judgments, and the
+*Judgment* filter separates them. Each
+changed row gets:
+
+- **Name / synonym match** — label = label, ARI label = target synonym, ARI synonym =
+  target label, synonym = synonym, else the best word overlap between any two names.
+- **Definition overlap** — shared content words over the shorter definition; the row's
+  detail view highlights them in both definitions.
+- **Xref support** — other ids the target term cross-references that ARI already maps
+  (`*` = added by this same PR), ids ARI has rejected, and databases where the target's
+  ids disagree with ARI's.
+- **Flags** — the target is named like one of the disease's clinical subtypes (narrower),
+  or like a *different* ARI disease.
+- **Main** — whether main already holds the same judgment, or the opposite one (a PR
+  flipping an earlier confirmation).
+- **Hint** — a score from the above (Supported / Review / Weak evidence; for rejections,
+  Rejection plausible / Check rejection). It is local evidence only, not a verdict.
+
+Every target id is looked up **live at its source**, so names, synonyms and definitions
+are current rather than the `data/2-databases` snapshot. No keys are needed:
+
+| Database | Source |
+| --- | --- |
+| SNOMED | [tx.fhir.org](https://tx.fhir.org), US edition (International + US extension) |
+| ICD-10 | tx.fhir.org, ICD-10-CM |
+| OMOP | OHDSI's [fhir-terminology.ohdsi.org](https://fhir-terminology.ohdsi.org) (rate-limited per IP), incl. vocabulary, domain, class, standard status, validity and source code |
+| MONDO, DOID, NCIt, Orphanet | EBI [OLS4](https://www.ebi.ac.uk/ols4) |
+| MeSH | NLM's [MeSH lookup API](https://id.nlm.nih.gov/mesh/) |
+| UMLS | NCBI [MedGen](https://www.ncbi.nlm.nih.gov/medgen/), which carries UMLS CUIs for diseases (UMLS itself needs a licence key); a PR's CUIs are fetched in one batch |
+
+Only **exact** synonyms are matched. When the source lists an ARI name as a *narrow* synonym
+the target is flagged as broader than the disease, and as a *broad* synonym, narrower. A
+code the source lacks, an inactive or obsolete concept (for OMOP, also one whose validity has
+ended) and a non-standard OMOP concept are flagged too. When a name has changed since the
+local snapshot, the Target column shows the old one ("was …").
+
+The local indexes still supply what the live lookups don't: the MONDO/DOID/NCIt/MeSH/Orphanet
+term's cross-references and parents, and for SNOMED, OMOP, ICD-10 and UMLS the hub terms that
+cross-reference the id, kept alongside as cross-reference evidence ("via"). A PR's lookups
+run in parallel and are cached while the app runs. If a source is unreachable or refuses a
+request, the matrix fails with that error rather than showing partial data. Rows can be filtered, sorted and exported to CSV.
+
 ## Development & tests
 
 ```bash
@@ -423,6 +500,11 @@ when its target actually changes.
 | POST | `/api/v2/source/follow-base` | After the source branch was deleted (its PR merged), follow the base branch and keep the working copy |
 | POST | `/api/v2/pr-base` | Set the PR target branch |
 | GET | `/api/v2/export` | Download current state as `1_Core_ARI_Diseases.xlsx` |
+| GET | `/api/v2/pr-review/prs` | Admin: open source-repo PRs that change the equivalencies or predictions file |
+| GET | `/api/v2/pr-review/prs/{number}` | Admin: a PR's comparison matrix, with its shared marks and notes |
+| POST | `/api/v2/pr-review/prs/{number}/marks` | Admin: mark / unmark one row (`key`, `marked`) |
+| POST | `/api/v2/pr-review/prs/{number}/notes` | Admin: save one row's note (`key`, `text`; blank deletes) |
+| POST | `/api/v2/pr-review/prs/{number}/review` | Admin: post the caller's unposted notes as one PR review, each on its row's line |
 
 ## Data sources / provenance
 

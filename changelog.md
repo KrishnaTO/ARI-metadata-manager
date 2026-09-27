@@ -1,5 +1,26 @@
 # Changelog
 
+## ari-pr-review-app
+
+A mapping-PR reviewer for KrishnaTO/ARI, such as #89 — now part of the site at `/ref-edits/reviewer/`.
+
+- **On the site, for administrators.** The reviewer moved from a local app (`python -m pr_review`, removed) into the metadata manager: `app/pr_review/`, `app/routes/pr_review.py` and `static/ref-edits/reviewer/`, linked from the reference-review header. It is gated on `ASSIGN_ADMINS` like cutting releases, and reads GitHub with the reviewer's own OAuth token instead of the `gh` CLI. Its script is a file, as the site's CSP allows no inline scripts.
+- **Shared marks and notes.** Marks and notes are shared by a PR's reviewers, stamped with author and time, in gitignored `pr-review/<number>.json`.
+- **Notes as PR review comments.** *Post my notes to PR* submits the signed-in reviewer's unposted notes as one GitHub review under their account, each on its row's line (on the diff's left side for a removed row); notes on lines outside the diff go in the review body with their line number. Posted notes link to the review; editing one makes it postable again.
+- **Per-PR comparison matrix.** Diffs `mappings/ari.equivalencies.tsv` between the PR's merge base and head, and sets each added, re-judged or removed row's ARI disease (from the PR's own ontology) beside the target concept from the local reference indexes.
+- **Match types.** Label/synonym equality in each direction, word overlap, definition word overlap, cross-reference support and conflicts, subtype and other-disease name collisions, and whether main already holds the same or opposite judgment.
+- **Line numbers.** Each row shows its line in the PR's `ari.equivalencies.tsv`, and rows are listed in file order. The number opens that exact line in the PR's *Files changed* tab, ready for a review comment.
+- **Mark for review.** A per-row checkbox, saved per PR in the gitignored `.pr-review/marks.json`, with a filter, a count chip and a CSV column.
+- **Resizable columns.** Drag a header's right edge to resize (the ARI term column starts wider); double-click to reset. Widths are remembered per browser.
+- **SNOMED's own terms.** SNOMED ids are looked up on tx.fhir.org (US edition), so they're compared against SNOMED's own label, synonyms and parents instead of whichever MONDO/DOID term cross-references them, which could be a broader concept (PR #89 line 778 showed MONDO's "paraneoplastic neurologic syndrome" for 192877007, "Paraneoplastic cerebellar degeneration"). Unknown and inactive codes are flagged.
+- **OMOP's own terms.** OMOP ids are looked up on OHDSI's public FHIR terminology server: label, synonyms, vocabulary, domain, class, standard status and validity, plus the source code the concept came from, checked against ARI's ids. Unknown, inactive or expired, and non-standard concepts are flagged. The SNOMED and OMOP lookups share one module, `pr_review/terminology.py`.
+- **Current names for every database.** MONDO, DOID, NCIt and Orphanet (EBI OLS), MeSH (NLM), ICD-10-CM (tx.fhir.org) and UMLS (via NCBI MedGen, batched) are now looked up live too, so every target shows its current name, and a name changed since the local snapshot shows the old one. Only exact synonyms are matched, and an ARI name listed as the target's narrow or broad synonym flags the target as broader or narrower (PR #89 line 779: MONDO:0018215 is broader; line 850: MONDO:0011479 has since become "…due to NET deficiency", narrower).
+- **Grouped per disease, header always visible.** Rows sit under a header row per ARI disease (row, confirmed/rejected, marked and hint counts) that folds on click, with *Collapse all / Expand all*. The table is now its own scroll area, so the column header row stays pinned while scrolling.
+- **Reviews predicted mappings too.** A PR that regenerates `notebook/ari-grounding/target_predictions.json` (such as KrishnaTO/ARI#103, which redetermined the predictions from the ontology's current synonyms) is listed, and each (disease, database) pair whose top prediction changed becomes a `predicted` row. The row carries the same name, definition, cross-reference and collision evidence as a judgment, what it replaces, the prediction's method and support, and whether main predicts the same term. The line links to the pair in the predictions file, and a *Predicted* judgment filter separates these rows from judgments.
+- **Notes and a search link per row.** A Note column holds the reviewer's own comment on each row, saved per PR in the gitignored `.pr-review/notes.json` (blank deletes it), counted on the disease's group row and exported in the CSV. The Target cell links to a Google search for `"ARI name" vs "target label"`.
+- **Rows with no ARI subject no longer break a PR.** A blank `source_id`/`subject_id` (the metadata manager's #171 bug) crashed the whole matrix with a 500 — KrishnaTO/ARI#93 lines 1041–1042. Such rows are now shown under "(no ARI subject)", flagged and hinted *Malformed row*, with their target still looked up.
+- **Review aids.** Filters, sorting, a side-by-side detail view with shared definition words highlighted, a hint per row, and CSV export.
+
 ## disease-comments-ari-edits
 
 The review page's side panel now shows the disease's comments, the same per-disease feedback log the main browser shows, so a curator judging a mapping sees what others have said about the disease.

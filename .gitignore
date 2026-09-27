@@ -235,3 +235,8 @@ assignments/
 provenance/
 releases/
 feedback/
+
+# Mapping-PR reviewer's shared marks and notes (app/pr_review/store.py)
+pr-review/
+# The retired standalone reviewer's local marks/notes (copied into pr-review/)
+.pr-review/
