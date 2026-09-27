@@ -378,7 +378,11 @@ the PR's own `ontologies/ari_t1d.owl`, and looks each target id up at its source
 PR's equivalencies file. The number opens that line in the PR's *Files changed* tab, where you
 can add a review comment on it (a removed row links to its line on the diff's left side).
 Tick **Mark** to flag a row for review; marks are kept per PR in `.pr-review/marks.json`
-(gitignored), can be filtered on, and are included in the CSV. Rows are grouped per ARI disease
+(gitignored), can be filtered on, and are included in the CSV. The **Note** column holds
+your own comment per row, saved when you leave the box (or press Ctrl/Cmd+Enter) to
+`.pr-review/notes.json`; clearing it deletes the note, and notes are in the CSV too. These
+notes stay on your machine; to comment on the PR itself, use the line link. Each row's
+Target cell also links to a Google search for `"ARI name" vs "target label"`. Rows are grouped per ARI disease
 under a header row with its counts and hints; click it to fold the group (or use *Collapse
 all*). The table scrolls on its own so its column headers stay in view. Columns are
 resizable: drag a header's right edge (double-click it to reset); widths are remembered in
