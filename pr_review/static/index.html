@@ -89,6 +89,7 @@ mark { background: var(--hl); color: inherit; padding: 0 1px; }
       <option value="">All judgments</option>
       <option value="manual">Confirmed</option>
       <option value="manual-negative">Rejected</option>
+      <option value="predicted">Predicted</option>
     </select>
     <select id="kind"><option value="">All name matches</option></select>
     <select id="marked">
@@ -105,12 +106,13 @@ mark { background: var(--hl); color: inherit; padding: 0 1px; }
     score: name match (3 exact, 2 synonym, 1 partial) + 2 if another id on the target term is already
     mapped by ARI + 1 if definitions share ≥40% of words, minus collisions/conflicts. "via" = compared
     through a hub term that cross-references the id (one point less). Xref marked * was itself added by
-    this PR. Click a row to compare both sides.</div>
+    this PR. Predicted rows are pairs whose top prediction in target_predictions.json changed; their
+    line opens that pair in the predictions file. Click a row to compare both sides.</div>
 </header>
 <main>
   <div class="tablewrap"><table>
     <thead><tr>
-      <th data-sort="line" data-w="64" title="Line in mappings/ari.equivalencies.tsv; opens that line in the PR's Files changed tab, where you can comment on it">Line</th>
+      <th data-sort="line" data-w="64" title="Line in mappings/ari.equivalencies.tsv (or, for a prediction, in target_predictions.json); opens that line in the PR's Files changed tab, where you can comment on it">Line</th>
       <th data-sort="marked" data-w="56" title="Mark for review (saved locally in .pr-review/marks.json)">Mark</th>
       <th data-sort="ari_label" data-w="260">ARI term</th>
       <th data-sort="db" data-w="210">Target</th>
@@ -154,7 +156,7 @@ async function loadPRs() {
   const want = Number(new URLSearchParams(location.search).get("pr")) || 89;
   $("pr").innerHTML = prs.map((p) =>
     `<option value="${p.number}">#${p.number} · ${esc(p.author)} · ${esc(p.title.slice(0, 70))}</option>`).join("");
-  if (!prs.length) { $("body").innerHTML = `<tr><td colspan="11" class="empty">No open PRs change the equivalencies file.</td></tr>`; return; }
+  if (!prs.length) { $("body").innerHTML = `<tr><td colspan="11" class="empty">No open PRs change the equivalencies or predictions file.</td></tr>`; return; }
   $("pr").value = prs.some((p) => p.number === want) ? want : prs[0].number;
   loadMatrix();
 }
@@ -168,9 +170,11 @@ async function loadMatrix() {
     const data = await getJSON(`/api/prs/${n}`);
     rows = data.rows; open = new Set(); hintFilter = ""; marks = new Set(data.marks); collapsed = new Set();
     const p = data.pr;
-    const confirmed = rows.filter((r) => r.judgment === "manual").length;
+    const c = counts(rows), judged = c.confirmed + c.rejected;
     $("meta").innerHTML = `<a href="${esc(p.url)}" target="_blank">#${p.number}</a> by <b>${esc(p.author)}</b> ·
-      ${new Set(rows.map((r) => r.ari_id)).size} diseases · ${rows.length} changed equivalency rows (${confirmed} confirmed, ${rows.length - confirmed} rejected) ·
+      ${new Set(rows.map((r) => r.ari_id)).size} diseases ·
+      ${judged ? `${judged} changed equivalency rows (${c.confirmed} confirmed, ${c.rejected} rejected) ·` : ""}
+      ${c.predicted ? `${c.predicted} changed top predictions ·` : ""}
       head ${p.head_sha.slice(0, 7)} vs merge base ${p.merge_base.slice(0, 7)}`;
     fillSelect("db", [...new Set(rows.map((r) => r.db))].sort(), "All databases");
     fillSelect("kind", [...new Set(rows.map((r) => r.name_match.label))], "All name matches");
@@ -220,27 +224,35 @@ function render() {
   $("collapse").textContent = collapsed.size >= groups.size ? "Expand all" : "Collapse all";
 }
 
+const counts = (list) => ({confirmed: list.filter((x) => x.judgment === "manual").length,
+  rejected: list.filter((x) => x.judgment === "manual-negative").length,
+  predicted: list.filter((x) => x.judgment === "predicted").length});
+
 function groupHTML(g) {
-  const r = g[0], confirmed = g.filter((x) => x.judgment === "manual").length;
+  const r = g[0], c = counts(g);
   const hints = {};
   g.forEach((x) => hints[x.hint] = (hints[x.hint] || 0) + 1);
   const marked = g.filter((x) => marks.has(key(x))).length;
   return `<tr class="group" data-ari="${esc(r.ari_id)}"><td colspan="11">
     <span class="caret">${collapsed.has(r.ari_id) ? "▸" : "▾"}</span>
     <b>${esc(r.ari_label)}</b> <span class="small">${esc(r.ari_id)}</span>
-    <span class="count">${g.length} row${g.length === 1 ? "" : "s"} · ${confirmed} confirmed · ${g.length - confirmed} rejected</span>
+    <span class="count">${g.length} row${g.length === 1 ? "" : "s"} · ${Object.entries(c).filter(([, n]) => n).map(([k, n]) => `${n} ${k}`).join(" · ")}</span>
     ${marked ? `<span class="tag Review">${marked} marked</span>` : ""}
     ${Object.entries(hints).map(([h, c]) => `<span class="tag ${hintClass(h)}">${esc(h)} ${c}</span>`).join("")}
   </td></tr>`;
 }
 
-const key = (r) => `${r.ari_id}|${r.db}|${r.target_id}`;
+// Prediction rows are keyed apart from judgments, which can name the same target.
+const key = (r) => `${r.judgment === "predicted" ? "predicted|" : ""}${r.ari_id}|${r.db}|${r.target_id}`;
 
 function rowHTML(r) {
   const m = r.name_match, d = r.definition_overlap, ev = r.evidence;
   const judgment = r.judgment === "manual" ? `<span class="tag Supported">confirmed</span>`
+    : r.judgment === "predicted" ? `<span class="tag plain">predicted</span>`
     : `<span class="tag Weak">rejected</span>`;
-  const status = r.status === "added" ? "" : `<div class="small">${esc(r.status)}${r.previous_type ? " from " + esc(r.previous_type) : ""}</div>`;
+  const status = r.status === "added" ? (r.judgment === "predicted" ? `<div class="small">new prediction</div>` : "")
+    : r.judgment === "predicted" && r.previous ? `<div class="small">replaces ${esc(r.previous)}</div>`
+    : `<div class="small">${esc(r.status)}${r.previous ? " from " + esc(r.previous) : ""}</div>`;
   const target = `<a href="${esc(r.target_url || "#")}" target="_blank" onclick="event.stopPropagation()">${esc(r.db)} ${esc(r.target_id)}</a>
     <div>${esc(r.target_label) || '<span class="small">—</span>'}</div>
     ${r.target_previous_label ? `<div class="small" title="Name in the local data/2-databases snapshot">was “${esc(r.target_previous_label)}”</div>` : ""}
@@ -259,7 +271,7 @@ function rowHTML(r) {
   const main = r.on_main === "same on main" ? `<span class="tag same">same</span>`
     : r.on_main === "not on main" ? `<span class="small">not yet</span>` : `<span class="tag conflict">${esc(r.on_main)}</span>`;
   const line = `<a href="${esc(r.line_url)}" target="_blank"
-    title="Open line ${r.line} in the PR's Files changed to comment on it${r.status === "removed" ? " (removed line, merge-base numbering)" : ""}">${r.line}</a>`;
+    title="Open line ${r.line} of ${esc(r.file)} in the PR's Files changed to comment on it${r.status === "removed" ? " (removed line, merge-base numbering)" : ""}">${r.line}</a>${r.judgment === "predicted" ? '<div class="small">pred</div>' : ""}`;
   const marked = marks.has(key(r));
   return `<tr class="item ${marked ? "marked" : ""}" data-key="${esc(key(r))}">
     <td class="small">${line}</td>
@@ -297,7 +309,8 @@ function detailHTML(r) {
        local reference indexes. Open the link to check it by hand.</p></div>`;
   const ev = r.evidence;
   const evidence = `<div class="card"><h3>Evidence</h3><dl>
-    <dt>Curator</dt><dd>${esc(r.curator)}${r.comment ? " — “" + esc(r.comment) + "”" : ""}</dd>
+    ${r.judgment === "predicted" ? `<dt>Prediction</dt><dd>${esc(r.comment)}</dd>`
+      : `<dt>Curator</dt><dd>${esc(r.curator)}${r.comment ? " — “" + esc(r.comment) + "”" : ""}</dd>`}
     <dt>Supporting cross-references</dt><dd>${ev.support.length ? ev.support.map((s) => `${esc(s.db)} ${esc(s.id)} (${esc(s.origin)}, via ${esc(s.via.join(", "))})`).join("<br>") : "none"}</dd>
     <dt>Cross-references ARI rejected</dt><dd>${ev.against.length ? ev.against.map((s) => `${esc(s.db)} ${esc(s.id)} (via ${esc(s.via.join(", "))})`).join("<br>") : "none"}</dd>
     <dt>Conflicting cross-references</dt><dd>${ev.conflicts.length ? ev.conflicts.map((c) => `${esc(c.db)}: target ${esc(c.target_ids.join(", "))} vs ARI ${esc(c.ari_ids.join(", "))}`).join("<br>") : "none"}</dd>
@@ -310,7 +323,7 @@ function exportCSV() {
     ["PR line link", (r) => r.line_url], ["ARI id", (r) => r.ari_id], ["ARI label", (r) => r.ari_label], ["Database", (r) => r.db],
     ["Target id", (r) => r.target_id], ["Target label", (r) => r.target_label],
     ["Target label in local index", (r) => r.target_previous_label], ["Direct", (r) => r.direct],
-    ["Status", (r) => r.status], ["Judgment", (r) => r.judgment], ["Name match", (r) => r.name_match.label],
+    ["File", (r) => r.file], ["Status", (r) => r.status], ["Previous", (r) => r.previous], ["Judgment", (r) => r.judgment], ["Name match", (r) => r.name_match.label],
     ["ARI name", (r) => r.name_match.ari], ["Target name", (r) => r.name_match.target],
     ["Word overlap", (r) => r.name_match.overlap], ["Definition overlap", (r) => r.definition_overlap?.score ?? ""],
     ["Supporting xrefs", (r) => r.evidence.support.map((s) => `${s.db}:${s.id}`).join("; ")],

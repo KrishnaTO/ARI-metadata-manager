@@ -12,6 +12,9 @@ REPO = "KrishnaTO/ARI"
 EQUIV_PATH = "mappings/ari.equivalencies.tsv"
 SSSOM_PATH = "mappings/ari.sssom.tsv"
 ONTOLOGY_PATH = "ontologies/ari_t1d.owl"
+# Predicted matches per (disease, database), best first, from predict_target_matches.py.
+PREDICTIONS_PATH = "notebook/ari-grounding/target_predictions.json"
+REVIEWED_PATHS = (EQUIV_PATH, PREDICTIONS_PATH)
 
 
 def _gh(args: list[str]) -> bytes:
@@ -25,16 +28,21 @@ def _api_json(path: str):
     return json.loads(_gh(["api", path]))
 
 
-def list_equivalency_prs(state: str = "open") -> list[dict]:
-    """Pull requests on ``REPO`` whose diff touches the equivalencies TSV."""
+def _changed_paths(number: int) -> list[str]:
+    files = _api_json(f"repos/{REPO}/pulls/{number}/files?per_page=100")
+    return [f["filename"] for f in files if f["filename"] in REVIEWED_PATHS]
+
+
+def list_review_prs(state: str = "open") -> list[dict]:
+    """Pull requests on ``REPO`` whose diff touches the equivalencies or predictions file."""
     prs = _api_json(f"repos/{REPO}/pulls?state={state}&per_page=100")
     out = []
     for pr in prs:
-        files = _api_json(f"repos/{REPO}/pulls/{pr['number']}/files?per_page=100")
-        if any(f["filename"] == EQUIV_PATH for f in files):
+        paths = _changed_paths(pr["number"])
+        if paths:
             out.append({"number": pr["number"], "title": pr["title"],
                         "author": pr["user"]["login"], "created_at": pr["created_at"],
-                        "url": pr["html_url"], "head_sha": pr["head"]["sha"]})
+                        "url": pr["html_url"], "head_sha": pr["head"]["sha"], "paths": paths})
     return out
 
 
@@ -46,7 +54,7 @@ def pr_refs(number: int) -> dict:
     return {"number": number, "title": pr["title"], "author": pr["user"]["login"],
             "url": pr["html_url"], "state": pr["state"],
             "head_sha": head_sha, "merge_base": compare["merge_base_commit"]["sha"],
-            "base_ref": pr["base"]["ref"]}
+            "base_ref": pr["base"]["ref"], "paths": _changed_paths(number)}
 
 
 def file_at(path: str, ref: str) -> bytes:

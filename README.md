@@ -370,7 +370,8 @@ A separate, read-only local app for the maintainer reviewing curators' mapping P
 python -m pr_review           # serves http://127.0.0.1:8002 and opens the browser
 ```
 
-Pick an open PR that changes `mappings/ari.equivalencies.tsv` (`?pr=89` opens one directly).
+Pick an open PR that changes `mappings/ari.equivalencies.tsv` or
+`notebook/ari-grounding/target_predictions.json` (`?pr=89` opens one directly).
 The app diffs that file between the PR's merge base and head, reads the ARI diseases from
 the PR's own `ontologies/ari_t1d.owl`, and looks each target id up at its source
 (see below) and in the local `data/2-databases` indexes. Rows are listed in file order, each with its line number in the
@@ -381,7 +382,13 @@ Tick **Mark** to flag a row for review; marks are kept per PR in `.pr-review/mar
 under a header row with its counts and hints; click it to fold the group (or use *Collapse
 all*). The table scrolls on its own so its column headers stay in view. Columns are
 resizable: drag a header's right edge (double-click it to reset); widths are remembered in
-the browser. Each
+the browser. A PR that regenerates the predictions file (ARI's `predict_target_matches.py`) gets one
+**predicted** row per (disease, database) pair whose *top* prediction changed: a new pair, a
+different top candidate (the row says which one it replaces), or a pair that lost its
+prediction (removed). Its line opens that pair in the predictions file, its evidence card
+shows the prediction's method, support and route, and *Main* says whether main already
+predicts the same term. Predicted rows are measured exactly like judgments, and the
+*Judgment* filter separates them. Each
 changed row gets:
 
 - **Name / synonym match** — label = label, ARI label = target synonym, ARI synonym =

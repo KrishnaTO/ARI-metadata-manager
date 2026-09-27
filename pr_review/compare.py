@@ -20,12 +20,18 @@ for MONDO/DOID/NCIt/MeSH/Orphanet their copy of the term's cross-references and 
 (and its older name, when it has changed); for SNOMED, OMOP, ICD-10 and UMLS, which have
 no index of their own, the MONDO/DOID/... "hub" terms that cross-reference the id, kept
 alongside as cross-reference evidence and marked ``via``. Nothing here writes anything.
+
+A PR that regenerates ``notebook/ari-grounding/target_predictions.json`` (the predicted
+match per disease and database, best first) is reviewed the same way: every pair whose
+top prediction changed becomes a row with judgment ``predicted``, measured against the
+same evidence, so a new prediction can be checked before a curator is shown it.
 """
 from __future__ import annotations
 
 import csv
 import hashlib
 import io
+import json
 import os
 import tempfile
 
@@ -40,11 +46,14 @@ from . import github, terminology
 # not a mapping target, so SNOMEDCT resolves to ``snomed``.
 PREFIX_TO_DB = {d["prefix"].casefold(): d["key"] for d in XREF_DATABASES if d["key"] != "dxcode"}
 
-CONFIRMED, REJECTED = "manual", "manual-negative"
+CONFIRMED, REJECTED, PREDICTED = "manual", "manual-negative", "predicted"
 
-# GitHub names a file's block in a PR's "Files changed" view by the SHA-256 of its path;
-# appending ``R<n>``/``L<n>`` targets one line, where a review comment can be added.
-DIFF_ANCHOR = "diff-" + hashlib.sha256(github.EQUIV_PATH.encode()).hexdigest()
+
+
+def diff_anchor(path: str) -> str:
+    """GitHub names a file's block in a PR's "Files changed" view by the SHA-256 of its
+    path; appending ``R<n>``/``L<n>`` targets one line, where a review comment can be added."""
+    return "diff-" + hashlib.sha256(path.encode()).hexdigest()
 
 # Name-match kinds, strongest first, with the points each adds to a row's evidence.
 NAME_KINDS = {
@@ -96,19 +105,86 @@ def parse_sssom_comments(text: str) -> dict[tuple, dict]:
     return out
 
 
-def diff_equivalencies(base: dict, head: dict) -> list[dict]:
+def _equiv_on_main(key: tuple, row: dict, main: dict) -> str:
+    main_row = main.get(key)
+    if main_row is None:
+        return "not on main"
+    if main_row["type"] == row["type"]:
+        return "same on main"
+    return f"main says {main_row['type']} ({main_row['source']})"
+
+
+def diff_equivalencies(base: dict, head: dict, main: dict, comments: dict) -> list[dict]:
     """Rows the PR added, re-judged (type changed) or removed, relative to ``base``."""
     changes = []
+
+    def change(key, row, status, previous):
+        changes.append({"key": key, "row": row, "status": status, "previous": previous,
+                        "path": github.EQUIV_PATH, "on_main": _equiv_on_main(key, row, main),
+                        "comment": comments.get(key, {}).get("comment", "")})
+
     for key, row in head.items():
         old = base.get(key)
         if old is None:
-            changes.append({"key": key, "row": row, "status": "added", "previous_type": ""})
+            change(key, row, "added", "")
         elif old["type"] != row["type"]:
-            changes.append({"key": key, "row": row, "status": "changed",
-                            "previous_type": old["type"]})
+            change(key, row, "changed", old["type"])
     for key, row in base.items():
         if key not in head:
-            changes.append({"key": key, "row": row, "status": "removed", "previous_type": ""})
+            change(key, row, "removed", "")
+    return changes
+
+
+# ------------------------------------------------------------------ predictions
+def parse_predictions(text: str) -> dict[tuple, dict]:
+    """``(ARI number, prefix) -> {top, line, prefix}``: each pair's best prediction and
+    the 1-based line of its key in the JSON file."""
+    lines = {}
+    for n, ln in enumerate(text.splitlines(), start=1):
+        stripped = ln.strip()
+        if stripped.startswith('"ARI:') and stripped.endswith("["):
+            lines[stripped.split('"')[1]] = n
+    out = {}
+    for pair, cands in json.loads(text).items():
+        if not cands:
+            continue
+        ari_id, prefix = pair.split("|")
+        out[(_ari_num(ari_id), prefix.casefold())] = {"top": cands[0], "line": lines[pair],
+                                                      "prefix": prefix}
+    return out
+
+
+def _describe(pair: dict) -> str:
+    return f"{pair['prefix']}:{pair['top']['id']} {pair['top']['name']}".strip()
+
+
+def diff_predictions(base: dict, head: dict, main: dict) -> list[dict]:
+    """Pairs whose top prediction the PR added, changed or removed, relative to ``base``."""
+    changes = []
+
+    def change(pair_key, pair, status, previous):
+        top = pair["top"]
+        on = main.get(pair_key)
+        on_main = ("not on main" if on is None
+                   else "same on main" if on["top"]["id"] == top["id"]
+                   else f"main predicts {_describe(on)}")
+        changes.append({
+            "key": (pair_key[0], pair_key[1], match_key(top["id"])),
+            "row": {"target_id": top["id"], "source_name": "", "type": PREDICTED,
+                    "source": top["method"], "line": pair["line"]},
+            "status": status, "previous": previous, "path": github.PREDICTIONS_PATH,
+            "on_main": on_main,
+            "comment": f"{top['method']}, support {top['support']}: {top['evidence']}"})
+
+    for pair_key, pair in head.items():
+        old = base.get(pair_key)
+        if old is None:
+            change(pair_key, pair, "added", "")
+        elif old["top"]["id"] != pair["top"]["id"]:
+            change(pair_key, pair, "changed", _describe(old))
+    for pair_key, pair in base.items():
+        if pair_key not in head:
+            change(pair_key, pair, "removed", "")
     return changes
 
 
@@ -302,31 +378,39 @@ def hint(status: str, judgment: str, found: bool, score: int, flags: list[str]) 
 # ------------------------------------------------------------------------ matrix
 def build_matrix(refs: dict) -> dict:
     """The matrix for the PR described by ``refs`` (from :func:`github.pr_refs`)."""
-    head_text = github.file_at(github.EQUIV_PATH, refs["head_sha"]).decode("utf-8")
-    base_equiv = parse_equivalencies(
-        github.file_at(github.EQUIV_PATH, refs["merge_base"]).decode("utf-8"))
-    head_equiv = parse_equivalencies(head_text)
-    main_equiv = parse_equivalencies(
-        github.file_at(github.EQUIV_PATH, refs["base_ref"]).decode("utf-8"))
-    comments = parse_sssom_comments(
-        github.file_at(github.SSSOM_PATH, refs["head_sha"]).decode("utf-8"))
+    def text(path, ref):
+        return github.file_at(path, ref).decode("utf-8")
+
+    head_equiv = parse_equivalencies(text(github.EQUIV_PATH, refs["head_sha"]))
+    changes = []
+    if github.EQUIV_PATH in refs["paths"]:
+        changes += diff_equivalencies(
+            parse_equivalencies(text(github.EQUIV_PATH, refs["merge_base"])), head_equiv,
+            parse_equivalencies(text(github.EQUIV_PATH, refs["base_ref"])),
+            parse_sssom_comments(text(github.SSSOM_PATH, refs["head_sha"])))
+    if github.PREDICTIONS_PATH in refs["paths"]:
+        changes += diff_predictions(
+            parse_predictions(text(github.PREDICTIONS_PATH, refs["merge_base"])),
+            parse_predictions(text(github.PREDICTIONS_PATH, refs["head_sha"])),
+            parse_predictions(text(github.PREDICTIONS_PATH, refs["base_ref"])))
     ari = load_ari(github.file_at(github.ONTOLOGY_PATH, refs["head_sha"]))
     owners = _name_owners(ari)
     indexes = get_indexes()
 
-    changes = diff_equivalencies(base_equiv, head_equiv)
     # Fetch every live term up front; the rows then read the cache.
     terminology.prefetch({(PREFIX_TO_DB[c["key"][1]], c["row"]["target_id"]) for c in changes
                           if PREFIX_TO_DB.get(c["key"][1]) in terminology.SOURCES})
-    pr_keys = {c["key"] for c in changes if c["status"] != "removed"}
-    rows = [_compare_row(c, refs, ari, owners, head_equiv, main_equiv, comments, pr_keys,
-                         indexes) for c in changes]
-    # File order; removed rows (numbered in the merge-base file) go last.
-    rows.sort(key=lambda r: (r["status"] == "removed", r["line"]))
+    # Ids the PR itself judged; a prediction is not a judgment.
+    pr_keys = {c["key"] for c in changes
+               if c["status"] != "removed" and c["row"]["type"] != PREDICTED}
+    rows = [_compare_row(c, refs, ari, owners, head_equiv, pr_keys, indexes) for c in changes]
+    # File order, equivalencies before predictions; removed rows (numbered in the
+    # merge-base file) go last within their file.
+    rows.sort(key=lambda r: (r["judgment"] == PREDICTED, r["status"] == "removed", r["line"]))
     return {"pr": refs, "rows": rows}
 
 
-def _compare_row(change, refs, ari, owners, head_equiv, main_equiv, comments, pr_keys, indexes):
+def _compare_row(change, refs, ari, owners, head_equiv, pr_keys, indexes):
     row, key = change["row"], change["key"]
     num = key[0]
     db = PREFIX_TO_DB.get(key[1])
@@ -391,15 +475,6 @@ def _compare_row(change, refs, ari, owners, head_equiv, main_equiv, comments, pr
     score -= 2 if other_diseases or subtype_hits or scoped else 0
     score -= 1 if evidence["against"] or evidence["conflicts"] else 0
 
-    main_row = main_equiv.get(key)
-    if main_row is None:
-        on_main = "not on main"
-    elif main_row["type"] == row["type"]:
-        on_main = "same on main"
-    else:
-        on_main = f"main says {main_row['type']} ({main_row['source']})"
-
-    sssom = comments.get(key, {})
     meta = BY_KEY.get(db, {})
     return {
         "ari_id": f"ARI:{num:07d}", "ari_label": ari_label, "ari_synonyms": ari_syns,
@@ -410,11 +485,12 @@ def _compare_row(change, refs, ari, owners, head_equiv, main_equiv, comments, pr
         # Removed rows only exist in the merge-base file, so their line is from there
         # and sits on the diff's left side (L); every other row is on the right (R).
         "line": row["line"],
-        "line_url": f"{refs['url']}/files#{DIFF_ANCHOR}"
+        "file": change["path"],
+        "line_url": f"{refs['url']}/files#{diff_anchor(change['path'])}"
                     f"{'L' if change['status'] == 'removed' else 'R'}{row['line']}",
         "status": change["status"], "judgment": row["type"],
-        "previous_type": change["previous_type"], "curator": row["source"],
-        "comment": sssom.get("comment", ""),
+        "previous": change["previous"], "curator": row["source"],
+        "comment": change["comment"],
         "found": bool(views), "direct": any(v["direct"] for v in views),
         "views": [{k: v[k] for k in ("source", "direct", "id", "label", "synonyms",
                                       "definition", "parents", "url", "inactive", "facts", "narrow",
@@ -423,6 +499,6 @@ def _compare_row(change, refs, ari, owners, head_equiv, main_equiv, comments, pr
         "target_label": views[0]["label"] if views else "",
         "target_previous_label": views[0]["previous_label"] if views else "",
         "name_match": best, "definition_overlap": best_def, "evidence": evidence,
-        "flags": flags, "score": score, "on_main": on_main,
+        "flags": flags, "score": score, "on_main": change["on_main"],
         "hint": hint(change["status"], row["type"], bool(views), score, flags),
     }

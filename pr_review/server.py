@@ -1,4 +1,4 @@
-"""Local web app: pick an ARI pull request, see its equivalency comparison matrix."""
+"""Local web app: pick an ARI pull request, see its mapping comparison matrix."""
 from __future__ import annotations
 
 from pathlib import Path
@@ -39,7 +39,7 @@ def index():
 
 @app.get("/api/prs")
 def prs():
-    return github.list_equivalency_prs()
+    return github.list_review_prs()
 
 
 @app.get("/api/prs/{number}")
