@@ -29,7 +29,9 @@ def read(number: int) -> dict:
 
 
 def _stamp(login: str) -> dict:
-    return {"by": login, "at": datetime.datetime.now(datetime.UTC).isoformat(timespec="seconds")}
+    # timezone.utc, not datetime.UTC: the server runs Python 3.10 (Ubuntu 22.04), which lacks it.
+    return {"by": login,
+            "at": datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds")}
 
 
 def _write(number: int, state: dict) -> None:

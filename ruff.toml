@@ -2,7 +2,7 @@
 # Kept intentionally lenient to start: high-signal error/flake rules only, with a
 # generous line length to match the existing style. Tighten over time.
 line-length = 120
-target-version = "py311"
+target-version = "py310"  # the server: Ubuntu 22.04, Python 3.10 (DEPLOY.md)
 extend-exclude = ["ontologies", "static"]
 
 [lint]
