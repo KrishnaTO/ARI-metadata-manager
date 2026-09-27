@@ -138,7 +138,7 @@ const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) =>
   ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"}[c]));
 const hintClass = (h) => h.startsWith("Supported") ? "Supported" : h === "Review" ? "Review"
-  : h === "Check rejection" ? "Check-rejection" : h === "Weak evidence" ? "Weak" : "plain";
+  : h === "Check rejection" ? "Check-rejection" : ["Weak evidence", "Malformed row"].includes(h) ? "Weak" : "plain";
 
 let rows = [], hintFilter = "", sortKey = "line", sortDir = 1, open = new Set(), marks = new Set();
 let collapsed = new Set();   // ARI ids whose group is folded

@@ -74,8 +74,15 @@ disorder disorders for from has have in into is it its may of on or other that t
 there these this to which with without caused condition conditions""".split())
 
 
-def _ari_num(value: str) -> int:
-    return int(str(value).split(":")[-1].split("_")[-1])
+def _ari_num(value: str) -> int | None:
+    """The ARI number in ``ARI:0001149`` / ``ARI_0001149`` / ``1149``; None for a blank
+    subject. The metadata manager has published such rows (ARI-metadata-manager#171), so
+    they are kept and shown as malformed rather than failing the whole PR."""
+    tail = str(value).split(":")[-1].split("_")[-1].strip()
+    return int(tail) if tail else None
+
+
+NO_SUBJECT = "(no ARI subject)"
 
 
 def _row_key(ari_num: int, prefix: str, target_id: str) -> tuple:
@@ -416,7 +423,7 @@ def _compare_row(change, refs, ari, owners, head_equiv, pr_keys, indexes):
     db = PREFIX_TO_DB.get(key[1])
     ident = row["target_id"]
     ari_row = ari.get(num)
-    ari_label = ari_row["name"] if ari_row else row["source_name"]
+    ari_label = ari_row["name"] if ari_row else row["source_name"] or NO_SUBJECT
     ari_syns = ari_row["synonyms"] if ari_row else []
     ari_def = ari_row["definition"] if ari_row else ""
 
@@ -431,7 +438,8 @@ def _compare_row(change, refs, ari, owners, head_equiv, pr_keys, indexes):
     defs = [(v, o) for v, o in defs if o]
     best_def = max(defs, key=lambda p: p[1]["score"], default=(None, None))[1]
 
-    known, rejected = _ari_ids(ari_row, head_equiv, num, pr_keys)
+    known, rejected = _ari_ids(ari_row, head_equiv, num, pr_keys) if num is not None \
+        else ({}, {})
     evidence = xref_evidence(views, db, known, rejected) if db else \
         {"support": [], "against": [], "conflicts": []}
 
@@ -444,6 +452,9 @@ def _compare_row(change, refs, ari, owners, head_equiv, pr_keys, indexes):
             other_diseases |= owners.get(normalize(n), set()) - {num}
     flags = [f"Target is named like ARI clinical subtype '{s}' (narrower?)"
              for s in sorted(subtype_hits)]
+    if num is None:
+        flags.insert(0, "Malformed row: no ARI subject (blank source_id and source_name), "
+                        "so it maps this id to no disease — see ARI-metadata-manager#171")
     # The source itself says how an ARI name relates: listed as a *narrow* synonym, the
     # target is broader than the disease; as a *broad* one, it is narrower.
     ari_names = {normalize(n) for n in [ari_label, *ari_syns] if normalize(n)}
@@ -477,7 +488,7 @@ def _compare_row(change, refs, ari, owners, head_equiv, pr_keys, indexes):
 
     meta = BY_KEY.get(db, {})
     return {
-        "ari_id": f"ARI:{num:07d}", "ari_label": ari_label, "ari_synonyms": ari_syns,
+        "ari_id": f"ARI:{num:07d}" if num is not None else "", "ari_label": ari_label, "ari_synonyms": ari_syns,
         "ari_definition": ari_def, "ari_subtypes": (ari_row or {}).get("subtypes", []),
         "db": meta.get("label", key[1]), "db_key": db or "", "target_id": ident,
         "target_url": (meta.get("link") or "").replace("{num}", ident).replace("{id}", ident)
@@ -500,5 +511,6 @@ def _compare_row(change, refs, ari, owners, head_equiv, pr_keys, indexes):
         "target_previous_label": views[0]["previous_label"] if views else "",
         "name_match": best, "definition_overlap": best_def, "evidence": evidence,
         "flags": flags, "score": score, "on_main": change["on_main"],
-        "hint": hint(change["status"], row["type"], bool(views), score, flags),
+        "hint": "Malformed row" if num is None
+        else hint(change["status"], row["type"], bool(views), score, flags),
     }
