@@ -1,5 +1,9 @@
 # Changelog
 
+## disease-name-copy-button
+
+- **Copy a disease name in the PR reviewer.** Each row's ARI term cell has a ⧉ button beside the disease name that copies just the name (not the ARI id) to the clipboard, without opening the row's detail view.
+
 ## fix-reviewer-py310-marks
 
 - **Saving a mark or note in the PR reviewer no longer fails with a 500.** The store stamped entries with `datetime.UTC`, which Python 3.10 (the server's Ubuntu 22.04) lacks. It now uses `timezone.utc` like the rest of the app, and `ruff.toml` targets `py310` so lint matches the server.
