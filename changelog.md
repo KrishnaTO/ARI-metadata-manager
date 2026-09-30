@@ -1,5 +1,9 @@
 # Changelog
 
+## ari-term-search-notermfound
+
+- **A `NoTermFound` row's target link in the PR reviewer now searches that database for the ARI disease.** It used to drop `NoTermFound` into the database's per-id link, opening a broken page; it now fills the registry's `search` template with the ARI name, so the absence can be checked by hand.
+
 ## fix-reviewer-py310-marks
 
 - **Saving a mark or note in the PR reviewer no longer fails with a 500.** The store stamped entries with `datetime.UTC`, which Python 3.10 (the server's Ubuntu 22.04) lacks. It now uses `timezone.utc` like the rest of the app, and `ruff.toml` targets `py310` so lint matches the server.
