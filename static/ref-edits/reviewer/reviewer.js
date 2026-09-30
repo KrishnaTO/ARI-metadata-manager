@@ -179,7 +179,8 @@ function rowHTML(r) {
   return `<tr class="item ${marked ? "marked" : ""}" data-key="${esc(key(r))}">
     <td class="small">${line}</td>
     <td><input type="checkbox" class="mark" ${marked ? "checked" : ""} title="Mark for review"></td>
-    <td><b>${esc(r.ari_label)}</b><div class="small">${esc(r.ari_id)}</div></td>
+    <td><b>${esc(r.ari_label)}</b><button class="copy" data-copy="${esc(r.ari_label)}"
+      title="Copy the disease name">⧉</button><div class="small">${esc(r.ari_id)}</div></td>
     <td>${target}</td><td>${judgment}${status}</td><td>${name}</td><td>${def}</td>
     <td>${sup}</td><td>${flags}</td><td>${main}</td>
     <td><span class="tag ${hintClass(r.hint)}">${esc(r.hint)}</span><div class="small">score ${r.score}</div></td>
@@ -312,7 +313,14 @@ $("body").addEventListener("change", async (e) => {
   applyState(await res.json());
   render();
 });
-$("body").addEventListener("click", (e) => {
+$("body").addEventListener("click", async (e) => {
+  const copy = e.target.closest(".copy");
+  if (copy) {
+    await navigator.clipboard.writeText(copy.dataset.copy);
+    copy.textContent = "✓";
+    setTimeout(() => { copy.textContent = "⧉"; }, 1200);
+    return;
+  }
   const group = e.target.closest("tr.group");
   if (group) {
     const id = group.dataset.ari;

@@ -1,5 +1,8 @@
 # Changelog
 
+## disease-name-copy-button
+
+- **Copy a disease name in the PR reviewer.** Each row's ARI term cell has a ⧉ button beside the disease name that copies just the name (not the ARI id) to the clipboard, without opening the row's detail view.
 ## ari-term-search-notermfound
 
 - **A `NoTermFound` row's target link in the PR reviewer now searches that database for the ARI disease.** It used to drop `NoTermFound` into the database's per-id link, opening a broken page; it now fills the registry's `search` template with the ARI name, so the absence can be checked by hand.
