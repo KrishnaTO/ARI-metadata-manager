@@ -34,10 +34,12 @@ import io
 import json
 import os
 import tempfile
+from urllib.parse import quote
 
 from ..concept_service import lookup
 from ..ontology_service import OntologyService
 from ..predict_service import get_indexes, match_key, normalize, token_similarity
+from ..sssom_service import NO_TERM_ID
 from ..xref_registry import BY_KEY, SOURCE_DB, XREF_DATABASES
 from . import github, terminology
 
@@ -82,6 +84,14 @@ def _ari_num(value: str) -> int | None:
 
 
 NO_SUBJECT = "(no ARI subject)"
+
+
+def target_url(meta: dict, ident: str, ari_label: str) -> str | None:
+    """The target's page, or — for a ``NoTermFound`` row, which names no id — a search
+    of the target database for the ARI disease, to check the absence by hand."""
+    if ident == NO_TERM_ID:
+        return meta["search"].replace("{name}", quote(ari_label, safe="")) if meta.get("search") else None
+    return (meta.get("link") or "").replace("{num}", ident).replace("{id}", ident) or None
 
 
 def _row_key(ari_num: int, prefix: str, target_id: str) -> tuple:
@@ -490,8 +500,7 @@ def _compare_row(change, refs, ari, owners, head_equiv, pr_keys, indexes):
         "ari_id": f"ARI:{num:07d}" if num is not None else "", "ari_label": ari_label, "ari_synonyms": ari_syns,
         "ari_definition": ari_def, "ari_subtypes": (ari_row or {}).get("subtypes", []),
         "db": meta.get("label", key[1]), "db_key": db or "", "target_id": ident,
-        "target_url": (meta.get("link") or "").replace("{num}", ident).replace("{id}", ident)
-        or None,
+        "target_url": target_url(meta, ident, ari_label),
         # Removed rows only exist in the merge-base file, so their line is from there
         # and sits on the diff's left side (L); every other row is on the right (R).
         "line": row["line"],
