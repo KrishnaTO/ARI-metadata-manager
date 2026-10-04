@@ -1,5 +1,9 @@
 # Changelog
 
+## user-comment-deletion
+
+- **Delete your own disease comments in reference review.** Each comment you wrote in the review panel's *Disease comments* list has a Delete link, behind the same confirmation as the main browser's Feedback panel. Others' comments show no link; the server already allows only the author (or an admin) to delete one.
+
 ## disease-name-copy-button
 
 - **Copy a disease name in the PR reviewer.** Each row's ARI term cell has a ⧉ button beside the disease name that copies just the name (not the ARI id) to the clipboard, without opening the row's detail view.
