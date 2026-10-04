@@ -190,6 +190,14 @@ simpler biomappings-style **equivalencies** TSV — both merged idempotently und
 and included in the PR; an absence is recorded against SSSOM's `NoTermFound` object with the
 database named in `object_source`. Built by `app/sssom_service.py` + `static/ref-edits/`.
 
+The side panel compares the ARI disease with the candidate id's own current record, looked up
+live at each database's source — SNOMED CT and ICD-10-CM on tx.fhir.org, OMOP on OHDSI's FHIR
+server, MONDO/DOID/NCIt/Orphanet on EBI OLS, MeSH on NLM, UMLS via NCBI MedGen — the same
+lookups the PR reviewer uses (`app/pr_review/terminology.py`). It shows the term's label,
+definition, exact synonyms, narrower/broader synonyms, parents and status (inactive, OMOP
+standard/vocabulary). When a source no longer has the code, the pane says so and shows the
+downloaded snapshot; when a source can't be reached, it says that rather than showing nothing.
+
 The page's toolbar carries only what a review turn needs — the filter, the queue scope, review
 progress, the pending and ⚗ enrichment drawers, and **Publish** (its ▾ opens the tracked PR or
 starts a fresh one). Set-and-forget options live behind **⚙**: theme, row density, and whether
@@ -480,7 +488,7 @@ when its target actually changes.
 | GET | `/api/v2/xref-databases` | Cross-reference database registry (labels, prefixes, link-outs) |
 | GET | `/api/v2/mappings` | Already-curated positive/negative/absent cross-reference judgments |
 | GET | `/api/v2/id-authors` | Which curator added each cross-reference id (a curator may not confirm their own) |
-| GET | `/api/v2/concept/{db}/{id}` | Label, synonyms, definition & parents for one target-database id (compare pane); distinguishes a database's own term from a hub cross-reference |
+| GET | `/api/v2/concept/{db}/{id}` | One target-database id's own current record, looked up live at its source (compare pane); 502 when the source is unreachable |
 | GET / PUT | `/api/v2/ref-session` | Signed-in user's saved cross-reference review session (resume across reloads) |
 | GET / POST / DELETE | `/api/v2/assignments` | List / assign / unassign curator disease queues; `login` defaults to the caller (self-assignment is ungated), and a disease another curator holds needs `reassign` |
 | POST | `/api/v2/assignments/done` | Mark one assigned disease finished (or reopen it) |

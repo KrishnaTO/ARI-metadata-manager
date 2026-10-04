@@ -73,15 +73,16 @@ id	definition	parents
 
 `definition` is a single de-tabbed string; `parents` is ` | `-joined **term labels**
 (the `is_a`/hierarchy parents, resolved to labels in a second pass). A row is written
-only when the term has a definition or parents. These back the reference-review
-**compare pane** (`GET /api/v2/concept/{db}/{id}`), which `app/concept_service` loads
-lazily — the prediction hot path never parses them.
+only when the term has a definition or parents. `app/concept_service` loads them
+lazily for the PR reviewer and as the reference-review compare pane's fallback when a
+source no longer has a code (the pane otherwise looks terms up live) — the prediction
+hot path never parses them.
 
 The split is deliberate: folding definitions into the index would roughly **double**
 its size (measured before the column/synonym pruning above: 13.9 MB → 32.2 MB) while slowing
 every prediction load for data prediction never uses. As a sidecar the indexes stay
 ~10.9 MB and the ~18 MB of
-details load only when a curator opens the compare pane — and only the sidecar for
+details load only when a lookup needs them — and only the sidecar for
 the database being looked up (a DOID lookup costs ~8 MB resident, not the ~52 MB all
 five would). This matters on the small hosted instance; see `DEPLOY.md`.
 `concept_service` treats a
