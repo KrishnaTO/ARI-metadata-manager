@@ -1260,7 +1260,8 @@
         <button class="p-close" id="p-close">✕</button>
         <div class="p-eyebrow ${st === 'ok' ? 'ok' : (st === 'bad' || absent) ? 'bad' : ''}">${esc(eyebrow)}${
           ent && ent.pred ? scoreHtml(ent.pred) : ''}</div>
-        <div class="p-title">${esc(r.name)}</div>
+        <div class="p-title">${esc(r.name)}<button class="p-tcopy" id="p-tcopy"
+          title="Copy the disease name" aria-label="Copy the disease name">⧉</button></div>
         <div class="p-sub">${esc(sub)}</div>
       </div>
       ${sibs}
@@ -1285,6 +1286,13 @@
     wireComments(r);
     $('#divider').classList.add('show');
     $('#p-close').addEventListener('click', closePanel);
+    $('#p-tcopy').addEventListener('click', e => {
+      const btn = e.currentTarget;
+      navigator.clipboard.writeText(r.name)
+        .then(() => { btn.textContent = '✓'; })
+        .catch(() => { btn.textContent = '✕'; })
+        .finally(() => setTimeout(() => { btn.textContent = '⧉'; }, 1200));
+    });
     // ✎ / ＋ swaps the id box into its edit form; Save writes just this id.
     const blk = $('#p-idblock');
     const commit = () => saveId(iri, dbkey, ent ? ent.id : null);

@@ -1,5 +1,9 @@
 # Changelog
 
+## disease-name-copy-icon
+
+- **Copy a disease name from the reference-review side panel.** The panel header has a ⧉ button beside the disease name that copies just the name (not the ARI id or a link), the same control the PR reviewer has. It shows ✓ for a moment once copied.
+
 ## ari-edit-obsolete-terms
 
 - **The reference-review page hides obsolete diseases.** Obsolete terms aren't curated, so `/api/v2/xrefs` leaves them out of the matrix. `get_xref_rows` now carries each disease's `obsolete` flag; the PR reviewer, stats and the id-author backfill still see every disease.
