@@ -1283,6 +1283,7 @@
         <button class="btn ok ${st === 'ok' ? 'on' : ''}${own ? ' locked' : ''}" id="p-ok">✓ Confirm</button>
         <button class="btn bad ${st === 'bad' ? 'on' : ''}" id="p-bad">✕ Not the same</button>
         <button class="btn" id="p-next">Next open mapping</button>
+        <button class="btn" id="p-google" title="Search Google for the ARI disease vs the ${esc(db.label)} term">Google ↗</button>
       </div>` : ''}
       ${noneBtn}
       ${ent ? comparePaneHTML(r, db, ent) : ''}
@@ -1327,6 +1328,13 @@
       $('#p-ok').addEventListener('click', () => setReview(iri, dbkey, target, 'ok'));
       $('#p-bad').addEventListener('click', () => setReview(iri, dbkey, target, 'bad'));
       $('#p-next').addEventListener('click', nextOpen);
+      // The target's label may still be loading when the panel opens, so it is
+      // read at click time rather than baked into a link.
+      $('#p-google').addEventListener('click', () => {
+        const label = ent.pred ? (ent.pred.label || '') : (idLabels[lk] || '');
+        if (!label) { note(`No ${db.label} name is known for ${ent.id}, so there is nothing to search against.`, 'error'); return; }
+        window.open('https://www.google.com/search?q=' + enc(r.name + ' vs ' + label), '_blank', 'noopener');
+      });
       $('#p-copy').addEventListener('click', e => {
         navigator.clipboard.writeText(String(target)).then(() => { e.target.textContent = 'Copied'; })
           .catch(() => { e.target.textContent = 'Copy failed'; });

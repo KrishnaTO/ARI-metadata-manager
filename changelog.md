@@ -1,5 +1,8 @@
 # Changelog
 
+## ari-edits-google-search-button
+
+- **Google the ARI disease against its mapped term from the review panel.** A *Google ↗* button beside *Next open mapping* (`/ref-edits/`) opens a Google search for "<ARI disease> vs <target term label>" in a new tab. It reads the target's label when clicked, so it works once the label lookup lands. An id with no known label shows a note instead of an empty search.
 ## disease-name-copy-icon
 
 - **Copy a disease name from the reference-review side panel.** The panel header has a ⧉ button beside the disease name that copies just the name (not the ARI id or a link), the same control the PR reviewer has. It shows ✓ for a moment once copied.
