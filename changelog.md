@@ -3,6 +3,12 @@
 ## ari-edits-google-search-button
 
 - **Google the ARI disease against its mapped term from the review panel.** A *Google ↗* button beside *Next open mapping* (`/ref-edits/`) opens a Google search for "<ARI disease> vs <target term label>" in a new tab. It reads the target's label when clicked, so it works once the label lookup lands. An id with no known label shows a note instead of an empty search.
+## disease-name-copy-icon
+
+- **Copy a disease name from the reference-review side panel.** The panel header has a ⧉ button beside the disease name that copies just the name (not the ARI id or a link), the same control the PR reviewer has. It shows ✓ for a moment once copied.
+## disease-panel-sources
+
+- **The reference-review side panel reads each database's own current record.** The compare pane described a candidate id from the downloaded `data/2-databases` snapshot, which holds no SNOMED, OMOP, ICD-10 or UMLS terms at all — only MONDO's or DOID's opinion of them, sometimes a broader term. `/api/v2/concept/{db}/{id}` now looks the id up live at its source, as the PR reviewer does: SNOMED CT (US edition) and ICD-10-CM on tx.fhir.org, OMOP on OHDSI's FHIR server, MONDO/DOID/NCIt/Orphanet on EBI OLS, MeSH on NLM and UMLS via NCBI MedGen. The pane names its source and adds narrower/broader synonyms, inactive/obsolete status and source facts (OMOP vocabulary, standard status, ICD-10 billability). A code the source lacks falls back to the snapshot, labelled as such; an unreachable source is reported as a 502 and shown in the pane instead of "not found"; an unknown database is a 404 instead of a 500.
 
 ## ari-edit-obsolete-terms
 

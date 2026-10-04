@@ -7,11 +7,11 @@ after a reload.
 """
 import logging
 
-from fastapi import APIRouter, Body, Request
+import httpx
+from fastapi import APIRouter, Body, HTTPException, Request
 from fastapi.responses import JSONResponse
 
 from .. import (
-    concept_service,
     config,
     predict_service,
     sessions,
@@ -22,6 +22,8 @@ from .. import (
     xref_registry,
 )
 from .. import github_service as gh
+from ..errors import NotFound
+from ..pr_review import compare, terminology
 
 log = logging.getLogger(__name__)
 
@@ -158,14 +160,38 @@ async def enrichment_preview(request: Request, payload: dict = Body(default={}))
 
 
 @router.get("/api/v2/concept/{db}/{obj_id:path}")
-async def concept_detail_lookup(db: str, obj_id: str):
-    """Label, synonyms, definition and parents for one target-database id.
+def concept_detail_lookup(db: str, obj_id: str):
+    """What one target-database id is, from that database's own current record.
 
     Backs the right-hand side of the reference-review compare pane: the curator sees
-    what a candidate concept actually is, next to the ARI disease. ``{obj_id:path}``
-    because ids carry colons (and dots, for ICD-10). Distinguishes a database's own
-    term (``direct: true``) from a hub cross-reference (``direct: false`` + ``via``);
-    a valid-but-unindexed id is a normal ``found: false`` 200, not a 404. Reads the
-    public index files only — no auth, same as ``/api/v2/predictions``. An unknown
-    ``db`` raises ``KeyError`` -> 404 via the existing handler."""
-    return concept_service.lookup(db, obj_id, predict_service.get_indexes())
+    what a candidate concept actually is, next to the ARI disease. The term is looked up
+    live at its source (``pr_review.terminology``: tx.fhir.org, OHDSI, EBI OLS, NLM MeSH,
+    NCBI MedGen), merged with the local index copy as the PR reviewer does
+    (``compare.target_views``). ``live: false`` means the source has no such code and the
+    answer is the downloaded snapshot's; ``direct: false`` means only hub terms that
+    cross-reference the id know it (``via``). ``{obj_id:path}`` because ids carry colons
+    (and dots, for ICD-10). An unknown ``db`` is a 404; an unreachable source is a 502,
+    not an empty answer."""
+    if db not in xref_registry.BY_KEY:
+        raise NotFound(f"unknown database {db!r}")
+    source = terminology.SOURCES.get(db) or xref_registry.BY_KEY[db]["label"]
+    ident = xref_registry.normalize_id(db, obj_id)
+    try:
+        views = compare.target_views(db, ident, predict_service.get_indexes()) if ident else []
+    except httpx.HTTPError as err:
+        host = err.request.url.host if err.request else source
+        raise HTTPException(status_code=502, detail=f"{host} failed: {err}") from err
+    own = next((v for v in views if v["direct"]), None)
+    via = [{"source": v["source"], "id": v["id"], "label": v["label"]}
+           for v in views if not v["direct"]]
+    out = {"found": bool(views), "direct": own is not None, "source": source,
+           "live": own is not None and own["source"] == source, "label": "",
+           "synonyms": [], "narrow": [], "broad": [], "definition": "", "parents": [],
+           "inactive": False, "facts": [], "via": via}
+    if own is not None:
+        out.update({k: own[k] for k in ("label", "synonyms", "narrow", "broad", "definition",
+                                        "parents", "inactive", "facts")})
+    elif via:
+        # A hub's synonyms and definition describe the hub concept, not this id.
+        out["label"] = via[0]["label"]
+    return out
