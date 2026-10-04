@@ -342,6 +342,7 @@ class OntologyService:
             row = {"iri": ind.iri, "name": self._get_label(ind),
                    "ari_id": ari[0] if ari else None,
                    "autoimmune": self._is_autoimmune(ind),
+                   "obsolete": self._is_obsolete(ind),
                    # The review panel puts this opposite the candidate concept's
                    # own definition, so judging a mapping is a side-by-side read
                    # rather than a memory test (issue #96). One extra annotation
