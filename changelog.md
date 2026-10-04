@@ -3,6 +3,10 @@
 ## user-comment-deletion
 
 - **Delete your own disease comments in reference review.** Each comment you wrote in the review panel's *Disease comments* list has a Delete link, behind the same confirmation as the main browser's Feedback panel. Others' comments show no link; the server already allows only the author (or an admin) to delete one.
+## owl-named-individual
+
+- **A published disease keeps its `<owl:NamedIndividual>` element.** Publishing re-wrote each touched record from unordered sets. owlready2 names an element after its first `rdf:type`, so about half the time a disease came out as `<AutoimmuneDisease rdf:about=…>`. The data repo's validator then saw it as deleted (KrishnaTO/ARI#105). `merge_service._write` now writes values in the order the branch already stores them, with `owl:NamedIndividual` first, so a record's lines and its changelog's date order also stay put.
+- **A publish diff shows only the curator's change.** owlready2 reorders a whole file that it didn't write itself (one last touched by a hand repair or a git merge). A one-synonym publish moved ~1,100 lines. The new `app/owl_splice.py` commits the branch's own file with only the rewritten blocks swapped in: changed blocks replaced in place, removed ones dropped, and new ones added at the end.
 
 ## disease-name-copy-button
 
