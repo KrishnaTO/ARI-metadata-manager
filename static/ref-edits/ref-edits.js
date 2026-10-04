@@ -1353,13 +1353,32 @@
     // The panel may have moved on to another disease while this was in flight.
     if (!list || !active || active.iri !== r.iri) return;
     if (!items) { list.innerHTML = '<div class="p-note">Comments could not be loaded.</div>'; return; }
+    // Only the author may delete a comment; the server enforces the same rule.
+    const mine = it => !!(me && me.authenticated && it.author === me.login);
     list.innerHTML = items.length
       ? items.map(it => `<div class="p-citem">
           <div class="p-cmsg">${esc(it.message)}</div>
           <div class="p-cmeta">@${esc(it.author || 'anonymous')} · ${esc(it.updated || it.created)}${
-            it.keep ? ' · <span class="p-cpill">kept after release</span>' : ''}</div>
+            it.keep ? ' · <span class="p-cpill">kept after release</span>' : ''}${
+            mine(it) ? `<button class="p-cdel" data-cdel="${esc(it.id)}" title="Delete your comment">Delete</button>` : ''}</div>
         </div>`).join('')
       : '<div class="p-note">No comments on this disease yet.</div>';
+    list.querySelectorAll('[data-cdel]').forEach(b =>
+      b.addEventListener('click', () => deleteComment(r, b.dataset.cdel)));
+  }
+
+  async function deleteComment(r, fid) {
+    if (!await UIDialog.confirm({
+      title: 'Delete this comment?',
+      detail: 'It is removed for everyone, and cannot be brought back.',
+      confirmLabel: 'Delete it',
+      danger: true,
+    })) return;
+    try {
+      await api('feedback/' + enc(fid), { method: 'DELETE' });
+      note('Comment deleted.', 'ok');
+      await loadComments(r);
+    } catch (e) { note('Could not delete your comment: ' + e.message, 'error'); }
   }
 
   function wireComments(r) {
