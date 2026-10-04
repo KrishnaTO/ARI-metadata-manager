@@ -11,7 +11,7 @@ from pathlib import Path
 from fastapi import APIRouter, Body, Request
 from fastapi.responses import JSONResponse
 
-from .. import atomic_store, config, diff_service, merge_service, sessions, sssom_service, stores, workspace
+from .. import atomic_store, config, diff_service, merge_service, owl_splice, sessions, sssom_service, stores, workspace
 from .. import github_service as gh
 from ..ontology_service import OntologyService
 
@@ -263,9 +263,11 @@ async def publish(request: Request, payload: dict = Body(default={})):
         # The commit is the source branch with this curator's diseases written
         # over it — the same shape `sssom_service.build` already uses for the
         # mapping files, which is why not one mapping row was lost.
+        original = baseline.path.read_bytes()
         merge_service.graft_diseases(svc, baseline, scope)
         baseline._save()
-        content = baseline.path.read_bytes()
+        # In the branch's own order, so the diff is the curator's change alone.
+        content = owl_splice.splice(original, baseline.path.read_bytes())
     except Exception:
         # The graft can refuse (see merge_service), and that lands between the
         # changelog entries going in and anything being committed.

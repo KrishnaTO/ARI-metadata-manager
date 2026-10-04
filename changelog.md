@@ -1,5 +1,10 @@
 # Changelog
 
+## owl-named-individual
+
+- **A published disease keeps its `<owl:NamedIndividual>` element.** Publishing re-wrote each touched record from unordered sets. owlready2 names an element after its first `rdf:type`, so about half the time a disease came out as `<AutoimmuneDisease rdf:about=…>`. The data repo's validator then saw it as deleted (KrishnaTO/ARI#105). `merge_service._write` now writes values in the order the branch already stores them, with `owl:NamedIndividual` first, so a record's lines and its changelog's date order also stay put.
+- **A publish diff shows only the curator's change.** owlready2 reorders a whole file that it didn't write itself (one last touched by a hand repair or a git merge). A one-synonym publish moved ~1,100 lines. The new `app/owl_splice.py` commits the branch's own file with only the rewritten blocks swapped in: changed blocks replaced in place, removed ones dropped, and new ones added at the end.
+
 ## disease-name-copy-button
 
 - **Copy a disease name in the PR reviewer.** Each row's ARI term cell has a ⧉ button beside the disease name that copies just the name (not the ARI id) to the clipboard, without opening the row's detail view.
