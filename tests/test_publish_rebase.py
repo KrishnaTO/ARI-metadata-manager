@@ -107,3 +107,65 @@ def test_the_rebased_file_still_loads(pair, tmp_path):
     reloaded = OntologyService(str(branch.path))
     assert reloaded.get_disease_detail(mine)["synonyms"] == ["round-trip"]
     assert len(reloaded.get_diseases_list()) == len(working.get_diseases_list())
+
+
+# ----------------------------------------------------------------- file layout
+def _block(text, iri):
+    """The lines of ``iri``'s entity block in serialised OWL."""
+    lines = text.split("\n")
+    start = next(i for i, line in enumerate(lines) if f'rdf:about="{iri}"' in line)
+    end = next(i for i in range(start, len(lines)) if lines[i].startswith("</"))
+    return lines[start:end + 1]
+
+
+def test_a_grafted_disease_keeps_its_element_and_line_order(pair):
+    working, branch = pair
+    mine = _iris(working, 1)[0]
+    before = _block(branch.path.read_text(encoding="utf-8"), mine)
+    working.update_disease(mine, {"synonyms": "kept-in-place"}, editor="ada")
+
+    merge_service.graft_diseases(working, branch, {mine})
+    branch._save()
+
+    after = _block(branch.path.read_text(encoding="utf-8"), mine)
+    # Rewritten from sets, the type was picked at random: <AutoimmuneDisease>
+    # half the time, which the data repo's validator read as a deletion (ARI#105).
+    assert after[0].startswith("<owl:NamedIndividual ")
+    # Every line both versions have is in the same order.
+    assert [line for line in after if line in before] == [line for line in before if line in after]
+
+
+def test_a_publish_keeps_the_branchs_file_order(pair):
+    from app.ontology_service import OntologyService
+    from app.owl_splice import splice
+    working, branch = pair
+    mine = _iris(working, 1)[0]
+    # A branch last written by something other than owlready2 — a hand repair
+    # moved this block to the end. Saved as-is, owlready2 would move it back.
+    text = branch.path.read_text(encoding="utf-8")
+    block = "\n".join(_block(text, mine)) + "\n\n"
+    text = text.replace(block, "")
+    text = text.replace("\n\n\n</rdf:RDF>", "\n\n" + block.rstrip("\n") + "\n\n\n</rdf:RDF>")
+    branch.path.write_bytes(text.encode("utf-8"))   # LF, as GitHub serves it
+    branch = OntologyService(str(branch.path))
+    original = branch.path.read_bytes()
+    working.update_disease(mine, {"synonyms": "only-change"}, editor="ada")
+    working.add_item(mine, "symptoms", {"name": "Spliced symptom"}, editor="ada")
+
+    merge_service.graft_diseases(working, branch, {mine})
+    branch._save()
+    content = splice(original, branch.path.read_bytes())
+
+    old, new = original.decode().split("\n"), content.decode().split("\n")
+    # Nothing moved: every line that survived is where it was. Only the
+    # replaced synonym went.
+    kept = [line for line in old if line in new]
+    it = iter(new)
+    assert all(line in it for line in kept)
+    assert all("<ARI_Synonym " in line for line in old if line not in new)
+    added = [line for line in new if line not in old]
+    assert any("only-change" in line for line in added)
+    assert any("Spliced symptom" in line for line in added)
+    # And it is the same ontology owlready2 wrote.
+    branch.path.write_bytes(content)
+    assert "only-change" in OntologyService(str(branch.path)).get_disease_detail(mine)["synonyms"]

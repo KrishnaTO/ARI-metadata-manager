@@ -31,6 +31,7 @@ CHANGELOG = "ARI_ChangeLog"
 
 RDF_TYPE = "http://www.w3.org/1999/02/22-rdf-syntax-ns#type"
 RDFS = "http://www.w3.org/2000/01/rdf-schema#"
+NAMED_INDIVIDUAL = (RDF_TYPE, ("o", "http://www.w3.org/2002/07/owl#NamedIndividual"))
 
 
 def _multi_valued(base: str) -> frozenset:
@@ -96,27 +97,39 @@ def _ensure_property(dst, p_iri, sources):
                                      dst.world._abbreviate(src.world._unabbreviate(o)))
 
 
-def _triples(svc, iri):
-    """Everything ``svc`` says about ``iri`` as ``{predicate: {value}}``, or None.
+def _pairs(svc, iri) -> list:
+    """Everything ``svc`` says about ``iri`` as ``(predicate, value)``, in stored order.
 
     Values are world-independent: object values are IRIs, data values carry
     their datatype IRI (or language tag), so two services compare directly.
+    Stored order is insertion order, objects before data — the order owlready2
+    writes them in. Its ``_get_*_triples_s_*`` lookups read through the
+    ``(s, p)`` index and so come back grouped by predicate instead.
     """
     w = svc.world
     s = w._abbreviate(iri, False)
     if s is None:
-        return None
-    out = {}
-    for p, o in w._get_obj_triples_s_po(s):
+        return []
+    db = w.graph
+    out = []
+    for p, o in db.execute("SELECT p,o FROM objs WHERE s=? ORDER BY rowid", (s,)):
         if o < 0:
             # Anonymous class expressions would need their whole subtree copied.
             # No disease or item in this ontology has one; refusing beats
             # committing a record with a piece of itself missing.
             raise ValueError(f"{iri} carries an anonymous node under {w._unabbreviate(p)}")
-        out.setdefault(w._unabbreviate(p), set()).add(("o", w._unabbreviate(o)))
-    for p, o, d in w._get_data_triples_s_pod(s):
+        out.append((w._unabbreviate(p), ("o", w._unabbreviate(o))))
+    for p, o, d in db.execute("SELECT p,o,d FROM datas WHERE s=? ORDER BY rowid", (s,)):
         dt = w._unabbreviate(d) if isinstance(d, int) and d > 0 else d
-        out.setdefault(w._unabbreviate(p), set()).add(("d", o, dt))
+        out.append((w._unabbreviate(p), ("d", o, dt)))
+    return out
+
+
+def _triples(svc, iri):
+    """Everything ``svc`` says about ``iri`` as ``{predicate: {value}}``, or None."""
+    out = {}
+    for p, v in _pairs(svc, iri):
+        out.setdefault(p, set()).add(v)
     return out or None
 
 
@@ -125,21 +138,36 @@ def _write(dst, iri, props, sources):
 
     ``None`` deletes the subject — a curator removing an item, where leaving the
     old triples behind would resurrect it.
+
+    owlready2 serialises a subject's triples in the order they are stored and
+    names its XML element after the first ``rdf:type``. Writing straight from
+    ``props``' sets reshuffled every rewritten record — its changelog out of
+    date order — and, at random, turned ``<owl:NamedIndividual>`` into
+    ``<AutoimmuneDisease>``, which the data repo's validator then read as a
+    deleted disease (ARI#105). So values keep the order ``dst`` holds them in,
+    then the order of ``sources``, and ``owl:NamedIndividual`` is always the
+    first type.
     """
+    rank = {}
+    for svc in (dst, *sources):
+        for pair in _pairs(svc, iri):
+            rank.setdefault(pair, len(rank))
+    pairs = sorted(((p, v) for p, values in (props or {}).items() for v in values),
+                   key=lambda pair: (pair != NAMED_INDIVIDUAL, rank.get(pair, len(rank)), repr(pair)))
+
     dw = dst.world
     s = dw._abbreviate(iri)
     dst.onto._del_obj_triple_spo(s, None, None)
     dst.onto._del_data_triple_spod(s, None, None, None)
-    for p_iri, values in (props or {}).items():
+    for p_iri, v in pairs:
         _ensure_property(dst, p_iri, sources)
         p = dw._abbreviate(p_iri)
-        for v in values:
-            if v[0] == "o":
-                dst.onto._add_obj_triple_spo(s, p, dw._abbreviate(v[1]))
-            else:
-                _, o, dt = v
-                d = dw._abbreviate(dt) if isinstance(dt, str) and not dt.startswith("@") else dt
-                dst.onto._add_data_triple_spod(s, p, o, d)
+        if v[0] == "o":
+            dst.onto._add_obj_triple_spo(s, p, dw._abbreviate(v[1]))
+        else:
+            _, o, dt = v
+            d = dw._abbreviate(dt) if isinstance(dt, str) and not dt.startswith("@") else dt
+            dst.onto._add_data_triple_spod(s, p, o, d)
 
 
 def _graft(src, dst, iri):
