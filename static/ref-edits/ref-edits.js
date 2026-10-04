@@ -277,42 +277,55 @@
     const col = $('#cmp-candidate');
     if (!col) return;
     const head = `<div class="cmp-head">${esc(db.label)} &middot; ${esc(ent.id)}</div>`;
-    if (!c || !c.found) {
+    if (c.error) {
       col.innerHTML = head + `<div class="cmp-none" style="margin-top:8px">
-        This id is not in the downloaded ${esc(db.label)} index, so there is nothing to
-        compare against here. Open it at the source to check it.</div>`;
+        Couldn't look this id up: ${esc(c.error)}. Open it at the source to check it.</div>`;
       return;
     }
-    // A hub cross-reference is a weaker claim than the database's own term, and
-    // the curator should be able to see which they are looking at.
-    const via = (!c.direct && (c.via || []).length)
-      ? `<div class="cmp-via">Not ${esc(db.label)}'s own record — found via
-           ${c.via.map(v => esc(v)).join(', ')}, which cross-references this id.</div>`
+    if (!c.found) {
+      col.innerHTML = head + `<div class="cmp-none" style="margin-top:8px">
+        ${esc(c.source)} has no record of this id. Open it at the source to check it.</div>`;
+      return;
+    }
+    // Where the answer came from: the database's own current record, the dated
+    // snapshot (the source no longer has the code), or a hub that cross-references it.
+    const viaList = (c.via || []).map(v => `${esc(v.source)} ${esc(v.id)} “${esc(v.label)}”`).join(', ');
+    const origin = !c.direct
+      ? `<div class="cmp-via">Not in ${esc(c.source)} — found via ${viaList}, which
+           cross-references this id.</div>`
+      : !c.live
+        ? `<div class="cmp-via">Not in ${esc(c.source)} — showing the downloaded snapshot.</div>`
+        : `<div class="cmp-src">From ${esc(c.source)}</div>`;
+    const flags = [c.inactive ? 'inactive / obsolete at the source' : '', ...(c.facts || [])]
+      .filter(Boolean);
+    const chipRow = (label, list) => (list || []).length
+      ? `<div class="cmp-label">${label}</div>
+         <div class="cmp-chips">${list.map(x => `<span class="cmp-chip">${esc(x)}</span>`).join('')}</div>`
       : '';
-    const defn = c.definition
-      ? esc(c.definition)
-      : `<span class="cmp-none">${esc(c.note || 'no definition in the downloaded index')}</span>`;
-    const parents = (c.parents || []).length
-      ? `<div class="cmp-label">Broader terms</div>
-         <div class="cmp-chips">${(c.parents || []).map(x => `<span class="cmp-chip">${esc(x)}</span>`).join('')}</div>`
-      : '';
-    col.innerHTML = head + via +
+    col.innerHTML = head + origin +
       `<div class="cmp-name">${esc(c.label || '(unnamed)')}</div>
+       ${flags.length ? `<div class="cmp-facts">${flags.map(esc).join(' &middot; ')}</div>` : ''}
        <div class="cmp-label">Definition</div>
-       <div class="cmp-def">${defn}</div>
+       <div class="cmp-def">${c.definition ? esc(c.definition) : '<span class="cmp-none">none recorded</span>'}</div>
        <div class="cmp-label">Synonyms</div>
        <div class="cmp-chips">${synonymChips(c.synonyms)}</div>
-       ${parents}`;
+       ${chipRow('Narrower synonyms', c.narrow)}
+       ${chipRow('Broader synonyms', c.broad)}
+       ${chipRow('Broader terms', c.parents)}`;
   }
 
-  // Session cache of concept lookups, keyed `${db}|${id}`. Labels are decoration —
-  // nothing waits on them, and a failed lookup just leaves the id unlabelled.
+  // Session cache of concept lookups, keyed `${db}|${id}`. Each is looked up live at
+  // the database's source, so a failure comes back as `{error}` and is dropped from
+  // the cache — reopening the cell tries again.
   const conceptCache = {};
 
   async function conceptFor(db, id) {
     const key = db + '|' + id;
     if (!(key in conceptCache)) {
-      conceptCache[key] = api('concept/' + enc(db) + '/' + enc(id)).catch(() => null);
+      conceptCache[key] = api('concept/' + enc(db) + '/' + enc(id)).catch(e => {
+        delete conceptCache[key];
+        return { error: e.message };
+      });
     }
     return conceptCache[key];
   }
