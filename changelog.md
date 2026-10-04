@@ -1,5 +1,9 @@
 # Changelog
 
+## disease-panel-sources
+
+- **The reference-review side panel reads each database's own current record.** The compare pane described a candidate id from the downloaded `data/2-databases` snapshot, which holds no SNOMED, OMOP, ICD-10 or UMLS terms at all — only MONDO's or DOID's opinion of them, sometimes a broader term. `/api/v2/concept/{db}/{id}` now looks the id up live at its source, as the PR reviewer does: SNOMED CT (US edition) and ICD-10-CM on tx.fhir.org, OMOP on OHDSI's FHIR server, MONDO/DOID/NCIt/Orphanet on EBI OLS, MeSH on NLM and UMLS via NCBI MedGen. The pane names its source and adds narrower/broader synonyms, inactive/obsolete status and source facts (OMOP vocabulary, standard status, ICD-10 billability). A code the source lacks falls back to the snapshot, labelled as such; an unreachable source is reported as a 502 and shown in the pane instead of "not found"; an unknown database is a 404 instead of a 500.
+
 ## ari-edit-obsolete-terms
 
 - **The reference-review page hides obsolete diseases.** Obsolete terms aren't curated, so `/api/v2/xrefs` leaves them out of the matrix. `get_xref_rows` now carries each disease's `obsolete` flag; the PR reviewer, stats and the id-author backfill still see every disease.
