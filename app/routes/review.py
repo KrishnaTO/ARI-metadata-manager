@@ -60,8 +60,9 @@ async def _mapping_judgments(request: Request) -> list:
 
 @router.get("/api/v2/xrefs")
 async def xrefs(request: Request):
-    """All diseases with their database cross-references, for the reference-review page."""
-    return workspace.service_for(request).get_xref_rows()
+    """Non-obsolete diseases with their database cross-references, for the
+    reference-review page. Obsolete terms aren't curated, so they're left out."""
+    return [r for r in workspace.service_for(request).get_xref_rows() if not r["obsolete"]]
 
 
 @router.get("/api/v2/ref-session")

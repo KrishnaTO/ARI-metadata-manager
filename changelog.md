@@ -1,8 +1,13 @@
 # Changelog
 
+## ari-edit-obsolete-terms
+
+- **The reference-review page hides obsolete diseases.** Obsolete terms aren't curated, so `/api/v2/xrefs` leaves them out of the matrix. `get_xref_rows` now carries each disease's `obsolete` flag; the PR reviewer, stats and the id-author backfill still see every disease.
+
 ## user-comment-deletion
 
 - **Delete your own disease comments in reference review.** Each comment you wrote in the review panel's *Disease comments* list has a Delete link, behind the same confirmation as the main browser's Feedback panel. Others' comments show no link; the server already allows only the author (or an admin) to delete one.
+
 ## owl-named-individual
 
 - **A published disease keeps its `<owl:NamedIndividual>` element.** Publishing re-wrote each touched record from unordered sets. owlready2 names an element after its first `rdf:type`, so about half the time a disease came out as `<AutoimmuneDisease rdf:about=…>`. The data repo's validator then saw it as deleted (KrishnaTO/ARI#105). `merge_service._write` now writes values in the order the branch already stores them, with `owl:NamedIndividual` first, so a record's lines and its changelog's date order also stay put.
