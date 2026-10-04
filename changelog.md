@@ -1,5 +1,9 @@
 # Changelog
 
+## ari-edits-google-search-button
+
+- **Google the ARI disease against its mapped term from the review panel.** A *Google ↗* button beside *Next open mapping* (`/ref-edits/`) opens a Google search for "<ARI disease> vs <target term label>" in a new tab. It reads the target's label when clicked, so it works once the label lookup lands. An id with no known label shows a note instead of an empty search.
+
 ## ari-edit-obsolete-terms
 
 - **The reference-review page hides obsolete diseases.** Obsolete terms aren't curated, so `/api/v2/xrefs` leaves them out of the matrix. `get_xref_rows` now carries each disease's `obsolete` flag; the PR reviewer, stats and the id-author backfill still see every disease.
