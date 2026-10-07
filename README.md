@@ -17,8 +17,10 @@ behind nginx.
 This repository contains the metadata-manager app only: the FastAPI backend, vanilla-JS
 frontend, ontology seed/import tooling, and deployment assets. It no longer includes the
 full ARI monorepo history or sibling `data/` and `notebook/` areas from
-[`KrishnaTO/ARI`](https://github.com/KrishnaTO/ARI). The local ontology used by the app is
-kept under `ontologies/`.
+[`KrishnaTO/ARI`](https://github.com/KrishnaTO/ARI). The ontology itself belongs to that repo:
+the app's runtime copy at `ontologies/ari_t1d.owl` is not tracked here (it is fetched from
+`KrishnaTO/ARI` by `deploy/update-ontology.sh` on the server, or copied in for local use). The test
+suite runs against the snapshot in `tests/fixtures/ontologies/`.
 
 ## Areas (project structure)
 
@@ -98,14 +100,14 @@ ARI-metadata-manager/
 ├── deploy/                          # ── Hosting (systemd + nginx) ──
 │   ├── ari-mm.service               #   uvicorn service (runs as ariapp on :8001)
 │   ├── ari-mm-update.service        #   oneshot wrapper for update.sh
-│   ├── ari-mm-update.timer          #   every 10 min: pull app branch, restart only if changed
-│   ├── update.sh                    #   git reset --hard origin/<branch>; restart on change
+│   ├── ari-mm-update.timer          #   every 10 min: pull app branch, restart until running HEAD
+│   ├── update.sh                    #   git reset --hard origin/<branch>; refresh ontology; restart if behind
 │   ├── ari-mm-ontology-update.service  # oneshot wrapper for update-ontology.sh
 │   ├── ari-mm-ontology-update.timer    # every 10 min: refresh ontology from the ARI repo
-│   ├── update-ontology.sh           #   fetch ontology file from GitHub; restart only if changed
+│   ├── update-ontology.sh           #   fetch ontology file from GitHub; atomic replace, no restart
 │   └── nginx.conf                   #   reverse proxy; strips the /ari-editor prefix
 │
-├── ontologies/ari_t1d.owl      # The ontology data file (RDF/XML, Protégé-compatible)
+├── ontologies/ari_t1d.owl      # Runtime ontology, fetched from KrishnaTO/ARI (gitignored)
 ├── releases/                   # Versioned OWL snapshots          (gitignored)
 ├── feedback/                   # Runtime feedback log             (gitignored)
 ├── .user-data/                 # Per-user working copies          (gitignored, auto-swept)
@@ -360,6 +362,8 @@ never sent to the browser.
 
 ```bash
 pip install -r requirements.txt
+# The runtime ontology is not tracked here; copy it from your KrishnaTO/ARI checkout:
+mkdir -p ontologies && cp ../ARI/ontologies/ari_t1d.owl ontologies/
 python run.py                 # serves http://127.0.0.1:8001 and opens the browser
 ```
 
@@ -462,8 +466,10 @@ ruleset.
 See **DEPLOY.md**: Ubuntu 22.04 Lightsail, uvicorn under systemd (`ari-mm`), nginx reverse
 proxy serving the app at `/ari-editor`, and Cloudflare free SSL. Two systemd timers keep the
 box current: one tracks this app repo's `APP_REPO_BRANCH` (code), the other refreshes the
-ontology file from `GITHUB_BASE_BRANCH` of the ARI data repo — each restarts the service only
-when its target actually changes.
+ontology file from `GITHUB_BASE_BRANCH` of the ARI data repo. Code changes restart the service
+(deferred while curators have work in memory, and retried until the running commit matches
+`HEAD`); ontology changes need no restart, because the shared base ontology reloads whenever its
+file's mtime changes.
 
 ## REST API
 
@@ -518,5 +524,5 @@ when its target actually changes.
 
 App data derives from the ARI catalogue sources previously maintained in
 [`KrishnaTO/ARI`](https://github.com/KrishnaTO/ARI) and from the generated local OWL file in
-`ontologies/`. No online data sources are pulled into the content at runtime —
+`ontologies/` (fetched from that repo). No online data sources are pulled into the content at runtime —
 external-database identifiers are rendered as link-outs only.

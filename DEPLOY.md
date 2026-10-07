@@ -109,19 +109,24 @@ sudo systemctl enable --now ari-mm-update.timer   # pulls app repo main every 10
 sudo systemctl enable --now ari-mm-ontology-update.timer   # fetches ARI ontology every 10 min
 sudo systemctl enable --now ari-mm-mapping-update.timer   # fetches ARI mappings every 10 min
 
-# allow the app user to restart the service from update scripts
+# allow the app user to restart the service from update.sh
 echo 'ariapp ALL=(root) NOPASSWD: /bin/systemctl restart ari-mm' | sudo tee /etc/sudoers.d/ari-mm
 ```
 
 There are three independent refresh paths:
 
 1. **App-code refresh**: `ari-mm-update.timer` runs `deploy/update.sh`, which
-   pulls `/opt/ari/ari-metadata-manager` from its app branch and restarts the app
-   only if app code changed.
+   pulls `/opt/ari/ari-metadata-manager` from its app branch, re-runs
+   `update-ontology.sh`, and restarts the app when the commit it is running (read
+   from `/healthz`) differs from `HEAD`. While curators have work in memory the
+   restart is deferred and retried on every run until it happens; set
+   `ARI_FORCE_RESTART=1` to restart immediately.
 2. **Ontology-data refresh**: `ari-mm-ontology-update.timer` runs
    `deploy/update-ontology.sh`, which fetches `GITHUB_ONTOLOGY_PATH` from
    `KrishnaTO/ARI:GITHUB_BASE_BRANCH`, writes it to the local runtime ontology
-   file, and restarts the app only if the ontology bytes changed.
+   file atomically when the bytes changed. No restart: the app reloads the shared
+   base ontology on the next request once the file's mtime changes. The runtime
+   file is gitignored in the app repo, so `update.sh`'s reset never touches it.
 
 The local runtime ontology defaults to:
 ```bash

@@ -113,7 +113,7 @@ async def healthz():
     Nothing here needs a session: it reports no curation content, only whether
     the process is serving and how much it is holding."""
     try:
-        loaded = len(workspace.BASE.get_diseases_list())
+        loaded = len(workspace.base().get_diseases_list())
     except Exception as e:                     # a failed ontology load is the thing to catch
         log.error("Health check could not read the base ontology: %s", e)
         return JSONResponse(status_code=503, content={

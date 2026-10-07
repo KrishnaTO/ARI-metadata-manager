@@ -13,9 +13,11 @@ it recovers with a warning.
 """
 import json
 import logging
+import os
 import shutil
 import time
 from collections import OrderedDict
+from pathlib import Path
 
 import pytest
 
@@ -142,6 +144,20 @@ def test_a_read_through_service_for_finds_the_working_copy_too(user_dir, monkeyp
     # A curator who has never edited anything still reads the shared base.
     monkeypatch.setattr(sessions, "_login", lambda request: "bob")
     assert workspace.service_for(object()) is workspace.BASE
+
+
+def test_anonymous_reads_follow_the_ontology_file(user_dir):
+    """The bug: BASE was read once at import, so anonymous readers kept the
+    ontology from the last restart — retired ICD-9 ids and all — while
+    update-ontology.sh had long since replaced the file."""
+    before = workspace.user_service(None)
+    assert workspace.user_service(None) is before          # unchanged file: no reload
+    f = Path(config.ONTOLOGY_FILE)
+    st = f.stat()
+    os.utime(f, ns=(st.st_atime_ns, st.st_mtime_ns + 1_000_000_000))
+    after = workspace.user_service(None)
+    assert after is not before
+    assert after is workspace.BASE
 
 
 def test_in_memory_worlds_are_bounded(user_dir, monkeypatch):

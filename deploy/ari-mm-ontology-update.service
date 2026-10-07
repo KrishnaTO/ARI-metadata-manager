@@ -1,6 +1,6 @@
 # /etc/systemd/system/ari-mm-ontology-update.service
 [Unit]
-Description=Fetch latest ARI ontology from GitHub and restart the manager if changed
+Description=Fetch latest ARI ontology from GitHub into the manager's runtime file
 After=network-online.target
 Wants=network-online.target
 

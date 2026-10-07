@@ -240,3 +240,7 @@ feedback/
 pr-review/
 # The retired standalone reviewer's local marks/notes (copied into pr-review/)
 .pr-review/
+
+# Runtime ontology: fetched from KrishnaTO/ARI by deploy/update-ontology.sh.
+# The test snapshot lives in tests/fixtures/ontologies/.
+/ontologies/

@@ -1,5 +1,12 @@
 # Changelog
 
+## fix/stale-base-ontology
+
+- **Signed-out readers see the current ontology.** `/ref-edits/` showed 154 of 214 diseases mapped signed out and 210 signed in. Signed-in curators read a working copy that `/api/v2/sync` merges from `KrishnaTO/ARI` on every load. Anonymous readers read `workspace.BASE`, which was parsed once at import and only changed on a restart, so they saw a weeks-old ontology: retired ICD-9 ids, and diseases missing their current mappings. `workspace.base()` now reloads it when the file's path or mtime changes, and every anonymous read goes through it.
+- **Deferred restarts are no longer lost.** `deploy/update.sh` compared `HEAD` before and after its reset. When it deferred a restart because curators had work in memory, the next run found `HEAD` unchanged and exited "Already up to date", so the app kept running old code indefinitely. It now compares `HEAD` with the commit the running app reports in `/healthz`, and retries until they match.
+- **The runtime ontology has one owner.** `ontologies/ari_t1d.owl` was tracked in this repo and also written every 10 minutes by `update-ontology.sh`; `update.sh` then stashed that write and reset the file to this repo's copy. It is now gitignored. `update-ontology.sh` replaces it atomically and no longer restarts the app, and `update.sh` re-runs it after every reset. The test suite uses the snapshot moved to `tests/fixtures/ontologies/`. Local runs copy the file from a `KrishnaTO/ARI` checkout (see README).
+- **One-time deploy step.** Merging deletes the tracked file on the server, and the app cannot start without it. Before merging, run `sudo systemctl stop ari-mm-update.timer`. After merging, as `ariapp` in `/opt/ari/ari-metadata-manager`: `git fetch origin main && git reset --hard origin/main && deploy/update-ontology.sh`, then `sudo systemctl restart ari-mm` and `sudo systemctl start ari-mm-update.timer`.
+
 ## ari-edits-google-search-button
 
 - **Google the ARI disease against its mapped term from the review panel.** A *Google ↗* button beside *Next open mapping* (`/ref-edits/`) opens a Google search for "<ARI disease> vs <target term label>" in a new tab. It reads the target's label when clicked, so it works once the label lookup lands. An id with no known label shows a note instead of an empty search.
