@@ -68,6 +68,20 @@ async def _ref_edits_html():
     return _render_html("ref-edits/index.html")
 
 
+@router.get("/ref-edits/synonyms", include_in_schema=False)
+async def _synonyms_page_slash(request: Request):
+    target = request.url.path.rsplit("/", 1)[-1] + "/"
+    if request.url.query:
+        target += "?" + request.url.query
+    return RedirectResponse(target, status_code=308)
+
+
+@router.get("/ref-edits/synonyms/", include_in_schema=False)
+@router.get("/ref-edits/synonyms/index.html", include_in_schema=False)
+async def _synonyms_html():
+    return _render_html("ref-edits/synonyms/index.html")
+
+
 @router.get("/ref-edits/reviewer", include_in_schema=False)
 async def _reviewer_page_slash(request: Request):
     target = request.url.path.rsplit("/", 1)[-1] + "/"

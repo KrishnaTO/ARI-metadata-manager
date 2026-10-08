@@ -58,6 +58,7 @@ ARI-metadata-manager/
 │   ├── sssom_service.py        #   Confirmed cross-refs -> SSSOM + equivalencies TSV
 │   ├── id_provenance.py        #   Who added each cross-reference id (separation of duties)
 │   ├── xref_removals.py        #   Ids edited off a record, pending as negative judgments
+│   ├── synonym_review.py       #   Parses report 9 (9_Synonym_Review.tsv) from the ARI repo
 │   ├── enrich_service.py       #   Confirmed cross-refs -> disease synonyms + clinical subtypes
 │   ├── diff_service.py         #   Human-readable change summary for PR bodies
 │   ├── export_service.py       #   Export ontology -> 1_Core_ARI_Diseases.xlsx (marks changes)
@@ -95,7 +96,8 @@ ARI-metadata-manager/
 │   │   └── main.js             #     bootstrap
 │   └── ref-edits/              #   Cross-reference review subpage (matrix)
 │       ├── index.html
-│       └── ref-edits.js        #     diseases x databases grid, side-panel review, SSSOM publish
+│       ├── ref-edits.js        #     diseases x databases grid, side-panel review, SSSOM publish
+│       └── synonyms/           #     Synonym vs subtype review (report 9, read-only)
 │
 ├── deploy/                          # ── Hosting (systemd + nginx) ──
 │   ├── ari-mm.service               #   uvicorn service (runs as ariapp on :8001)
@@ -356,6 +358,7 @@ never sent to the browser.
 | `GITHUB_OWNER` / `GITHUB_REPO` | Repo the app reads ontology data from and writes ontology PRs to |
 | `GITHUB_BASE_BRANCH` | Default PR target and the branch the ontology refresh tracks |
 | `GITHUB_ONTOLOGY_PATH` | Path to the ontology file within that repo (default `ontologies/ari_t1d.owl`) |
+| `GITHUB_SYNONYM_REVIEW_PATH` | Path to report 9 within that repo (default `data/4-reports/9_Synonym_Review.tsv`) |
 | `GITHUB_SERVICE_TOKEN` | Optional server-side token for unattended ontology refreshes (see `deploy/update-ontology.sh`) |
 | `APP_BASE_URL` | Public URL incl. subpath; must match the OAuth callback |
 | `OAUTH_CALLBACK_PATH` | `/auth/github/callback` |
@@ -378,6 +381,24 @@ python run.py                 # serves http://127.0.0.1:8001 and opens the brows
 GitHub sign-in needs a `.env` with OAuth credentials and an OAuth App whose callback is
 `http://localhost:8001/auth/github/callback`; without it the app still browses anonymously.
 Custom port / ontology: `python run.py --port 8002 --file path/to.owl`.
+
+### Reviewing synonyms vs subtypes (`/ref-edits/synonyms/`)
+
+The **Synonyms** chip in the reference-review header opens a read-only view of report 9,
+`data/4-reports/9_Synonym_Review.tsv` in the ARI repo (written by
+`notebook/synonym-review/` there; its columns are documented in that repo's
+`data/4-reports/README.md`). `GET /api/v2/synonym-review` reads the file live from
+`GITHUB_BASE_BRANCH` of `GITHUB_OWNER`/`GITHUB_REPO`, with the curator's token when signed
+in and anonymously otherwise (the repo is public, so GitHub's unauthenticated rate limit
+applies).
+
+The cards pick a view and show its size: **Proposed ARI changes** (withdraw a synonym,
+remove or move a clinical subtype, restore a synonym), **Kept as is**, **Candidate
+synonyms**, **Candidate subtypes** and **All names**. The search box filters on disease,
+ARI id, name, merged spelling variants and note; the two selects filter on verdict and on
+who decided it. Rows are grouped by disease, and each group links back to that disease on
+the reference-review page. The first 400 rows render; *Show all* renders the rest. Nothing
+on the page edits the ontology: apply a change through the editor or the data repo.
 
 ### Reviewing mapping pull requests (`/ref-edits/reviewer/`)
 
