@@ -1,5 +1,11 @@
 # Changelog
 
+## feat/incidence-us-worldwide
+
+- **The Prevalence panel separates US and worldwide incidence.** The single free-text *Incidence* field is replaced by two structured entries, US and Worldwide, each with a rate per 100,000 per year, the year it describes, and its source URLs. The panel shows both as stat cards labelled with their year and linked to their sources, and the metrics table lists each with its year and sources. The record form and the new-disease form have the matching inputs (sources one URL per line); a year that is not a whole number is rejected like any other bad numeric value. The publish diff labels the six fields.
+- **Needs the ARI ontology change.** The six data properties (`incidenceUSPer100k`, `incidenceUSYear`, `incidenceUSSource`, `incidenceWorldPer100k`, `incidenceWorldYear`, `incidenceWorldSource`) must be declared in `KrishnaTO/ARI`'s `ontologies/ari_t1d.owl`; until they are, saving them is rejected with "the ontology declares no … property". The test fixture and `scripts/build_t1d_ontology.py` declare them.
+- **`incidenceRate` is no longer read.** Only Type 1 diabetes had a value (`12-15/100k/yr in US`, no year or source); it stays in the ontology but no longer shows. Re-enter it as a US incidence with its year and source.
+
 ## fix/stale-base-ontology
 
 - **Signed-out readers see the current ontology.** `/ref-edits/` showed 154 of 214 diseases mapped signed out and 210 signed in. Signed-in curators read a working copy that `/api/v2/sync` merges from `KrishnaTO/ARI` on every load. Anonymous readers read `workspace.BASE`, which was parsed once at import and only changed on a restart, so they saw a weeks-old ontology: retired ICD-9 ids, and diseases missing their current mappings. `workspace.base()` now reloads it when the file's path or mtime changes, and every anonymous read goes through it.

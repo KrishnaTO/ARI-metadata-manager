@@ -450,7 +450,13 @@ class OntologyService:
         d["disease_category"] = self._get_data(e, base + "diseaseCategory")
         d["prevalence_per_100k"] = self._get_data(e, base + "prevalencePer100k")
         d["prevalence_value"] = self._get_data(e, base + "prevalenceValue")
-        d["incidence_rate"] = self._get_data(e, base + "incidenceRate")
+        # Incidence per region: rate, the year it describes, and its source URLs.
+        d["incidence_us_per_100k"] = self._get_data(e, base + "incidenceUSPer100k")
+        d["incidence_us_year"] = self._get_data(e, base + "incidenceUSYear")
+        d["incidence_us_sources"] = self._get_data(e, base + "incidenceUSSource")
+        d["incidence_world_per_100k"] = self._get_data(e, base + "incidenceWorldPer100k")
+        d["incidence_world_year"] = self._get_data(e, base + "incidenceWorldYear")
+        d["incidence_world_sources"] = self._get_data(e, base + "incidenceWorldSource")
         d["demographic_bias"] = self._get_data(e, base + "demographicBias")
         d["age_range"] = self._get_data(e, base + "ageRange")
 
@@ -704,7 +710,12 @@ class OntologyService:
         "is_grouping":       ("ann", "ARI_IsGrouping", str),
         "evidence_quality":  ("data", "evidenceQuality", str),
         "disease_category":  ("data", "diseaseCategory", str),
-        "incidence_rate":    ("data", "incidenceRate", str),
+        "incidence_us_per_100k":    ("data", "incidenceUSPer100k", float),
+        "incidence_us_year":        ("data", "incidenceUSYear", int),
+        "incidence_us_sources":     ("data_list", "incidenceUSSource", str),
+        "incidence_world_per_100k": ("data", "incidenceWorldPer100k", float),
+        "incidence_world_year":     ("data", "incidenceWorldYear", int),
+        "incidence_world_sources":  ("data_list", "incidenceWorldSource", str),
         "demographic_bias":  ("data", "demographicBias", str),
         "age_range":         ("data", "ageRange", str),
         "prevalence_per_100k": ("data", "prevalencePer100k", float),
@@ -799,6 +810,13 @@ class OntologyService:
                         rejected.append({"field": key, "value": str(raw),
                                          "reason": f"expected {wanted}"})
                         continue
+            elif kind == "data_list":
+                prop = self.world[base + suffix]
+                if prop is None:
+                    rejected.append({"field": key, "value": str(raw),
+                                     "reason": f"the ontology declares no {suffix} property"})
+                    continue
+                prop[e] = str(raw).split()
             changed.append(key)
 
         if changed:

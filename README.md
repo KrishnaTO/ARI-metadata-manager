@@ -145,6 +145,14 @@ unsaved is discarded without a prompt. A category panel opened while curating ca
 **Disease fields** button back to the form, and its **Close** returns there rather than
 dropping out of edit mode.
 
+The **Prevalence** deep dive shows US and worldwide incidence side by side, each as a rate
+per 100,000 per year with the year it describes and links to its sources. They are stored on
+the disease as the data properties `incidenceUSPer100k` / `incidenceWorldPer100k` (decimal),
+`incidenceUSYear` / `incidenceWorldYear` (integer) and `incidenceUSSource` /
+`incidenceWorldSource` (one string per URL), which the ontology in `KrishnaTO/ARI` must
+declare. Curators keep each region at its latest available year; the form takes one source
+URL per line.
+
 Design tokens (colour, type, spacing, radius, shadow) live in `:root` in
 `static/css/styles.css`, with a dark set under `[data-theme="dark"]`. Type is Barlow Condensed
 (wordmark), IBM Plex Sans (everything), IBM Plex Mono (ids, codes, counts) and IBM Plex Serif

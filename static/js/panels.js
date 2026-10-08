@@ -107,7 +107,8 @@ function renderPrevalence(d, panel){
   html += `<div class="prev-stats">
     <div class="stat-card"><div class="value">${p100k}</div><div class="lbl">Per 100,000</div></div>
     <div class="stat-card"><div class="value">${Number(pVal).toLocaleString()}</div><div class="lbl">US Cases</div></div>
-    <div class="stat-card"><div class="value">${esc(first(d.incidence_rate) || 'N/A')}</div><div class="lbl">Incidence</div></div>
+    ${incidenceStatCard(d, 'us', 'US')}
+    ${incidenceStatCard(d, 'world', 'Worldwide')}
   </div>`;
   html += `<div class="chart-container"><canvas id="prevChart"></canvas></div>`;
 
@@ -116,7 +117,8 @@ function renderPrevalence(d, panel){
   const rows = [
     ['Prevalence (per 100k)', p100k || '—'],
     ['Estimated US cases', pVal ? Number(pVal).toLocaleString() : '—'],
-    ['Incidence rate', esc(first(d.incidence_rate) || '—')],
+    ['US incidence (per 100k/yr)', incidenceCell(d, 'us')],
+    ['Worldwide incidence (per 100k/yr)', incidenceCell(d, 'world')],
     ['Demographic bias', esc(first(d.demographic_bias) || '—')],
     ['Age range', esc(first(d.age_range) || '—')],
     ['Description', esc(first(d.prevalence_desc) || '—')],
@@ -138,6 +140,38 @@ function renderPrevalence(d, panel){
       options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
     });
   }
+}
+
+// One region's incidence: rate per 100,000 per year, the year it describes,
+// and its sources. `region` is 'us' or 'world'.
+function incidenceOf(d, region){
+  return { rate: first(d[`incidence_${region}_per_100k`]),
+           year: first(d[`incidence_${region}_year`]),
+           sources: d[`incidence_${region}_sources`] || [] };
+}
+
+function sourceLinks(urls){
+  return urls.map(u => {
+    let host = u;
+    try { host = new URL(u).hostname.replace(/^www\./, ''); } catch { /* not a URL: show as typed */ }
+    return `<a href="${esc(u)}" target="_blank" rel="noopener">${esc(host)}</a>`;
+  }).join(', ');
+}
+
+function incidenceStatCard(d, region, label){
+  const { rate, year, sources } = incidenceOf(d, region);
+  const yr = year ? ` · ${esc(year)}` : '';
+  const src = sources.length ? `<div class="src">${sourceLinks(sources)}</div>` : '';
+  return `<div class="stat-card"><div class="value">${rate === '' ? 'N/A' : esc(rate)}</div>` +
+    `<div class="lbl">${label} incidence /100k${yr}</div>${src}</div>`;
+}
+
+function incidenceCell(d, region){
+  const { rate, year, sources } = incidenceOf(d, region);
+  if (rate === '') return '—';
+  const yr = year ? ` (${esc(year)})` : '';
+  const src = sources.length ? ` <span class="src">— ${sourceLinks(sources)}</span>` : '';
+  return `${esc(rate)}${yr}${src}`;
 }
 
 function symBadge(lik){

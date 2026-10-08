@@ -12,7 +12,12 @@ FIELDS = [
     ("def_source", "Definition source"), ("obsolete", "Obsolete"), ("version", "Version"),
     ("disease_category", "Category"), ("evidence_quality", "Evidence quality"),
     ("prevalence_per_100k", "Prevalence /100k"), ("prevalence_value", "Estimated cases"),
-    ("incidence_rate", "Incidence rate"), ("demographic_bias", "Demographic bias"),
+    ("incidence_us_per_100k", "US incidence /100k"), ("incidence_us_year", "US incidence year"),
+    ("incidence_us_sources", "US incidence sources"),
+    ("incidence_world_per_100k", "Worldwide incidence /100k"),
+    ("incidence_world_year", "Worldwide incidence year"),
+    ("incidence_world_sources", "Worldwide incidence sources"),
+    ("demographic_bias", "Demographic bias"),
     ("age_range", "Age range"), ("prevalence_desc", "Prevalence description"),
 ]
 
@@ -144,4 +149,4 @@ def build_change_summary(current_service, baseline_service, touched_iris=None) -
     cannot describe itself two different ways.
     """
     return render_summary(list_changes(current_service, baseline_service, touched_iris))
-
+
