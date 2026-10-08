@@ -59,6 +59,7 @@ ARI-metadata-manager/
 │   ├── id_provenance.py        #   Who added each cross-reference id (separation of duties)
 │   ├── xref_removals.py        #   Ids edited off a record, pending as negative judgments
 │   ├── synonym_review.py       #   Parses report 9 (9_Synonym_Review.tsv) from the ARI repo
+│   ├── synonym_review_store.py #   Curators' marks + notes on report 9 (synonym-review/)
 │   ├── enrich_service.py       #   Confirmed cross-refs -> disease synonyms + clinical subtypes
 │   ├── diff_service.py         #   Human-readable change summary for PR bodies
 │   ├── export_service.py       #   Export ontology -> 1_Core_ARI_Diseases.xlsx (marks changes)
@@ -397,8 +398,19 @@ remove or move a clinical subtype, restore a synonym), **Kept as is**, **Candida
 synonyms**, **Candidate subtypes** and **All names**. The search box filters on disease,
 ARI id, name, merged spelling variants and note; the two selects filter on verdict and on
 who decided it. Rows are grouped by disease, and each group links back to that disease on
-the reference-review page. The first 400 rows render; *Show all* renders the rest. Nothing
-on the page edits the ontology: apply a change through the editor or the data repo.
+the reference-review page. The first 400 rows render; *Show all* renders the rest.
+
+**Curation.** Signed-in curators judge each row in its *Curation* column: ✓ correct, ✗
+incorrect, ? needs review (click the pressed mark again to clear it), plus a free-text note
+that saves when the box loses focus. Marks and notes are shared by every curator and saved
+by `PUT /api/v2/synonym-review/curation` to `synonym-review/curation.json` (gitignored
+server state, like `pr-review/`; code in `app/synonym_review_store.py`). Each entry is keyed
+`<ari_id>|<term>` and holds a copy of the row it judges (disease, verdict, action, report
+date) with the status, note, curator and time, so the file still makes sense after the
+report is regenerated. The *review status* filter shows rows not reviewed, needing review,
+both, or marked correct/incorrect; the count line says how many rows in the current view are
+reviewed. Anonymous visitors see the marks read-only. Nothing on the page edits the
+ontology: apply a change through the editor or the data repo.
 
 ### Reviewing mapping pull requests (`/ref-edits/reviewer/`)
 

@@ -1,5 +1,11 @@
 # Changelog
 
+## feat/synonym-review-marks
+
+- **Mark synonym-review rows and add notes.** Each row on `/ref-edits/synonyms/` has a *Curation* column: ✓ correct, ✗ incorrect, ? needs review, and a note. Signed-in curators only; changes save immediately and are shared by everyone.
+- **Curation results live in a new `synonym-review/` folder.** `synonym-review/curation.json` (gitignored server state) holds one entry per judged row, keyed `<ari_id>|<term>`, with a copy of the row's verdict and action, the status, note, curator and time. Written by `PUT /api/v2/synonym-review/curation`; `GET /api/v2/synonym-review` now returns the marks with the report.
+- **Filter by review status:** not reviewed, needs review, either of those, marked correct or marked incorrect. The count line shows how many rows in the view are reviewed.
+
 ## feat/synonym-review-page
 
 - **A page to review synonyms vs subtypes.** `/ref-edits/synonyms/`, linked by a *Synonyms* chip in the reference-review header, shows report 9 (`data/4-reports/9_Synonym_Review.tsv` in `KrishnaTO/ARI`): every name a disease carries or its mapped terms give it, judged synonym, subtype, variant, broader, distinct or non-disease, with the ARI action that implies. Cards switch between the 70 proposed ARI changes, kept names and the database candidates; search, verdict and decided-by filters narrow the list; each disease links back to its row in reference review. Read-only.

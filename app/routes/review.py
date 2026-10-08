@@ -18,6 +18,7 @@ from .. import (
     sssom_service,
     stats_service,
     stores,
+    synonym_review_store,
     workspace,
     xref_registry,
 )
@@ -121,7 +122,29 @@ async def synonym_review(request: Request):
         raise HTTPException(status_code=502, detail=str(err)) from err
     return {"source": f"{config.GH_OWNER}/{config.GH_REPO}@{config.GH_BASE_BRANCH}:"
                       f"{config.SYNONYM_REVIEW_PATH}",
-            "rows": synonym_review_report.parse(blob.decode("utf-8"))}
+            "rows": synonym_review_report.parse(blob.decode("utf-8")),
+            "curation": synonym_review_store.read(),
+            "login": sessions._login(request)}
+
+
+@router.put("/api/v2/synonym-review/curation")
+async def save_synonym_curation(request: Request, payload: dict = Body(...)):
+    """Mark one report-9 row correct, incorrect or needs-review, with an optional note.
+
+    Body: ``{row: {ari_id, disease, term, verdict, action, review_date}, status, note}``.
+    Empty status and note clear the row. Shared by every curator; signed-in only, so
+    each entry records who judged it."""
+    login = sessions._require_login(request)
+    row = payload.get("row") or {}
+    missing = [f for f in synonym_review_store.ROW_FIELDS if not row.get(f)]
+    if missing:
+        raise HTTPException(status_code=400, detail=f"row is missing {', '.join(missing)}")
+    try:
+        entry = synonym_review_store.save(row, payload.get("status") or "",
+                                          payload.get("note") or "", login)
+    except ValueError as err:
+        raise HTTPException(status_code=400, detail=str(err)) from err
+    return {"key": synonym_review_store.key(row), "entry": entry}
 
 
 @router.get("/api/v2/xref-databases")
