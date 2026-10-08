@@ -24,11 +24,27 @@ from .ontology_service import OntologyService
 log = logging.getLogger(__name__)
 
 BASE = OntologyService(config.ONTOLOGY_FILE)   # shared, source-branch baseline
+_BASE_KEY = (config.ONTOLOGY_FILE, os.stat(config.ONTOLOGY_FILE).st_mtime_ns)
 
 
-def reload_base():
-    global BASE
-    BASE = OntologyService(config.ONTOLOGY_FILE)
+def base() -> OntologyService:
+    """The shared ontology, reloaded whenever its file on disk changes.
+
+    BASE used to be read once at import. deploy/update-ontology.sh replaces the
+    file every ten minutes, but only a restart picked it up, and update.sh lost
+    restarts it had deferred while curators had work in memory. Signed-in
+    curators never noticed (they read a working copy synced from GitHub), while
+    anonymous readers saw an ontology weeks out of date: retired ICD-9 ids,
+    diseases with none of their current mappings. Keying on the file's path and
+    mtime makes the file on disk the only thing that decides what BASE holds
+    (the path too, because a copied file keeps its mtime)."""
+    global BASE, _BASE_KEY
+    key = (config.ONTOLOGY_FILE, os.stat(config.ONTOLOGY_FILE).st_mtime_ns)
+    if key != _BASE_KEY:
+        BASE = OntologyService(config.ONTOLOGY_FILE)
+        _BASE_KEY = key
+        log.info("Reloaded the base ontology from %s", config.ONTOLOGY_FILE)
+    return BASE
 
 
 USER_SVC: OrderedDict = OrderedDict()   # login -> service, least-recently-used first
@@ -165,7 +181,7 @@ def _adopt_working_copy(login) -> OntologyService:
 
 def user_service(login, create=False):
     if not login:
-        return BASE
+        return base()
     if login in USER_SVC:
         USER_SVC.move_to_end(login)               # most recently used, for the LRU bound
         return USER_SVC[login]
@@ -187,7 +203,7 @@ def user_service(login, create=False):
         # here: a null sha makes the first sync merge rather than skip.
         set_ancestor(login, Path(config.ONTOLOGY_FILE).read_bytes(), None)
         return _adopt_working_copy(login)
-    return BASE
+    return base()
 
 
 def service_for(request: Request, write=False):

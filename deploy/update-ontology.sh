@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Fetch the latest ontology file from the configured ARI repo/branch and restart
-# the app only when the local runtime ontology changes.
+# Fetch the latest ontology file from the configured ARI repo/branch and replace
+# the local runtime ontology when it has changed. The app reloads it by mtime.
 set -euo pipefail
 
 APP_DIR=/opt/ari/ari-metadata-manager
@@ -52,6 +52,9 @@ if [ -f "$LOCAL_PATH" ] && cmp -s "$TMP" "$LOCAL_PATH"; then
   exit 0
 fi
 
-install -m 0644 "$TMP" "$LOCAL_PATH"
-sudo systemctl restart ari-mm
-echo "Updated ontology from $OWNER/$REPO:$BRANCH:$REMOTE_PATH -> $LOCAL_PATH; restarted ari-mm."
+# Replace atomically: the app reloads the file when its mtime changes, so it must
+# never see a half-written ontology. No restart: the reload picks it up on the
+# next request, without dropping curators' in-memory work.
+install -m 0644 "$TMP" "$LOCAL_PATH.new"
+mv -f "$LOCAL_PATH.new" "$LOCAL_PATH"
+echo "Updated ontology from $OWNER/$REPO:$BRANCH:$REMOTE_PATH -> $LOCAL_PATH; the app reloads it on the next request."
