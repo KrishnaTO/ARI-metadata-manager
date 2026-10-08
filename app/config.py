@@ -156,6 +156,8 @@ MAX_LOADED_WORLDS = int(os.environ.get("MAX_LOADED_WORLDS", "8"))
 ASSIGN_DIR = ROOT / "assignments"
 # Mapping-PR reviewer: shared marks and notes, one JSON file per KrishnaTO/ARI PR.
 PR_REVIEW_DIR = ROOT / "pr-review"
+# Curators' marks and notes on report 9 (app/synonym_review_store.py).
+SYNONYM_REVIEW_DIR = ROOT / "synonym-review"
 PROVENANCE_DIR = ROOT / "provenance"
 # Curators who may hand work to *other* curators. Empty = anyone signed in (dev
 # default). Filling your own queue is never gated — every curator self-assigns.

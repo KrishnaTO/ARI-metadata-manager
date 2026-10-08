@@ -88,6 +88,20 @@
   .v-variant, .v-non-disease { background:var(--plain-bg); color:var(--plain-fg); }
   .empty, .error { padding:14px; color:var(--mute); }
   .error { color:var(--bad-fg); }
+  td.review { min-width:220px; }
+  .marks { display:flex; gap:4px; }
+  .marks button { font:600 0.75rem var(--sans); width:30px; height:26px; border-radius:6px; cursor:pointer;
+                  border:1px solid var(--line-strong); background:var(--surface); color:var(--mute); }
+  .marks button:disabled { cursor:not-allowed; opacity:.5; }
+  .marks button[aria-pressed="true"][data-status="correct"] { background:var(--ok-bg); color:var(--ok-fg); border-color:var(--ok-fg); }
+  .marks button[aria-pressed="true"][data-status="incorrect"] { background:var(--bad-bg); color:var(--bad-fg); border-color:var(--bad-fg); }
+  .marks button[aria-pressed="true"][data-status="needs-review"] { background:var(--warn-bg); color:var(--warn-fg); border-color:var(--warn-fg); }
+  td.review textarea { display:block; width:100%; margin-top:6px; font:inherit; font-size:0.75rem; color:var(--text);
+                       background:var(--surface); border:1px solid var(--line); border-radius:6px; padding:4px 6px; resize:vertical; }
+  td.review textarea:disabled { background:var(--band); }
+  td.review .by { display:block; margin-top:3px; font-size:0.68rem; color:var(--faint); }
+  td.review .by.err { color:var(--bad-fg); }
+  .signin { font-size:0.75rem; color:var(--mute); }
   .more { margin:12px; font:inherit; padding:5px 12px; border:1px solid var(--line-strong); border-radius:6px;
           background:var(--surface); color:var(--text); cursor:pointer; }
 </style>
@@ -105,8 +119,17 @@
     <input id="q" type="search" placeholder="Filter by disease, ARI id, name or note" aria-label="Filter">
     <select id="verdict" aria-label="Verdict"></select>
     <select id="decided" aria-label="Decided by"></select>
+    <select id="status" aria-label="Review status">
+      <option value="">Any review status</option>
+      <option value="open">Not reviewed or needs review</option>
+      <option value="none">Not reviewed</option>
+      <option value="needs-review">Needs review</option>
+      <option value="correct">Marked correct</option>
+      <option value="incorrect">Marked incorrect</option>
+    </select>
     <span class="count" id="count"></span>
   </div>
+  <p class="signin" id="signin" hidden>Read-only: <a href="../">sign in on the reference-review page</a> to mark rows and add notes.</p>
   <section id="table"><p class="empty">Loading report 9…</p></section>
 </main>
 <script src="synonyms.js?v=__ASSETV__"></script>

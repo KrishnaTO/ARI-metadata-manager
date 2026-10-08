@@ -238,6 +238,8 @@ feedback/
 
 # Mapping-PR reviewer's shared marks and notes (app/pr_review/store.py)
 pr-review/
+# Curators' marks and notes on report 9 (app/synonym_review_store.py)
+synonym-review/
 # The retired standalone reviewer's local marks/notes (copied into pr-review/)
 .pr-review/
 
