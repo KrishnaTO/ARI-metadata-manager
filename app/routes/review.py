@@ -22,6 +22,7 @@ from .. import (
     xref_registry,
 )
 from .. import github_service as gh
+from .. import synonym_review as synonym_review_report
 from ..errors import NotFound
 from ..pr_review import compare, terminology
 
@@ -103,6 +104,24 @@ async def stats(request: Request):
     svc = workspace.service_for(request)
     return stats_service.build(svc.get_xref_rows(), await _mapping_judgments(request),
                                stores.ID_AUTHORS.authors(), stores.ASSIGNMENTS.assignees())
+
+
+@router.get("/api/v2/synonym-review")
+async def synonym_review(request: Request):
+    """Report 9 from the ARI repo's base branch, read live so the page always shows
+    the report as last committed. Uses the curator's token when signed in (the
+    repo is public, so anonymous reads work within GitHub's unauthenticated limit)."""
+    if not (config.GH_OWNER and config.GH_REPO):
+        raise HTTPException(status_code=503, detail="GITHUB_OWNER and GITHUB_REPO are not configured")
+    u = sessions._user(request) if config.GH_ENABLED else None
+    try:
+        blob = await gh.get_file_at(u["token"] if u else None, config.GH_OWNER, config.GH_REPO,
+                                    config.SYNONYM_REVIEW_PATH, config.GH_BASE_BRANCH)
+    except (ValueError, httpx.HTTPError) as err:
+        raise HTTPException(status_code=502, detail=str(err)) from err
+    return {"source": f"{config.GH_OWNER}/{config.GH_REPO}@{config.GH_BASE_BRANCH}:"
+                      f"{config.SYNONYM_REVIEW_PATH}",
+            "rows": synonym_review_report.parse(blob.decode("utf-8"))}
 
 
 @router.get("/api/v2/xref-databases")

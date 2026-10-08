@@ -107,6 +107,9 @@ GH_ONTOLOGY_PATH = os.environ.get(
     "GITHUB_ONTOLOGY_PATH", "ontologies/ari_t1d.owl")
 MAPPINGS_SSSOM_PATH = os.environ.get("GITHUB_SSSOM_PATH", "mappings/ari.sssom.tsv")
 MAPPINGS_EQUIV_PATH = os.environ.get("GITHUB_EQUIV_PATH", "mappings/ari.equivalencies.tsv")
+# Report 9 in the data repo: every name of every disease judged synonym or subtype.
+SYNONYM_REVIEW_PATH = os.environ.get("GITHUB_SYNONYM_REVIEW_PATH",
+                                     "data/4-reports/9_Synonym_Review.tsv")
 APP_BASE_URL = os.environ.get("APP_BASE_URL", "http://localhost:8001").rstrip("/")
 OAUTH_CALLBACK_PATH = os.environ.get("OAUTH_CALLBACK_PATH", "/auth/github/callback")
 ALLOWED_LOGINS = [s.strip() for s in os.environ.get("ALLOWED_LOGINS", "").split(",") if s.strip()]

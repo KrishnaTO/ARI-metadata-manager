@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ARI · Synonym vs subtype review</title>
+<link rel="icon" href="../../favicon.svg" type="image/svg+xml">
+<!-- The reference-review page's pre-paint preferences: theme and text size. -->
+<script src="../boot.js?v=__ASSETV__"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+<style>
+  /* A read-only report page: the palette of the reference-review page, the plain
+     layout of the stats dashboard. Nothing here edits the ontology. */
+  :root {
+    --ui-scale:1;
+    font-size:calc(1rem * var(--ui-scale));
+    --surface:#fff; --band:#FAFBFC; --head:#EAEEF2; --line:#DDE3EA; --line-strong:#C2CAD4;
+    --text:#0F2840; --mute:#5C6675; --faint:#6E7787;
+    --accent:#1F6B7A; --accent-fg:#fff;
+    --ok-bg:#E2F1EB; --ok-fg:#1B6B50;
+    --warn-bg:#F8EFD6; --warn-fg:#7D5A0E;
+    --bad-bg:#F4E1DF; --bad-fg:#9E2B22;
+    --sub-bg:#E1EEF1; --sub-fg:#1F6B7A;
+    --plain-bg:#F4F6F8; --plain-fg:#5C6675;
+    --sans:'IBM Plex Sans',system-ui,-apple-system,sans-serif;
+    --mono:'IBM Plex Mono',ui-monospace,monospace;
+  }
+  html[data-textsize="large"]  { --ui-scale:1.15; }
+  html[data-textsize="larger"] { --ui-scale:1.32; }
+  html[data-theme="dark"] {
+    --surface:#0F2840; --band:#0C2438; --head:#0C2438; --line:#1F3A58; --line-strong:#1F3A58;
+    --text:#E3E8EE; --mute:#8A93A2; --faint:#8A93A2;
+    --accent:#9DD3D6; --accent-fg:#081A2C;
+    --ok-bg:rgba(47,143,111,.24); --ok-fg:#7FC9AB;
+    --warn-bg:rgba(181,132,26,.26); --warn-fg:#DCB865;
+    --bad-bg:rgba(183,56,45,.24); --bad-fg:#D98A80;
+    --sub-bg:rgba(77,150,162,.24); --sub-fg:#9DD3D6;
+    --plain-bg:rgba(227,232,238,.06); --plain-fg:#8A93A2;
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; font:400 0.8125rem/1.5 var(--sans); color:var(--text); background:var(--band); }
+  a { color:var(--accent); }
+  header { display:flex; align-items:center; gap:12px; padding:0 20px; height:52px;
+           background:var(--surface); border-bottom:1px solid var(--line); position:sticky; top:0; z-index:2; }
+  header h1 { margin:0; font:600 0.9375rem var(--sans); white-space:nowrap; }
+  .spacer { flex:1; }
+  .back { display:inline-flex; align-items:center; justify-content:center; width:28px; height:28px; flex-shrink:0;
+          border:1px solid var(--line-strong); border-radius:6px; color:var(--text); text-decoration:none; }
+  .back:hover { border-color:var(--accent); color:var(--accent); }
+  .stamp { font:400 0.72rem var(--mono); color:var(--faint); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  main { max-width:1400px; margin:0 auto; padding:20px; display:grid; gap:16px; }
+
+  .cards { display:grid; grid-template-columns:repeat(auto-fit,minmax(170px,1fr)); gap:12px; }
+  .card { background:var(--surface); border:1px solid var(--line); border-radius:10px; padding:12px 14px;
+          text-align:left; font:inherit; color:inherit; cursor:pointer; }
+  .card:hover { border-color:var(--accent); }
+  .card[aria-pressed="true"] { border-color:var(--accent); box-shadow:inset 0 0 0 1px var(--accent); }
+  .card .n { font:600 1.75rem/1.1 var(--sans); letter-spacing:-.02em; }
+  .card .k { font:600 0.625rem var(--sans); letter-spacing:.1em; text-transform:uppercase; color:var(--faint); }
+  .card .sub { margin-top:4px; font-size:0.75rem; color:var(--mute); }
+
+  .filters { display:flex; flex-wrap:wrap; gap:10px; align-items:center; }
+  .filters input, .filters select { font:inherit; color:var(--text); background:var(--surface);
+          border:1px solid var(--line-strong); border-radius:6px; padding:5px 9px; }
+  .filters input { flex:1; min-width:220px; }
+  .count { font-size:0.75rem; color:var(--mute); }
+
+  section { background:var(--surface); border:1px solid var(--line); border-radius:10px; overflow-x:auto; }
+  table { width:100%; border-collapse:collapse; }
+  th, td { text-align:left; vertical-align:top; padding:6px 10px; border-bottom:1px solid var(--line); }
+  th { font:600 0.625rem var(--sans); letter-spacing:.08em; text-transform:uppercase; color:var(--faint); }
+  tr.disease td { background:var(--head); font-weight:600; padding-top:8px; }
+  tr.disease .id { font:500 0.72rem var(--mono); color:var(--mute); margin-right:8px; }
+  tr.disease a { font-weight:400; font-size:0.75rem; margin-left:10px; }
+  td.term { font-weight:500; min-width:200px; }
+  td.term .alt { display:block; font-weight:400; font-size:0.72rem; color:var(--mute); }
+  td.field { font:400 0.72rem var(--mono); color:var(--mute); white-space:nowrap; }
+  td.small { font-size:0.75rem; color:var(--mute); max-width:380px; }
+  td.action { white-space:nowrap; }
+  td.action.change { font-weight:600; color:var(--bad-fg); }
+  .pill { display:inline-block; padding:1px 8px; border-radius:99px; font-size:0.72rem; font-weight:500; white-space:nowrap; }
+  .v-synonym { background:var(--ok-bg); color:var(--ok-fg); }
+  .v-subtype { background:var(--sub-bg); color:var(--sub-fg); }
+  .v-broader { background:var(--warn-bg); color:var(--warn-fg); }
+  .v-distinct { background:var(--bad-bg); color:var(--bad-fg); }
+  .v-variant, .v-non-disease { background:var(--plain-bg); color:var(--plain-fg); }
+  .empty, .error { padding:14px; color:var(--mute); }
+  .error { color:var(--bad-fg); }
+  .more { margin:12px; font:inherit; padding:5px 12px; border:1px solid var(--line-strong); border-radius:6px;
+          background:var(--surface); color:var(--text); cursor:pointer; }
+</style>
+</head>
+<body>
+<header>
+  <a class="back" href="../" title="Back to cross-reference review" aria-label="Back to cross-reference review">←</a>
+  <h1>Synonym vs subtype review</h1>
+  <span class="spacer"></span>
+  <span class="stamp" id="stamp"></span>
+</header>
+<main>
+  <div class="cards" id="cards"></div>
+  <div class="filters">
+    <input id="q" type="search" placeholder="Filter by disease, ARI id, name or note" aria-label="Filter">
+    <select id="verdict" aria-label="Verdict"></select>
+    <select id="decided" aria-label="Decided by"></select>
+    <span class="count" id="count"></span>
+  </div>
+  <section id="table"><p class="empty">Loading report 9…</p></section>
+</main>
+<script src="synonyms.js?v=__ASSETV__"></script>
+</body>
+</html>

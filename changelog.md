@@ -1,5 +1,10 @@
 # Changelog
 
+## feat/synonym-review-page
+
+- **A page to review synonyms vs subtypes.** `/ref-edits/synonyms/`, linked by a *Synonyms* chip in the reference-review header, shows report 9 (`data/4-reports/9_Synonym_Review.tsv` in `KrishnaTO/ARI`): every name a disease carries or its mapped terms give it, judged synonym, subtype, variant, broader, distinct or non-disease, with the ARI action that implies. Cards switch between the 70 proposed ARI changes, kept names and the database candidates; search, verdict and decided-by filters narrow the list; each disease links back to its row in reference review. Read-only.
+- **`GET /api/v2/synonym-review`** reads the report live from the configured ARI repo's base branch (`GITHUB_SYNONYM_REVIEW_PATH` overrides the path) and fails with 502 when GitHub refuses, or 503 when the repo isn't configured. A report whose header changes is rejected rather than rendered with empty columns.
+
 ## feat/incidence-us-worldwide
 
 - **The Prevalence panel separates US and worldwide incidence.** The single free-text *Incidence* field is replaced by two structured entries, US and Worldwide, each with a rate per 100,000 per year, the year it describes, and its source URLs. The panel shows both as stat cards labelled with their year and linked to their sources, and the metrics table lists each with its year and sources. The record form and the new-disease form have the matching inputs (sources one URL per line); a year that is not a whole number is rejected like any other bad numeric value. The publish diff labels the six fields.

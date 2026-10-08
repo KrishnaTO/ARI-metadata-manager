@@ -36,3 +36,16 @@ def test_asset_token_follows_the_newest_asset(tmp_path, monkeypatch):
     asset.write_bytes(b"two")
     os.utime(asset, (2_000_000, 2_000_000))
     assert config.asset_version() != before
+
+
+def test_synonym_review_page_renders_and_slashless_redirects():
+    r = client.get("/ref-edits/synonyms/")
+    assert r.status_code == 200
+    assert "__ASSETV__" not in r.text
+    r = client.get("/ref-edits/synonyms", follow_redirects=False)
+    assert r.status_code == 308
+    assert r.headers["location"] == "synonyms/"
+
+
+def test_ref_edits_links_to_the_synonym_review_page():
+    assert 'href="synonyms/"' in client.get("/ref-edits/").text
