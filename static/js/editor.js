@@ -155,6 +155,29 @@ function fieldArea(id, label, value, hint){
     `<textarea id="${id}">${esc(value)}</textarea></div>`;
 }
 
+// US and worldwide incidence: a rate, the year it describes, and its source
+// URLs (one per line). `prefix` keeps the edit and new-disease forms' ids apart.
+function incidenceFieldsHTML(prefix, region, label, d){
+  const id = k => `${prefix}_incidence_${region}_${k}`;
+  const val = k => d[`incidence_${region}_${k}`];
+  const sources = val('sources');
+  return `<div class="field-grid">` +
+    fieldText(id('per_100k'), `${label} incidence /100k/yr`, first(val('per_100k'))) +
+    fieldText(id('year'), `${label} incidence year`, first(val('year'))) +
+    `</div>` +
+    fieldArea(id('sources'), `${label} incidence sources`,
+      Array.isArray(sources) ? sources.join('\n') : (sources || ''), 'One URL per line.');
+}
+
+// Reads the six incidence inputs through `read(idWithoutPrefix)`.
+function incidenceValues(read){
+  const out = {};
+  for (const region of ['us', 'world'])
+    for (const k of ['per_100k', 'year', 'sources'])
+      out[`incidence_${region}_${k}`] = read(`incidence_${region}_${k}`);
+  return out;
+}
+
 // The definition is the most important prose in the record and it was edited
 // through a three-line window onto nine lines of text — `rows="2"` over a 56px
 // box, with an inner scrollbar (issue #98). This grows to fit what is in it, and
@@ -216,7 +239,11 @@ function draftAsRecord(d, fields){
     synonyms: fields.synonyms || [], clinical_subtypes_parsed: subs,
     disease_category: [fields.disease_category], evidence_quality: [fields.evidence_quality],
     prevalence_per_100k: [fields.prevalence_per_100k], prevalence_value: [fields.prevalence_value],
-    incidence_rate: [fields.incidence_rate], demographic_bias: [fields.demographic_bias],
+    incidence_us_per_100k: [fields.incidence_us_per_100k], incidence_us_year: [fields.incidence_us_year],
+    incidence_us_sources: String(fields.incidence_us_sources || '').split(/\s+/).filter(Boolean),
+    incidence_world_per_100k: [fields.incidence_world_per_100k], incidence_world_year: [fields.incidence_world_year],
+    incidence_world_sources: String(fields.incidence_world_sources || '').split(/\s+/).filter(Boolean),
+    demographic_bias: [fields.demographic_bias],
     age_range: [fields.age_range], prevalence_desc: [fields.prevalence_desc],
     def_source: fields.def_source || [], pubmed: [],
     obsolete: fields.obsolete === 'true', is_grouping: fields.is_grouping === 'true' };
@@ -262,8 +289,9 @@ async function openDiseaseFieldEditor(record, draft){
   html += '<div class="field-grid">';
   html += fieldText('f_prevalence_per_100k', 'Prevalence /100k', first(d.prevalence_per_100k));
   html += fieldText('f_prevalence_value', 'Estimated cases', first(d.prevalence_value));
-  html += fieldText('f_incidence_rate', 'Incidence rate', first(d.incidence_rate));
   html += '</div>';
+  html += incidenceFieldsHTML('f', 'us', 'US', d);
+  html += incidenceFieldsHTML('f', 'world', 'Worldwide', d);
   html += fieldArea('f_prevalence_desc', 'Prevalence description', first(d.prevalence_desc));
   html += `</div><div class="field-group"><h3 class="field-group-h">Sources &amp; status</h3>`;
   // Database cross-references are curated on the dedicated reference-review page,
@@ -354,7 +382,8 @@ function collectDiseaseFields(){
     // they are curated on the reference-review page, not this form. Sending them
     // here would clear the stored values, since the inputs no longer exist.
     prevalence_per_100k: v('f_prevalence_per_100k'), prevalence_value: v('f_prevalence_value'),
-    incidence_rate: v('f_incidence_rate'), demographic_bias: v('f_demographic_bias'),
+    ...incidenceValues(id => v('f_' + id)),
+    demographic_bias: v('f_demographic_bias'),
     age_range: v('f_age_range'), prevalence_desc: v('f_prevalence_desc'),
     def_source: _collectDefSrcs('f_defsrc_list'),
     obsolete: $('#f_obsolete')?.checked ? 'true' : 'false',
@@ -658,10 +687,11 @@ async function openNewDiseaseModal(prefill = {}) {
         <div class="field-grid">
           <div class="field"><label>Prevalence /100k</label><input type="number" id="nd_prevalence_per_100k" value="${preFill('prevalence_per_100k')}" step="any"></div>
           <div class="field"><label>Estimated cases</label><input id="nd_prevalence_value" value="${preFill('prevalence_value')}"></div>
-          <div class="field"><label>Incidence rate</label><input id="nd_incidence_rate" value="${preFill('incidence_rate')}"></div>
           <div class="field"><label>Demographic bias</label><input id="nd_demographic_bias" value="${preFill('demographic_bias')}"></div>
           <div class="field"><label>Age range</label><input id="nd_age_range" value="${preFill('age_range')}"></div>
         </div>
+        ${incidenceFieldsHTML('nd', 'us', 'US', prefill)}
+        ${incidenceFieldsHTML('nd', 'world', 'Worldwide', prefill)}
         <div class="field"><label>Prevalence description</label><textarea id="nd_prevalence_desc">${preFill('prevalence_desc')}</textarea></div>
       </div>
     </details>
@@ -719,7 +749,7 @@ async function saveNewDisease() {
     nci: v('#nd_nci'), omop: v('#nd_omop'),
     prevalence_per_100k: v('#nd_prevalence_per_100k'),
     prevalence_value:    v('#nd_prevalence_value'),
-    incidence_rate:      v('#nd_incidence_rate'),
+    ...incidenceValues(id => v('#nd_' + id)),
     demographic_bias:    v('#nd_demographic_bias'),
     age_range:           v('#nd_age_range'),
     prevalence_desc:     v('#nd_prevalence_desc'),

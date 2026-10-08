@@ -114,6 +114,29 @@ def test_update_disease_keeps_free_text_multi_fields_verbatim(service):
     assert detail["synonyms"] == ["Type 1: juvenile onset"]
 
 
+def test_update_disease_stores_us_and_worldwide_incidence(service):
+    iri = service.get_diseases_list()[0]["iri"]
+    detail = service.update_disease(iri, {
+        "incidence_us_per_100k": "20.1", "incidence_us_year": "2021",
+        "incidence_us_sources": "https://a.example/us\nhttps://b.example/us",
+        "incidence_world_per_100k": "15", "incidence_world_year": "2022",
+        "incidence_world_sources": "https://w.example/x",
+    }, editor="tester")
+    assert detail["rejected"] == []
+    assert detail["incidence_us_per_100k"] == [20.1]
+    assert detail["incidence_us_year"] == [2021]
+    assert detail["incidence_us_sources"] == ["https://a.example/us", "https://b.example/us"]
+    assert detail["incidence_world_per_100k"] == [15.0]
+    assert detail["incidence_world_year"] == [2022]
+    assert detail["incidence_world_sources"] == ["https://w.example/x"]
+
+
+def test_update_disease_rejects_non_numeric_incidence_year(service):
+    iri = service.get_diseases_list()[0]["iri"]
+    detail = service.update_disease(iri, {"incidence_us_year": "circa 2020"}, editor="tester")
+    assert detail["rejected"][0]["field"] == "incidence_us_year"
+
+
 def test_update_disease_ignores_unknown_field(service):
     iri = service.get_diseases_list()[0]["iri"]
     before = len(service.get_disease_detail(iri)["changelog"])
