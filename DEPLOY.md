@@ -148,15 +148,21 @@ Note: the remaining three mapping TSVs currently live in the
 above. If they move to the ARI repo, add them to `ARI_MAPPING_FILES` or
 update `deploy/update-mappings.sh` defaults.
 
-The local runtime mappings default to:
+The local runtime mappings default to a gitignored directory, which is where the
+app reads them for signed-out visitors:
 ```bash
-/opt/ari/ari-metadata-manager/mappings/ari.equivalencies.tsv
-/opt/ari/ari-metadata-manager/mappings/ari.sssom.tsv
+/opt/ari/ari-metadata-manager/ari-mappings/ari.equivalencies.tsv
+/opt/ari/ari-metadata-manager/ari-mappings/ari.sssom.tsv
 ```
+They are deliberately **not** the tracked files of the same name under
+`mappings/` (this repo's snapshot for the tooling and CI). Fetching over those
+made `update.sh` stash and reset them on every run, and this script then saw them
+change and restarted the app every ten minutes.
 
-To customize which mapping files are fetched or where they are stored locally,
-set `ARI_MAPPING_FILES` in `.env`. The format is a newline-separated list of
-`remote_path:local_path` pairs. Leave it unset to use the built-in defaults.
+To customize which mapping files are fetched, set `ARI_MAPPING_FILES` in `.env`.
+The format is a newline-separated list of `remote_path:local_path` pairs. Keep
+the local paths under `ari-mappings/`, where the app looks. Leave it unset to use
+the built-in defaults.
 
 ## 6. Nginx
 ```bash
@@ -283,7 +289,7 @@ grep -E '^(GITHUB_OWNER|GITHUB_REPO|GITHUB_BASE_BRANCH|ARI_MAPPING_FILES)=' /opt
 
 Check the local runtime mapping file timestamps:
 ```bash
-ls -l /opt/ari/ari-metadata-manager/mappings/ari.*.tsv
+ls -l /opt/ari/ari-metadata-manager/ari-mappings/ari.*.tsv
 ```
 
 ### Ontology is not updating from ARI main

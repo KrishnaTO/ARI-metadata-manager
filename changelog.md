@@ -1,5 +1,10 @@
 # Changelog
 
+## claude/runtime-mappings
+
+- **The server's copies of the data repo's mapping files live in their own folder.** `deploy/update-mappings.sh` fetched `KrishnaTO/ARI`'s `mappings/ari.sssom.tsv` and `ari.equivalencies.tsv` over this repo's *tracked* files of the same name. Every ten minutes `deploy/update.sh` then found the tree dirty, stashed the fetched copies (one new stash entry per run) and reset the tracked snapshot back; the next mapping refresh saw the bytes "change" and restarted the app. Production restarted every ten minutes, and signed-out readers saw the snapshot (442 judgments) instead of the current set (2,466) for part of every cycle. The fetched copies now go to `ari-mappings/` (gitignored, `config.MAPPINGS_RUNTIME_DIR`), and the app reads them from there. The tracked files under `mappings/` stay as the snapshot the tooling and CI use, and are never served.
+- **Deploying:** nothing to configure. Until the mapping timer's next run fills `ari-mappings/`, signed-out readers see no prior judgments; run `sudo -u ariapp /opt/ari/ari-metadata-manager/deploy/update-mappings.sh` once after the deploy to fill it at once.
+
 ## feat/synonym-review-marks
 
 - **Mark synonym-review rows and add notes.** Each row on `/ref-edits/synonyms/` has a *Curation* column: ✓ correct, ✗ incorrect, ? needs review, and a note. Signed-in curators only; changes save immediately and are shared by everyone.
