@@ -1,51 +1,101 @@
 # Efficiency review
 
-A review of the app's key code paths for avoidable work, written while the
-documentation was rebuilt. Nothing here has been changed yet. Each finding says
-where the cost is, how big it is, and what would remove it, so they can be
-picked up one at a time.
+A review of the app's key code paths for avoidable work. Nothing here has been
+changed yet. Each finding says where the cost is, how big it is, and what would
+remove it, so they can be picked up one at a time.
 
-**Baseline:** `main` at `e8c8a6c`. **Method:** every module under `app/`,
-`static/` and `deploy/` was read, and the hot paths were timed against a copy of
-the test fixture (`tests/fixtures/ontologies/ari_t1d.owl`, 214 diseases) and the
-committed `data/2-databases` indexes. Timings come from a Windows development
-machine on Python 3.14. Read them as relative sizes, not as production figures.
+**Baseline:** `main` at `e8c8a6c`, which is also what production runs
+(`2.348 (e8c8a6c, 2026-10-08)`). **Method, in three passes:**
 
-| Measured | Time |
+1. **Code reading.** Every module under `app/`, `static/` and `deploy/`.
+2. **Local profiling.** Every endpoint was timed in-process, and the service
+   functions behind the slow ones were profiled with `cProfile`. This ran
+   against a scratch copy of the runtime ontology (214 diseases) and the
+   committed `data/2-databases` indexes, on a Windows development machine with
+   Python 3.14. A local server (GitHub sign-in off) was then driven in the
+   browser to read page-load waterfalls and time client-side rendering.
+3. **Production, read-only.** <https://aurint.ca/ari-editor/>, signed out, on
+   2026-10-11, from the browser: page waterfalls, response headers, repeated
+   endpoint timings and client-side rendering. Nothing was written. Sync and
+   publish need a signed-in session, so those were measured locally only.
+
+Where the same work was timed in both places, **production is about 2.5× slower
+than the development machine.** Export takes 959 ms against 365 ms; the
+prediction cold start takes 5.0 s against 2.1 s. Read local-only figures with
+that factor in mind.
+
+### Production, measured
+
+| Request (signed out) | Time | Notes |
+| --- | ---: | --- |
+| Round trip (`/api/v2/me`, `/healthz`) | 21–31 ms | HTTP/3 through Cloudflare |
+| `GET /api/v2/predictions`, first after a restart | **4,983 ms** | The review matrix waits for it, so the page took 5.4 s |
+| `GET /api/v2/predictions`, warm | 28–42 ms | |
+| `POST /api/v2/enrichment-preview` with an **empty** list | **1,346 ms** | §2 |
+| `GET /api/v2/export` (signed out, no baseline) | 959 ms | §1 |
+| `GET /api/v2/synonym-review` | 641–946 ms | 2.7 MB of JSON, fetched from GitHub every time (§14) |
+| `GET /api/v2/concept/{db}/{id}`, first lookup of an id | 226–1,449 ms | live source; the first one also builds the reverse map |
+| `GET /api/v2/concept/{db}/{id}`, repeat | 25–35 ms | |
+| `GET /api/v2/open-prs`, `GET /api/v2/settings` | 112–232 ms | one GitHub call each, uncached (§11) |
+| `GET /api/v2/symptoms` | 111–182 ms | 340 KB of JSON |
+| `GET /api/v2/mappings` · `xrefs` · `stats` | ~100 · ~75 · ~70 ms | `mappings` is 390 KB of JSON |
+| Record view: open the largest record (Type 1 diabetes) | 52 ms | including the request |
+| Record view: open a deep dive | 5–38 ms | the prevalence chart is the 38 |
+| Review page: one keystroke in the filter | 37–129 ms | blocks the page (§12) |
+
+**What production does well:** versioned JS and CSS are Cloudflare cache HITs,
+`immutable`, and zstd-compressed. JSON is compressed too (the 2.7 MB report
+travels as 200 KB). The HTML is revalidated on each load and arrives in 58 ms.
+
+### Local, measured
+
+| Function | Time |
 | --- | ---: |
 | Parse the ontology into an `OntologyService` | 78 ms |
 | `get_disease_detail` (one record) | 1.2 ms |
 | `get_xref_rows` (whole review grid) | 12 ms |
 | `search("arth")` | 16 ms |
 | `_save()` (serialise the OWL file) | 42 ms |
-| `diff_service.list_changes` (publish summary / pending changes) | **697 ms** |
-| `export_service.build_report` with a baseline | **588 ms** |
+| `diff_service.list_changes` (publish summary / pending changes) | **697–813 ms** |
+| `export_service.build_report` with a baseline | **588–600 ms** |
+| `merge_service.merge_into`, every disease (each sync that finds the branch moved) | **714 ms** |
 | `predict_service.get_indexes()`, cold | **1,504 ms** |
 | `predict_xrefs()`, first call after the indexes load | **598 ms** |
 | `predict_xrefs()`, cached | 0.1 ms |
-| `enrichment_preview` for **one** disease | **552 ms** |
+| `enrichment_preview` for **one** disease | **552–638 ms** |
 | …of which `build_id_index` + `load_subtypes` (rebuilt on every call) | 278 + 209 ms |
 | `concept_service._build_reverse` (first lookup, then cached) | 376 ms |
+| Publish, local steps other than the summary (graft, save, splice, SSSOM build) | ~70 ms |
+| Review page: one full pass of `ReviewModel.cellState` over the matrix | **156 ms** (1.2 ms with predictions indexed) |
 | `world[property IRI]` lookup ×1000 | 1.7 ms |
 
 ## Summary, by expected payoff
 
 | # | Finding | Where | Cost today | Effort |
 | --- | --- | --- | --- | --- |
-| 1 | The change summary and the export build every disease's full detail, twice | `diff_service._rows`, `export_service._rows_from_service` | ~0.6–0.7 s per publish, dialog open or export | Small |
-| 2 | Enrichment rebuilds two whole-index structures on every call | `enrich_service.enrich_many` | ~0.5 s per preview, again on publish | Small |
+| 12 | The review page recomputes every cell from all predictions, several times per redraw, on every keystroke | `static/ref-edits/review-model.js` `predFor`, `ref-edits.js` filter | 37–129 ms per keystroke in production, 230–620 ms locally; blocks the page | Small |
+| 1 | The change summary and the export build every disease's full detail, twice | `diff_service._rows`, `export_service._rows_from_service` | ~0.7 s locally (~1.8 s estimated in production) per publish, dialog open or export | Small |
+| 2 | Enrichment rebuilds two whole-index structures on every call | `enrich_service.enrich_many` | 1.35 s per call in production, even for an empty list | Small |
+| 4 | The prediction indexes load on the first request after every restart | `predict_service.get_indexes` | 5.0 s in production for the first review-page visitor | Small |
+| 5 | The mapping refresh restarts the app for no reason | `deploy/update-mappings.sh:89` | Each restart puts the next visitor through the cold start above | Small (ops) |
+| 13 | Sync merges every disease and re-reads each record several times | `merge_service.merge_into`, `routes/merge.py` | 0.7 s locally (~1.8 s estimated in production) each time the branch moves | Small |
 | 3 | CPU-bound work runs on the event loop and blocks every other request | all `async def` routes in `app/routes/` | Everyone waits for the slowest request | Medium |
-| 4 | The prediction indexes load on the first request after every restart | `predict_service.get_indexes` | ~2.1 s on the first review-page load | Small |
-| 5 | The mapping refresh restarts the app for no reason | `deploy/update-mappings.sh:89` | Drops warm caches; skips the curator-deferral guard | Small (ops) |
+| 7 | Independent network calls run one after another | frontend `init()`s, mapping reads, blob uploads | 4 serial calls before the tree; 5 before the matrix | Small |
+| 14 | The synonym review re-downloads report 9 on every load | `routes/review.py` `synonym_review`, `synonyms.js` | 0.64–0.95 s and 2.7 MB of JSON per load | Small |
 | 6 | Three separate reverse-id indexes over the same records | `predict_service`, `concept_service`, `enrich_service` | ~100 MB resident, plus 27 MB rebuilt per enrichment | Medium |
-| 7 | Independent network calls run one after another | frontend `init()`s, mapping reads, blob uploads | One round trip each, in series | Small |
 | 8 | No HTTP connection reuse | `github_service`, `pr_review/terminology` | One TLS handshake per call; hundreds per PR matrix | Small |
 | 9 | PR reviewer repeats GitHub reads, and one loop is quadratic | `pr_review/github.py`, `pr_review/compare.py` | N+1 calls to list PRs; 3 fetches of one file list | Small |
 | 10 | Downloaded baselines are not reused | `routes/publish.py`, `merge.py`, `settings.py` | ~1.7 MB download + parse per dialog, publish, resolve, export | Medium |
 | 11 | Smaller items | various | see below | Small |
 
-Suggested order: 1 and 2 (pure code, large and certain wins), then 5 (one line,
-but it is a server change), then 4, 7 and 6.
+Suggested order:
+
+1. **§12.** It is what curators feel most often, and it is a contained frontend
+   change with an exact test (identical results, measured below).
+2. **§1 and §2.** Pure server code, with large and certain wins.
+3. **§5 and §4 together**, so the cold start neither happens needlessly nor
+   lands on a person.
+4. **§13**, then **§7** and **§14**.
 
 ---
 
@@ -90,8 +140,11 @@ cross-reference of every term in all five indexes (278 ms, 39 MB peak).
 `*.subtypes.tsv` files (209 ms).
 
 `POST /api/v2/enrichment-preview` pays this on every call, even for one disease
-(552 ms measured). Publishing with *Apply on publish* pays it again, because
-`apply_enrichment` re-runs the preview (`ontology_service.py:1201`).
+(552–638 ms locally). **In production it took 1,346 ms with an empty list**: the
+structures are built before anything checks whether there is work to do.
+Publishing with *Apply on publish* pays it again, because `apply_enrichment`
+re-runs the preview (`ontology_service.py:1201`). Also return early when
+`confirmed` is empty.
 
 **Fix:** cache both alongside the index cache, with the same invalidation.
 `concept_service._reverse_for` already shows the pattern: key on the identity of
@@ -135,10 +188,14 @@ curators with unsaved work.
 `GET /api/v2/predictions`.
 
 The first review-page load after a restart parses ~85k terms from the five
-index files (1.5 s). The first prediction pass then builds the fuzzy word index
-and the per-index reverse maps (0.6 s). The curator who happens to open the page
-first waits ~2.1 s, and because of finding 3, so does everyone else. Restarts
-are frequent: every deploy, and every mapping refresh (finding 5).
+index files (1.5 s locally). The first prediction pass then builds the fuzzy
+word index and the per-index reverse maps (0.6 s). **In production this took
+4,983 ms**, and because the review page doesn't draw the matrix until
+predictions arrive (§7), the first visitor saw an empty page for 5.4 s.
+Because of finding 3, every other request waited too. Restarts are frequent:
+every deploy, and every mapping refresh (finding 5). The compare pane's first
+lookup after a restart pays a similar one-off cost when it builds its reverse
+map (1,449 ms for the first MONDO lookup in production).
 
 **Fix:** warm the cache in `main.lifespan`. Call
 `asyncio.to_thread(predict_service.get_indexes)` (and, once finding 2 is done,
@@ -198,9 +255,15 @@ one entry, not a dict.
   `me` and `sync` have to come first. The other seven are independent and can go
   out together with `Promise.all`, so the page waits for the slowest one instead
   of the sum. `mappings` is itself two GitHub downloads and `predictions` may be
-  a cold start, so this is the biggest wait a curator sees.
+  a cold start, so this is the biggest wait a curator sees. Measured in
+  production (signed out, so without `sync` and the signed-in reads): `me` →
+  `xref-databases` → `xrefs` → `mappings` → `predictions` ran strictly in
+  series, and the matrix appeared only after the last one finished.
 - **Main page start-up** (`static/js/main.js:5–9`): `overview`, `schema` and
-  `xref-databases` run in series. They are independent.
+  `xref-databases` run in series. They are independent. In production the
+  chain `overview` → `schema` → `xref-databases` → `tree/alphabetical` started
+  at 441 ms (after the scripts) and finished at 841 ms. The first call alone took
+  249 ms, probably the shared base ontology reloading after a refresh.
 - **Mapping files** (`routes/review.py:49–50`, `routes/publish.py:296`): the
   SSSOM and equivalencies files are downloaded one after the other. Use
   `asyncio.gather`.
@@ -264,8 +327,30 @@ branch name). Each step then copies the cached file instead of downloading it.
   merge.
 - **Uncached GitHub listings:** `GET /api/v2/settings` lists every branch on
   each open (`routes/settings.py:52`), and `/source` and `/pr-base` list them
-  again to validate. `/open-prs` lists all open PRs on each page load. A
-  60-second cache would cut the API traffic.
+  again to validate. `/open-prs` lists all open PRs on each page load. In
+  production each costs 112–232 ms against a 22 ms round trip. A 60-second
+  cache would cut both the wait and the API traffic.
+- **Large JSON payloads:** `/api/v2/symptoms` (340 KB, 111–182 ms in
+  production; it is read for the symptom tab and the symptom search),
+  `/api/v2/mappings` (390 KB in production) and `/api/v2/xrefs` (203 KB).
+  Cloudflare compresses them well, so the transfer is small, but each is still
+  serialised on the server and parsed in the browser on every load.
+  `/symptoms` carries an IRI for each of its 2,037 symptoms that neither the
+  symptom tab (`trees.js`) nor the symptom search (`symptoms.js`) reads. That is
+  40% of the payload (142 of 360 KB). The symptom search then fetches
+  `/diseases` to turn the disease *names* back into IRIs, which returning the
+  owning disease's IRI would make unnecessary.
+- **Vendored libraries on every load:** the record view loads Chart.js (204 KB)
+  and D3 (273 KB) up front, though only the prevalence chart, the word cloud
+  and the pathophysiology graph use them. They are cached, but parsed on every
+  page load. Loading them when a deep dive first needs them would take ~0.5 MB
+  of script parsing off the start-up path.
+- **Local mode reloads the ontology after each write.** With GitHub sign-in
+  off, writes go to the shared base file. That changes its mtime, so the next
+  request reloads the whole ontology (`workspace.base()`): writes after the
+  first took ~125 ms instead of ~46 ms in the local run, and the prediction
+  cache was thrown away each time. Production is unaffected (curators write to
+  their own copies), but `_save()` on the base could refresh `_BASE_KEY`.
 - **Tree and search** (`static/js/trees.js`): switching tabs or toggling
   *Show only autoimmune* refetches the whole tree from the server. The server
   rebuilds it each time (3–7 ms), so it is cheap, but the client could keep it
@@ -276,6 +361,96 @@ branch name). Each step then copies the cached file instead of downloading it.
   times and writes it with a plain `write_text` (`:1415`), not
   `atomic_store.write_json`. The repeated reads are trivial. The non-atomic
   write is a durability gap of the kind `atomic_store` was introduced to close.
+
+## 12. The review page recomputes every cell from all predictions, on every keystroke
+
+**Where:** `static/ref-edits/review-model.js:32` (`predFor`), reached through
+`cellEntries` → `cellState`; the filter box is wired straight to `renderMatrix`
+(`static/ref-edits/ref-edits.js`, `$('#filter').addEventListener('input', renderMatrix)`).
+
+To find the predictions for one blank cell, `predFor` walks **every**
+prediction on the page (`Object.entries(s.predicted)`) and splits each key
+string. It runs once per blank cell, and a redraw computes each cell's state
+several times over:
+
+- the filter in `visibleRows` checks every cell's entries;
+- `renderMatrix` computes each visible cell's state and entries;
+- the first-run banner's `emptiestDb` runs `isMissing` for every disease in
+  every column;
+- a column sort calls `cellNeed` inside the comparator, so O(n log n) times.
+
+**Measured, in the browser.** Locally there are 602 predictions and 1,926 cells.
+
+- One full `cellState` pass over the matrix takes **156 ms** as written.
+- The same pass with predictions indexed by cell takes **1.2 ms**, and returns
+  identical results for every cell.
+- One keystroke in the filter blocks the page for 230–620 ms, and still
+  150 ms when nothing matches. So the cost is the state computation, not drawing
+  rows.
+
+In production, where more cells are already filled and there are fewer
+predictions, a keystroke costs 37–129 ms. The cost scales with
+predictions × blank cells, so it grows as diseases are added.
+
+**Fix:**
+
+- When `/api/v2/predictions` loads, build `predictedByCell`, keyed
+  `"<ari_id>|<prefix>"`, once. Pass it in the model and have `predFor` look it
+  up. The function's contract is unchanged, so `tests/review-model.test.js`
+  still applies, with one more field on the state.
+- Compute each cell's state once per render, not per caller.
+- Debounce the filter input by about 100 ms.
+
+## 13. Sync merges every disease, re-reading each record several times
+
+**Where:** `routes/merge.py:66` passes `_all_diseases(theirs, mine)` to
+`workspace.merge_from` → `merge_service.merge_into` (`merge_service.py:323`).
+
+Whenever the source branch's head has moved, which happens on any commit to the
+data repo, even one that touches only mappings or reports, `POST /api/v2/sync`
+downloads the ontology and three-way merges **all** 214 diseases. Locally, with
+5 diseases changed upstream and 3 edited, that took **714 ms** (about 1.8 s
+estimated in production). It ran 371,000 SQLite queries: each subject's
+triples are read for the ancestor, the working copy and the branch, then read
+again to compare the merged result with the working copy and the ancestor with
+the branch. `_pairs` ran 14,700 times. Sync runs on every page load and every
+return to the tab.
+
+**Fix, cheapest first:**
+
+1. **Skip unchanged ontology files.** If the ontology at the new sha is
+   byte-identical to the ancestor, advance the ancestor's sha and stop. The
+   contents API returns each file's blob sha, so comparing that with a stored
+   one avoids even the download. Most commits to the data repo don't touch the
+   ontology.
+2. **Merge only what changed.** `owl_splice._segments` already splits the file
+   into per-entity blocks, keyed by `rdf:about`, and the blocks are
+   byte-identical whatever their order. A disease whose block, and whose items'
+   blocks, are identical in the ancestor and the branch has nothing upstream to
+   merge. So only the touched diseases plus the changed ones need
+   `merge_disease`. The test errs on the safe side: a block that differs only in
+   formatting (say, after a hand edit in the data repo) merely triggers a merge
+   that finds nothing to do.
+3. **Memoise `_triples(svc, subject)`** for the length of one `merge_into`
+   call. That halves the query count even for a full merge.
+
+## 14. The synonym review re-downloads report 9 on every load
+
+**Where:** `routes/review.py:110` (`GET /api/v2/synonym-review`) and
+`static/ref-edits/synonyms/synonyms.js`.
+
+Each load fetches `9_Synonym_Review.tsv` from GitHub, parses it and returns it
+whole. In production that is **0.64–0.95 s and 2.7 MB of JSON** (200 KB
+compressed) per load, for a report that changes only when the data repo's
+notebook rewrites it. The page also loads all of `/api/v2/xrefs` (203 KB) only
+to map each ARI id to its IRI for the "open in review" links.
+
+**Fix:**
+
+- Cache the parsed report keyed by the file's blob sha (a short TTL is enough),
+  so a repeat load costs one small GitHub call or none.
+- Add the IRI to each row on the server, which already holds the ontology, and
+  drop the page's `/xrefs` request.
 
 ## Checked and not worth changing
 
@@ -294,3 +469,11 @@ branch name). Each step then copies the cached file instead of downloading it.
   bounded cost.
 - **`workspace._has_unpublished_work`** reads both files in full only when their
   sizes match, which is rare once a copy has been edited.
+- **The record view.** Opening the largest record in production took 52 ms
+  including the request; deep dives render in 5–38 ms; the tree endpoints
+  answer in 33–57 ms.
+- **Publishing, apart from the summary and the merge.** Graft, save, splice
+  and the SSSOM build together cost ~70 ms locally.
+- **Static delivery.** Versioned assets are Cloudflare cache HITs, `immutable`
+  and zstd-compressed, over HTTP/3. Only the first visitor after a deploy fetches
+  them from the server.
