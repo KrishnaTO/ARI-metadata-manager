@@ -25,6 +25,11 @@ function session(over = {}) {
   };
 }
 
+// One row of /api/v2/predictions; `predicted` is built from these as the page does.
+const predRow = (ari_id, prefix, id, over = {}) => ({
+  ari_id, prefix, id, object_label: 'Addison', match_field: 'label', confidence: 'high', ...over,
+});
+
 const disease = (over = {}) => ({
   iri: 'http://x/d1', ari_id: 'ARI:0000001', name: 'Addison disease',
   mondo: [], snomed: [], ...over,
@@ -67,7 +72,7 @@ test('a blank cell with no prediction has no state at all', () => {
 // ------------------------------------------------------------ predictions
 test('a prediction only applies to a cell with no ids on file', () => {
   const s = session({
-    predicted: { 'ARI:0000001|MONDO|0005147': { label: 'Addison', confidence: 'high' } },
+    predicted: RM.indexPredictions([predRow('ARI:0000001', 'MONDO', '0005147')]),
   });
   assert.equal(RM.cellState(s, disease(), 'mondo'), 'pred');
   assert.equal(RM.cellState(s, disease({ mondo: ['0001'] }), 'mondo'), 'have',
@@ -76,14 +81,14 @@ test('a prediction only applies to a cell with no ids on file', () => {
 
 test('a synonym-only prediction is distinguished from a label match', () => {
   const s = session({
-    predicted: { 'ARI:0000001|MONDO|0005147': { label: 'Addison', confidence: 'low' } },
+    predicted: RM.indexPredictions([predRow('ARI:0000001', 'MONDO', '0005147', { confidence: 'low' })]),
   });
   assert.equal(RM.cellState(s, disease(), 'mondo'), 'low');
 });
 
 test('a prediction already judged negative is not offered again', () => {
   const s = session({
-    predicted: { 'ARI:0000001|MONDO|0005147': { label: 'Addison', confidence: 'high' } },
+    predicted: RM.indexPredictions([predRow('ARI:0000001', 'MONDO', '0005147')]),
     mappings: { 'ARI:0000001|MONDO|0005147': 'negative' },
   });
   assert.deepEqual(RM.predFor(s, disease(), 'mondo'), []);
@@ -207,7 +212,7 @@ test('an edited id is publishable even when its verdict is unchanged', () => {
 // ---------------------------------------------------------------- sorting
 test('missing-first ranks the emptiest cells ahead of the resolved ones', () => {
   const s = session({
-    predicted: { 'ARI:B|MONDO|x': { label: 'x', confidence: 'high' } },
+    predicted: RM.indexPredictions([predRow('ARI:B', 'MONDO', 'x')]),
   });
   const blank = { iri: 'i/a', ari_id: 'ARI:A', name: 'A', mondo: [], snomed: [] };
   const pred = { iri: 'i/b', ari_id: 'ARI:B', name: 'B', mondo: [], snomed: [] };
@@ -294,7 +299,7 @@ test('an id with no recorded author is nobody to route it to', () => {
 test('a prediction is not waiting on a second reviewer — nobody added it', () => {
   const r = disease({ mondo: [] });
   const s = session({ me: { login: 'ana' } });
-  s.predicted['ARI:0000001|MONDO|0005147'] = { label: 'x', confidence: 'high' };
+  s.predicted = RM.indexPredictions([predRow('ARI:0000001', 'MONDO', '0005147')]);
   s.idAuthors[RM.idKey(r.iri, 'mondo', '0005147')] = 'ben';
   assert.equal(RM.awaitsSecondReviewer(s, r), false);
 });
@@ -307,12 +312,41 @@ test('one waiting cell is enough for the disease to show in the scope', () => {
   assert.equal(RM.awaitsSecondReviewer(s, r), true);
 });
 
+// ------------------------------------------------ predictions, indexed by cell
+// The review page asked every blank cell for its predictions by scanning the
+// whole prediction set, several times per redraw: one keystroke in the filter
+// blocked the page for up to 620 ms. Grouping them by cell once makes it a lookup.
+test('the API predictions are grouped by the cell they fill', () => {
+  const byCell = RM.indexPredictions([
+    { ari_id: 'ARI:0000001', prefix: 'MONDO', id: '0005147', object_label: 'Addison',
+      match_field: 'label', confidence: 'high', score: 70, band: 'fair' },
+    { ari_id: 'ARI:0000001', prefix: 'MONDO', id: '0009999', object_label: 'Other',
+      match_field: 'synonym', confidence: 'low', score: 30, band: 'weak' },
+    { ari_id: 'ARI:0000002', prefix: 'SNOMEDCT', id: '123', object_label: 'X',
+      match_field: 'xref', confidence: 'high', score: 90, band: 'strong' },
+  ]);
+  assert.deepEqual(Object.keys(byCell).sort(), ['ARI:0000001|MONDO', 'ARI:0000002|SNOMEDCT']);
+  assert.deepEqual(byCell['ARI:0000001|MONDO'].map(p => p.id), ['0005147', '0009999']);
+  assert.deepEqual(byCell['ARI:0000002|SNOMEDCT'][0],
+    { id: '123', label: 'X', match_field: 'xref', confidence: 'high', score: 90, band: 'strong' });
+});
+
+test('a cell reads only its own predictions, never the whole set', () => {
+  const own = RM.indexPredictions([predRow('ARI:0000001', 'MONDO', '0005147')]);
+  // Enumerating the set is the per-cell scan this replaced.
+  const predicted = new Proxy(own, {
+    ownKeys() { throw new Error('enumerated every prediction to answer one cell'); },
+  });
+  const s = session({ predicted });
+  assert.deepEqual(RM.predFor(s, disease(), 'mondo').map(p => p.id), ['0005147']);
+  assert.equal(RM.cellState(s, disease(), 'snomed'), null);
+});
+
 test('a prediction carries its match score through to the card (issue #91)', () => {
   const r = disease({ mondo: [] });
   const s = session();
-  s.predicted['ARI:0000001|MONDO|0005147'] =
-    { label: 'type 1 diabetes mellitus', match_field: 'xref', confidence: 'high',
-      score: 97, band: 'strong' };
+  s.predicted = RM.indexPredictions([predRow('ARI:0000001', 'MONDO', '0005147',
+    { object_label: 'type 1 diabetes mellitus', match_field: 'xref', score: 97, band: 'strong' })]);
   const [entry] = RM.cellEntries(s, r, 'mondo');
   assert.equal(entry.pred.score, 97);
   assert.equal(entry.pred.band, 'strong');

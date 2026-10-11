@@ -1,5 +1,9 @@
 # Changelog
 
+## claude/review-filter-perf
+
+- **Typing in the reference-review filter no longer freezes the page.** For every blank cell, the matrix found that cell's predicted ids by scanning every prediction on the page, and each redraw asked several times per cell. A keystroke blocked the page for 130–470 ms locally (37–129 ms in production, which has fewer predictions), and a column sort for up to 630 ms. Predictions are now grouped by cell once when they load (`ReviewModel.indexPredictions`), so finding them is a lookup. Typing, sorting and the *missing only* toggle now take 1–54 ms locally. Rendered on the same data, the matrix is identical to before at every step checked (filters, all sort directions, the *missing only* toggle, and the opened row's prediction cards).
+
 ## feat/synonym-review-marks
 
 - **Mark synonym-review rows and add notes.** Each row on `/ref-edits/synonyms/` has a *Curation* column: ✓ correct, ✗ incorrect, ? needs review, and a note. Signed-in curators only; changes save immediately and are shared by everyone.
