@@ -1,5 +1,9 @@
 # Changelog
 
+## claude/enrich-cache
+
+- **The enrichment preview no longer rebuilds its lookup tables on every call.** Each preview (the ⚗ drawer on the reference-review page), and each publish with *Apply on publish*, rebuilt two structures from the whole reference index: the id → term map and the subtype map. That took 0.5–0.7 s locally and 1.35 s in production, even when nothing was confirmed. Both are now built once and reused until the reference files change: the id map while `get_indexes()` returns the same index set, the subtype map also until a `*.subtypes.tsv` file's mtime or size changes. A preview with nothing confirmed returns without reading anything. Previews now take 1–9 ms in-process (17 ms over HTTP for all 318 confirmed ids). The proposals are byte-identical to before for the full confirmed set (51 diseases).
+
 ## feat/synonym-review-marks
 
 - **Mark synonym-review rows and add notes.** Each row on `/ref-edits/synonyms/` has a *Curation* column: ✓ correct, ✗ incorrect, ? needs review, and a note. Signed-in curators only; changes save immediately and are shared by everyone.
