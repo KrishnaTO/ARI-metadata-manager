@@ -1,5 +1,11 @@
 # Changelog
 
+## claude/cold-start
+
+- **The first review-page visitor after a restart no longer waits ~5 s.** The reference indexes were parsed, and their lookups built, inside the first `/api/v2/predictions` request: 5.0 s in production, 2.2 s locally, with every other request queued behind it. They are now loaded at startup in a background thread (`predict_service.warm`, started from `main.lifespan`). Locally the first predictions call after a restart drops from 2,224 ms to 81 ms; requests during the warm-up are answered as usual (7 ms); predictions are byte-identical.
+- **The index lookups are never read half-built.** `records_for` and `fuzzy_lookup` used to publish their maps before filling them, so a reader on another thread (the compare pane and PR reviewer run on FastAPI's thread pool) could get silently incomplete candidates. Each map is now published once complete, and concurrent first callers of `get_indexes` share one parse.
+- **The mapping refresh no longer restarts the app.** `deploy/update-mappings.sh` restarted `ari-mm` whenever a mapping file changed, without `update.sh`'s deferral for curators with work in progress. The app reads those files from disk on every request that needs them, so nothing required the restart. Files are now replaced atomically, and nothing is restarted.
+
 ## feat/synonym-review-marks
 
 - **Mark synonym-review rows and add notes.** Each row on `/ref-edits/synonyms/` has a *Curation* column: ✓ correct, ✗ incorrect, ? needs review, and a note. Signed-in curators only; changes save immediately and are shared by everyone.
