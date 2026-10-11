@@ -1,5 +1,10 @@
 # Changelog
 
+## claude/autostash-dedupe
+
+- **`deploy/update.sh` no longer piles up identical stash entries.** Before resetting, it stashes any local changes so a reset never destroys them. Something that rewrites tracked files on every run therefore added one identical `pre-update autostash` entry per run, indefinitely, with a one-line warning as the only trace. That is how the mapping refresh writing over tracked files went unnoticed, one entry every ten minutes. A run whose changes are identical to the previous entry (same tree, same untracked files) now drops its new entry and logs an `ERROR` saying something rewrites tracked files every run. The warning also lists the changed files. Every distinct change is still kept.
+- **`OPERATIONS.md` has a procedure for clearing the backlog already on the server.** It inspects first, keeps the newest entry on an `autostash-backup` branch, drops only `pre-update autostash` entries (highest index first), and leaves every other stash alone. Run it after the runtime-mappings fix is deployed.
+
 ## feat/synonym-review-marks
 
 - **Mark synonym-review rows and add notes.** Each row on `/ref-edits/synonyms/` has a *Curation* column: ✓ correct, ✗ incorrect, ? needs review, and a note. Signed-in curators only; changes save immediately and are shared by everyone.
