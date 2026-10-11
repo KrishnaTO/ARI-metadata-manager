@@ -48,6 +48,14 @@ async def sync(request: Request):
         sha = await gh.branch_sha(u["token"], config.GH_OWNER, config.GH_REPO, branch)
         if sha == workspace.ancestor_sha(login):
             return {"up_to_date": True, "revision": workspace.copy_revision(login)}
+        # The branch moved, but about half the commits to the data repo leave
+        # the ontology alone. If its file is the one last synced, there is
+        # nothing to merge: record the commit and skip the download.
+        blob = workspace.ancestor_blob(login)
+        if blob and blob == await gh.file_blob_sha(u["token"], config.GH_OWNER, config.GH_REPO,
+                                                    config.GH_ONTOLOGY_PATH, sha):
+            workspace.set_ancestor_sha(login, sha, blob)
+            return {"up_to_date": True, "revision": workspace.copy_revision(login)}
         theirs = await _baseline_service(request, u, ref=sha)
     except gh.BranchNotFound:
         # An edit/* branch deleted once its PR merged. Say so, and offer the way
@@ -69,7 +77,7 @@ async def sync(request: Request):
         _discard(theirs.path)
     if not out["conflicts"]:
         if workspace.ancestor_path(login).exists():
-            workspace.set_ancestor_sha(login, sha)
+            workspace.set_ancestor_sha(login, sha, gh.blob_sha(theirs_bytes))
         else:
             # A copy made before ancestors were kept. After a clean merge with no
             # ancestor every single-valued field equals the branch's, so the

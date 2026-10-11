@@ -1,5 +1,10 @@
 # Changelog
 
+## claude/sync-merge
+
+- **Sync skips the work when the ontology file hasn't changed.** `POST /api/v2/sync` runs on every page load and every return to the tab. Whenever the source branch had moved, it downloaded the 1.7 MB ontology, parsed it, and three-way merged every disease. In the last 60 days only 118 of 225 commits to `KrishnaTO/ARI` main touched the ontology. The working copy's ancestor now records the git blob id of the file it was last fully synced against, and sync asks GitHub for the new commit's blob id, a small response. If they match, sync records the commit and returns: no download, no parse, no merge. A publish or resolve that moves the ancestor on its own clears the recorded id, so the next sync compares again.
+- **Merging brings in only the diseases the branch changed.** When the file has changed, `merge_service.merge_into` first reads both ontologies' triples in bulk (two table reads each, ~15 ms) and leaves out every disease the branch holds exactly as the ancestor does; for those the merge would return the working copy's version untouched anyway. Locally, merging 214 diseases with 5 changed upstream takes 73 ms instead of 713 ms, with the same merged, advanced and conflicting diseases and identical resulting records.
+
 ## feat/synonym-review-marks
 
 - **Mark synonym-review rows and add notes.** Each row on `/ref-edits/synonyms/` has a *Curation* column: ✓ correct, ✗ incorrect, ? needs review, and a note. Signed-in curators only; changes save immediately and are shared by everyone.

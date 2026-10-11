@@ -4,6 +4,7 @@ Covers the ancestor files beside each working copy and the sync / resolve /
 publish endpoints that merge the source branch in (see
 docs/superpowers/specs/2026-09-22-working-copy-merge-design.md).
 """
+import hashlib
 import shutil
 from collections import OrderedDict
 
@@ -86,14 +87,70 @@ def branch(curator, monkeypatch, make_service):
         state["svc"]._save()
         return state["svc"].path.read_bytes()
 
+    async def _blob(token, owner, repo, path, ref):
+        state["svc"]._save()
+        data = state["svc"].path.read_bytes()
+        return hashlib.sha1(b"blob %d\0" % len(data) + data).hexdigest()
+
     monkeypatch.setattr(gh, "branch_sha", _sha)
     monkeypatch.setattr(gh, "get_file_at", _file)
+    monkeypatch.setattr(gh, "file_blob_sha", _blob, raising=False)
     return state
+
+
+# ------------------------------------------------- an unchanged ontology file
+# About half the commits to the data repo touch only reports, notebooks or
+# mappings. Sync downloaded, parsed and merged the whole ontology for each.
+def test_blob_ids_match_git():
+    assert gh.blob_sha(b"hello\n") == "ce013625030ba8dba906f756967f9e9ca394464a"
+
+
+def test_sync_skips_the_download_when_the_branch_moved_but_its_ontology_did_not(branch):
+    workspace.user_service("ada", create=True)
+    client.post("/api/v2/sync")                         # a full sync at sha-2
+    branch["refs"].clear()
+    branch["sha"] = "sha-3"                             # say, a commit to a report
+
+    r = client.post("/api/v2/sync").json()
+
+    assert r == {"up_to_date": True, "revision": workspace.copy_revision("ada")}
+    assert branch["refs"] == [], "downloaded an ontology that had not changed"
+    assert workspace.ancestor_sha("ada") == "sha-3"
+
+
+def test_sync_downloads_again_once_the_ontology_changes(branch):
+    d = _first(workspace.user_service("ada", create=True))
+    client.post("/api/v2/sync")
+    branch["refs"].clear()
+    branch["sha"] = "sha-3"
+    branch["svc"].update_disease(d, {"definition": "theirs"}, editor="bob")
+
+    r = client.post("/api/v2/sync").json()
+
+    assert branch["refs"] == ["sha-3"] and r["merged"] == [d]
+
+
+def test_a_publish_merge_makes_the_next_sync_compare_again(branch, make_service):
+    """A publish merges its diseases at the branch's head and moves their
+    ancestor there. If the branch then lands back on the file last synced (a
+    revert), skipping would leave the reverted change in the working copy."""
+    d = _first(workspace.user_service("ada", create=True))
+    client.post("/api/v2/sync")                         # synced: file B at sha-2
+    elsewhere = make_service()
+    elsewhere.update_disease(d, {"definition": "since reverted"}, editor="bob")
+    workspace.merge_from("ada", elsewhere, [d])         # what publish does mid-flight
+    branch["refs"].clear()
+    branch["sha"] = "sha-3"                             # file B again
+
+    client.post("/api/v2/sync")
+
+    assert branch["refs"] == ["sha-3"]
+    assert workspace.user_service("ada").get_disease_detail(d)["definition"] != "since reverted"
 
 
 def test_sync_is_a_no_op_when_the_branch_has_not_moved(branch):
     workspace.user_service("ada", create=True)
-    workspace.set_ancestor_sha("ada", "sha-2")
+    workspace.set_ancestor_sha("ada", "sha-2", None)
 
     assert client.post("/api/v2/sync").json() == {"up_to_date": True,
                                                   "revision": workspace.copy_revision("ada")}
@@ -236,7 +293,7 @@ def test_sync_reports_a_revision_that_moves_only_when_the_copy_changes(branch):
 def test_recording_the_branch_commit_keeps_the_revision(branch):
     workspace.user_service("ada", create=True)
     rev = workspace.copy_revision("ada")
-    workspace.set_ancestor_sha("ada", "sha-9")
+    workspace.set_ancestor_sha("ada", "sha-9", "blob-9")
     assert workspace.copy_revision("ada") == rev
 
 

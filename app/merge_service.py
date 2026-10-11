@@ -320,6 +320,37 @@ def _record(svc, iri) -> dict:
     return {s: _triples(svc, s) for s in sorted({iri} | _item_iris(svc, iri))}
 
 
+def _snapshot(svc) -> dict:
+    """Every subject's triples, ``{subject iri: {predicate: {value}}}``, in the
+    form :func:`_triples` gives them, from two whole-table reads.
+
+    ``_triples`` asks SQLite about one subject at a time, which is right inside
+    a merge but cost ~0.7 s to compare every disease across two ontologies. This
+    reads each table once (~15 ms). An anonymous object keeps its world-local id,
+    so a record holding one never compares equal and is left to the merge, which
+    refuses it as before.
+    """
+    db = svc.world.graph
+    iri = dict(db.execute("SELECT storid, iri FROM resources"))
+    out: dict = {}
+    for s, p, o in db.execute("SELECT s,p,o FROM objs"):
+        if s > 0:
+            out.setdefault(iri[s], {}).setdefault(iri[p], set()).add(
+                ("o", iri[o]) if o > 0 else ("anonymous", o))
+    for s, p, o, d in db.execute("SELECT s,p,o,d FROM datas"):
+        if s > 0:
+            dt = iri[d] if isinstance(d, int) and d > 0 else d
+            out.setdefault(iri[s], {}).setdefault(iri[p], set()).add(("d", o, dt))
+    return out
+
+
+def _snapshot_record(snap, base, iri) -> dict:
+    """:func:`_record`, read from a :func:`_snapshot`."""
+    props = snap.get(iri) or {}
+    items = {v[1] for link in ITEM_LINKS for v in props.get(base + link, ()) if v[0] == "o"}
+    return {s: snap.get(s) for s in sorted({iri} | items)}
+
+
 def merge_into(working, ancestor, theirs, iris, touched, choices=None) -> dict:
     """Merge ``theirs`` into ``working`` for each disease in ``iris``.
 
@@ -331,8 +362,17 @@ def merge_into(working, ancestor, theirs, iris, touched, choices=None) -> dict:
 
     ``merged`` lists the diseases written into ``working`` and ``advanced`` those
     whose ancestor moved, so the caller saves only what actually changed.
+
+    With an ancestor, a disease the branch holds exactly as the ancestor does is
+    left out before merging: the merge would return the working copy's version
+    unchanged and leave the ancestor alone, so skipping it changes nothing. A
+    sync otherwise merged all ~214 diseases to bring in a handful.
     """
     choices = choices or {}
+    if ancestor is not None:
+        anc, ours = _snapshot(ancestor), _snapshot(theirs)
+        iris = {i for i in iris if _snapshot_record(anc, ancestor.base, i)
+                != _snapshot_record(ours, theirs.base, i)}
     merged, conflicts, clean = [], [], []
     for iri in sorted(iris):
         if ancestor is None and iri not in touched:

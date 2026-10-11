@@ -8,6 +8,7 @@ the OAuth App client secret, which never leaves the server.
 """
 import asyncio
 import base64
+import hashlib
 import logging
 import re
 import time
@@ -346,6 +347,28 @@ async def get_file_at(token: str | None, owner: str, repo: str, path: str, ref: 
         if r.status_code >= 300:
             raise ValueError(f"Could not fetch {path}@{ref}: {r.status_code} {r.text[:200]}")
         return r.content
+
+
+def blob_sha(data: bytes) -> str:
+    """The git blob id of ``data``: what GitHub reports as a file's ``sha``."""
+    return hashlib.sha1(b"blob %d\0" % len(data) + data).hexdigest()
+
+
+async def file_blob_sha(token: str | None, owner: str, repo: str, path: str, ref: str) -> str:
+    """The blob id of ``path`` at ``ref``, without downloading the file.
+
+    The ``object`` media type returns the metadata of files over 1 MB too (with
+    empty content), so this costs one small response however large the file is.
+    Token optional for public repos.
+    """
+    hdrs = {"Accept": "application/vnd.github.object"}
+    if token:
+        hdrs["Authorization"] = f"Bearer {token}"
+    async with httpx.AsyncClient(timeout=20, headers=hdrs) as c:
+        r = await c.get(f"{API}/repos/{owner}/{repo}/contents/{path}", params={"ref": ref})
+        if r.status_code >= 300:
+            raise ValueError(f"Could not read the blob id of {path}@{ref}: {r.status_code} {r.text[:200]}")
+        return r.json()["sha"]
 
 
 class BranchNotFound(ValueError):
