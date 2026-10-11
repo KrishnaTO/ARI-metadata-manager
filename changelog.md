@@ -1,5 +1,9 @@
 # Changelog
 
+## claude/export-records
+
+- **The Excel export no longer builds every disease's full record.** The sheet carries each disease's own fields (ids, names, codes, definition, tissue, category), but the export built the full detail of every disease, on both sides when marking changes. That meant every item list, plus a scan of every other disease to find each record's subtypes: O(N²). It now reads `OntologyService.get_disease_records()`, each disease's own fields only, which `get_disease_detail` now shares (`_record_fields`), so the two cannot disagree. Locally, the export takes 139 ms instead of 373 ms signed out, and 179 ms instead of 642 ms when marking changes against the source branch (959 ms was measured in production signed out). Cell values and highlights are identical, and `GET /api/v2/disease/{iri}` returns the same JSON.
+
 ## feat/synonym-review-marks
 
 - **Mark synonym-review rows and add notes.** Each row on `/ref-edits/synonyms/` has a *Curation* column: ✓ correct, ✗ incorrect, ? needs review, and a note. Signed-in curators only; changes save immediately and are shared by everyone.
