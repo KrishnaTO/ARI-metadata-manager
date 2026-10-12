@@ -11,6 +11,7 @@ routers. The behaviour lives in the modules it pulls together —
 """
 import asyncio
 import logging
+import time
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
@@ -18,7 +19,7 @@ from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
 
-from . import config, routes, sessions, workspace
+from . import config, predict_service, routes, sessions, workspace
 from .errors import Invalid, NotFound
 
 log = logging.getLogger(__name__)
@@ -26,18 +27,35 @@ log = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Background task: periodically sweep idle per-user working copies so disk
-    use stays bounded. The task is cancelled on shutdown."""
+    """Background tasks, cancelled on shutdown.
+
+    * Warm the reference indexes once, in a thread, so the first curator to open
+      the review page after a restart does not wait seconds for them while every
+      other request queues behind that one.
+    * Periodically sweep idle per-user working copies so disk use stays bounded.
+    """
+    async def _warm_indexes():
+        started = time.perf_counter()
+        try:
+            await asyncio.to_thread(predict_service.warm)
+        except Exception:
+            # Not fatal: the first request that needs the indexes loads them, as
+            # it did before this warm-up existed. Logged so the cause is visible.
+            log.exception("Warming the reference indexes failed")
+            return
+        log.info("Reference indexes warm in %.1f s", time.perf_counter() - started)
+
     async def _sweep_loop():
         while True:
             workspace._sweep_user_data()
             sessions._sweep_sessions()
             await asyncio.sleep(6 * 3600)   # every 6 hours
-    task = asyncio.create_task(_sweep_loop())
+    tasks = [asyncio.create_task(_warm_indexes()), asyncio.create_task(_sweep_loop())]
     try:
         yield
     finally:
-        task.cancel()
+        for task in tasks:
+            task.cancel()
 
 
 app = FastAPI(title="ARI Metadata Manager", lifespan=lifespan)
