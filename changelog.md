@@ -1,5 +1,10 @@
 # Changelog
 
+## claude/synonym-review-cache
+
+- **The synonym review no longer re-downloads report 9 on every load.** The report changes only when the data repo's notebook rewrites it, but each load downloaded and parsed it again (0.64-0.95 s in production). `GET /api/v2/synonym-review` now reads the file's git blob id (one small response, ~100 ms locally) and downloads only when it has changed (~410 ms locally for the full file).
+- **Each row carries its disease's IRI.** The page loaded all of `/api/v2/xrefs` (203 KB) only to link each disease back to the review page; the server now adds the IRI, and the page makes one request instead of two.
+
 ## claude/issue-11-copy-name
 
 - **Copy a disease name from the record view.** The main page's record heading has a ⧉ button beside the disease name that copies just the name, with the same "Copied" toast as the IRI and link buttons. The reference-review panel and the PR reviewer already had one.
