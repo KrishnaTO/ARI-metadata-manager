@@ -173,7 +173,7 @@ document.getElementById('textsize-seg')?.addEventListener('click', e => {
   btn.addEventListener('click', e => { e.stopPropagation(); setRail(!shown()); });
   // Only the overlay dismisses itself; a docked rail stays where it was put.
   document.getElementById('tree-pane').addEventListener('click', e => {
-    if (overlay() && e.target.closest('[data-iri], [data-symptom-owner]')) setRail(false);
+    if (overlay() && e.target.closest('[data-iri]')) setRail(false);
   });
   document.addEventListener('click', e => {
     if (overlay() && !e.target.closest('.left-col, #rail-toggle')) setRail(false);

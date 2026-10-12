@@ -1,5 +1,12 @@
 # Changelog
 
+## claude/efficiency-smaller-items
+
+- **The symptom search opens diseases by IRI.** `/api/v2/symptoms` names each symptom's diseases as `{iri, name}` (it was names only) and drops the symptom's own IRI, which nothing read. The search used to fetch the whole disease list as well and match names to find each disease; it now makes one request. The response is about the same size, since each symptom has one disease.
+- **A slow search can no longer overwrite a newer one.** The search box's dropdown cancels its request in flight when the query changes, and Enter cancels a pending one, so an answer to an earlier query can't replace the current results or reopen the dropdown over the results page.
+- **Removed the unreachable symptom tab view.** `trees.js` rendered a "symptoms" tab that `index.html` has never offered; its renderer and click handler are deleted.
+- **`docs/EFFICIENCY.md` §11** records which items are fixed (#212, this branch) and why the rest are left as they are: the tab-focus sync, uncached GitHub listings, lazy-loading Chart.js and D3 (measured: ~16 ms cold), the local-mode reload and the tree cache.
+
 ## claude/shared-reverse-index
 
 - **One id map per reference index instead of three.** The compare pane (`concept_service`) and enrichment each built their own map from ids to reference terms over the same records as prediction's per-index map (47 MB and 27 MB). Both now read `LexicalIndex.records_for`, and their maps are gone: resident memory after the warm-up, an enrichment preview and a compare-pane lookup is 300 MB instead of 372 MB locally. The compare pane's map was also cached per index list and never evicted, so each index rebuild kept the old one until restart; that cache is gone too.
