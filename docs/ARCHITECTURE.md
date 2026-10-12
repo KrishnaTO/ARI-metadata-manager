@@ -403,6 +403,7 @@ user preference, and every font size is in `rem` so it scales.
 | Prediction indexes | each index file's mtime + size | rebuilding `data/2-databases` |
 | Predicted cells | ontology file mtime + index dir | any edit to that ontology |
 | Concept reverse map | identity of the index list | an index reload |
+| Source-branch ontology (`.user-data/baselines/<sha>.owl`) | commit sha | never stale; the 8 most recently used are kept |
 | Enrichment id map | identity of the index list | an index reload |
 | Enrichment subtype map | identity of the index list + each `*.subtypes.tsv`'s mtime and size | an index reload or a changed subtypes file |
 | Detail sidecars | sidecar mtime + size | rebuilding `data/2-databases` |

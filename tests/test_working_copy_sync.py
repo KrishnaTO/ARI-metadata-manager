@@ -74,7 +74,7 @@ COMMENT = "http://www.w3.org/2000/01/rdf-schema#comment"
 @pytest.fixture
 def branch(curator, monkeypatch, make_service):
     """Signed in as ada, with GitHub stubbed to serve ``branch['svc']`` at ``branch['sha']``."""
-    state = {"svc": make_service(), "sha": "sha-2", "refs": []}
+    state = {"svc": make_service(), "sha": "2222222222222222222222222222222222222222", "refs": []}
     monkeypatch.setattr(config, "GH_ENABLED", True)
     monkeypatch.setattr(sessions, "_user", lambda r: {"token": "t", "identity": {"login": "ada"}})
     monkeypatch.setattr(sessions, "_login", lambda r: "ada")
@@ -109,25 +109,25 @@ def test_sync_skips_the_download_when_the_branch_moved_but_its_ontology_did_not(
     workspace.user_service("ada", create=True)
     client.post("/api/v2/sync")                         # a full sync at sha-2
     branch["refs"].clear()
-    branch["sha"] = "sha-3"                             # say, a commit to a report
+    branch["sha"] = "3333333333333333333333333333333333333333"                             # say, a commit to a report
 
     r = client.post("/api/v2/sync").json()
 
     assert r == {"up_to_date": True, "revision": workspace.copy_revision("ada")}
     assert branch["refs"] == [], "downloaded an ontology that had not changed"
-    assert workspace.ancestor_sha("ada") == "sha-3"
+    assert workspace.ancestor_sha("ada") == "3333333333333333333333333333333333333333"
 
 
 def test_sync_downloads_again_once_the_ontology_changes(branch):
     d = _first(workspace.user_service("ada", create=True))
     client.post("/api/v2/sync")
     branch["refs"].clear()
-    branch["sha"] = "sha-3"
+    branch["sha"] = "3333333333333333333333333333333333333333"
     branch["svc"].update_disease(d, {"definition": "theirs"}, editor="bob")
 
     r = client.post("/api/v2/sync").json()
 
-    assert branch["refs"] == ["sha-3"] and r["merged"] == [d]
+    assert branch["refs"] == ["3333333333333333333333333333333333333333"] and r["merged"] == [d]
 
 
 def test_a_publish_merge_makes_the_next_sync_compare_again(branch, make_service):
@@ -140,17 +140,17 @@ def test_a_publish_merge_makes_the_next_sync_compare_again(branch, make_service)
     elsewhere.update_disease(d, {"definition": "since reverted"}, editor="bob")
     workspace.merge_from("ada", elsewhere, [d])         # what publish does mid-flight
     branch["refs"].clear()
-    branch["sha"] = "sha-3"                             # file B again
+    branch["sha"] = "3333333333333333333333333333333333333333"                             # file B again
 
     client.post("/api/v2/sync")
 
-    assert branch["refs"] == ["sha-3"]
+    assert branch["refs"] == ["3333333333333333333333333333333333333333"]
     assert workspace.user_service("ada").get_disease_detail(d)["definition"] != "since reverted"
 
 
 def test_sync_is_a_no_op_when_the_branch_has_not_moved(branch):
     workspace.user_service("ada", create=True)
-    workspace.set_ancestor_sha("ada", "sha-2", None)
+    workspace.set_ancestor_sha("ada", "2222222222222222222222222222222222222222", None)
 
     assert client.post("/api/v2/sync").json() == {"up_to_date": True,
                                                   "revision": workspace.copy_revision("ada")}
@@ -163,7 +163,7 @@ def test_sync_merges_the_branch_and_records_its_commit(branch):
     r = client.post("/api/v2/sync").json()
 
     assert r["merged"] == [d] and r["conflicts"] == []
-    assert workspace.ancestor_sha("ada") == "sha-2"
+    assert workspace.ancestor_sha("ada") == "2222222222222222222222222222222222222222"
     assert workspace.user_service("ada").get_disease_detail(d)["definition"] == "theirs"
 
 
@@ -186,7 +186,7 @@ def test_resolve_applies_the_choices(branch):
     svc.update_disease(d, {"definition": "mine"}, editor="ada")
     branch["svc"].update_disease(d, {"definition": "theirs"}, editor="bob")
 
-    r = client.post("/api/v2/resolve", json={"sha": "sha-2", "choices": {d: {f"{d}|{COMMENT}": "theirs"}}})
+    r = client.post("/api/v2/resolve", json={"sha": "2222222222222222222222222222222222222222", "choices": {d: {f"{d}|{COMMENT}": "theirs"}}})
 
     assert r.status_code == 200 and r.json()["merged"] == [d]
     assert workspace.user_service("ada").get_disease_detail(d)["definition"] == "theirs"
@@ -198,7 +198,7 @@ def test_resolve_with_an_unanswered_conflict_hands_it_back(branch):
     svc.update_disease(d, {"definition": "mine"}, editor="ada")
     branch["svc"].update_disease(d, {"definition": "theirs"}, editor="bob")
 
-    r = client.post("/api/v2/resolve", json={"sha": "sha-2", "choices": {d: {}}})
+    r = client.post("/api/v2/resolve", json={"sha": "2222222222222222222222222222222222222222", "choices": {d: {}}})
 
     assert r.status_code == 409
     assert r.json()["conflicts"][0]["fields"][0]["key"] == f"{d}|{COMMENT}"
@@ -206,7 +206,7 @@ def test_resolve_with_an_unanswered_conflict_hands_it_back(branch):
 
 def test_resolve_rejects_a_choice_that_is_not_mine_or_theirs(branch):
     workspace.user_service("ada", create=True)
-    r = client.post("/api/v2/resolve", json={"sha": "sha-2", "choices": {"x": {"k": "both"}}})
+    r = client.post("/api/v2/resolve", json={"sha": "2222222222222222222222222222222222222222", "choices": {"x": {"k": "both"}}})
     assert r.status_code == 400
 
 
@@ -229,7 +229,7 @@ def test_resolve_without_a_working_copy_refuses_and_leaves_the_base_alone(branch
     d = _first(branch["svc"])
     branch["svc"].update_disease(d, {"definition": "theirs"}, editor="bob")
 
-    r = client.post("/api/v2/resolve", json={"sha": "sha-2", "choices": {d: {}}})
+    r = client.post("/api/v2/resolve", json={"sha": "2222222222222222222222222222222222222222", "choices": {d: {}}})
 
     assert r.status_code == 400
     assert open(config.ONTOLOGY_FILE, "rb").read() == before
@@ -245,7 +245,7 @@ def test_a_clean_sync_gives_a_copy_without_an_ancestor_one(branch):
 
     assert r["conflicts"] == []
     assert workspace.ancestor_path("ada").exists()
-    assert workspace.ancestor_sha("ada") == "sha-2"
+    assert workspace.ancestor_sha("ada") == "2222222222222222222222222222222222222222"
     assert workspace.ancestor("ada").get_disease_detail(d)["definition"] == "theirs"
 
 
@@ -287,7 +287,7 @@ def test_sync_reports_a_revision_that_moves_only_when_the_copy_changes(branch):
     assert again == {"up_to_date": True, "revision": first["revision"]}
 
     branch["svc"].update_disease(d, {"definition": "theirs"}, editor="bob")
-    branch["sha"] = "sha-3"
+    branch["sha"] = "3333333333333333333333333333333333333333"
     moved = client.post("/api/v2/sync").json()           # another window's sync
     assert moved["merged"] == [d] and moved["revision"] != first["revision"]
 
@@ -298,7 +298,7 @@ def test_sync_reports_a_revision_that_moves_only_when_the_copy_changes(branch):
 def test_recording_the_branch_commit_keeps_the_revision(branch):
     workspace.user_service("ada", create=True)
     rev = workspace.copy_revision("ada")
-    workspace.set_ancestor_sha("ada", "sha-9", "blob-9")
+    workspace.set_ancestor_sha("ada", "9999999999999999999999999999999999999999", "blob-9")
     assert workspace.copy_revision("ada") == rev
 
 
@@ -455,7 +455,7 @@ def _clash(branch):
 
 def test_sync_names_the_commit_its_conflicts_came_from(branch):
     _clash(branch)
-    assert client.post("/api/v2/sync").json()["sha"] == "sha-2"
+    assert client.post("/api/v2/sync").json()["sha"] == "2222222222222222222222222222222222222222"
 
 
 def test_publish_merges_at_a_pinned_commit_and_names_it(branch):
@@ -463,25 +463,25 @@ def test_publish_merges_at_a_pinned_commit_and_names_it(branch):
 
     r = client.post("/api/v2/publish", json={})
 
-    assert r.status_code == 409 and r.json()["sha"] == "sha-2"
-    assert branch["refs"] == ["sha-2"]            # never the moving branch name
+    assert r.status_code == 409 and r.json()["sha"] == "2222222222222222222222222222222222222222"
+    assert branch["refs"] == ["2222222222222222222222222222222222222222"]            # never the moving branch name
 
 
 def test_resolve_merges_at_the_commit_the_curator_saw(branch):
     d = _clash(branch)
-    branch["sha"] = "sha-3"                       # the branch moved on meanwhile
+    branch["sha"] = "3333333333333333333333333333333333333333"                       # the branch moved on meanwhile
 
-    r = client.post("/api/v2/resolve", json={"sha": "sha-2",
+    r = client.post("/api/v2/resolve", json={"sha": "2222222222222222222222222222222222222222",
                                              "choices": {d: {f"{d}|{COMMENT}": "theirs"}}})
 
     assert r.status_code == 200
-    assert branch["refs"] == ["sha-2"]
+    assert branch["refs"] == ["2222222222222222222222222222222222222222"]
 
 
 def test_resolve_names_the_commit_of_what_is_still_open(branch):
     d = _clash(branch)
-    r = client.post("/api/v2/resolve", json={"sha": "sha-2", "choices": {d: {}}})
-    assert r.status_code == 409 and r.json()["sha"] == "sha-2"
+    r = client.post("/api/v2/resolve", json={"sha": "2222222222222222222222222222222222222222", "choices": {d: {}}})
+    assert r.status_code == 409 and r.json()["sha"] == "2222222222222222222222222222222222222222"
 
 
 def test_resolve_without_a_commit_is_refused(branch):

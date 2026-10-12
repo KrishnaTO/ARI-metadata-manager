@@ -1,5 +1,9 @@
 # Changelog
 
+## claude/baseline-cache
+
+- **The source branch's ontology is downloaded once per commit.** The publish dialog, the publish, sync, resolve, switching branch and the export each downloaded the branch's ontology (~1.7 MB) from GitHub; a routine publish fetched the same bytes three or four times. The bytes at a commit never change, so `app/baselines.py` keeps them by commit sha under `.user-data/baselines/` (the 8 most recently used) and every caller reads them from there. The publish dialog and the export now name the branch's current commit too, so the publish that follows the dialog reuses its download. A value that is not a 40-character commit sha is refused before it can name a file.
+
 ## claude/issue-11-copy-name
 
 - **Copy a disease name from the record view.** The main page's record heading has a ⧉ button beside the disease name that copies just the name, with the same "Copied" toast as the IRI and link buttons. The reference-review panel and the PR reviewer already had one.

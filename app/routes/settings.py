@@ -9,9 +9,8 @@ import logging
 from fastapi import APIRouter, Body, Request
 from fastapi.responses import JSONResponse, StreamingResponse
 
-from .. import atomic_store, config, export_service, sessions, sssom_service, workspace
+from .. import atomic_store, baselines, config, export_service, sessions, sssom_service, workspace
 from .. import github_service as gh
-from ..ontology_service import OntologyService
 
 log = logging.getLogger(__name__)
 
@@ -32,8 +31,7 @@ async def _fetch_branch(token, branch, login):
     finding a dirty tree (and autostashing) every ten minutes forever.
     """
     sha = await gh.branch_sha(token, config.GH_OWNER, config.GH_REPO, branch)
-    data = await gh.get_file_at(token, config.GH_OWNER, config.GH_REPO,
-                                config.GH_ONTOLOGY_PATH, sha)
+    data = await baselines.ontology_at(token, sha)
     workspace._reset_user(login)       # verdicts and edits reference the old base
     config.USER_DIR.mkdir(parents=True, exist_ok=True)
     atomic_store.write_bytes(config.USER_DIR / f"{login}.owl", data, mode=0o644)
@@ -147,31 +145,23 @@ async def export_excel(request: Request):
     """Export current data to an .xlsx in the core-report format. When signed in,
     changed cells are marked against the source branch (the baseline)."""
     import io as _io
-    import os as _os
-    import tempfile
+
+    from .publish import _discard
     baseline = None
     u = sessions._user(request)
     if config.GH_ENABLED and u:
-        tmp_name = None
         try:
-            data = await gh.get_file_at(u["token"], config.GH_OWNER, config.GH_REPO,
-                                        config.GH_ONTOLOGY_PATH, workspace._source_branch(request))
-            tmp = tempfile.NamedTemporaryFile(suffix=".owl", delete=False)
-            tmp.write(data); tmp.close(); tmp_name = tmp.name
-            baseline = OntologyService(tmp_name)
+            sha = await gh.branch_sha(u["token"], config.GH_OWNER, config.GH_REPO,
+                                      workspace._source_branch(request))
+            baseline = await baselines.service_at(u["token"], sha)
         except Exception as e:
             log.warning("Could not load export baseline from source branch %s: %s",
                         workspace._source_branch(request), e)
-            baseline = None
-        finally:
-            # Always remove the temp file, even if OntologyService() raised after
-            # it was created (owlready2 loads into memory, so the file isn't needed).
-            if tmp_name:
-                try:
-                    _os.unlink(tmp_name)
-                except OSError as e:
-                    log.debug("Could not remove temp baseline %s: %s", tmp_name, e)
-    xlsx = export_service.build_report(workspace.service_for(request), baseline)
+    try:
+        xlsx = export_service.build_report(workspace.service_for(request), baseline)
+    finally:
+        if baseline is not None:
+            _discard(baseline.path)
     return StreamingResponse(
         _io.BytesIO(xlsx),
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
