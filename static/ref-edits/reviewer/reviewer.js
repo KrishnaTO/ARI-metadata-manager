@@ -167,8 +167,10 @@ function rowHTML(r) {
     : `<span class="small">${!r.ari_definition ? "no ARI definition"
       : !r.views.some((v) => v.definition) ? "no target definition"
       : "no words to compare"}</span>`;
-  const sup = ev.support.length ? ev.support.map((s) =>
-    `<span class="tag same" title="${esc(s.origin)} · via ${esc(s.via.join(", "))}">${esc(s.db)} ${esc(s.id)}${s.origin === "this PR" ? "*" : ""}</span>`).join("")
+  const sib = ev.siblings.map((s) =>
+    `<span class="tag same" title="Same name as ${esc(s.db)} ${esc(s.id)}, confirmed for this disease in this PR: “${esc(s.name)}”">= ${esc(s.db)} ${esc(s.id)}</span>`).join("");
+  const sup = ev.support.length || ev.siblings.length ? ev.support.map((s) =>
+    `<span class="tag same" title="${esc(s.origin)} · via ${esc(s.via.join(", "))}">${esc(s.db)} ${esc(s.id)}${s.origin === "this PR" ? "*" : ""}</span>`).join("") + sib
     : `<span class="small">none</span>`;
   const flags = r.flags.map((f) => `<div class="tag conflict">${esc(f)}</div>`).join("");
   const main = r.on_main === "same on main" ? `<span class="tag same">same</span>`
@@ -233,6 +235,7 @@ function detailHTML(r) {
     ${r.judgment === "predicted" ? `<dt>Prediction</dt><dd>${esc(r.comment)}</dd>`
       : `<dt>Curator</dt><dd>${esc(r.curator)}${r.comment ? " — “" + esc(r.comment) + "”" : ""}</dd>`}
     <dt>Supporting cross-references</dt><dd>${ev.support.length ? ev.support.map((s) => `${esc(s.db)} ${esc(s.id)} (${esc(s.origin)}, via ${esc(s.via.join(", "))})`).join("<br>") : "none"}</dd>
+    <dt>Same name as a target confirmed in this PR</dt><dd>${ev.siblings.length ? ev.siblings.map((s) => `${esc(s.db)} ${esc(s.id)}: “${esc(s.name)}”`).join("<br>") : "none"}</dd>
     <dt>Cross-references ARI rejected</dt><dd>${ev.against.length ? ev.against.map((s) => `${esc(s.db)} ${esc(s.id)} (via ${esc(s.via.join(", "))})`).join("<br>") : "none"}</dd>
     <dt>Conflicting cross-references</dt><dd>${ev.conflicts.length ? ev.conflicts.map((c) => `${esc(c.db)}: target ${esc(c.target_ids.join(", "))} vs ARI ${esc(c.ari_ids.join(", "))}`).join("<br>") : "none"}</dd>
     <dt>Shared definition words</dt><dd>${shared ? esc(shared.join(", ")) : "—"}</dd></dl></div>`;
@@ -248,6 +251,7 @@ function exportCSV() {
     ["ARI name", (r) => r.name_match.ari], ["Target name", (r) => r.name_match.target],
     ["Word overlap", (r) => r.name_match.overlap], ["Definition overlap", (r) => r.definition_overlap?.score ?? ""],
     ["Supporting xrefs", (r) => r.evidence.support.map((s) => `${s.db}:${s.id}`).join("; ")],
+    ["Same name as confirmed targets", (r) => r.evidence.siblings.map((s) => `${s.db}:${s.id} (${s.name})`).join("; ")],
     ["Flags", (r) => r.flags.join("; ")], ["Main", (r) => r.on_main], ["Hint", (r) => r.hint],
     ["Score", (r) => r.score], ["Curator", (r) => r.curator], ["Comment", (r) => r.comment],
     ["Note", (r) => notes[key(r)]?.text || ""], ["Google search", (r) => googleURL(r)]];

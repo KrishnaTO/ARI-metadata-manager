@@ -129,3 +129,42 @@ def test_the_matrix_reads_its_files_together(base_owl, monkeypatch):
     refs = {"head_sha": "h", "merge_base": "m", "base_ref": "b", "paths": [github.EQUIV_PATH]}
     assert compare.build_matrix(refs, Reader()) == {"pr": refs, "rows": []}
     assert at_once["most"] == 5
+
+
+def _row(db, ident, judgment, label, synonyms=(), direct=True):
+    return {"ari_id": "ARI:0001170", "ari_label": "Progressive hemifacial atrophy",
+            "ari_synonyms": ["Parry Romberg syndrome"],
+            "db": db, "target_id": ident, "judgment": judgment,
+            "status": "added", "found": True, "flags": [], "score": 2,
+            "hint": "", "evidence": {"support": [], "against": [], "conflicts": []},
+            "views": [{"direct": direct, "label": label, "synonyms": list(synonyms)}]}
+
+
+def test_a_target_named_like_a_confirmed_sibling_is_credited():
+    """Issue #173, from KrishnaTO/ARI#89: DOID:1757 was judged on ARI's names alone,
+    while the PR confirmed MONDO:0007710 for the same disease under the same label."""
+    from app.pr_review import compare
+
+    mondo = _row("MONDO", "0007710", compare.CONFIRMED, "facial hemiatrophy",
+                 ["progressive hemifacial atrophy"])
+    doid = _row("DOID", "1757", compare.REJECTED, "facial hemiatrophy", ["PARRY-ROMBERG SYNDROME"])
+    snomed = _row("SNOMED", "718224004", compare.CONFIRMED, "facial hemiatrophy", direct=False)
+    compare.add_sibling_evidence([mondo, doid, snomed])
+
+    assert doid["evidence"]["siblings"] == [{"db": "MONDO", "id": "0007710",
+                                             "name": "facial hemiatrophy"}]
+    assert doid["score"] == 4 and doid["hint"] == "Check rejection"
+    # A hub term's names are cross-reference evidence already; not counted twice.
+    assert snomed["evidence"]["siblings"] == [] and snomed["score"] == 2
+    # Only confirmed rows vouch: the rejected DOID row gives MONDO nothing.
+    assert mondo["evidence"]["siblings"] == []
+
+
+def test_a_shared_ari_name_is_not_sibling_evidence():
+    # Both targets list ARI's own synonym: that is the name match, not new evidence.
+    from app.pr_review import compare
+
+    a = _row("MONDO", "1", compare.CONFIRMED, "x", ["Parry-Romberg syndrome"])
+    b = _row("DOID", "2", compare.CONFIRMED, "y", ["PARRY-ROMBERG SYNDROME"])
+    compare.add_sibling_evidence([a, b])
+    assert a["evidence"]["siblings"] == b["evidence"]["siblings"] == []

@@ -12,7 +12,9 @@ target id, and measures how the two agree:
 * **cross-reference support** — other ids the target term cross-references that ARI
   already maps to (or conflicts with, or has rejected);
 * **name collisions** — the target's names equal an ARI clinical subtype (a narrower
-  concept) or a *different* ARI disease.
+  concept) or a *different* ARI disease;
+* **sibling targets** — the target shares a name with another database's term the PR
+  confirms for the same disease.
 
 Every target id's *current* term is fetched live from its source (``terminology.py``) and
 compared first. The local indexes still contribute what the live lookups don't return:
@@ -390,6 +392,45 @@ def xref_evidence(views: list[dict], db: str, known: dict, rejected: dict) -> di
             "conflicts": list(conflicts.values())}
 
 
+def _own_names(row: dict) -> dict[str, str]:
+    """Normalized label/synonym -> name, from the target's *own* term only: a hub
+    term's names are already counted as cross-reference support."""
+    return {normalize(n): n for v in row["views"] if v["direct"]
+            for n in [v["label"], *v["synonyms"]] if normalize(n)}
+
+
+def add_sibling_evidence(rows: list[dict]) -> None:
+    """Credit a row whose target shares a name with a target the PR confirms for the
+    same disease (issue #173).
+
+    Each row is otherwise judged only against ARI's own names, so a rejection could
+    look plausible while the PR accepts, for the same disease, another database's
+    term with the very same label — ARI:0001170's DOID:1757 and MONDO:0007710 are
+    both "facial hemiatrophy". Only names ARI does not list itself count: a shared
+    ARI name is already the name match. Siblings are the PR's own confirmed rows;
+    ids confirmed earlier would each need a live lookup. Adds
+    ``evidence["siblings"]`` and, when there is any, 2 points and a recomputed hint.
+    """
+    confirmed: dict[str, list[dict]] = {}
+    for r in rows:
+        if r["ari_id"] and r["judgment"] == CONFIRMED and r["status"] != "removed":
+            confirmed.setdefault(r["ari_id"], []).append(r)
+    for r in rows:
+        r["evidence"]["siblings"] = []
+        if not r["ari_id"] or r["status"] == "removed":
+            continue
+        ari_names = {normalize(n) for n in [r["ari_label"], *r["ari_synonyms"]]}
+        mine = {k: n for k, n in _own_names(r).items() if k not in ari_names}
+        for s in confirmed.get(r["ari_id"], []):
+            shared = sorted(mine.keys() & _own_names(s).keys()) if s is not r else []
+            if shared:
+                r["evidence"]["siblings"].append(
+                    {"db": s["db"], "id": s["target_id"], "name": mine[shared[0]]})
+        if r["evidence"]["siblings"]:
+            r["score"] += 2
+            r["hint"] = hint(r["status"], r["judgment"], r["found"], r["score"], r["flags"])
+
+
 # ---------------------------------------------------------------------- verdict
 def hint(status: str, judgment: str, found: bool, score: int, flags: list[str]) -> str:
     if status == "removed":
@@ -444,6 +485,7 @@ def build_matrix(refs: dict, reader: github.Reader) -> dict:
                if c["status"] != "removed" and c["row"]["type"] != PREDICTED}
     by_ari = group_by_ari(head_equiv)
     rows = [_compare_row(c, refs, ari, owners, by_ari, pr_keys, indexes) for c in changes]
+    add_sibling_evidence(rows)
     # File order, equivalencies before predictions; removed rows (numbered in the
     # merge-base file) go last within their file.
     rows.sort(key=lambda r: (r["judgment"] == PREDICTED, r["status"] == "removed", r["line"]))

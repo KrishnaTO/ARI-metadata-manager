@@ -1,5 +1,9 @@
 # Changelog
 
+## claude/issue-173-sibling-target-evidence
+
+- **The PR reviewer compares a target with the other targets the PR confirms for the same disease** (#173). Each row was judged only against ARI's own names, so DOID:1757 ("facial hemiatrophy") looked like a weak match for Progressive hemifacial atrophy while the same PR confirmed MONDO:0007710 under that very label. A row whose target shares a name with a sibling target confirmed in the PR now lists it as evidence ("Same name as a target confirmed in this PR", and `= MONDO 0007710` tags in the renamed *Support* column) and gains 2 points, so such a rejection reads "Check rejection". Only names ARI does not list itself count (a shared ARI name is already the name match), and only the target's own term, not hub terms. The CSV export has the new column. On KrishnaTO/ARI#89, 10 rejections move from "Rejection plausible" to "Check rejection".
+
 ## claude/issue-216-blocklist-from-data-repo
 
 - **The predictor reads the synonym blocklist from the data repo** (#216). `mappings/ari.synonym_blocklist.tsv` now lives in KrishnaTO/ARI (KrishnaTO/ARI#129), where curators edit it. `deploy/update-mappings.sh` fetches it with the other mapping files into `ari-mappings/`, and prediction and enrichment read it from there (`predict_service.blocklist_path()`), so a curator's edit reaches the predictor within one refresh. The cached predictions are keyed on the blocklist's mtime as well, so a refreshed blocklist re-runs them. The app's own copies of the blocklist and `ari.mis_curated_synonyms.tsv` are deleted.
