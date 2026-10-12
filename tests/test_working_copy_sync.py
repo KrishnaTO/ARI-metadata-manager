@@ -275,8 +275,13 @@ def _all(svc):
 # a merge or fetch rewrites the copy, so the window can tell.
 def test_sync_reports_a_revision_that_moves_only_when_the_copy_changes(branch):
     d = _first(workspace.user_service("ada", create=True))
-    first = client.post("/api/v2/sync").json()          # nothing new: identical branch
-    assert first["merged"] == [] and first["revision"]
+    # Nothing new: an identical branch. Where the copy's file is byte-identical
+    # to the branch's (LF checkouts, and the server) sync now recognises that
+    # from the blob id and answers up_to_date; a CRLF checkout of the fixture
+    # differs in bytes only, so it merges and finds nothing. Either way nothing
+    # is merged and the revision is reported.
+    first = client.post("/api/v2/sync").json()
+    assert first.get("merged", []) == [] and first["revision"]
 
     again = client.post("/api/v2/sync").json()
     assert again == {"up_to_date": True, "revision": first["revision"]}
