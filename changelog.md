@@ -1,5 +1,8 @@
 # Changelog
 
+## claude/target-cells
+
+- **Target cells are a disease-data category.** The data model's "Affected Cell, Tissue or Organ" is now stored in ARI as `affectsCellTissueOrOrgan` items of class `AffectedCellTissueOrOrgan` (KrishnaTO/ARI#124). The 2026-10-08 master list filled them for 218 diseases. They show as a "Target cells" box under Pathophysiology, open as a list with each cell's relevance (its share, such as `80%`), and are added and edited like antigens: label, description, relevance, source, obsolete. Publishing carries them with the disease, like every other item category. `targetsTissue` stays at system level, so the tissue browser and the new-disease tissue list are unchanged. Until the data repo's ontology declares the class, adding a target cell reports that the class is missing.
 ## claude/baseline-cache
 
 - **The source branch's ontology is downloaded once per commit.** The publish dialog, the publish, sync, resolve, switching branch and the export each downloaded the branch's ontology (~1.7 MB) from GitHub; a routine publish fetched the same bytes three or four times. The bytes at a commit never change, so `app/baselines.py` keeps them by commit sha under `.user-data/baselines/` (the 8 most recently used) and every caller reads them from there. The publish dialog and the export now name the branch's current commit too, so the publish that follows the dialog reuses its download. A value that is not a 40-character commit sha is refused before it can name a file.

@@ -97,4 +97,5 @@ CATEGORIES = {
     "inflammasome": _immune("Inflammasome", "involvesInflammasome", "Inf", "Inflammasome component"),
     "apr": _immune("AcutePhaseReactant", "involvesAcutePhaseReactant", "APR", "Acute phase reactant"),
     "antigens": _immune("Antigen", "involvesAntigen", "Antigen", "Antigen"),
+    "cells": _immune("AffectedCellTissueOrOrgan", "affectsCellTissueOrOrgan", "Cell", "Target cell"),
 }

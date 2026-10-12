@@ -628,6 +628,7 @@ class OntologyService:
         d["inflammasome"] = component_list("involvesInflammasome")
         d["acute_phase_reactants"] = component_list("involvesAcutePhaseReactant")
         d["antigens"] = component_list("involvesAntigen")
+        d["target_cells"] = component_list("affectsCellTissueOrOrgan")
 
         return d
 
