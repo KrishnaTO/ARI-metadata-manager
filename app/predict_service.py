@@ -46,6 +46,7 @@ import unicodedata
 from array import array
 from pathlib import Path
 
+from . import config
 from .xref_registry import PREFIX, SOURCE_DB, XREF_DATABASES, normalize_id
 
 # Target database keys, in registry order. ``omop`` has no free index source, so it
@@ -65,9 +66,14 @@ TARGET_DBS = [d["key"] for d in XREF_DATABASES if d.get("review")]
 INDEX_COLS = ["id", "label", "synonyms"] + TARGET_DBS
 
 DEFAULT_INDEX_DIR = Path(__file__).resolve().parent.parent / "data" / "2-databases"
-# Curated list of ARI synonyms that actually name a *different* disease and must be
-# ignored when matching (see scripts/report_synonyms.py). Absent file -> no blocklist.
-DEFAULT_BLOCKLIST_PATH = Path(__file__).resolve().parent.parent / "mappings" / "ari.synonym_blocklist.tsv"
+
+
+def blocklist_path() -> Path:
+    """The curated list of ARI synonyms that name a *different* disease and must be
+    ignored when matching: the data repo's ``mappings/ari.synonym_blocklist.tsv``
+    (KrishnaTO/ARI), which ``deploy/update-mappings.sh`` keeps in
+    ``config.MAPPINGS_RUNTIME_DIR``. Read at call time so a refresh is picked up."""
+    return config.MAPPINGS_RUNTIME_DIR / "ari.synonym_blocklist.tsv"
 
 
 # --------------------------------------------------------------------------- text
@@ -438,22 +444,24 @@ def warm(index_dir: str | Path = DEFAULT_INDEX_DIR) -> list[LexicalIndex]:
     return indexes
 
 
-def load_synonym_blocklist(path: str | Path = DEFAULT_BLOCKLIST_PATH) -> dict[str, set[str]]:
+def load_synonym_blocklist(path: str | Path | None = None) -> dict[str, set[str]]:
     """Load the mis-curated-synonym blocklist -> ``{ari_id: {normalized synonym}}``.
 
     TSV with an ``ari_id``/``synonym`` header (extra columns and ``#`` comments
     ignored). Synonyms here name a *different* disease than their ARI record and are
-    skipped during matching. Missing file -> empty blocklist.
+    skipped during matching. ``path`` defaults to :func:`blocklist_path`.
+
+    A missing file is an error, not an empty blocklist: predicting without it
+    silently brings back every known-wrong synonym match it exists to stop.
     """
-    path = Path(path)
-    out: dict[str, set[str]] = {}
+    path = Path(path) if path else blocklist_path()
     if not path.is_file():
-        return out
+        raise FileNotFoundError(
+            f"synonym blocklist {path} is missing: fetch the data repo's "
+            "mappings/ari.synonym_blocklist.tsv (deploy/update-mappings.sh does on the server)")
+    out: dict[str, set[str]] = {}
     cols = None
-    try:
-        text = path.read_text(encoding="utf-8")
-    except OSError:
-        return out
+    text = path.read_text(encoding="utf-8")
     for line in text.splitlines():
         if not line.strip() or line.startswith("#"):
             continue
@@ -581,15 +589,15 @@ def predict_for_disease(disease: dict, indexes: list[LexicalIndex],
 def predict_matches(diseases: list[dict], indexes: list[LexicalIndex] | None = None,
                     index_dir: str | Path = DEFAULT_INDEX_DIR,
                     target_dbs: list[str] | None = None,
-                    blocklist: dict[str, set[str]] | None = None,
-                    blocklist_path: str | Path = DEFAULT_BLOCKLIST_PATH) -> list[dict]:
+                    blocklist: dict[str, set[str]] | None = None) -> list[dict]:
     """Predicted cross-references for a list of diseases (only blank cells).
 
     ``diseases`` items are the shape :func:`predict_for_disease` accepts, or the
     review-grid rows from ``OntologyService.get_xref_rows`` (name + ``ari_id`` +
     a list per db key); :func:`from_xref_rows` adapts the latter. Loads the index
-    files from ``index_dir`` and the mis-curated-synonym blocklist from
-    ``blocklist_path`` when not passed in. Returns a flat list of prediction dicts::
+    files from ``index_dir`` and the mis-curated-synonym blocklist
+    (:func:`load_synonym_blocklist`) when not passed in. Returns a flat list of
+    prediction dicts::
 
         {ari_id, subject_label, db, prefix, id, object_label, match_field,
          confidence, evidence}
@@ -597,7 +605,7 @@ def predict_matches(diseases: list[dict], indexes: list[LexicalIndex] | None = N
     if indexes is None:
         indexes = get_indexes(index_dir)
     if blocklist is None:
-        blocklist = load_synonym_blocklist(blocklist_path)
+        blocklist = load_synonym_blocklist()
     out = []
     for d in diseases:
         out.extend(predict_for_disease(d, indexes, target_dbs, blocklist))

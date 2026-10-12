@@ -40,7 +40,6 @@ from pathlib import Path
 
 from . import predict_service
 from .predict_service import (
-    DEFAULT_BLOCKLIST_PATH,
     DEFAULT_INDEX_DIR,
     LexicalIndex,
     get_indexes,
@@ -263,7 +262,6 @@ def warm(index_dir: str | Path = DEFAULT_INDEX_DIR) -> None:
 
 def enrich_many(diseases: list[dict], confirmed_by_iri: dict[str, list[dict]],
                 index_dir: str | Path = DEFAULT_INDEX_DIR,
-                blocklist_path: str | Path = DEFAULT_BLOCKLIST_PATH,
                 indexes: list[LexicalIndex] | None = None,
                 subtypes: dict[str, list[dict]] | None = None,
                 blocklist: dict[str, set[str]] | None = None) -> dict[str, dict]:
@@ -282,7 +280,7 @@ def enrich_many(diseases: list[dict], confirmed_by_iri: dict[str, list[dict]],
     if subtypes is None:
         subtypes = _subtypes_for(indexes, index_dir)
     if blocklist is None:
-        blocklist = load_synonym_blocklist(blocklist_path)
+        blocklist = load_synonym_blocklist()
     out: dict[str, dict] = {}
     for d in work:
         result = enrich(d, confirmed_by_iri[d.get("iri")], indexes, subtypes, blocklist)

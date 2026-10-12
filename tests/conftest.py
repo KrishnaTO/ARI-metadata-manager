@@ -24,6 +24,17 @@ BASE_OWL = ROOT / "tests" / "fixtures" / "ontologies" / "ari_t1d.owl"
 os.environ["ARI_ONTOLOGY_FILE"] = str(BASE_OWL)
 
 
+@pytest.fixture(scope="session", autouse=True)
+def runtime_mappings():
+    """A snapshot of the data repo's synonym blocklist, served from where
+    deploy/update-mappings.sh puts it (``config.MAPPINGS_RUNTIME_DIR``):
+    prediction refuses to run without it. Tests may patch the directory again."""
+    from app import config
+    with pytest.MonkeyPatch.context() as mp:
+        mp.setattr(config, "MAPPINGS_RUNTIME_DIR", ROOT / "tests" / "fixtures" / "mappings")
+        yield
+
+
 @pytest.fixture(scope="session")
 def base_owl() -> Path:
     assert BASE_OWL.exists(), f"ontology fixture missing: {BASE_OWL}"

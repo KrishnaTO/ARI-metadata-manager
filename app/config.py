@@ -107,7 +107,8 @@ GH_ONTOLOGY_PATH = os.environ.get(
     "GITHUB_ONTOLOGY_PATH", "ontologies/ari_t1d.owl")
 MAPPINGS_SSSOM_PATH = os.environ.get("GITHUB_SSSOM_PATH", "mappings/ari.sssom.tsv")
 MAPPINGS_EQUIV_PATH = os.environ.get("GITHUB_EQUIV_PATH", "mappings/ari.equivalencies.tsv")
-# The server's copies of those two files, refreshed from the data repo by
+# The server's copies of those two files and of the synonym blocklist
+# (app/predict_service.blocklist_path), refreshed from the data repo by
 # deploy/update-mappings.sh (gitignored). Not the tracked files of the same name
 # under mappings/: those are this repo's snapshot for the tooling and CI, and
 # fetching over them left update.sh resetting and stashing them every tick.

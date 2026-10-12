@@ -1,5 +1,10 @@
 # Changelog
 
+## claude/issue-216-blocklist-from-data-repo
+
+- **The predictor reads the synonym blocklist from the data repo** (#216). `mappings/ari.synonym_blocklist.tsv` now lives in KrishnaTO/ARI (KrishnaTO/ARI#129), where curators edit it. `deploy/update-mappings.sh` fetches it with the other mapping files into `ari-mappings/`, and prediction and enrichment read it from there (`predict_service.blocklist_path()`), so a curator's edit reaches the predictor within one refresh. The cached predictions are keyed on the blocklist's mtime as well, so a refreshed blocklist re-runs them. The app's own copies of the blocklist and `ari.mis_curated_synonyms.tsv` are deleted.
+- **A missing blocklist is an error, not an empty one.** It used to be read as "nothing blocked", which on a fresh server would quietly bring back the 43 known-wrong synonym matches. Prediction now refuses to run and logs which file is missing, and the review page says the predicted candidates could not be loaded instead of showing none. For local runs, copy the file from a data-repo checkout (README quick start).
+- **`scripts/report_synonyms.py --data-repo ../ARI`** writes the blocklist and its report into a data-repo checkout, to commit there. The tests read a snapshot of the blocklist under `tests/fixtures/mappings/`.
 ## claude/issue-217-ari-id-search
 
 - **The search box finds a disease by its ARI id** (#217). Typing the id as the record shows it, `ARI:0001170` (any case, or a prefix of it such as `ARI:000117`), found nothing: search matched the label, the IRI's local name (`ARI_0001170`), synonyms and target tissue, but never the `ARI_ID` annotation. Diseases now match on it too, after the name, and the result shows the id it matched.

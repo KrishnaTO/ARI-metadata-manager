@@ -138,23 +138,23 @@ different runtime location.
 
 3. **Mapping-data refresh**: `ari-mm-mapping-update.timer` runs
    `deploy/update-mappings.sh`, which fetches the mapping TSV files from
-   `KrishnaTO/ARI:GITHUB_BASE_BRANCH` (defaults to two mapping files currently
-   in the ARI repo: `mappings/ari.equivalencies.tsv` and
-   `mappings/ari.sssom.tsv`), writes them to the local runtime mapping
+   `KrishnaTO/ARI:GITHUB_BASE_BRANCH` (by default `mappings/ari.equivalencies.tsv`,
+   `mappings/ari.sssom.tsv` and `mappings/ari.synonym_blocklist.tsv`), writes them to the local runtime mapping
    directory, replacing each one atomically when its bytes change. It never
    restarts the app: the app reads these files from disk on every request that
    needs them.
 
-Note: the remaining three mapping TSVs currently live in the
-`ARI-metadata-manager` repo and are updated via the app-code refresh path
-above. If they move to the ARI repo, add them to `ARI_MAPPING_FILES` or
-update `deploy/update-mappings.sh` defaults.
+Cross-reference prediction refuses to run until `ari.synonym_blocklist.tsv` has
+been fetched: predicting without it would quietly bring back the synonym matches
+it blocks. On a new server, run the script once by hand (below) before opening
+the review page.
 
 The local runtime mappings default to a gitignored directory, which is where the
 app reads them for signed-out visitors:
 ```bash
 /opt/ari/ari-metadata-manager/ari-mappings/ari.equivalencies.tsv
 /opt/ari/ari-metadata-manager/ari-mappings/ari.sssom.tsv
+/opt/ari/ari-metadata-manager/ari-mappings/ari.synonym_blocklist.tsv
 ```
 They are deliberately **not** the tracked files of the same name under
 `mappings/` (this repo's snapshot for the tooling and CI). Fetching over those

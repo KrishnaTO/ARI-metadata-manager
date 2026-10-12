@@ -118,7 +118,16 @@ def test_load_synonym_blocklist(tmp_path):
                  encoding="utf-8")
     bl = ps.load_synonym_blocklist(p)
     assert bl == {"ARI:0001031": {ps.normalize("Megaloblastic Anemia")}}
-    assert ps.load_synonym_blocklist(tmp_path / "missing.tsv") == {}
+
+
+def test_a_missing_blocklist_stops_prediction(tmp_path, monkeypatch, base_owl):
+    # Treated as empty, a missing blocklist quietly brought back every
+    # known-wrong synonym match it exists to stop (issue #216).
+    from app import config
+    from app.ontology_service import OntologyService
+    monkeypatch.setattr(config, "MAPPINGS_RUNTIME_DIR", tmp_path)
+    with pytest.raises(FileNotFoundError, match="synonym blocklist"):
+        OntologyService(str(base_owl)).predict_xrefs()
 
 
 def test_blank_cells_only_no_prediction_when_already_filled():
