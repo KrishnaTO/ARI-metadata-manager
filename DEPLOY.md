@@ -141,10 +141,9 @@ different runtime location.
    `KrishnaTO/ARI:GITHUB_BASE_BRANCH` (defaults to two mapping files currently
    in the ARI repo: `mappings/ari.equivalencies.tsv` and
    `mappings/ari.sssom.tsv`), writes them to the local runtime mapping
-   directory, and restarts the app only if any mapping bytes changed. Unlike
-   `update.sh`, this restart is not deferred while curators have work in memory.
-   The app reads these files from disk on every request, so the restart is not
-   needed; see [docs/EFFICIENCY.md §5](docs/EFFICIENCY.md#5-the-mapping-refresh-restarts-the-app-for-nothing).
+   directory, replacing each one atomically when its bytes change. It never
+   restarts the app: the app reads these files from disk on every request that
+   needs them.
 
 Note: the remaining three mapping TSVs currently live in the
 `ARI-metadata-manager` repo and are updated via the app-code refresh path

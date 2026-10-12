@@ -233,23 +233,29 @@ Steps, in order:
 1. **Replay guard.** A `request_id` already completed returns the first result
    (`repeated: true`) instead of committing twice.
 2. **Two-person rule.** A confirmed id the curator added themselves is refused.
-3. **Scope.** The diseases this publish may speak for are the touched set plus
-   the diseases reviewed in this request. Nothing else in the commit comes from
-   the working copy. An empty scope is a 400.
+3. **Scope.** The diseases this publish may speak for are the touched set, less
+   any the curator left out in the publish dialog (`exclude`), plus the diseases
+   reviewed in this request. Nothing else in the commit comes from the working
+   copy, and the diseases left out stay touched for a later pull request. An
+   empty scope is a 400.
 4. **Rebase.** Read the source branch at its current sha and merge it into the
    working copy for the scope. Any conflict is a 409 with the conflicts and sha.
-5. **Review write-back** (only if the request carries verdicts): log each
+5. **Mapping files** (only if the request carries verdicts). The curator's own
+   parked removals for the scope join `flagged`, each given its disease's ARI id
+   and label. Read the branch's SSSOM and equivalencies files and accumulate this
+   request's confirmed, flagged and absent judgments (`sssom_service.build`). A
+   judgment with no ARI id is a 400. This runs before anything is written, so a
+   refusal leaves the working copy as it was.
+6. **Review write-back** (only if the request carries verdicts): log each
    verdict in the disease changelogs, store confirmed ids on the record, remove
-   flagged ids, and (if `apply_enrichment`) fold in selected synonyms and
-   subtypes. The working copy is snapshotted first and restored if anything later
-   fails.
-6. **Build the commit.** Summarise the scoped changes (`diff_service`), graft the
+   flagged ids (from every property holding that vocabulary's ids, so a SNOMED
+   code leaves `ARI_DXCODE` too), and (if `apply_enrichment`) fold in selected
+   synonyms and subtypes. The working copy is snapshotted first and restored if
+   anything later fails.
+7. **Build the commit.** Summarise the scoped changes (`diff_service`), graft the
    scoped diseases from the working copy onto the downloaded branch ontology, and
    splice the result back into the branch's own file order (`owl_splice`), so the
    diff shows only the curator's change.
-7. **Mapping files.** Read the branch's SSSOM and equivalencies files and
-   accumulate this request's confirmed, flagged (including parked removals) and
-   absent judgments (`sssom_service.build`).
 8. **Commit and PR** (`github_service.publish_file`): push to the upstream repo if
    the curator can, otherwise to their fork (created on first use, with
    `maintainer_can_modify`). Reuse the session's branch if it still exists,
@@ -258,7 +264,7 @@ Steps, in order:
    API. Open the PR, or update the open one's title. Apply the `edit term` and
    `sssom` labels where permitted.
 9. **Clean up.** Remember the result under `request_id`, clear the parked
-   removals that went out, and clear the touched set.
+   removals that went out, and drop the published diseases from the touched set.
 
 ## Cross-reference review
 
@@ -312,8 +318,10 @@ fuzzy threshold from the confirmed mappings.
 **Caching.** Parsed index files are cached per process, keyed on each file's
 mtime and size. Each `OntologyService` caches its predicted cells against its
 ontology file's mtime, so a repeat page load is a cache hit and an edit
-triggers a recompute. The first load after a restart pays the index parse
-(about 2 s); see [EFFICIENCY.md §4](EFFICIENCY.md#4-the-prediction-indexes-load-on-the-first-request-after-every-restart).
+triggers a recompute. `main.lifespan` parses the indexes and builds their
+lookups in a background thread at startup (`predict_service.warm`), so no request
+pays that parse (about 2 s locally); a request that needs them mid-warm-up waits
+for that one load rather than starting a second.
 Resident cost is roughly 250 MB process-wide, plus a few MB per active curator.
 
 ## Enrichment
@@ -395,6 +403,8 @@ user preference, and every font size is in `rem` so it scales.
 | Prediction indexes | each index file's mtime + size | rebuilding `data/2-databases` |
 | Predicted cells | ontology file mtime + index dir | any edit to that ontology |
 | Concept reverse map | identity of the index list | an index reload |
+| Enrichment id map | identity of the index list | an index reload |
+| Enrichment subtype map | identity of the index list + each `*.subtypes.tsv`'s mtime and size | an index reload or a changed subtypes file |
 | Detail sidecars | sidecar mtime + size | rebuilding `data/2-databases` |
 | Live terminology answers | `(db, code)` | process restart only |
 | PR matrices | PR number + head sha | a new head commit |

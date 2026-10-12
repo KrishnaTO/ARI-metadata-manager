@@ -698,6 +698,10 @@ body.resizing-cols { cursor: col-resize; user-select: none; }
 .pub-list li { display: flex; align-items: baseline; gap: 10px; padding: 7px 10px;
   border-bottom: 1px solid var(--line); font-size: 0.7812rem; }
 .pub-list li:last-child { border-bottom: 0; }
+/* A row label, not a field label: undo .field label / .field input for it. */
+.field .pub-pick { display: flex; align-items: baseline; gap: 10px; flex: 1; min-width: 0; margin: 0;
+  cursor: pointer; font: inherit; color: inherit; text-transform: none; letter-spacing: normal; }
+.field .pub-pick input { flex: none; width: auto; margin: 0; padding: 0; align-self: center; }
 .pub-d { font-weight: 600; flex: none; }
 .pub-id { font-family: var(--font-mono); font-size: 0.6875rem; color: var(--mute-soft); flex: none; }
 .pub-w { color: var(--mute); margin-left: auto; text-align: right;

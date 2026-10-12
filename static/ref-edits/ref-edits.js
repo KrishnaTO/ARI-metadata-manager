@@ -1588,22 +1588,16 @@
     try {
       const updated = await api('disease/' + enc(iri) + '/xref', { method: 'POST', body: {
         db: dbkey, op, value: op === 'remove' ? String(targetId) : val,
-        replaces: replacing ? String(targetId) : '' } });
+        replaces: replacing ? String(targetId) : '',
+        // Without it the changelog credited the edit to "user" (issue #171).
+        editor: me.login } });
       const oldIds = r[dbkey] || [];
       const newIds = updated[dbkey] || [];
       r[dbkey] = newIds;
       // Only ids that actually changed are touched, so a sibling id in the same cell
-      // keeps the verdict the curator already gave it. Clearing a new id's review
-      // stops a just-saved id also publishing as a negative mapping.
-      for (const id of newIds) {
-        if (oldIds.includes(id)) continue;
-        setSessionKey('edited', idKey(iri, dbkey, id), true);
-        setSessionKey('reviewed', idKey(iri, dbkey, id), null);
-      }
-      for (const id of oldIds) {
-        if (newIds.includes(id)) continue;
-        setSessionKey('edited', idKey(iri, dbkey, id), null);
-        setSessionKey('reviewed', idKey(iri, dbkey, id), null);
+      // keeps the verdict the curator already gave it (see RM.idEditChanges).
+      for (const [map, k, v] of RM.idEditChanges(model(), iri, dbkey, oldIds, newIds)) {
+        setSessionKey(map, k, v);
       }
       // The save just credited an id to someone in the authorship ledger, so pull
       // it again rather than guessing — the ledger keeps an id's *first* author.

@@ -352,3 +352,40 @@ test('a prediction carries its match score through to the card (issue #91)', () 
   assert.equal(entry.pred.band, 'strong');
   assert.equal(entry.pred.match_field, 'xref');
 });
+
+// ------------------------------------------------------------- id edits
+const applyChanges = (s, changes) => {
+  for (const [map, k, v] of changes) {
+    if (v === null) delete s[map][k]; else s[map][k] = v;
+  }
+};
+
+test('an id flagged and then removed from its cell keeps its flag (issue #160)', () => {
+  const k = RM.idKey('http://x/d1', 'snomed', '195353004');
+  const s = session({ reviewed: { [k]: 'bad' } });
+
+  applyChanges(s, RM.idEditChanges(s, 'http://x/d1', 'snomed', ['195353004'], []));
+
+  assert.equal(s.reviewed[k], 'bad');                 // still publishes as a Not row
+});
+
+test('a confirmed id removed from its cell loses the confirmation', () => {
+  const k = RM.idKey('http://x/d1', 'snomed', '195353004');
+  const s = session({ reviewed: { [k]: 'ok' }, edited: { [k]: true } });
+
+  applyChanges(s, RM.idEditChanges(s, 'http://x/d1', 'snomed', ['195353004'], []));
+
+  assert.equal(s.reviewed[k], undefined);
+  assert.equal(s.edited[k], undefined);
+});
+
+test('an id added to a cell is edited and unjudged; one left in place is untouched', () => {
+  const kept = RM.idKey('http://x/d1', 'snomed', '1'), added = RM.idKey('http://x/d1', 'snomed', '2');
+  const s = session({ reviewed: { [kept]: 'ok', [added]: 'bad' } });
+
+  applyChanges(s, RM.idEditChanges(s, 'http://x/d1', 'snomed', ['1'], ['1', '2']));
+
+  assert.equal(s.reviewed[kept], 'ok');
+  assert.equal(s.reviewed[added], undefined);
+  assert.equal(s.edited[added], true);
+});

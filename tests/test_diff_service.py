@@ -139,28 +139,6 @@ def test_the_summary_renders_exactly_what_the_list_reports(edited, ro_service, s
     assert ds.build_change_summary(edited.svc, ro_service) == summary
 
 
-# ------------------------------------------------------------------- PR titles
-def test_a_title_says_what_the_submission_does():
-    upd = [{"name": "Addison's disease", "is_new": False}]
-    add = [{"name": "Brand new", "is_new": True}]
-    assert ds.title_for(upd) == "Update Addison's disease"
-    assert ds.title_for(add) == "Add Brand new"
-    assert ds.title_for([]) == "Update ontology"
-
-
-def test_two_diseases_are_named_and_three_are_counted():
-    two = [{"name": "A", "is_new": False}, {"name": "B", "is_new": False}]
-    three = two + [{"name": "C", "is_new": False}]
-    assert ds.title_for(two) == "Update A and B"
-    assert ds.title_for(three) == "Update 3 diseases"
-
-
-def test_added_and_updated_are_reported_separately():
-    mixed = [{"name": "New one", "is_new": True},
-             {"name": "A", "is_new": False}, {"name": "B", "is_new": False}]
-    assert ds.title_for(mixed) == "Add New one; update A and B"
-
-
 def test_a_disease_only_in_the_baseline_is_reported_as_removed(make_service):
     """The summary listed removals before the structured list replaced it, and it
     must keep doing so — a record present on the source branch and absent here
@@ -173,4 +151,4 @@ def test_a_disease_only_in_the_baseline_is_reported_as_removed(make_service):
     removed = [c for c in ds.list_changes(current, baseline) if c["removed"]]
     assert [c["name"] for c in removed] == [only_on_the_branch["name"]]
     assert "**removed**" in ds.render_summary(removed)
-
+

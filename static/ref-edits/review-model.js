@@ -158,6 +158,33 @@
       .some(id => needsSecondReview(s, r, db.key, id)));
   }
 
+  // ------------------------------------------------------------- id edits
+  // The session changes a saved cell edit makes, as [map, key, value] triples
+  // (value null clears the key). `oldIds` were in the cell before the save,
+  // `newIds` after.
+  //
+  // An id that arrives is marked edited and starts unjudged, so a just-saved id
+  // cannot also publish as a negative mapping. An id that leaves loses its edit
+  // marker and any confirmation, since a confirmed id no longer on file would
+  // publish a positive mapping the record contradicts. It keeps a flag:
+  // removing a flagged id carries the judgment out, and the flag is what
+  // publishes it. Clearing it dropped the negative row from the pull request,
+  // and the data repo rejected the id's removal as unjudged (issue #160).
+  function idEditChanges(s, iri, dbkey, oldIds, newIds) {
+    const out = [];
+    for (const id of newIds) {
+      if (oldIds.includes(id)) continue;
+      out.push(['edited', idKey(iri, dbkey, id), true], ['reviewed', idKey(iri, dbkey, id), null]);
+    }
+    for (const id of oldIds) {
+      if (newIds.includes(id)) continue;
+      const k = idKey(iri, dbkey, id);
+      out.push(['edited', k, null]);
+      if (s.reviewed[k] !== 'bad') out.push(['reviewed', k, null]);
+    }
+    return out;
+  }
+
   // ------------------------------------------------------------- publishing
   // Keys a publish covers. A new PR carries this session's pending work only;
   // appending to the tracked PR also re-sends the keys already on it, because
@@ -195,7 +222,7 @@
     indexPredictions, predFor, preJudgmentId, idState, cellEntries, isAbsent, cellState,
     isOpenState, isMissing, cellNeed, isComplete,
     addedBy, isOwnAddition, mayConfirm, needsSecondReview, awaitsSecondReviewer,
-    publishKeys, compareByName, compareByColumn,
+    idEditChanges, publishKeys, compareByName, compareByColumn,
   };
 
   root.ReviewModel = api;

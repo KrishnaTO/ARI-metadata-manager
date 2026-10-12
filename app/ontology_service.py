@@ -356,6 +356,12 @@ class OntologyService:
         # is unchanged versus the previous per-disease-detail implementation.
         return sorted(rows, key=lambda r: r["name"] or "")
 
+    def get_mapping_subject(self, iri: str) -> dict:
+        """The disease as a mapping row's subject: ``{ari_id, name}``."""
+        e = self._entity(iri)
+        ari = self._get_annotation(e, self.base + "ARI_ID")
+        return {"ari_id": ari[0] if ari else None, "name": self._get_label(e)}
+
     def get_xrefs(self, iri: str) -> dict:
         """One disease's cross-reference ids, keyed by database.
 
@@ -1128,21 +1134,26 @@ class OntologyService:
             notes = []
             for g in groups:
                 db = g["db"]
-                suffix = xref_registry.XREF_SUFFIXES.get(db)
-                if not suffix:
+                if db not in xref_registry.XREF_SUFFIXES:
                     log.warning("Flagged id for unknown database %r on %s — not removed", db, iri)
                     continue
-                prop = self.base + suffix
-                current = _split_csv(self._get_annotation(e, prop))
                 drop = {i for i in (xref_registry.normalize_id(db, x) for x in g["ids"]) if i}
-                kept = [i for i in current
-                        if xref_registry.normalize_id(db, i) not in drop]
-                gone = [i for i in current if i not in kept]
-                if not gone:
-                    continue
-                self._ensure_annotation_property(suffix)[e] = kept
-                notes.append(f"{db.upper()} {', '.join(gone)}")
-                removed += len(gone)
+                # Every property holding this vocabulary's ids: ARI_DXCODE stores
+                # SNOMED CT codes as well, and a flagged code left there was still
+                # on the record (issue #171).
+                prefix = xref_registry.PREFIX[db]
+                for key, suffix in xref_registry.XREF_SUFFIXES.items():
+                    if xref_registry.PREFIX[key] != prefix:
+                        continue
+                    current = _split_csv(self._get_annotation(e, self.base + suffix))
+                    kept = [i for i in current
+                            if xref_registry.normalize_id(key, i) not in drop]
+                    gone = [i for i in current if i not in kept]
+                    if not gone:
+                        continue
+                    self._ensure_annotation_property(suffix)[e] = kept
+                    notes.append(f"{key.upper()} {', '.join(gone)}")
+                    removed += len(gone)
             if notes:
                 self._append_changelog(e, editor,
                                        "Removed flagged cross-reference: " + "; ".join(notes))

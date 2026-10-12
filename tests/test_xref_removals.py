@@ -136,3 +136,88 @@ def test_the_xref_op_route_records_a_removal(route):
     r = client.post(f"/api/v2/disease/{iri}/xref", json={"db": "doid", "op": "remove", "value": doid})
     assert r.status_code == 200
     assert ledger.pending() == [{"iri": iri, "db": "doid", "ids": [doid]}]
+
+
+def test_pending_is_limited_to_the_publishing_curator(ledger):
+    """Issue #171: a removal one curator saved was published under the next
+    curator who published that disease."""
+    ledger.record("iri:1", {"doid": ["1"]}, {"doid": []}, "ada")
+    ledger.record("iri:1", {"mesh": ["D001"]}, {"mesh": []}, "bob")
+    assert ledger.pending({"iri:1"}, login="ada") == [{"iri": "iri:1", "db": "doid", "ids": ["1"]}]
+
+
+# ---------------------------------------------------------- through a publish
+SSSOM_SUBJECT = 0          # subject_id
+EQUIV_SOURCE_ID = 1        # source_id
+
+
+@pytest.fixture
+def signed_in(tmp_path, monkeypatch, base_owl, make_service, ledger):
+    """Signed in as ada with a private working copy; GitHub serves the fixture
+    ontology as the source branch, no mapping files yet, and captures the commit."""
+    import shutil
+    from collections import OrderedDict
+
+    from fastapi.testclient import TestClient
+
+    import app.main as main
+    from app import config, sessions, workspace
+    from app import github_service as gh
+    from app.ontology_service import OntologyService
+
+    base = tmp_path / "base.owl"
+    shutil.copy2(base_owl, base)
+    monkeypatch.setattr(config, "USER_DIR", tmp_path / "user")
+    monkeypatch.setattr(config, "ONTOLOGY_FILE", str(base))
+    monkeypatch.setattr(workspace, "BASE", OntologyService(str(base)))
+    monkeypatch.setattr(workspace, "USER_SVC", OrderedDict())
+    monkeypatch.setattr(config, "GH_ENABLED", True)
+    monkeypatch.setattr(sessions, "_user", lambda r: {
+        "token": "t", "identity": {"login": "ada", "name": "Ada", "email": "a@x"}})
+    monkeypatch.setattr(sessions, "_login", lambda r: "ada")
+    branch = make_service()
+    committed = {}
+
+    async def _sha(*a):
+        return "sha-1"
+
+    async def _file(token, owner, repo, path, ref):
+        if path != config.GH_ONTOLOGY_PATH:
+            raise FileNotFoundError(path)      # no mapping files on the branch yet
+        branch._save()                         # as the branch stores it, not the checkout's line endings
+        return branch.path.read_bytes()
+
+    async def _publish_file(**kw):
+        committed.update(kw)
+        return {"pr_url": "https://example.test/pr/1"}
+
+    monkeypatch.setattr(gh, "branch_sha", _sha)
+    monkeypatch.setattr(gh, "get_file_at", _file)
+    monkeypatch.setattr(gh, "publish_file", _publish_file)
+    return TestClient(main.app), committed
+
+
+def _rows(committed, path):
+    text = committed["extra_files"][path].decode("utf-8")
+    return [line.split("\t") for line in text.splitlines()
+            if line and not line.startswith("#")][1:]          # past the header
+
+
+def test_a_field_editor_removal_publishes_with_its_subject(signed_in, ro_service):
+    """Issue #171: a removal saved by the field editor became a mapping row with
+    an empty subject in both files, which the data repo rejects."""
+    from app import config
+    client, committed = signed_in
+    iri, doid = _a_disease_with_a_doid(ro_service)
+    ari_id = next(r["ari_id"] for r in ro_service.get_xref_rows() if r["iri"] == iri)
+
+    assert client.put(f"/api/v2/disease/{iri}", json={"changes": {"doid": ""}}).status_code == 200
+    r = client.post("/api/v2/publish", json={})
+
+    assert r.status_code == 200, r.text
+    [sssom] = [row for row in _rows(committed, config.MAPPINGS_SSSOM_PATH)
+               if row[4] == f"DOID:{doid}"]
+    assert sssom[SSSOM_SUBJECT] == ari_id and sssom[1] and sssom[3] == "Not"
+    [equiv] = [row for row in _rows(committed, config.MAPPINGS_EQUIV_PATH) if row[5] == doid]
+    assert equiv[EQUIV_SOURCE_ID] == ari_id.split(":")[-1] and equiv[2]
+
