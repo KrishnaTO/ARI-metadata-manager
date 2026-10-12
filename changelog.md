@@ -3,6 +3,22 @@
 ## claude/enrich-cache
 
 - **The enrichment preview no longer rebuilds its lookup tables on every call.** Each preview (the ⚗ drawer on the reference-review page), and each publish with *Apply on publish*, rebuilt two structures from the whole reference index: the id → term map and the subtype map. That took 0.5–0.7 s locally and 1.35 s in production, even when nothing was confirmed. Both are now built once and reused until the reference files change: the id map while `get_indexes()` returns the same index set, the subtype map also until a `*.subtypes.tsv` file's mtime or size changes. A preview with nothing confirmed returns without reading anything. Previews now take 1–9 ms in-process (17 ms over HTTP for all 318 confirmed ids). The proposals are byte-identical to before for the full confirmed set (51 diseases).
+## claude/review-filter-perf
+
+- **Typing in the reference-review filter no longer freezes the page.** For every blank cell, the matrix found that cell's predicted ids by scanning every prediction on the page, and each redraw asked several times per cell. A keystroke blocked the page for 130–470 ms locally (37–129 ms in production, which has fewer predictions), and a column sort for up to 630 ms. Predictions are now grouped by cell once when they load (`ReviewModel.indexPredictions`), so finding them is a lookup. Typing, sorting and the *missing only* toggle now take 1–54 ms locally. Rendered on the same data, the matrix is identical to before at every step checked (filters, all sort directions, the *missing only* toggle, and the opened row's prediction cards).
+## claude/app-docs-efficiency-review
+
+- **Rebuilt the documentation from a full review of the code.** `README.md` is now the entry point: what the app is, a quick start, the layout of the repository (including the modules, pages and scripts it used to leave out), every setting, the server-side state and how to run the tests. The detail moved out of the README into `docs/ARCHITECTURE.md` (how each part works, in the present tense) and `docs/API.md` (every endpoint, with who may call it). Endpoints that were never listed are now documented: `/healthz`, `POST /api/v2/disease/{iri}/xref`, `pending-changes`, `predictions`, `enrichment-preview`, `stats`, `synonym-review` and its curation write.
+- **Efficiency review.** `docs/EFFICIENCY.md` lists measured hot spots with fixes, ranked by payoff. They were measured three ways: by reading the code, by profiling every endpoint and service function locally, and by timing production (aurint.ca, signed out, read-only) in the browser. The biggest:
+  - each keystroke in the review page's filter recomputes every cell from all predictions (156 ms per pass against 1.2 ms indexed, with identical results), blocking the page for 37–129 ms in production and 230–620 ms locally;
+  - the first review-page visitor after a restart waits 5 s for predictions;
+  - enrichment rebuilds two whole-index structures on every call (1.35 s in production, even for an empty list);
+  - the publish summary and the export build every disease's full detail on both sides;
+  - sync three-way merges all 214 diseases whenever the branch moves (0.7 s locally);
+  - the synonym review re-downloads 2.7 MB of report from GitHub on every load.
+
+  No code changed.
+- **Corrections.** `DEPLOY.md` had the old version format, a stale `safe.directory` path, and said `ALLOWED_LOGINS` limits publishing (it limits sign-in); it now also notes that the mapping refresh restarts the app without deferring for curators. `OPERATIONS.md`'s backup now includes `pr-review/` and `synonym-review/` and skips folders that don't exist yet. `.env.example` lists the optional settings it was missing and describes `ASSIGN_ADMINS` and `USER_DATA_TTL_DAYS` accurately.
 
 ## feat/synonym-review-marks
 

@@ -109,11 +109,14 @@
   // SSSOM's "no term found in this database" sentinel — the id a cell-level
   // "not in database" verdict is stored and published under.
   const NO_TERM = RM.NO_TERM;
-  // Predicted matches (issue #42) keyed `${ari_id}|${prefix}|${id}` ->
-  // {label, match_field, confidence}. From /api/v2/predictions: name/synonym hits
-  // for blank cells. confidence 'high' = the disease label matched a concept;
-  // 'low' = only a synonym matched, or nothing matched exactly and the candidate
-  // merely shares words with the label ('fuzzy') — both worth a closer look.
+  // Predicted matches (issue #42), grouped by the cell they fill:
+  // `${ari_id}|${prefix}` -> [{id, label, match_field, confidence, score, band}]
+  // (ReviewModel.indexPredictions). From /api/v2/predictions: name/synonym hits
+  // for blank cells. Grouped once on load, because every redraw asks each blank
+  // cell for its predictions several times. confidence 'high' = the disease
+  // label matched a concept; 'low' = only a synonym matched, or nothing matched
+  // exactly and the candidate merely shares words with the label ('fuzzy') —
+  // both worth a closer look.
   let predicted = {};
 
   // Predicted candidate ids for a currently-blank (disease, db) cell. Returns
@@ -2037,13 +2040,8 @@
       for (const m of await api('mappings')) mappings[m.ari_id + '|' + m.prefix + '|' + m.id] = m.judgment;
     } catch (e) { mappings = {}; }
     // Predicted exact-match candidates for blank cells (issue #42); non-fatal.
-    try {
-      predicted = {};
-      for (const p of await api('predictions'))
-        predicted[p.ari_id + '|' + p.prefix + '|' + p.id] = {
-          label: p.object_label, match_field: p.match_field, confidence: p.confidence,
-          score: p.score, band: p.band };
-    } catch (e) { predicted = {}; }
+    try { predicted = RM.indexPredictions(await api('predictions')); }
+    catch (e) { predicted = {}; }
     await loadIdAuthors();
     // Restore this user's saved review session (verdicts + PR pointer) so a reload
     // resumes their work. Anonymous users get {} — review state stays in-memory.

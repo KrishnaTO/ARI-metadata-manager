@@ -27,19 +27,27 @@
   // Pending = has a state, and that state is not already on a pull request.
   const isPending = (s, k) => !!keyState(s, k) && (s.published[k] || {}).state !== keyState(s, k);
 
+  // The rows of /api/v2/predictions, grouped by the cell they fill:
+  // "<ari_id>|<prefix>" -> [{id, label, match_field, confidence, score, band}],
+  // in the order the API returned them.
+  function indexPredictions(rows) {
+    const byCell = {};
+    for (const p of rows) {
+      (byCell[p.ari_id + '|' + p.prefix] ||= []).push({
+        id: p.id, label: p.object_label, match_field: p.match_field,
+        confidence: p.confidence, score: p.score, band: p.band });
+    }
+    return byCell;
+  }
+
   // Predictions for a blank cell. A cell with ids on file is never predicted
   // into, and a prediction already judged negative is not offered again.
+  // `s.predicted` is the by-cell index from indexPredictions.
   function predFor(s, r, dbkey) {
     const ari = r.ari_id, prefix = s.PREFIX[dbkey];
     if (!ari || !prefix || (r[dbkey] || []).length) return [];
-    const out = [];
-    for (const [k, meta] of Object.entries(s.predicted)) {
-      const [a, p, id] = k.split('|');
-      if (a === ari && p === prefix && s.mappings[k] !== 'negative')
-        out.push({ id, label: meta.label, match_field: meta.match_field,
-                   confidence: meta.confidence, score: meta.score, band: meta.band });
-    }
-    return out;
+    return (s.predicted[ari + '|' + prefix] || [])
+      .filter(p => s.mappings[ari + '|' + prefix + '|' + p.id] !== 'negative');
   }
 
   // Per-id pre-judgment from the curated mappings: 'pos' | 'neg' | null.
@@ -184,7 +192,7 @@
   const api = {
     NO_TERM, NEED,
     idKey, absentKey, keyState, isPending,
-    predFor, preJudgmentId, idState, cellEntries, isAbsent, cellState,
+    indexPredictions, predFor, preJudgmentId, idState, cellEntries, isAbsent, cellState,
     isOpenState, isMissing, cellNeed, isComplete,
     addedBy, isOwnAddition, mayConfirm, needsSecondReview, awaitsSecondReviewer,
     publishKeys, compareByName, compareByColumn,
