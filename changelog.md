@@ -4,6 +4,10 @@
 
 - **The record's story steps are no longer numbered** (#101). The spine labelled its steps `01`–`05`, and each deep-dive head repeated its step's number, which read as a five-stage process to complete. They are five aspects of a record, so the numbers are gone: the steps keep their titles, and the deep-dive head reads "Pathophysiology · Adaptive immunity". The Record step is marked `inSidebar` instead of having no number. This was the last open item of #101.
 
+## claude/issue-152-omop-search-by-snomed
+
+- **The review page searches OMOP by the disease's SNOMED code** (#152). The OMOP panel's "search" link searched Athena by disease name, which can match many concepts. When the disease has SNOMED ids, the link now searches Athena's SNOMED vocabulary by each code (`vocabulary=SNOMED&query=718224004`): Athena lists that SNOMED concept first, and its concept id is the OMOP id (`37397558` for Progressive hemifacial atrophy). A disease with several SNOMED ids gets a link per id; one with none keeps the name search. The template is the registry's new optional `search_snomed` field, served by `/api/v2/xref-databases`.
+
 ## claude/issue-216-blocklist-from-data-repo
 
 - **The predictor reads the synonym blocklist from the data repo** (#216). `mappings/ari.synonym_blocklist.tsv` now lives in KrishnaTO/ARI (KrishnaTO/ARI#129), where curators edit it. `deploy/update-mappings.sh` fetches it with the other mapping files into `ari-mappings/`, and prediction and enrichment read it from there (`predict_service.blocklist_path()`), so a curator's edit reaches the predictor within one refresh. The cached predictions are keyed on the blocklist's mtime as well, so a refreshed blocklist re-runs them. The app's own copies of the blocklist and `ari.mis_curated_synonyms.tsv` are deleted.

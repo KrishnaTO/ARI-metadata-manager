@@ -19,6 +19,14 @@ def test_every_entry_is_well_formed():
             assert d["search"] and "{name}" in d["search"]
 
 
+def test_omop_is_searched_by_the_diseases_snomed_id():
+    # Issue #152: Athena finds the SNOMED concept by its code, and that concept's
+    # id is the OMOP id; a disease name can match many concepts.
+    omop = xref_registry.BY_KEY["omop"]
+    assert "vocabulary=SNOMED" in omop["search_snomed"] and "{num}" in omop["search_snomed"]
+    assert [d["key"] for d in xref_registry.XREF_DATABASES if d.get("search_snomed")] == ["omop"]
+
+
 def test_sssom_prefix_is_the_registry_prefix():
     """The one place this pairing is asserted against the registry. It is also
     checked through `to_cells` output in test_predict_service, which is the
@@ -62,7 +70,8 @@ def test_public_list_and_endpoint_agree():
     pub = xref_registry.public_list()
     assert {"snomed", "omop", "doid", "dxcode"} <= {d["key"] for d in pub}
     for d in pub:
-        assert set(d) == {"key", "label", "prefix", "link", "search", "noframe", "review", "main_app"}
+        assert set(d) == {"key", "label", "prefix", "link", "search", "search_snomed", "noframe",
+                          "review", "main_app"}
     with TestClient(app) as client:
         r = client.get("/api/v2/xref-databases")
         assert r.status_code == 200
