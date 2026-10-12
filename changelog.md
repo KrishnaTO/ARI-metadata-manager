@@ -1,5 +1,10 @@
 # Changelog
 
+## claude/efficiency-doc-refresh
+
+- **`docs/EFFICIENCY.md` shows the second round of fixes.** Findings 7, 8, 9, 10 and 14 are marked fixed with the PR that fixed each (#203–#209) and the cost after, and finding 3 partly fixed (#206: index reloads run in a thread; owlready2 calls stay on the loop). The production after-table gains the synonym review's repeat load (428–490 ms instead of 641–946 ms). The suggested order now covers only what is open: §11's `create_release` write, §6, the rest of §11, and §3's step 3 only if measured.
+- **`docs/ARCHITECTURE.md`'s cache table lists the parsed report 9**, keyed by the file's git blob id (#203).
+
 ## claude/target-cells
 
 - **Target cells are a disease-data category.** The data model's "Affected Cell, Tissue or Organ" is now stored in ARI as `affectsCellTissueOrOrgan` items of class `AffectedCellTissueOrOrgan` (KrishnaTO/ARI#124). The 2026-10-08 master list filled them for 218 diseases. They show as a "Target cells" box under Pathophysiology, open as a list with each cell's relevance (its share, such as `80%`), and are added and edited like antigens: label, description, relevance, source, obsolete. Publishing carries them with the disease, like every other item category. `targetsTissue` stays at system level, so the tissue browser and the new-disease tissue list are unchanged. Until the data repo's ontology declares the class, adding a target cell reports that the class is missing.
