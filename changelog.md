@@ -3,6 +3,16 @@
 ## claude/issue-160-keep-flag
 
 - **A flagged id removed from its cell keeps its flag.** Saving a cell on the review page cleared the verdict of every id that left it. A flagged id that was then removed (or that a publish had already removed) lost its flag, so the next publish to the same pull request, which rebuilds the mapping files from the base branch and re-sends the session's verdicts, carried no `Not` row for it. The data repo then rejected the id's removal as unjudged (`xref-deleted`, KrishnaTO/ARI#87). A removed id now keeps a flag and loses only a confirmation, which would otherwise publish a positive mapping the record contradicts. The rule lives in `ReviewModel.idEditChanges` with node tests.
+## claude/efficiency-doc-status
+
+- **`docs/EFFICIENCY.md` shows what is fixed.** Findings 1, 2, 4, 5, 12 and 13 are marked fixed with the PR that fixed each (#189–#196) and the cost after; a new table re-times the fixed endpoints in production (the empty enrichment preview 53–93 ms instead of 1,346 ms, the export 424–499 ms instead of 959 ms, no cold start on predictions). The suggested order now covers only what is open: §14, §7, §3, then the rest. §3 and §6 are updated for what the fixes changed.
+- **Two stale statements corrected.** `DEPLOY.md` said the mapping refresh restarts the app when a file changes; it hasn't since #191. `docs/ARCHITECTURE.md` said the first request after a restart pays the index parse; the indexes now load at startup. Its cache table gains the two enrichment caches.
+## claude/issue-171-removal-subjects
+
+- **Ids removed in the field editor publish with their disease as the subject.** A removal saved by the field editor was parked with only the disease's IRI, and the mapping builder reads the ARI id and label, so every one became a row with an empty subject in both mapping files. KrishnaTO/ARI#88 and #93 each had to be repaired by hand. Publishing now gives each parked removal its disease's ARI id and label, and `sssom_service.build` refuses a judgment with no ARI id (a 400) instead of writing an empty subject. The mapping files are now built before anything is written to the working copy, so a refusal changes nothing.
+- **A curator publishes only their own removals.** Parked removals were picked up by whichever curator next published the disease; they are now limited to the curator who made them.
+- **A flagged SNOMED code also leaves `ARI_DXCODE`.** DXCODE stores SNOMED CT codes too, so a flagged code stayed on the record there and the data repo rejected the PR (`flagged-still-stored`). Removing a flagged id now clears it from every property holding that vocabulary's ids.
+- **Review-page id edits are credited to the curator.** The review page's id editor sent no `editor`, so the changelog read `… | user | Edited: doid`; it now sends the signed-in login.
 
 ## claude/autostash-cleanup-doc
 
