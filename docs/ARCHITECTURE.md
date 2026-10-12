@@ -326,7 +326,10 @@ ontology file's mtime, so a repeat page load is a cache hit and an edit
 triggers a recompute. `main.lifespan` parses the indexes and builds their
 lookups in a background thread at startup (`predict_service.warm`), so no request
 pays that parse (about 2 s locally); a request that needs them mid-warm-up waits
-for that one load rather than starting a second.
+for that one load rather than starting a second. Prediction, the compare pane
+(`concept_service`) and enrichment all look ids up through each index's own id
+map (`LexicalIndex.records_for`), so ids match the same way everywhere and there
+is one id map per index file rather than one per feature.
 Resident cost is roughly 250 MB process-wide, plus a few MB per active curator.
 
 ## Enrichment
@@ -408,11 +411,10 @@ user preference, and every font size is in `rem` so it scales.
 | Shared base ontology | file path + mtime | `update-ontology.sh` replacing the file |
 | Loaded working copies | login (LRU, `MAX_LOADED_WORLDS`) | eviction, merge, publish rollback, branch switch |
 | Prediction indexes | each index file's mtime + size | rebuilding `data/2-databases` |
+| Id map per index (`LexicalIndex.records_for`: prediction, compare pane, enrichment) | the index it belongs to | an index reload |
 | Predicted cells | ontology file mtime + index dir | any edit to that ontology |
-| Concept reverse map | identity of the index list | an index reload |
 | Source-branch ontology (`.user-data/baselines/<sha>.owl`) | commit sha | never stale; the 8 most recently used are kept |
 | Report 9, parsed (`routes/review._REPORT`) | the file's git blob id on the base branch | a commit that changes the report |
-| Enrichment id map | identity of the index list | an index reload |
 | Enrichment subtype map | identity of the index list + each `*.subtypes.tsv`'s mtime and size | an index reload or a changed subtypes file |
 | Detail sidecars | sidecar mtime + size | rebuilding `data/2-databases` |
 | Live terminology answers | `(db, code)` | process restart only |

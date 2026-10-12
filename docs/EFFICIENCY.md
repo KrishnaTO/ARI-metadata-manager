@@ -6,7 +6,8 @@ one at a time.
 
 **Status (2026-10-12):** findings 1, 2, 4, 5, 7, 8, 9, 10, 12, 13 and 14 are
 fixed and deployed (#189–#196, #203–#209); each section says by which PR, with
-the cost after. Finding 3 is partly fixed (#206). Findings 6 and 11 are open.
+the cost after. Finding 6 is fixed in #214. Finding 3 is partly fixed (#206).
+Finding 11 is open.
 The measurements below are from before the fixes, except the table
 [after the fixes](#production-after-the-fixes).
 
@@ -110,7 +111,7 @@ in each section.
 | 3 | CPU-bound work runs on the event loop and blocks every other request | all `async def` routes in `app/routes/` | Everyone waits for the slowest request | Medium | Partly fixed, #206 |
 | 7 | Independent network calls run one after another | frontend `init()`s, mapping reads, blob uploads | 4 serial calls before the tree; 5 before the matrix | Small | Fixed, #204 and #205 |
 | 14 | The synonym review re-downloads report 9 on every load | `routes/review.py` `synonym_review`, `synonyms.js` | 0.64–0.95 s and 2.7 MB of JSON per load | Small | Fixed, #203 |
-| 6 | Three separate reverse-id indexes over the same records | `predict_service`, `concept_service`, `enrich_service` | ~125 MB resident | Medium | Open |
+| 6 | Three separate reverse-id indexes over the same records | `predict_service`, `concept_service`, `enrich_service` | ~125 MB resident | Medium | Fixed, #214 |
 | 8 | No HTTP connection reuse | `github_service`, `pr_review/terminology` | One TLS handshake per call; hundreds per PR matrix | Small | Fixed, #207 |
 | 9 | PR reviewer repeats GitHub reads, and one loop is quadratic | `pr_review/github.py`, `pr_review/compare.py` | N+1 calls to list PRs; 3 fetches of one file list | Small | Fixed, #208 |
 | 10 | Downloaded baselines are not reused | `routes/publish.py`, `merge.py`, `settings.py` | ~1.7 MB download + parse per dialog, publish, resolve, export | Medium | Fixed, #209 |
@@ -119,10 +120,8 @@ in each section.
 Suggested order for what is open:
 
 1. **§11's `create_release` write.** A durability gap, not a cost.
-2. **§6.** About 75 MB resident, plus a reverse map that outlives an index
-   rebuild until restart.
-3. **The rest of §11.**
-4. **§3, step 3**, only if a measurement shows the remaining loop-blocking
+2. **The rest of §11.**
+3. **§3, step 3**, only if a measurement shows the remaining loop-blocking
    work (tens to ~150 ms) matters with more curators at once.
 
 ---
@@ -257,6 +256,8 @@ unlike `update.sh` it does not defer while curators have work in memory.
 This is a change on the server's timer path, so it needs a deliberate deploy.
 
 ## 6. Three reverse-id indexes over the same records
+
+**Fixed in #214.** The compare pane and enrichment now look ids up through `LexicalIndex.records_for`, the per-index map prediction already used, and their own maps are gone: resident memory after the warm-up, one enrichment preview and one compare-pane lookup is 300 MB instead of 372 MB locally. `_REVERSE_CACHE` went with them, so an index rebuild no longer keeps the old map alive. Enrichment now matches ids by `match_key`, as the caveat below anticipated; over the real ontology (every stored id of all 214 diseases treated as confirmed, 1,097 cross-references) the enrichment preview and all 1,276 compare-pane lookups are identical to before. The one id that resolves differently is a MONDO id stored with its prefix (`MONDO:0005147` on ARI:0001080), which exact matching missed; another of that disease's ids already reached the same term.
 
 **Where:**
 

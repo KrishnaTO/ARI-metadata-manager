@@ -49,59 +49,20 @@ import logging
 from pathlib import Path
 from urllib.parse import quote
 
-from .predict_service import LexicalIndex, match_key
+from .predict_service import LexicalIndex
 from .xref_registry import BY_KEY, PREFIX, SOURCE_DB
 
 log = logging.getLogger(__name__)
-
-
-# The id match key lives in predict_service, which owns the index records both
-# reverse maps are built from; this alias keeps the local reads short.
-_norm_id = match_key
 
 
 def _split_parents(cell: str) -> list[str]:
     return [p.strip() for p in (cell or "").split(" | ") if p.strip()]
 
 
-# Reverse ``id -> term`` index, cached per ``indexes`` list. ``get_indexes()`` returns
-# the *same* list object while the files are unchanged and a fresh one after they are
-# rebuilt, so keying on its identity gives exactly the mtime/size invalidation the
-# index cache already provides. The list is held so its id() cannot be reused by a
-# later object while the entry is live.
-_REVERSE_CACHE: dict[int, tuple[list, dict]] = {}
 # Detail sidecars, cached per directory with the same mtime/size signature
 # ``get_indexes()`` uses — a sidecar can change without its index changing, so this
 # cache watches the ``*.details.tsv`` files independently.
 _DETAILS_CACHE: dict[str, tuple[tuple, dict]] = {}
-
-
-def _build_reverse(indexes: list[LexicalIndex]) -> dict[tuple[str, str], list[tuple]]:
-    """``(db, normalized id) -> [(source, record), ...]`` over every term in ``indexes``.
-
-    A term is added once per ``(db, id)`` it supplies — its own id (for own-index
-    terms) and every xref it carries — so a SNOMED id lands under every hub term
-    that cross-references it. Entries are plain ``(source, record)`` tuples rather
-    than dicts: there are hundreds of thousands of them across the five indexes, and
-    a dict per entry costs ~27 MB more for the same two fields.
-    """
-    rev: dict[tuple[str, str], list[tuple]] = {}
-    for idx in indexes:
-        for rec in idx.records:
-            for db, ids in rec["by_db"].items():
-                for ident in ids:
-                    rev.setdefault((db, _norm_id(ident)), []).append((idx.source, rec))
-    return rev
-
-
-def _reverse_for(indexes: list[LexicalIndex]) -> dict[tuple[str, str], list[tuple]]:
-    key = id(indexes)
-    cached = _REVERSE_CACHE.get(key)
-    if cached and cached[0] is indexes:
-        return cached[1]
-    rev = _build_reverse(indexes)
-    _REVERSE_CACHE[key] = (indexes, rev)
-    return rev
 
 
 def _details_dir(indexes: list[LexicalIndex]) -> Path | None:
@@ -181,7 +142,10 @@ def lookup(db: str, obj_id: str, indexes: list[LexicalIndex]) -> dict:
     canonical = f"{prefix}:{num}"
     base = {"db": db, "id": canonical, "prefix": prefix, "url": _url(db, num, obj_id)}
 
-    entries = _reverse_for(indexes).get((db, _norm_id(obj_id)), [])
+    # Every term supplying this id, own id or cross-reference, from each index's
+    # own id map (the one prediction uses), so a SNOMED id finds every hub term
+    # that cross-references it. A separate map over all indexes cost 47 MB more.
+    entries = [(idx.source, rec) for idx in indexes for rec in idx.records_for(db, obj_id)]
     direct = [(src, rec) for src, rec in entries if SOURCE_DB.get(src) == db]
 
     if direct:
