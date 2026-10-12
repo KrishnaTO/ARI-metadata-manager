@@ -162,7 +162,7 @@ changed the same fields, 502 when the branch can't be read.
 
 | Method | Path | Access | Purpose |
 | --- | --- | --- | --- |
-| GET | `/api/v2/synonym-review` | open | Report 9, read live from the data repo's base branch: `{source, rows, curation, login}`. 502 when GitHub refuses; 503 when the repo isn't configured. |
+| GET | `/api/v2/synonym-review` | open | Report 9, read live from the data repo's base branch: `{source, rows, curation, login}`; each row carries its disease's `iri`. Re-downloaded only when the file's blob id changes. 502 when GitHub refuses; 503 when the repo isn't configured. |
 | PUT | `/api/v2/synonym-review/curation` | signed-in | `{row: {ari_id, disease, term, verdict, action, review_date}, status: correct\|incorrect\|needs-review\|"", note}`. Empty status and note clear the row. |
 | GET | `/api/v2/stats` | open | The dashboard: `coverage, curators, weeks, waiting, queues`. |
 
