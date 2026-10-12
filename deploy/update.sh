@@ -11,15 +11,36 @@ BRANCH="$(sed -n 's/^APP_REPO_BRANCH=//p' .env 2>/dev/null || true)"
 BRANCH="${BRANCH:-main}"
 git fetch --quiet origin "$BRANCH"
 
+# A stash entry's content: the tree it recorded, plus its untracked files' tree
+# when it has one. Two entries with the same content hold the same changes.
+stash_content() {
+  git rev-parse -q --verify "$1^{tree}" || return 0
+  git rev-parse -q --verify "$1^3^{tree}" || true
+}
+
 # A hard reset discards uncommitted changes to tracked files, so any are stashed
 # first rather than silently destroyed. Recover with `git stash list` /
 # `git stash apply` on the server. `--include-untracked` also captures new
 # untracked (non-ignored) files; ignored files like .env and the runtime
 # ontology are left untouched (a reset never touches them either).
 if [ -n "$(git status --porcelain)" ]; then
+  echo "WARNING: local changes present before update; stashing them (git stash list) instead of discarding:" >&2
+  git status --porcelain >&2
+  before="$(git rev-parse -q --verify refs/stash || true)"
   git stash push --include-untracked \
     -m "pre-update autostash $(date +%Y%m%d_%H%M%S)" >/dev/null 2>&1 || true
-  echo "WARNING: local changes present before update; stashed (git stash list) instead of discarding." >&2
+  after="$(git rev-parse -q --verify refs/stash || true)"
+  # Something that rewrites tracked files on every run would otherwise add one
+  # identical entry per run, indefinitely. update-mappings.sh fetching over the
+  # tracked mapping files did exactly that, an entry every ten minutes, with the
+  # warning above as the only trace. An entry identical to the one before it
+  # holds nothing new, so it is dropped and the repetition is reported as the
+  # fault it is.
+  if [ -n "$before" ] && [ "$after" != "$before" ] \
+     && [ "$(stash_content 'stash@{0}')" = "$(stash_content 'stash@{1}')" ]; then
+    git stash drop --quiet 'stash@{0}'
+    echo "ERROR: the previous run already stashed exactly these changes (now stash@{0}); not stashing them again. Something on this server rewrites tracked files on every run: find and stop it." >&2
+  fi
 fi
 
 git checkout --quiet "$BRANCH"

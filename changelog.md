@@ -1,5 +1,9 @@
 # Changelog
 
+## claude/autostash-dedupe
+
+- **`deploy/update.sh` no longer piles up identical stash entries.** Before resetting, it stashes any local changes so a reset never destroys them. Something that rewrites tracked files on every run therefore added one identical `pre-update autostash` entry per run, indefinitely, with a one-line warning as the only trace. That is how the mapping refresh writing over tracked files went unnoticed, one entry every ten minutes. A run whose changes are identical to the previous entry (same tree, same untracked files) now drops its new entry and logs an `ERROR` saying something rewrites tracked files every run. The warning also lists the changed files. Every distinct change is still kept.
+- **`OPERATIONS.md` has a procedure for clearing the backlog already on the server.** It inspects first, keeps the newest entry on an `autostash-backup` branch, drops only `pre-update autostash` entries (highest index first), and leaves every other stash alone. Run it after the runtime-mappings fix is deployed.
 ## claude/runtime-mappings
 
 - **The server's copies of the data repo's mapping files live in their own folder.** `deploy/update-mappings.sh` fetched `KrishnaTO/ARI`'s `mappings/ari.sssom.tsv` and `ari.equivalencies.tsv` over this repo's *tracked* files of the same name. Every ten minutes `deploy/update.sh` then found the tree dirty, stashed the fetched copies (one new stash entry per run) and reset the tracked snapshot back; the next mapping refresh saw the bytes "change" and restarted the app. Production restarted every ten minutes, and signed-out readers saw the snapshot (442 judgments) instead of the current set (2,466) for part of every cycle. The fetched copies now go to `ari-mappings/` (gitignored, `config.MAPPINGS_RUNTIME_DIR`), and the app reads them from there. The tracked files under `mappings/` stay as the snapshot the tooling and CI use, and are never served.

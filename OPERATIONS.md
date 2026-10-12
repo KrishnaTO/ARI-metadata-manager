@@ -321,6 +321,73 @@ sudo ARI_FORCE_RESTART=1 /opt/ari/ari-metadata-manager/deploy/update.sh
 Deploying from tags rather than branch tip, and a canary, are still open — see
 issue #122.
 
+`update.sh` also lists the files whenever it finds local changes, and refuses
+to stash the same changes twice in a row: a second identical entry is dropped
+and an `ERROR` line is logged instead. Seeing that error means something on the
+server rewrites tracked files on every run.
+
+---
+
+## Clearing the pre-update autostash backlog
+
+`deploy/update-mappings.sh` used to fetch the data repo's mapping files over this
+repo's tracked `mappings/ari.sssom.tsv` and `ari.equivalencies.tsv`. Every
+ten-minute `update.sh` run then stashed them before resetting, so the server's
+stash list gained a `pre-update autostash` entry every ten minutes, holding
+those two files and nothing else. The runtime-mappings fix stops the cause, and
+`update.sh` no longer adds duplicates, but the backlog stays until it is removed
+by hand.
+
+Do this **after the runtime-mappings fix is deployed**, as the app user:
+
+```bash
+sudo -u ariapp -H bash
+cd /opt/ari/ari-metadata-manager
+```
+
+**1. Count them, and check nothing else is in the stash list.** The second
+command must print nothing. Anything it does print is not an autostash, so
+leave it alone.
+
+```bash
+git stash list | grep -c 'pre-update autostash'
+git stash list | grep -v 'pre-update autostash'
+```
+
+**2. Check what the autostashes hold.** Expect only the two mapping files. If
+any other path appears, stop and look at the entries holding it
+(`git stash show -p --include-untracked stash@{N}`) before going further: that
+was a real local change.
+
+```bash
+git stash list --format='%gd %gs' | grep 'pre-update autostash' | cut -d' ' -f1 \
+  | while read -r ref; do git stash show --include-untracked --name-only "$ref"; done \
+  | sort | uniq -c
+```
+
+**3. Keep the newest one as a branch, then drop them all.** They are copies of
+`KrishnaTO/ARI`'s mapping files, which that repository's history also holds; the
+branch is a safety copy. Entries are dropped from the highest index down, so
+the indexes still to be dropped do not shift.
+
+```bash
+git branch autostash-backup "$(git stash list --format='%gd %gs' | grep -m1 'pre-update autostash' | cut -d' ' -f1)"
+git stash list --format='%gd %gs' | grep 'pre-update autostash' | cut -d' ' -f1 \
+  | sort -t'{' -k2 -rn | while read -r ref; do git stash drop -q "$ref"; done
+git stash list | grep -c 'pre-update autostash'    # expect 0
+```
+
+**4. Confirm it stays clear.** After the next update run, there should be no
+new entry, and the update log should show neither the `WARNING: local changes`
+nor the `ERROR: the previous run already stashed` line:
+
+```bash
+git stash list | grep -c 'pre-update autostash'
+sudo journalctl -u ari-mm-update.service --since "30 min ago" | grep -E 'WARNING: local changes|ERROR: the previous run'
+```
+
+Delete the safety branch once you are satisfied: `git branch -D autostash-backup`.
+
 ---
 
 ## Rollback
@@ -334,6 +401,7 @@ Every change above is reversible:
 | Backup timer | `sudo systemctl disable --now ari-mm-backup.timer` |
 | journald config | `sudo rm /etc/systemd/journald.conf.d/ari.conf`, restart journald |
 | App code | `git -C /opt/ari/ari-metadata-manager reset --hard <previous sha>`, restart |
+| Autostash cleanup | The newest entry is on the `autostash-backup` branch. Dropped entries stay recoverable until git garbage-collects them: `git fsck --unreachable \| grep commit`, then `git stash store -m "<message>" <sha>` |
 
 The one thing that is **not** reversible from here is a curator revoking and
 re-granting the OAuth app: that is their action on GitHub, not yours.
