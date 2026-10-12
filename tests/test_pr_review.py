@@ -33,6 +33,9 @@ class FakeReader:
     def __exit__(self, *exc):
         pass
 
+    def head_sha(self, number):
+        return "abc"
+
     def pr_refs(self, number):
         return {"head_sha": "abc"}
 
@@ -48,7 +51,7 @@ def _parse(patch):
     class Files:
         repo = "x/y"
 
-        def _json(self, *a, **k):
+        def _files(self, number):
             return [{"filename": github.EQUIV_PATH, "patch": patch}]
     return DIFF_LINES(Files(), 7, github.EQUIV_PATH)
 

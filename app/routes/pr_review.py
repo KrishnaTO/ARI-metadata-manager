@@ -49,10 +49,11 @@ def list_prs(request: Request):
 
 
 def _current_matrix(number: int, reader: github.Reader) -> dict:
-    refs = reader.pr_refs(number)
+    """The PR's matrix, rebuilt only when its head commit has moved. Checking
+    that is one call; the full refs (three calls) are read only for a rebuild."""
     cached = _matrices.get(number)
-    if cached is None or cached["pr"]["head_sha"] != refs["head_sha"]:
-        cached = _matrices[number] = compare.build_matrix(refs, reader)
+    if cached is None or cached["pr"]["head_sha"] != reader.head_sha(number):
+        cached = _matrices[number] = compare.build_matrix(reader.pr_refs(number), reader)
     return cached
 
 

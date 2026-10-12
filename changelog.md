@@ -1,5 +1,11 @@
 # Changelog
 
+## claude/pr-reviewer-calls
+
+- **The PR reviewer reads less from GitHub.** Listing open PRs made one `/files` call per open PR to find the ones touching mapping files; it is now one GraphQL call per 50 PRs. Opening a cached matrix made three calls (`/pulls/{n}`, `/compare`, `/files`); it now makes one, and the rest are read only when the head commit has moved. Within a request, a PR and its file list are read once, so posting a review no longer fetches the file list again.
+- **Every changed file is read.** The file list stopped at the first 100 files, so a reviewed file past them was missed; it is now paginated.
+- **Matching ids is linear.** Each changed row scanned every row of the PR's equivalencies file for its disease's other ids; the file is grouped by disease once per matrix.
+
 ## claude/issue-11-copy-name
 
 - **Copy a disease name from the record view.** The main page's record heading has a ⧉ button beside the disease name that copies just the name, with the same "Copied" toast as the IRI and link buttons. The reference-review panel and the PR reviewer already had one.
