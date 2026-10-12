@@ -1,8 +1,8 @@
 // Synonym vs subtype review: report 9 from the ARI repo, with curators' marks.
 //
-// One read of /api/v2/synonym-review (the TSV, parsed, plus the shared curation
-// marks) and one of /api/v2/xrefs (to link each disease back to its row on the
-// reference-review page). The cards pick a view, the filters narrow it, and the
+// One read of /api/v2/synonym-review: the TSV, parsed, with each row's disease
+// IRI (to link it back to its row on the reference-review page), plus the shared
+// curation marks. The cards pick a view, the filters narrow it, and the
 // table groups rows by disease. A signed-in curator marks each row correct,
 // incorrect or needs-review and can leave a note; both save to the server as
 // soon as they change (PUT /api/v2/synonym-review/curation).
@@ -35,7 +35,6 @@
   let ROWS = [];
   let CURATION = {};  // "<ari_id>|<term>" -> {status, note, by, at, ...}
   let LOGIN = null;
-  let IRI = {};       // ARI id -> disease IRI, for the link back to reference review
   let view = 'changes';
   let limit = PAGE;
 
@@ -117,7 +116,7 @@
     for (const r of shown) {
       if (r.ari_id !== last) {
         last = r.ari_id;
-        const iri = IRI[r.ari_id];
+        const iri = r.iri;
         body += `<tr class="disease"><td colspan="8"><span class="id">${esc(r.ari_id)}</span>${esc(r.disease)}` +
           (iri ? `<a href="../#${encodeURIComponent(iri)}">Open in review →</a>` : '') + `</td></tr>`;
       }
@@ -168,12 +167,11 @@
   }
 
   async function load() {
-    const [report, xrefs] = await Promise.all([getJson('synonym-review'), getJson('xrefs')]);
+    const report = await getJson('synonym-review');
     ROWS = report.rows;
     CURATION = report.curation;
     LOGIN = report.login;
     $('#signin').hidden = !!LOGIN;
-    for (const x of xrefs) if (x.ari_id) IRI[x.ari_id] = x.iri;
     const dates = [...new Set(ROWS.map(r => r.review_date))].sort();
     $('#stamp').textContent = `${report.source} · reviewed ${dates.join(', ')}`;
     fill($('#verdict'), 'Any verdict', [...new Set(ROWS.map(r => r.verdict))].sort());

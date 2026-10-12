@@ -42,7 +42,10 @@ app does reaches `KrishnaTO/ARI` except through a pull request.
 - **Async routes, synchronous work.** Most handlers are `async def` and call
   owlready2 and the index code synchronously, so a slow call holds the loop.
   Network calls (`httpx`) are awaited. The PR-reviewer routes and the concept
-  lookup are plain `def`, so FastAPI runs them in its thread pool. See
+  lookup are plain `def`, so FastAPI runs them in its thread pool. Predictions
+  and the enrichment preview load the reference indexes with
+  `asyncio.to_thread` first (it reads no ontology), so a reload after
+  `data/2-databases` changes doesn't hold the loop; owlready2 calls stay on it. See
   [EFFICIENCY.md §3](EFFICIENCY.md#3-cpu-bound-work-runs-on-the-event-loop).
 - **Background sweep.** `main.lifespan` starts a loop that, every six hours,
   retires idle working copies (`workspace._sweep_user_data`) and expired
@@ -362,8 +365,10 @@ A source that fails makes the matrix fail rather than show partial data.
 ## Synonym vs subtype review
 
 `/ref-edits/synonyms/` shows report 9 (`data/4-reports/9_Synonym_Review.tsv` in
-the data repo), read live from `GITHUB_BASE_BRANCH` on each load. A header that
-doesn't match the expected columns is refused. Signed-in curators mark each row
+the data repo), read live from `GITHUB_BASE_BRANCH`. Each load reads only the
+file's git blob id; the report is downloaded and parsed again only when that
+changes. Each row carries its disease's IRI for the link back to review. A header
+that doesn't match the expected columns is refused. Signed-in curators mark each row
 correct / incorrect / needs review and add a note; marks are shared and stored in
 `synonym-review/curation.json` with a copy of the row they judge. The page never
 edits the ontology.

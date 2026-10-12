@@ -264,6 +264,16 @@ def _subtypes_for(indexes: list[LexicalIndex], index_dir: str | Path) -> dict[st
     return _SUBTYPES[3]
 
 
+def warm(index_dir: str | Path = DEFAULT_INDEX_DIR) -> None:
+    """Load the indexes and the tables :func:`enrich_many` derives from them.
+
+    Reads only the index and subtype files, never an ontology, so the routes
+    run it in a thread before the ontology work that must stay on the loop."""
+    indexes = get_indexes(index_dir)
+    _id_index_for(indexes)
+    _subtypes_for(indexes, index_dir)
+
+
 def enrich_many(diseases: list[dict], confirmed_by_iri: dict[str, list[dict]],
                 index_dir: str | Path = DEFAULT_INDEX_DIR,
                 blocklist_path: str | Path = DEFAULT_BLOCKLIST_PATH,

@@ -5,6 +5,7 @@ response turning into a second commit, the author id that lands in the published
 SSSOM, and the snapshot that rolls the working copy back if any of the GitHub
 calls fail.
 """
+import asyncio
 import logging
 from pathlib import Path
 
@@ -259,7 +260,8 @@ async def publish(request: Request, payload: dict = Body(default={})):
             # subject (issue #171).
             for g in parked:
                 g.update(svc.get_mapping_subject(g["iri"]))
-            files = sssom_service.build(confirmed, author, await _read(SS_PATH), await _read(EQ_PATH),
+            sssom_text, equiv_text = await asyncio.gather(_read(SS_PATH), _read(EQ_PATH))
+            files = sssom_service.build(confirmed, author, sssom_text, equiv_text,
                                         flagged=flagged, absent=absent)
         except Exception:
             _discard(baseline.path)
