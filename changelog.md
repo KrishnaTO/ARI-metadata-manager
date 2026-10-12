@@ -1,5 +1,9 @@
 # Changelog
 
+## claude/offload-index-work
+
+- **Reloading the reference indexes no longer stalls every other request.** The app serves everything from one event loop. When `data/2-databases` changed, the next `/api/v2/predictions` or enrichment preview reloaded the indexes inside its handler (seconds in production), and nothing else was answered meanwhile, not even `/healthz`, which `deploy/update.sh` reads with a 5-second timeout. Both routes now load the indexes (and enrichment's derived tables, `enrich_service.warm`) in a thread first; the ontology reads and the matching (tens of ms) stay on the loop, since owlready2 worlds are not safe to share across threads.
+
 ## claude/issue-11-copy-name
 
 - **Copy a disease name from the record view.** The main page's record heading has a ⧉ button beside the disease name that copies just the name, with the same "Copied" toast as the IRI and link buttons. The reference-review panel and the PR reviewer already had one.
