@@ -63,6 +63,14 @@ def test_search_finds_by_name(ro_service):
     assert any("diabetes" in r["name"].lower() for r in results)
 
 
+def test_search_finds_by_ari_id(ro_service):
+    # The id as the record shows it ("ARI:0001170"), not only the IRI's local name.
+    d = next(d for d in ro_service.get_xref_rows() if d["ari_id"])
+    results = ro_service.search(d["ari_id"].lower())
+    assert results[0]["iri"] == d["iri"]
+    assert results[0]["match"] == d["ari_id"]
+
+
 def test_search_caps_results_at_100(ro_service):
     # Single most-common vowel-ish token shouldn't blow past the documented cap.
     assert len(ro_service.search("a")) <= 100

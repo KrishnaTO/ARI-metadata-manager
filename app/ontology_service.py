@@ -697,10 +697,15 @@ class OntologyService:
         def matches(text):
             return text and q in text.lower()
 
-        # Diseases: match on label / local name, then synonyms, then target tissue.
+        # Diseases: match on label / local name, then ARI id, then synonyms, then
+        # target tissue.
         for d in diseases:
             if matches(self._get_label(d)) or (hasattr(d, "name") and matches(d.name)):
                 add(d, True, "name")
+                continue
+            ari_id = next((a for a in self._get_annotation(d, base + "ARI_ID") if matches(a)), None)
+            if ari_id:
+                add(d, True, ari_id)
                 continue
             syn = next((s for s in self._get_annotation(d, base + "ARI_Synonym") if matches(s)), None)
             if syn:
