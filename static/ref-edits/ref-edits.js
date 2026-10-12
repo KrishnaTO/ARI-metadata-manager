@@ -1588,7 +1588,9 @@
     try {
       const updated = await api('disease/' + enc(iri) + '/xref', { method: 'POST', body: {
         db: dbkey, op, value: op === 'remove' ? String(targetId) : val,
-        replaces: replacing ? String(targetId) : '' } });
+        replaces: replacing ? String(targetId) : '',
+        // Without it the changelog credited the edit to "user" (issue #171).
+        editor: me.login } });
       const oldIds = r[dbkey] || [];
       const newIds = updated[dbkey] || [];
       r[dbkey] = newIds;

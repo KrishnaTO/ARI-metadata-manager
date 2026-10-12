@@ -136,7 +136,7 @@ as pending negative judgments.
 | `message` | Commit message and PR title. |
 | `disease` | Names the branch slug for a new PR. |
 | `comment` | Curator comment, quoted in the PR body. |
-| `confirmed`, `flagged` | `[{iri, ari_id, name, db, ids}]`: verdicts from the review page. Parked removals are added to `flagged`. |
+| `confirmed`, `flagged` | `[{iri, ari_id, name, db, ids}]`: verdicts from the review page. The curator's own parked removals are added to `flagged`. A verdict with no `ari_id` is a 400. |
 | `absent` | `[{iri, ari_id, name, db}]`: "no term in this database". |
 | `apply_enrichment`, `enrichment_selection` | Apply enrichment for the confirmed mappings, optionally only `{iri: {synonyms: [...], subtypes: [...]}}`. |
 | `author` | An ORCID for the mapping rows' `author_id`; defaults to `github:<login>`. |
