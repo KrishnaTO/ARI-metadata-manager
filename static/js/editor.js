@@ -155,26 +155,29 @@ function fieldArea(id, label, value, hint){
     `<textarea id="${id}">${esc(value)}</textarea></div>`;
 }
 
-// US and worldwide incidence: a rate, the year it describes, and its source
-// URLs (one per line). `prefix` keeps the edit and new-disease forms' ids apart.
-function incidenceFieldsHTML(prefix, region, label, d){
-  const id = k => `${prefix}_incidence_${region}_${k}`;
-  const val = k => d[`incidence_${region}_${k}`];
+// US and worldwide prevalence and incidence: a rate, the year it describes, and
+// its source URLs (one per line). `measure` is 'prevalence' or 'incidence';
+// `prefix` keeps the edit and new-disease forms' ids apart.
+const EPI_UNIT = { prevalence: '/100k', incidence: '/100k/yr' };
+function epiFieldsHTML(prefix, measure, region, label, d){
+  const id = k => `${prefix}_${measure}_${region}_${k}`;
+  const val = k => d[`${measure}_${region}_${k}`];
   const sources = val('sources');
   return `<div class="field-grid">` +
-    fieldText(id('per_100k'), `${label} incidence /100k/yr`, first(val('per_100k'))) +
-    fieldText(id('year'), `${label} incidence year`, first(val('year'))) +
+    fieldText(id('per_100k'), `${label} ${measure} ${EPI_UNIT[measure]}`, first(val('per_100k'))) +
+    fieldText(id('year'), `${label} ${measure} year`, first(val('year'))) +
     `</div>` +
-    fieldArea(id('sources'), `${label} incidence sources`,
+    fieldArea(id('sources'), `${label} ${measure} sources`,
       Array.isArray(sources) ? sources.join('\n') : (sources || ''), 'One URL per line.');
 }
 
-// Reads the six incidence inputs through `read(idWithoutPrefix)`.
-function incidenceValues(read){
+// Reads the twelve prevalence and incidence inputs through `read(idWithoutPrefix)`.
+function epiValues(read){
   const out = {};
-  for (const region of ['us', 'world'])
-    for (const k of ['per_100k', 'year', 'sources'])
-      out[`incidence_${region}_${k}`] = read(`incidence_${region}_${k}`);
+  for (const measure of ['prevalence', 'incidence'])
+    for (const region of ['us', 'world'])
+      for (const k of ['per_100k', 'year', 'sources'])
+        out[`${measure}_${region}_${k}`] = read(`${measure}_${region}_${k}`);
   return out;
 }
 
@@ -234,15 +237,13 @@ function draftAsRecord(d, fields){
     const [name, ...rest] = String(main).split(' - ');
     return { name: name.trim(), description: rest.join(' - ').trim(), link_iri: (link || '').trim() };
   });
-  return { ...d,
+  const epi = epiValues(k => k.endsWith('_sources')
+    ? String(fields[k] || '').split(/\s+/).filter(Boolean) : [fields[k]]);
+  return { ...d, ...epi,
     name: fields.name, definition: fields.definition,
     synonyms: fields.synonyms || [], clinical_subtypes_parsed: subs,
     disease_category: [fields.disease_category], evidence_quality: [fields.evidence_quality],
-    prevalence_per_100k: [fields.prevalence_per_100k], prevalence_value: [fields.prevalence_value],
-    incidence_us_per_100k: [fields.incidence_us_per_100k], incidence_us_year: [fields.incidence_us_year],
-    incidence_us_sources: String(fields.incidence_us_sources || '').split(/\s+/).filter(Boolean),
-    incidence_world_per_100k: [fields.incidence_world_per_100k], incidence_world_year: [fields.incidence_world_year],
-    incidence_world_sources: String(fields.incidence_world_sources || '').split(/\s+/).filter(Boolean),
+    prevalence_value: [fields.prevalence_value],
     demographic_bias: [fields.demographic_bias],
     age_range: [fields.age_range], prevalence_desc: [fields.prevalence_desc],
     def_source: fields.def_source || [], pubmed: [],
@@ -286,12 +287,13 @@ async function openDiseaseFieldEditor(record, draft){
   html += fieldText('f_age_range', 'Age range', first(d.age_range));
   html += '</div>';
   html += `</div><div class="field-group"><h3 class="field-group-h">Prevalence</h3>`;
+  html += epiFieldsHTML('f', 'prevalence', 'us', 'US', d);
+  html += epiFieldsHTML('f', 'prevalence', 'world', 'Worldwide', d);
   html += '<div class="field-grid">';
-  html += fieldText('f_prevalence_per_100k', 'Prevalence /100k', first(d.prevalence_per_100k));
-  html += fieldText('f_prevalence_value', 'Estimated cases', first(d.prevalence_value));
+  html += fieldText('f_prevalence_value', 'Estimated US cases', first(d.prevalence_value));
   html += '</div>';
-  html += incidenceFieldsHTML('f', 'us', 'US', d);
-  html += incidenceFieldsHTML('f', 'world', 'Worldwide', d);
+  html += epiFieldsHTML('f', 'incidence', 'us', 'US', d);
+  html += epiFieldsHTML('f', 'incidence', 'world', 'Worldwide', d);
   html += fieldArea('f_prevalence_desc', 'Prevalence description', first(d.prevalence_desc));
   html += `</div><div class="field-group"><h3 class="field-group-h">Sources &amp; status</h3>`;
   // Database cross-references are curated on the dedicated reference-review page,
@@ -381,8 +383,8 @@ function collectDiseaseFields(){
     // Database cross-references (icd10/snomed/doid/… ) are intentionally omitted:
     // they are curated on the reference-review page, not this form. Sending them
     // here would clear the stored values, since the inputs no longer exist.
-    prevalence_per_100k: v('f_prevalence_per_100k'), prevalence_value: v('f_prevalence_value'),
-    ...incidenceValues(id => v('f_' + id)),
+    prevalence_value: v('f_prevalence_value'),
+    ...epiValues(id => v('f_' + id)),
     demographic_bias: v('f_demographic_bias'),
     age_range: v('f_age_range'), prevalence_desc: v('f_prevalence_desc'),
     def_source: _collectDefSrcs('f_defsrc_list'),
@@ -685,13 +687,14 @@ async function openNewDiseaseModal(prefill = {}) {
           <div class="field"><label>OMOP (comma-separated)</label><input id="nd_omop" value="${preFill('omop')}"></div>
         </div>
         <div class="field-grid">
-          <div class="field"><label>Prevalence /100k</label><input type="number" id="nd_prevalence_per_100k" value="${preFill('prevalence_per_100k')}" step="any"></div>
-          <div class="field"><label>Estimated cases</label><input id="nd_prevalence_value" value="${preFill('prevalence_value')}"></div>
+          <div class="field"><label>Estimated US cases</label><input id="nd_prevalence_value" value="${preFill('prevalence_value')}"></div>
           <div class="field"><label>Demographic bias</label><input id="nd_demographic_bias" value="${preFill('demographic_bias')}"></div>
           <div class="field"><label>Age range</label><input id="nd_age_range" value="${preFill('age_range')}"></div>
         </div>
-        ${incidenceFieldsHTML('nd', 'us', 'US', prefill)}
-        ${incidenceFieldsHTML('nd', 'world', 'Worldwide', prefill)}
+        ${epiFieldsHTML('nd', 'prevalence', 'us', 'US', prefill)}
+        ${epiFieldsHTML('nd', 'prevalence', 'world', 'Worldwide', prefill)}
+        ${epiFieldsHTML('nd', 'incidence', 'us', 'US', prefill)}
+        ${epiFieldsHTML('nd', 'incidence', 'world', 'Worldwide', prefill)}
         <div class="field"><label>Prevalence description</label><textarea id="nd_prevalence_desc">${preFill('prevalence_desc')}</textarea></div>
       </div>
     </details>
@@ -747,9 +750,8 @@ async function saveNewDisease() {
     icd10: v('#nd_icd10'), snomed: v('#nd_snomed'), doid: v('#nd_doid'),
     umls: v('#nd_umls'), mondo: v('#nd_mondo'), mesh: v('#nd_mesh'),
     nci: v('#nd_nci'), omop: v('#nd_omop'),
-    prevalence_per_100k: v('#nd_prevalence_per_100k'),
     prevalence_value:    v('#nd_prevalence_value'),
-    ...incidenceValues(id => v('#nd_' + id)),
+    ...epiValues(id => v('#nd_' + id)),
     demographic_bias:    v('#nd_demographic_bias'),
     age_range:           v('#nd_age_range'),
     prevalence_desc:     v('#nd_prevalence_desc'),

@@ -1,5 +1,11 @@
 # Changelog
 
+## claude/prevalence-figures-us-worldwide
+
+- **The Prevalence panel separates US and worldwide prevalence**, like incidence. Each region has a rate per 100,000, the year it describes and its source URLs. The panel shows both as stat cards labelled with their year and linked to their sources, and the metrics table lists each with its year and sources. The record form and the new-disease form have the matching inputs (sources one URL per line); a year that is not a whole number is rejected. The publish diff labels the new fields. *Estimated cases* is now labelled *Estimated US cases*, which is what it holds.
+- **The existing rate is the US rate.** `prevalencePer100k` already held US prevalence (the importer fills it from the reports' `usprev` column; 87 diseases have one), so it stays where it is and is shown as US prevalence. No data moves. Its API key is renamed `prevalence_per_100k` → `prevalence_us_per_100k`.
+- **Needs the ARI ontology change.** The five new data properties (`prevalenceUSYear`, `prevalenceUSSource`, `prevalenceWorldPer100k`, `prevalenceWorldYear`, `prevalenceWorldSource`) must be declared in `KrishnaTO/ARI`'s `ontologies/ari_t1d.owl`; until they are, saving them is rejected with "the ontology declares no … property". The test fixture and `scripts/build_t1d_ontology.py` declare them.
+
 ## claude/baseline-cache
 
 - **The source branch's ontology is downloaded once per commit.** The publish dialog, the publish, sync, resolve, switching branch and the export each downloaded the branch's ontology (~1.7 MB) from GitHub; a routine publish fetched the same bytes three or four times. The bytes at a commit never change, so `app/baselines.py` keeps them by commit sha under `.user-data/baselines/` (the 8 most recently used) and every caller reads them from there. The publish dialog and the export now name the branch's current commit too, so the publish that follows the dialog reuses its download. A value that is not a 40-character commit sha is refused before it can name a file.
