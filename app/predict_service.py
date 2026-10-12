@@ -41,6 +41,7 @@ import csv
 import datetime
 import math
 import re
+import threading
 import unicodedata
 from array import array
 from pathlib import Path
@@ -238,9 +239,13 @@ class LexicalIndex:
         self.by_name: dict[str, list[dict]] = {}
         self.records: list[dict] = []
         self.terms = 0
+        # Built on first use, or ahead of time by ``build_lookups``. Each is
+        # published by a single assignment once complete: the startup warm-up
+        # builds them in a thread while requests (some on FastAPI's thread pool)
+        # may already be reading, and a reader that saw a half-filled map would
+        # get silently incomplete candidates.
         self._by_ref: dict[tuple[str, str], list[dict]] | None = None
-        self._names: list[str] = []
-        self._by_token: dict[str, array] | None = None
+        self._tokens: tuple[list[str], dict[str, array]] | None = None   # (names, word -> positions)
 
     def add(self, record: dict, names: list[str]) -> None:
         self.terms += 1
@@ -265,7 +270,7 @@ class LexicalIndex:
         own words open. Like ``records_for`` this index is built lazily, since
         most diseases are answered by an exact route and never come here.
 
-        Buckets hold **positions in** ``_names``, packed into ``array("i")``, not
+        Buckets hold **positions in** the name list, packed into ``array("i")``, not
         the name strings themselves. Holding a Python set of strings per token
         cost 71 MB across the five real indexes — a million set slots, each a
         pointer with a hash table's slack around it — against roughly 15 MB for
@@ -277,15 +282,7 @@ class LexicalIndex:
         query = tokens(name)
         if not query:
             return []
-        if self._by_token is None:
-            self._names = list(self.by_name)
-            self._by_token = {}
-            for position, key in enumerate(self._names):
-                for tok in set(key.split()):
-                    bucket = self._by_token.get(tok)
-                    if bucket is None:
-                        bucket = self._by_token[tok] = array("i")
-                    bucket.append(position)
+        names, by_token = self._token_index()
         # Which buckets have to be opened at all. A candidate at or above the
         # threshold shares at least ``ceil(threshold * len(query))`` of the
         # query's words — the union is never smaller than the query, so Jaccard
@@ -297,7 +294,7 @@ class LexicalIndex:
         # "Fulminant type 1 diabetes" from walking every term holding "type" or
         # "1" to find the handful that also say "fulminant".
         needed = math.ceil(threshold * len(query) - 1e-9)
-        buckets = sorted((self._by_token.get(tok, ()) for tok in query), key=len)
+        buckets = sorted((by_token.get(tok, ()) for tok in query), key=len)
         out: list[tuple[dict, float]] = []
         seen: set[int] = set()
         for bucket in buckets[:max(1, len(query) - needed + 1)]:
@@ -305,7 +302,7 @@ class LexicalIndex:
                 if position in seen:
                     continue
                 seen.add(position)
-                key = self._names[position]
+                key = names[position]
                 candidate = set(key.split())
                 overlap = len(query & candidate) / len(query | candidate)
                 if overlap >= threshold:
@@ -318,13 +315,35 @@ class LexicalIndex:
         Built lazily and only when something asks: the lexical path never needs
         it, and walking every term's cross-references costs real memory.
         """
+        return self._ref_index().get((db, match_key(ident)), [])
+
+    def _ref_index(self) -> dict[tuple[str, str], list[dict]]:
         if self._by_ref is None:
-            self._by_ref = {}
+            by_ref: dict[tuple[str, str], list[dict]] = {}
             for rec in self.records:
                 for d, ids in rec["by_db"].items():
                     for i in ids:
-                        self._by_ref.setdefault((d, match_key(i)), []).append(rec)
-        return self._by_ref.get((db, match_key(ident)), [])
+                        by_ref.setdefault((d, match_key(i)), []).append(rec)
+            self._by_ref = by_ref                 # published only once complete
+        return self._by_ref
+
+    def _token_index(self) -> tuple[list[str], dict[str, array]]:
+        if self._tokens is None:
+            names = list(self.by_name)
+            by_token: dict[str, array] = {}
+            for position, key in enumerate(names):
+                for tok in set(key.split()):
+                    bucket = by_token.get(tok)
+                    if bucket is None:
+                        bucket = by_token[tok] = array("i")
+                    bucket.append(position)
+            self._tokens = (names, by_token)      # published only once complete
+        return self._tokens
+
+    def build_lookups(self) -> None:
+        """Build both lazy lookups now, rather than on the first request that needs them."""
+        self._ref_index()
+        self._token_index()
 
 
 def load_index(path: str | Path, source: str | None = None) -> LexicalIndex:
@@ -382,20 +401,39 @@ def load_indexes(index_dir: str | Path = DEFAULT_INDEX_DIR) -> list[LexicalIndex
 # The index files are multi-MB, so cache them per directory and only reload when a
 # file's mtime/size changes (e.g. after ``fetch_databases.py`` rebuilds them).
 _INDEX_CACHE: dict[str, tuple] = {}
+# One load at a time: the startup warm-up loads in a thread, and a request that
+# arrives meanwhile waits for that load instead of parsing the files again.
+_INDEX_LOCK = threading.Lock()
 
 
 def get_indexes(index_dir: str | Path = DEFAULT_INDEX_DIR) -> list[LexicalIndex]:
     """Load (and cache) the indexes in ``index_dir``, refreshing on file change."""
     index_dir = Path(index_dir)
-    sig = tuple(sorted((p.name, p.stat().st_mtime, p.stat().st_size)
-                       for p in index_dir.glob("*.index.tsv"))) if index_dir.is_dir() else ()
-    key = str(index_dir)
-    cached = _INDEX_CACHE.get(key)
-    if cached and cached[0] == sig:
-        return cached[1]
-    idxs = load_indexes(index_dir)
-    _INDEX_CACHE[key] = (sig, idxs)
-    return idxs
+    with _INDEX_LOCK:
+        sig = tuple(sorted((p.name, p.stat().st_mtime, p.stat().st_size)
+                           for p in index_dir.glob("*.index.tsv"))) if index_dir.is_dir() else ()
+        key = str(index_dir)
+        cached = _INDEX_CACHE.get(key)
+        if cached and cached[0] == sig:
+            return cached[1]
+        idxs = load_indexes(index_dir)
+        _INDEX_CACHE[key] = (sig, idxs)
+        return idxs
+
+
+def warm(index_dir: str | Path = DEFAULT_INDEX_DIR) -> list[LexicalIndex]:
+    """Load the indexes and build every lookup a first prediction needs.
+
+    Run at startup in a background thread (``app.main``), so the first curator
+    to open the review page after a restart doesn't wait for it: in production
+    that first ``/api/v2/predictions`` took 5 s, against ~40 ms once warm.
+    Reads only the index files, never an ontology, so it is safe off the event
+    loop.
+    """
+    indexes = get_indexes(index_dir)
+    for idx in indexes:
+        idx.build_lookups()
+    return indexes
 
 
 def load_synonym_blocklist(path: str | Path = DEFAULT_BLOCKLIST_PATH) -> dict[str, set[str]]:

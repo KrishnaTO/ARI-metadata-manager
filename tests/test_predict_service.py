@@ -470,6 +470,108 @@ def test_fuzzy_lookup_finds_exactly_what_scanning_every_name_would(threshold):
                f"{query!r} at {threshold}"
 
 
+# ------------------------------------------------------------------ cold start
+# The indexes are loaded and their lookups built in a background thread at
+# startup, while requests may already be reading them — and the compare pane and
+# PR reviewer read them from FastAPI's thread pool regardless. A lookup map that
+# is visible before it is complete answers a concurrent reader with whatever has
+# been filled in so far: silently missing candidates, then cached.
+def _reader_during_build(monkeypatch, name, read):
+    """Run ``read()`` from inside the first call the build makes to ``ps.<name>``,
+    which is exactly what a second thread reading mid-build would see."""
+    seen = []
+    real = getattr(ps, name)
+
+    def hooked(*args, **kwargs):
+        if not seen:
+            seen.append(None)                  # first call only; the read may rebuild
+            seen[0] = read()
+        return real(*args, **kwargs)
+    monkeypatch.setattr(ps, name, hooked)
+    return seen
+
+
+def test_the_reverse_id_map_is_never_read_half_built(monkeypatch):
+    idx = _index(*[(f"MONDO:{n:07d}", f"term {n}", [], {"snomed": [str(1000 + n)]})
+                   for n in range(50)])
+    seen = _reader_during_build(monkeypatch, "match_key",
+                                lambda: [r["id"] for r in idx.records_for("snomed", "1049")])
+    assert [r["id"] for r in idx.records_for("snomed", "1049")] == ["MONDO:0000049"]
+    assert seen == [["MONDO:0000049"]], "a reader during the build got an incomplete map"
+
+
+def test_the_word_index_is_never_read_half_built(monkeypatch):
+    idx = _index(*[(f"A:{n}", f"type {n} diabetes mellitus", [], {"mondo": [str(n)]})
+                   for n in range(1, 40)])
+    want = _as_set(_brute_force(idx, "type 1 diabetes", 0.5))
+    seen = _reader_during_build(monkeypatch, "array",
+                                lambda: _as_set(idx.fuzzy_lookup("type 1 diabetes", 0.5)))
+    assert _as_set(idx.fuzzy_lookup("type 1 diabetes", 0.5)) == want
+    assert seen == [want], "a reader during the build got an incomplete word index"
+
+
+def _write_index(tmp_path):
+    header = "\t".join(ps.INDEX_COLS)
+    row = {c: "" for c in ps.INDEX_COLS}
+    row.update(id="MONDO:0005147", label="type 1 diabetes mellitus",
+               synonyms="juvenile diabetes", snomed="46635009")
+    (tmp_path / "mondo.index.tsv").write_text(
+        header + "\n" + "\t".join(row[c] for c in ps.INDEX_COLS) + "\n", encoding="utf-8")
+
+
+def test_concurrent_first_loads_share_one_parse(tmp_path, monkeypatch):
+    import threading
+    import time
+    _write_index(tmp_path)
+    loads = []
+    real = ps.load_indexes
+
+    def slow_load(index_dir):
+        loads.append(1)
+        time.sleep(0.2)                      # the window a second caller lands in
+        return real(index_dir)
+    monkeypatch.setattr(ps, "load_indexes", slow_load)
+
+    got = []
+    threads = [threading.Thread(target=lambda: got.append(ps.get_indexes(tmp_path)))
+               for _ in range(2)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+    assert len(loads) == 1, "two callers parsed the index files twice"
+    assert got[0] is got[1]
+
+
+def test_warm_leaves_nothing_for_the_first_request_to_build(tmp_path, monkeypatch):
+    _write_index(tmp_path)
+    ps.warm(tmp_path)
+    [idx] = ps.get_indexes(tmp_path)
+
+    keys, buckets = [], []
+    real_key, real_array = ps.match_key, ps.array
+    monkeypatch.setattr(ps, "match_key", lambda s: keys.append(s) or real_key(s))
+    monkeypatch.setattr(ps, "array", lambda *a: buckets.append(a) or real_array(*a))
+    assert [r["id"] for r in idx.records_for("snomed", "46635009")] == ["MONDO:0005147"]
+    assert idx.fuzzy_lookup("type 1 diabetes", 0.5)
+    assert keys == ["46635009"], "records_for built its map on the first request"
+    assert buckets == [], "fuzzy_lookup built its word index on the first request"
+
+
+def test_startup_warms_the_indexes_in_the_background(monkeypatch):
+    import threading
+
+    from fastapi.testclient import TestClient
+
+    from app import main, sessions, workspace
+    warmed = threading.Event()
+    monkeypatch.setattr(ps, "warm", lambda *a, **k: warmed.set())
+    monkeypatch.setattr(workspace, "_sweep_user_data", lambda: None)
+    monkeypatch.setattr(sessions, "_sweep_sessions", lambda: None)
+    with TestClient(main.app):
+        assert warmed.wait(5), "the app started without warming the reference indexes"
+
+
 @needs_indexes
 def test_fuzzy_lookup_matches_brute_force_on_a_real_index():
     mondo = next((i for i in ps.get_indexes() if i.source == "mondo"), None)

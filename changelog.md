@@ -1,5 +1,10 @@
 # Changelog
 
+## claude/cold-start
+
+- **The first review-page visitor after a restart no longer waits ~5 s.** The reference indexes were parsed, and their lookups built, inside the first `/api/v2/predictions` request: 5.0 s in production, 2.2 s locally, with every other request queued behind it. They are now loaded at startup in a background thread (`predict_service.warm`, started from `main.lifespan`). Locally the first predictions call after a restart drops from 2,224 ms to 81 ms; requests during the warm-up are answered as usual (7 ms); predictions are byte-identical.
+- **The index lookups are never read half-built.** `records_for` and `fuzzy_lookup` used to publish their maps before filling them, so a reader on another thread (the compare pane and PR reviewer run on FastAPI's thread pool) could get silently incomplete candidates. Each map is now published once complete, and concurrent first callers of `get_indexes` share one parse.
+- **The mapping refresh no longer restarts the app.** `deploy/update-mappings.sh` restarted `ari-mm` whenever a mapping file changed, without `update.sh`'s deferral for curators with work in progress. The app reads those files from disk on every request that needs them, so nothing required the restart. Files are now replaced atomically, and nothing is restarted.
 ## claude/enrich-cache
 
 - **The enrichment preview no longer rebuilds its lookup tables on every call.** Each preview (the ⚗ drawer on the reference-review page), and each publish with *Apply on publish*, rebuilt two structures from the whole reference index: the id → term map and the subtype map. That took 0.5–0.7 s locally and 1.35 s in production, even when nothing was confirmed. Both are now built once and reused until the reference files change: the id map while `get_indexes()` returns the same index set, the subtype map also until a `*.subtypes.tsv` file's mtime or size changes. A preview with nothing confirmed returns without reading anything. Previews now take 1–9 ms in-process (17 ms over HTTP for all 318 confirmed ids). The proposals are byte-identical to before for the full confirmed set (51 diseases).
