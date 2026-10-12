@@ -65,6 +65,7 @@
       key: d.key, label: d.label, noframe: d.noframe,
       link: id => fillId(d.link, id),
       search: n => fillName(d.search, n),
+      searchSnomed: d.search_snomed ? id => fillId(d.search_snomed, id) : null,
     }));
     DBMAP = Object.fromEntries(DBS.map(d => [d.key, d]));
     PREFIX = Object.fromEntries((list || []).map(d => [d.key, d.prefix]));
@@ -1213,7 +1214,12 @@
     // the same box, so there is a single place the id is read and written.
     const lk = ent && !ent.pred ? labelKey(dbkey, ent.id) : '';
     const entLabel = ent ? (ent.pred ? (ent.pred.label || '') : (idLabels[lk] || '')) : '';
-    const searchLink = `<a href="${esc(db.search(r.name))}" target="_blank" rel="noopener">search ${esc(db.label)} for "${esc(r.name)}" ↗</a>`;
+    // OMOP is searched by the disease's SNOMED ids when it has any (issue #152):
+    // the code names one Athena concept, whose id is the OMOP id; a name can match many.
+    const snomedIds = db.searchSnomed ? (r.snomed || []) : [];
+    const searchLink = snomedIds.length
+      ? snomedIds.map(id => `<a href="${esc(db.searchSnomed(id))}" target="_blank" rel="noopener">search ${esc(db.label)} for SNOMED ${esc(id)} ↗</a>`).join(' or ')
+      : `<a href="${esc(db.search(r.name))}" target="_blank" rel="noopener">search ${esc(db.label)} for "${esc(r.name)}" ↗</a>`;
     const idBlock = `<div class="p-idblock" id="p-idblock">
       <div class="p-idview">
         ${ent ? `<div class="p-idrow">
