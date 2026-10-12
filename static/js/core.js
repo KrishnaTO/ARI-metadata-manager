@@ -154,18 +154,18 @@ const DETAIL_KEY = {
 // (genetic + biochemical signals + other components) -> biomarkers & treatments -> prevalence.
 // Keys within a step are ordered so boxes cluster by their aspect category (BOX_META).
 const STORY_GROUPS = [
-  { num:1, title:'Triggers & onset', hint:'Environmental exposures and the symptoms they produce',
+  { title:'Triggers & onset', hint:'Environmental exposures and the symptoms they produce',
     keys:['environmental','symptoms'] },
-  { num:2, title:'Etiology', hint:'Suspected and known origins of the disease',
+  { title:'Etiology', hint:'Suspected and known origins of the disease',
     keys:['etiology'] },
-  { num:3, title:'Pathophysiology', hint:'Mechanism — genetic and biochemical signals (TFs) and the other immune components',
+  { title:'Pathophysiology', hint:'Mechanism — genetic and biochemical signals (TFs) and the other immune components',
     aspectGroups:true,
     keys:['genetic','pathophysiology','cells','innate','complement','netosis','inflammasome','apr','antibodies','antigens','tcells','apcs','cytokines','transcription','receptors'] },
-  { num:4, title:'Biomarkers & treatments', hint:'Diagnosis and management',
+  { title:'Biomarkers & treatments', hint:'Diagnosis and management',
     keys:['biomarkers','treatments'] },
-  { num:5, title:'Prevalence', hint:'Epidemiology and disease burden',
+  { title:'Prevalence', hint:'Epidemiology and disease burden',
     keys:['prevalence'] },
-  { num:null, title:'Record', hint:'Edit and release history, and curator feedback',
+  { inSidebar:true, title:'Record', hint:'Edit and release history, and curator feedback',
     keys:['changelog','feedback'] },
 ];
 
@@ -314,14 +314,10 @@ function panelDescHTML(key){
   return m && m.desc ? `<div class="panel-desc">${esc(m.desc)}</div>` : '';
 }
 
-// The story step a category belongs to, used for the story spine's ordinals and
-// for the deep-dive head's "03 · Pathophysiology · Adaptive immunity" breadcrumb.
+// The story step a category belongs to, used for the deep-dive head's
+// "Pathophysiology · Adaptive immunity" breadcrumb.
 function storyGroupOf(key){
   return STORY_GROUPS.find(g => g.keys.includes(key)) || null;
-}
-function storyOrdinal(key){
-  const g = storyGroupOf(key);
-  return g && g.num ? String(g.num).padStart(2, '0') : '';
 }
 function panelCrumb(key){
   const g = storyGroupOf(key);

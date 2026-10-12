@@ -210,12 +210,12 @@ function storyHTML(d, boxByKey){
   // affordances in an empty step are the whole point there.
   const steps = [];
   for (const grp of STORY_GROUPS){
-    if (!grp.num) continue;                       // the Record step lives in the sidebar
+    if (grp.inSidebar) continue;
     const keys = visibleKeys(grp, boxByKey, false);
     if (!keys.length && !state.editMode) continue;
     const active = keys.includes(state.activeBox) ? ' active' : '';
     steps.push(`<div class="story-step${active}" title="${esc(grp.hint)}">` +
-      `<div class="story-head"><span class="story-num">${String(grp.num).padStart(2, '0')}</span>` +
+      `<div class="story-head">` +
       `<span class="story-title">${esc(grp.title)}</span></div>` +
       keys.map(k => boxHTML(boxByKey[k])).join('') + `</div>`);
   }
