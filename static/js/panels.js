@@ -32,6 +32,7 @@ function renderReadView(d, key, panel){
   }
   const h2 = panel.querySelector('h2');
   if (h2){
+    h2.querySelector('.close-btn').addEventListener('click', dismissPanel);
     // Locate the category in the disease story: "Pathophysiology · Adaptive immunity".
     const crumb = panelCrumb(key);
     if (crumb) h2.querySelector('.panel-title')?.insertAdjacentHTML('beforebegin', `<span class="panel-aspect">${esc(crumb)} &middot;</span>`);
@@ -97,7 +98,7 @@ function wireFieldsReturn(panel){
 
 // The deep-dive card's head bar: title, then the actions pushed to the right.
 const closeHeader = title =>
-  `<h2><span class="panel-title">${title}</span><button class="close-btn" onclick="dismissPanel()">Close</button></h2>`;
+  `<h2><span class="panel-title">${title}</span><button class="close-btn">Close</button></h2>`;
 
 function renderPrevalence(d, panel){
   let html = closeHeader('Prevalence &amp; epidemiology');

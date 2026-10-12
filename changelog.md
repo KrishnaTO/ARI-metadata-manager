@@ -1,5 +1,10 @@
 # Changelog
 
+## claude/csp-inline-handlers
+
+- **The deep-dive Close, the field editor's Cancel and the row-remove buttons work again.** The Content-Security-Policy's `script-src 'self'` blocks inline `onclick=` handlers, so these buttons did nothing (Chrome logged a CSP violation instead). They are wired with `addEventListener` now: Close where each panel is rendered (`renderReadView`, `renderItemEditor`), both Cancel buttons next to Save, and the definition-source and subtype row removes through one delegated handler, since those rows are added after their form is wired, in both the field editor and the new-disease form. No inline handlers are left under `static/`.
+- **Removing a row no longer cancels the editor on narrow screens.** Below 1024px the deep dive is a drawer that closes on a click outside it. The row's × removes its row before that check runs, so the detached button looked like an outside click and the editor was cancelled (or asked to discard changes). The check now reads the click's path as recorded at dispatch (`composedPath()`).
+
 ## claude/issue-173-sibling-target-evidence
 
 - **The PR reviewer compares a target with the other targets the PR confirms for the same disease** (#173). Each row was judged only against ARI's own names, so DOID:1757 ("facial hemiatrophy") looked like a weak match for Progressive hemifacial atrophy while the same PR confirmed MONDO:0007710 under that very label. A row whose target shares a name with a sibling target confirmed in the PR now lists it as evidence ("Same name as a target confirmed in this PR", and `= MONDO 0007710` tags in the renamed *Support* column) and gains 2 points, so such a rejection reads "Check rejection". Only names ARI does not list itself count (a shared ARI name is already the name match), and only the target's own term, not hub terms. The CSV export has the new column. On KrishnaTO/ARI#89, 10 rejections move from "Rejection plausible" to "Check rejection".

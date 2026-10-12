@@ -7,7 +7,7 @@ function defSrcRowHtml(text = '', url = '') {
   return `<div class="def-src-row">` +
     `<input class="f_defsrc_url" type="text" placeholder="URL or PMID: 12345678" value="${esc(url)}">` +
     `<input class="f_defsrc_text" type="text" placeholder="Label / author (optional)" value="${esc(text)}">` +
-    `<button type="button" class="hbtn defsrc-rm-btn" onclick="this.closest('.def-src-row').remove()" title="Remove">&times;</button>` +
+    `<button type="button" class="hbtn defsrc-rm-btn" title="Remove">&times;</button>` +
     `</div>`;
 }
 function _collectDefSrcs(listId) {
@@ -84,7 +84,7 @@ function subtypeRowHtml(diseases, currentIri, name = '', description = '', linkI
     `<input class="f_sub_name" type="text" placeholder="Subtype name" value="${esc(name)}">` +
     `<input class="f_sub_desc" type="text" placeholder="Description (optional)" value="${esc(description)}">` +
     `<select class="f_sub_link" title="Link to an existing disease (optional)">${opts}</select>` +
-    `<button type="button" class="hbtn subtype-rm-btn" onclick="this.closest('.subtype-row').remove()" title="Remove">&times;</button>` +
+    `<button type="button" class="hbtn subtype-rm-btn" title="Remove">&times;</button>` +
     `</div>`;
 }
 // Build the full subtype list editor (rows + "add" button) for container `listId`.
@@ -103,6 +103,13 @@ function wireSubtypeAdd(rootEl, diseases, currentIri) {
     if (list) list.insertAdjacentHTML('beforeend', subtypeRowHtml(diseases, currentIri));
   });
 }
+// The def-source and subtype rows are added and removed after their form is
+// wired, in both the field editor and the new-disease form, so one delegated
+// handler removes a row whatever form it sits in.
+document.addEventListener('click', e => {
+  e.target.closest('.defsrc-rm-btn')?.closest('.def-src-row').remove();
+  e.target.closest('.subtype-rm-btn')?.closest('.subtype-row').remove();
+});
 // Collect the subtype rows in `listId` into stored annotation strings.
 function _collectSubtypes(listId) {
   const out = [];
@@ -260,7 +267,7 @@ async function openDiseaseFieldEditor(record, draft){
   $('#detail-pane').querySelectorAll('.box').forEach(b => b.classList.remove('active'));
   let html = `<h2><span class="panel-title">Edit fields: ${esc(record.name)}</span>`+
     `<button class="hbtn primary save-fields-btn">Save changes</button>`+
-    `<button class="close-btn" onclick="cancelFieldEdits()">Cancel</button></h2>
+    `<button class="close-btn cancel-fields-btn">Cancel</button></h2>
     <div class="edit-form">
     <p class="panel-desc">Your changes are saved as a proposal and reviewed before they go live.
       The disease's id cannot be changed, and every save is recorded in the record's history.</p>`;
@@ -320,9 +327,10 @@ async function openDiseaseFieldEditor(record, draft){
     `<input id="f_editor" value="${esc(state.editor)}"></div>`;
   html += `</div>`;
   html += `<div class="edit-actions"><button class="hbtn primary save-fields-btn">Save changes</button>
-    <button class="hbtn" onclick="cancelFieldEdits()">Cancel</button></div></div>`;
+    <button class="hbtn cancel-fields-btn">Cancel</button></div></div>`;
   $('#right-panel-content').innerHTML = html;
   document.querySelectorAll('.save-fields-btn').forEach(b => b.addEventListener('click', saveEdits));
+  document.querySelectorAll('.cancel-fields-btn').forEach(b => b.addEventListener('click', cancelFieldEdits));
   $('#f_defsrc_add')?.addEventListener('click', () =>
     $('#f_defsrc_list').insertAdjacentHTML('beforeend', defSrcRowHtml('', '')));
   wireTagEditor('#f_synonyms');
@@ -512,7 +520,7 @@ function renderItemEditor(d, category, panel){
   const items = d[DETAIL_KEY[category]] || [];
   let html = `<h2><span class="panel-title">Manage ${esc(spec.label)} items</span>`+
     fieldsReturnBtnHTML()+
-    `<button class="close-btn" onclick="dismissPanel()">Close</button></h2>`;
+    `<button class="close-btn">Close</button></h2>`;
   html += panelDescHTML(category);
   html += `<div style="display:flex;gap:8px;margin-bottom:10px">`+
     `<button class="hbtn primary" id="item-add">Add ${esc(spec.label)}</button>`+
@@ -533,6 +541,7 @@ function renderItemEditor(d, category, panel){
   $('#item-add').addEventListener('click', () => openItemModal(category, null));
   $('#item-view').addEventListener('click', () => renderReadView(d, category, panel));
   wireFieldsReturn(panel);
+  panel.querySelector('.close-btn').addEventListener('click', dismissPanel);
   panel.querySelectorAll('[data-edit]').forEach(b => b.addEventListener('click', () => openItemModal(category, items[+b.dataset.edit])));
   panel.querySelectorAll('[data-del]').forEach(b => b.addEventListener('click', () => deleteItem(category, items[+b.dataset.del])));
 }
