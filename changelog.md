@@ -1,5 +1,8 @@
 # Changelog
 
+## claude/enrich-cache
+
+- **The enrichment preview no longer rebuilds its lookup tables on every call.** Each preview (the ⚗ drawer on the reference-review page), and each publish with *Apply on publish*, rebuilt two structures from the whole reference index: the id → term map and the subtype map. That took 0.5–0.7 s locally and 1.35 s in production, even when nothing was confirmed. Both are now built once and reused until the reference files change: the id map while `get_indexes()` returns the same index set, the subtype map also until a `*.subtypes.tsv` file's mtime or size changes. A preview with nothing confirmed returns without reading anything. Previews now take 1–9 ms in-process (17 ms over HTTP for all 318 confirmed ids). The proposals are byte-identical to before for the full confirmed set (51 diseases).
 ## claude/review-filter-perf
 
 - **Typing in the reference-review filter no longer freezes the page.** For every blank cell, the matrix found that cell's predicted ids by scanning every prediction on the page, and each redraw asked several times per cell. A keystroke blocked the page for 130–470 ms locally (37–129 ms in production, which has fewer predictions), and a column sort for up to 630 ms. Predictions are now grouped by cell once when they load (`ReviewModel.indexPredictions`), so finding them is a lookup. Typing, sorting and the *missing only* toggle now take 1–54 ms locally. Rendered on the same data, the matrix is identical to before at every step checked (filters, all sort directions, the *missing only* toggle, and the opened row's prediction cards).

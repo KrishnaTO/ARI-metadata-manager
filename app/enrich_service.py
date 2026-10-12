@@ -232,6 +232,38 @@ def _subtype_name(raw: str) -> str:
     return s.partition(" - ")[0].strip()
 
 
+# ------------------------------------------------------------------------ caching
+# The id index and the subtype map depend only on the reference files, but were
+# rebuilt on every preview and again on publish: 1.35 s per call in production,
+# against well under a millisecond for enrich() itself. Each is kept as a single
+# entry, so a rebuilt index set replaces the old one rather than keeping it alive.
+#
+# ``get_indexes()`` returns the same list object until an index file changes, so
+# the list's identity is the id index's key. The subtype map also reads the
+# ``*.subtypes.tsv`` files, which can change on their own, so their mtimes and
+# sizes are part of its key.
+_ID_INDEX: tuple | None = None       # (indexes, id_index)
+_SUBTYPES: tuple | None = None       # (indexes, index_dir, file signature, subtypes)
+
+
+def _id_index_for(indexes: list[LexicalIndex]) -> dict[tuple[str, str], list[dict]]:
+    global _ID_INDEX
+    if _ID_INDEX is None or _ID_INDEX[0] is not indexes:
+        _ID_INDEX = (indexes, build_id_index(indexes))
+    return _ID_INDEX[1]
+
+
+def _subtypes_for(indexes: list[LexicalIndex], index_dir: str | Path) -> dict[str, list[dict]]:
+    global _SUBTYPES
+    index_dir = Path(index_dir)
+    sig = tuple(sorted((p.name, p.stat().st_mtime_ns, p.stat().st_size)
+                       for p in index_dir.glob("*.subtypes.tsv"))) if index_dir.is_dir() else ()
+    if (_SUBTYPES is None or _SUBTYPES[0] is not indexes
+            or _SUBTYPES[1] != str(index_dir) or _SUBTYPES[2] != sig):
+        _SUBTYPES = (indexes, str(index_dir), sig, load_subtypes(indexes, index_dir))
+    return _SUBTYPES[3]
+
+
 def enrich_many(diseases: list[dict], confirmed_by_iri: dict[str, list[dict]],
                 index_dir: str | Path = DEFAULT_INDEX_DIR,
                 blocklist_path: str | Path = DEFAULT_BLOCKLIST_PATH,
@@ -245,20 +277,19 @@ def enrich_many(diseases: list[dict], confirmed_by_iri: dict[str, list[dict]],
     Returns ``{iri: {"synonyms": [...], "subtypes": [...]}}`` for diseases with any
     proposed addition.
     """
+    work = [d for d in diseases if confirmed_by_iri.get(d.get("iri"))]
+    if not work:
+        return {}
     if indexes is None:
         indexes = get_indexes(index_dir)
     if subtypes is None:
-        subtypes = load_subtypes(indexes, index_dir)
+        subtypes = _subtypes_for(indexes, index_dir)
     if blocklist is None:
         blocklist = load_synonym_blocklist(blocklist_path)
-    id_index = build_id_index(indexes)
+    id_index = _id_index_for(indexes)
     out: dict[str, dict] = {}
-    for d in diseases:
-        iri = d.get("iri")
-        conf = confirmed_by_iri.get(iri, [])
-        if not conf:
-            continue
-        result = enrich(d, conf, id_index, subtypes, blocklist)
+    for d in work:
+        result = enrich(d, confirmed_by_iri[d.get("iri")], id_index, subtypes, blocklist)
         if result["synonyms"] or result["subtypes"]:
-            out[iri] = result
+            out[d.get("iri")] = result
     return out
