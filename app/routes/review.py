@@ -5,6 +5,7 @@ registry behind its columns, the judgments already curated, the predictions and
 concept lookups it offers, and the per-curator session that lets a review resume
 after a reload.
 """
+import asyncio
 import logging
 from pathlib import Path
 
@@ -47,8 +48,8 @@ async def _mapping_judgments(request: Request) -> list:
                 log.debug("Could not read %s@%s from GitHub, falling back to local: %s",
                           path, workspace._source_branch(request), e)
                 return ""
-        sssom_text = await _read(config.MAPPINGS_SSSOM_PATH)
-        equiv_text = await _read(config.MAPPINGS_EQUIV_PATH)
+        sssom_text, equiv_text = await asyncio.gather(_read(config.MAPPINGS_SSSOM_PATH),
+                                                      _read(config.MAPPINGS_EQUIV_PATH))
     if not sssom_text and not equiv_text:
         for p, is_sssom in ((config.MAPPINGS_SSSOM_PATH, True), (config.MAPPINGS_EQUIV_PATH, False)):
             local = config.MAPPINGS_RUNTIME_DIR / Path(p).name
