@@ -175,8 +175,10 @@ document.getElementById('textsize-seg')?.addEventListener('click', e => {
   document.getElementById('tree-pane').addEventListener('click', e => {
     if (overlay() && e.target.closest('[data-iri]')) setRail(false);
   });
+  // The buttons that open the rail are not "outside" it: the click that opens it
+  // would otherwise reach this handler next and close it again.
   document.addEventListener('click', e => {
-    if (overlay() && !e.target.closest('.left-col, #rail-toggle')) setRail(false);
+    if (overlay() && !e.target.closest('.left-col, #rail-toggle, #start-index')) setRail(false);
   });
   document.addEventListener('keydown', e => { if (e.key === 'Escape' && overlay()) setRail(false); });
 })();

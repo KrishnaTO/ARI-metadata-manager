@@ -1,5 +1,9 @@
 # Changelog
 
+## claude/disease-selection-bug-312d62
+
+- **"Open the disease index" opens the index on narrow screens again.** Below 1200px the index is an overlay that closes on a click outside it. The start screen's button opened it, and then the same click reached that outside-click check, because the button sits outside the rail, so the index closed at once and there was no way to pick a disease from the start screen. The button no longer counts as outside, like the ☰ toggle.
+
 ## claude/csp-inline-handlers
 
 - **The deep-dive Close, the field editor's Cancel and the row-remove buttons work again.** The Content-Security-Policy's `script-src 'self'` blocks inline `onclick=` handlers, so these buttons did nothing (Chrome logged a CSP violation instead). They are wired with `addEventListener` now: Close where each panel is rendered (`renderReadView`, `renderItemEditor`), both Cancel buttons next to Save, and the definition-source and subtype row removes through one delegated handler, since those rows are added after their form is wired, in both the field editor and the new-disease form. No inline handlers are left under `static/`.
