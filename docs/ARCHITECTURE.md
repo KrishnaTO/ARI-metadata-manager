@@ -312,8 +312,10 @@ fuzzy threshold from the confirmed mappings.
 **Caching.** Parsed index files are cached per process, keyed on each file's
 mtime and size. Each `OntologyService` caches its predicted cells against its
 ontology file's mtime, so a repeat page load is a cache hit and an edit
-triggers a recompute. The first load after a restart pays the index parse
-(about 2 s); see [EFFICIENCY.md §4](EFFICIENCY.md#4-the-prediction-indexes-load-on-the-first-request-after-every-restart).
+triggers a recompute. `main.lifespan` parses the indexes and builds their
+lookups in a background thread at startup (`predict_service.warm`), so no request
+pays that parse (about 2 s locally); a request that needs them mid-warm-up waits
+for that one load rather than starting a second.
 Resident cost is roughly 250 MB process-wide, plus a few MB per active curator.
 
 ## Enrichment
@@ -395,6 +397,8 @@ user preference, and every font size is in `rem` so it scales.
 | Prediction indexes | each index file's mtime + size | rebuilding `data/2-databases` |
 | Predicted cells | ontology file mtime + index dir | any edit to that ontology |
 | Concept reverse map | identity of the index list | an index reload |
+| Enrichment id map | identity of the index list | an index reload |
+| Enrichment subtype map | identity of the index list + each `*.subtypes.tsv`'s mtime and size | an index reload or a changed subtypes file |
 | Detail sidecars | sidecar mtime + size | rebuilding `data/2-databases` |
 | Live terminology answers | `(db, code)` | process restart only |
 | PR matrices | PR number + head sha | a new head commit |

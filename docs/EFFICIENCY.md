@@ -1,8 +1,13 @@
 # Efficiency review
 
-A review of the app's key code paths for avoidable work. Nothing here has been
-changed yet. Each finding says where the cost is, how big it is, and what would
-remove it, so they can be picked up one at a time.
+A review of the app's key code paths for avoidable work. Each finding says where
+the cost is, how big it is, and what would remove it, so they can be picked up
+one at a time.
+
+**Status (2026-10-12):** findings 1, 2, 4, 5, 12 and 13 are fixed and deployed
+(#189–#196); each section says by which PR, with the cost after. Findings 3, 6,
+7, 8, 9, 10, 11 and 14 are open. The measurements below are from before the
+fixes, except the table [after the fixes](#production-after-the-fixes).
 
 **Baseline:** `main` at `e8c8a6c`, which is also what production runs
 (`2.348 (e8c8a6c, 2026-10-08)`). **Method, in three passes:**
@@ -69,37 +74,54 @@ travels as 200 KB). The HTML is revalidated on each load and arrives in 58 ms.
 | Review page: one full pass of `ReviewModel.cellState` over the matrix | **156 ms** (1.2 ms with predictions indexed) |
 | `world[property IRI]` lookup ×1000 | 1.7 ms |
 
+### Production, after the fixes
+
+Re-timed on 2026-10-12 against `2.376 (81667b8)`, signed out, three runs each.
+
+| Request (signed out) | Before | After |
+| --- | ---: | ---: |
+| `GET /api/v2/predictions`, first after a restart | 4,983 ms | no request pays it: loaded at startup (§4) |
+| `GET /api/v2/predictions`, warm | 28–42 ms | 59–118 ms |
+| `POST /api/v2/enrichment-preview` with an empty list | 1,346 ms | 53–93 ms |
+| `GET /api/v2/export` (no baseline) | 959 ms | 424–499 ms |
+| App restarts from the mapping refresh | every ~10 min | none (§5) |
+
+The publish summary and sync need a signed-in session, so their after figures
+are local, in §1 and §13.
+
 ## Summary, by expected payoff
 
-| # | Finding | Where | Cost today | Effort |
-| --- | --- | --- | --- | --- |
-| 12 | The review page recomputes every cell from all predictions, several times per redraw, on every keystroke | `static/ref-edits/review-model.js` `predFor`, `ref-edits.js` filter | 37–129 ms per keystroke in production, 230–620 ms locally; blocks the page | Small |
-| 1 | The change summary and the export build every disease's full detail, twice | `diff_service._rows`, `export_service._rows_from_service` | ~0.7 s locally (~1.8 s estimated in production) per publish, dialog open or export | Small |
-| 2 | Enrichment rebuilds two whole-index structures on every call | `enrich_service.enrich_many` | 1.35 s per call in production, even for an empty list | Small |
-| 4 | The prediction indexes load on the first request after every restart | `predict_service.get_indexes` | 5.0 s in production for the first review-page visitor | Small |
-| 5 | The mapping refresh restarts the app for no reason | `deploy/update-mappings.sh:89` | Each restart puts the next visitor through the cold start above | Small (ops) |
-| 13 | Sync merges every disease and re-reads each record several times | `merge_service.merge_into`, `routes/merge.py` | 0.7 s locally (~1.8 s estimated in production) each time the branch moves | Small |
-| 3 | CPU-bound work runs on the event loop and blocks every other request | all `async def` routes in `app/routes/` | Everyone waits for the slowest request | Medium |
-| 7 | Independent network calls run one after another | frontend `init()`s, mapping reads, blob uploads | 4 serial calls before the tree; 5 before the matrix | Small |
-| 14 | The synonym review re-downloads report 9 on every load | `routes/review.py` `synonym_review`, `synonyms.js` | 0.64–0.95 s and 2.7 MB of JSON per load | Small |
-| 6 | Three separate reverse-id indexes over the same records | `predict_service`, `concept_service`, `enrich_service` | ~100 MB resident, plus 27 MB rebuilt per enrichment | Medium |
-| 8 | No HTTP connection reuse | `github_service`, `pr_review/terminology` | One TLS handshake per call; hundreds per PR matrix | Small |
-| 9 | PR reviewer repeats GitHub reads, and one loop is quadratic | `pr_review/github.py`, `pr_review/compare.py` | N+1 calls to list PRs; 3 fetches of one file list | Small |
-| 10 | Downloaded baselines are not reused | `routes/publish.py`, `merge.py`, `settings.py` | ~1.7 MB download + parse per dialog, publish, resolve, export | Medium |
-| 11 | Smaller items | various | see below | Small |
+| # | Finding | Where | Cost when found | Effort | Status |
+| --- | --- | --- | --- | --- | --- |
+| 12 | The review page recomputes every cell from all predictions, several times per redraw, on every keystroke | `static/ref-edits/review-model.js` `predFor`, `ref-edits.js` filter | 37–129 ms per keystroke in production, 230–620 ms locally; blocks the page | Small | Fixed, #189 |
+| 1 | The change summary and the export build every disease's full detail, twice | `diff_service._rows`, `export_service._rows_from_service` | ~0.7 s locally (~1.8 s estimated in production) per publish, dialog open or export | Small | Fixed, #194 and #195 |
+| 2 | Enrichment rebuilds two whole-index structures on every call | `enrich_service.enrich_many` | 1.35 s per call in production, even for an empty list | Small | Fixed, #190 |
+| 4 | The prediction indexes load on the first request after every restart | `predict_service.get_indexes` | 5.0 s in production for the first review-page visitor | Small | Fixed, #191 |
+| 5 | The mapping refresh restarts the app for no reason | `deploy/update-mappings.sh:89` | Each restart puts the next visitor through the cold start above | Small (ops) | Fixed, #191 and #192 |
+| 13 | Sync merges every disease and re-reads each record several times | `merge_service.merge_into`, `routes/merge.py` | 0.7 s locally (~1.8 s estimated in production) each time the branch moves | Small | Fixed, #196 |
+| 3 | CPU-bound work runs on the event loop and blocks every other request | all `async def` routes in `app/routes/` | Everyone waits for the slowest request | Medium | Open |
+| 7 | Independent network calls run one after another | frontend `init()`s, mapping reads, blob uploads | 4 serial calls before the tree; 5 before the matrix | Small | Open |
+| 14 | The synonym review re-downloads report 9 on every load | `routes/review.py` `synonym_review`, `synonyms.js` | 0.64–0.95 s and 2.7 MB of JSON per load | Small | Open |
+| 6 | Three separate reverse-id indexes over the same records | `predict_service`, `concept_service`, `enrich_service` | ~125 MB resident | Medium | Open |
+| 8 | No HTTP connection reuse | `github_service`, `pr_review/terminology` | One TLS handshake per call; hundreds per PR matrix | Small | Open |
+| 9 | PR reviewer repeats GitHub reads, and one loop is quadratic | `pr_review/github.py`, `pr_review/compare.py` | N+1 calls to list PRs; 3 fetches of one file list | Small | Open |
+| 10 | Downloaded baselines are not reused | `routes/publish.py`, `merge.py`, `settings.py` | ~1.7 MB download + parse per dialog, publish, resolve, export | Medium | Open |
+| 11 | Smaller items | various | see below | Small | Open |
 
-Suggested order:
+Suggested order for what is open:
 
-1. **§12.** It is what curators feel most often, and it is a contained frontend
-   change with an exact test (identical results, measured below).
-2. **§1 and §2.** Pure server code, with large and certain wins.
-3. **§5 and §4 together**, so the cold start neither happens needlessly nor
-   lands on a person.
-4. **§13**, then **§7** and **§14**.
+1. **§14.** Small and self-contained, with the largest per-load cost left.
+2. **§7.** The review page's start-up waits for the sum of its calls instead of
+   the slowest one.
+3. **§3.** With findings 1, 2 and 4 fixed, what still blocks the loop is
+   shorter, but it grows with the number of curators working at once.
+4. **§8 and §9**, then **§10**, **§6** and **§11**.
 
 ---
 
 ## 1. The change summary and the export build every disease's full detail, twice
+
+**Fixed in #194 (summary) and #195 (export).** The summary matches records on an index of ARI ids and builds full records only for the diseases in scope: 39 ms instead of 595 ms with four in scope, and the dialog's list 28 ms instead of 526 ms. The export reads `OntologyService.get_disease_records()`, each disease's own fields: 179 ms instead of 642 ms with a baseline, 139 ms instead of 373 ms without (locally).
 
 **Where:** `app/diff_service.py:40` (`_rows`) and `app/export_service.py:88`
 (`_rows_from_service`).
@@ -128,6 +150,8 @@ export (`routes/settings.py:174`, ~0.6 s).
   parent → children map for the subtypes column instead of scanning per record.
 
 ## 2. Enrichment rebuilds two whole-index structures on every call
+
+**Fixed in #190.** Both structures are built once and reused until the reference files change, and a preview with nothing confirmed returns at once. Previews take 1–9 ms in-process; the empty preview takes 53–93 ms in production, round trip included.
 
 **Where:** `app/enrich_service.py:235` (`enrich_many`), which calls
 `build_id_index(indexes)` (`:254`) and `load_subtypes(indexes, index_dir)`
@@ -161,8 +185,10 @@ directly.
 The app runs one uvicorn worker with one event loop (`workspace.py` relies on
 this for its per-login `asyncio.Lock`). A synchronous call inside an `async def`
 handler holds that loop. Nothing else is served until the call returns: no other
-curator's request, no static file, not even `/healthz`. The slow cases are
-findings 1, 2 and 4: 0.5–2 s each, with publish stacking several.
+curator's request, no static file, not even `/healthz`. The slow cases were
+findings 1, 2 and 4: 0.5–2 s each, with publish stacking several. Those are now
+fixed, so what still runs on the loop is shorter: a summary, a merge or an
+export takes tens to hundreds of milliseconds.
 
 This also affects deploys. `deploy/update.sh` reads `/healthz` with a 5-second
 timeout. If it gets no answer, it treats the app as not running, and the
@@ -172,17 +198,18 @@ curators with unsaved work.
 
 **Fix, in order:**
 
-1. Shrink the blocking work (findings 1, 2 and 4). This removes most of the
-   problem without touching the concurrency model.
-2. Move index-only work off the loop with `asyncio.to_thread`: index loading,
-   enrichment and prediction over already-built rows. It touches no owlready2
-   `World`, so it is safe in a thread. Guard the cache build with a lock so two
-   requests don't load the indexes at once.
+1. Shrink the blocking work (findings 1, 2 and 4). Done.
+2. Move index-only work off the loop with `asyncio.to_thread`: enrichment and
+   prediction over already-built rows. It touches no owlready2 `World`, so it is
+   safe in a thread. Index loading already runs in a thread at startup (#191),
+   under a lock that makes concurrent first callers share one load.
 3. Only then consider threading owlready2 calls. A `World` is SQLite-backed and
    is not safe for unguarded concurrent writes, so this needs a per-`World` lock
    in addition to today's per-login one. Measure before taking this on.
 
 ## 4. The prediction indexes load on the first request after every restart
+
+**Fixed in #191.** `predict_service.warm` loads the indexes and their lookups in a background thread from `main.lifespan`. Locally the first predictions call after a restart takes 81 ms instead of 2,224 ms. The lookups are also published only once complete, so a reader on another thread never sees a half-built map.
 
 **Where:** `app/predict_service.py:387` (`get_indexes`), first reached through
 `GET /api/v2/predictions`.
@@ -205,6 +232,8 @@ starting a second one.
 
 ## 5. The mapping refresh restarts the app for nothing
 
+**Fixed in #191 and #192.** The script no longer restarts the app (#191). It also wrote over this repo's tracked mapping files, so `update.sh` stashed and reset them every run and the next refresh saw a "change": that was the cause of the restart every ten minutes. The fetched copies now go to the gitignored `ari-mappings/` (#192), and `update.sh` drops a stash entry identical to the previous one (#193).
+
 **Where:** `deploy/update-mappings.sh:89`.
 
 When `mappings/ari.sssom.tsv` or `ari.equivalencies.tsv` changes, the script
@@ -226,16 +255,16 @@ This is a change on the server's timer path, so it needs a deliberate deploy.
 - `concept_service._build_reverse` (`concept_service.py:79`): one map over all
   indexes, keyed the same way, holding `(source, record)`. **47 MB**.
 - `enrich_service.build_id_index`: keyed `(db, exact id)`, keeping only ids
-  unique within their source. **27 MB**, rebuilt on every call (finding 2).
+  unique within their source. **27 MB**, kept since #190 fixed finding 2.
 
-All three answer the same question: which terms carry this id? Two stay
-resident for the life of the process, and the third is rebuilt per request.
+All three answer the same question: which terms carry this id? All three stay
+resident for the life of the process.
 
 **Fix:** build one map per index load,
 `(db, match_key(id)) -> [(source, record)]`, and serve all three callers from it.
 `records_for` becomes a filter on `source`. Enrichment's "unique within one
 source" rule becomes a check at lookup time on the same list. That saves about
-50 MB resident and removes finding 2's largest rebuild.
+75 MB resident.
 
 **Caveat:** enrichment keys on the exact id string today, while the other two
 use `match_key` (prefix stripped, leading zeros dropped, casefolded). Unifying
@@ -364,6 +393,8 @@ branch name). Each step then copies the cached file instead of downloading it.
 
 ## 12. The review page recomputes every cell from all predictions, on every keystroke
 
+**Fixed in #189.** Predictions are grouped by cell once when they load (`ReviewModel.indexPredictions`). Typing, sorting and the *missing only* toggle take 1–54 ms locally, and the matrix is identical to before.
+
 **Where:** `static/ref-edits/review-model.js:32` (`predFor`), reached through
 `cellEntries` → `cellState`; the filter box is wired straight to `renderMatrix`
 (`static/ref-edits/ref-edits.js`, `$('#filter').addEventListener('input', renderMatrix)`).
@@ -402,6 +433,8 @@ predictions × blank cells, so it grows as diseases are added.
 - Debounce the filter input by about 100 ms.
 
 ## 13. Sync merges every disease, re-reading each record several times
+
+**Fixed in #196**, by fixes 1 and 2 below. The ancestor records the git blob id of the file it was synced against, and sync skips the download, parse and merge when GitHub reports the same blob. When the file has changed, `merge_into` reads both ontologies in bulk and merges only the diseases the branch changed: 73 ms instead of 713 ms locally, with identical results.
 
 **Where:** `routes/merge.py:66` passes `_all_diseases(theirs, mine)` to
 `workspace.merge_from` → `merge_service.merge_into` (`merge_service.py:323`).

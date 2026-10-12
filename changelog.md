@@ -1,5 +1,10 @@
 # Changelog
 
+## claude/efficiency-doc-status
+
+- **`docs/EFFICIENCY.md` shows what is fixed.** Findings 1, 2, 4, 5, 12 and 13 are marked fixed with the PR that fixed each (#189–#196) and the cost after; a new table re-times the fixed endpoints in production (the empty enrichment preview 53–93 ms instead of 1,346 ms, the export 424–499 ms instead of 959 ms, no cold start on predictions). The suggested order now covers only what is open: §14, §7, §3, then the rest. §3 and §6 are updated for what the fixes changed.
+- **Two stale statements corrected.** `DEPLOY.md` said the mapping refresh restarts the app when a file changes; it hasn't since #191. `docs/ARCHITECTURE.md` said the first request after a restart pays the index parse; the indexes now load at startup. Its cache table gains the two enrichment caches.
+
 ## claude/autostash-cleanup-doc
 
 - **OPERATIONS.md: the autostash cleanup procedure is safer to run.** It now pauses `ari-mm-update.timer` first and restarts it after, so an update run cannot add or shift stash entries mid-cleanup. It checks `git status --porcelain` is empty before starting, and runs the log check (`sudo journalctl`) and the branch deletion from the admin's own shell. Before, the log check ran inside the `ariapp` shell, which has no `sudo` for it.
