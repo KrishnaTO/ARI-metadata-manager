@@ -1,5 +1,9 @@
 # Changelog
 
+## claude/autostash-cleanup-doc
+
+- **OPERATIONS.md: the autostash cleanup procedure is safer to run.** It now pauses `ari-mm-update.timer` first and restarts it after, so an update run cannot add or shift stash entries mid-cleanup. It checks `git status --porcelain` is empty before starting, and runs the log check (`sudo journalctl`) and the branch deletion from the admin's own shell. Before, the log check ran inside the `ariapp` shell, which has no `sudo` for it.
+
 ## claude/sync-merge
 
 - **Sync skips the work when the ontology file hasn't changed.** `POST /api/v2/sync` runs on every page load and every return to the tab. Whenever the source branch had moved, it downloaded the 1.7 MB ontology, parsed it, and three-way merged every disease. In the last 60 days only 118 of 225 commits to `KrishnaTO/ARI` main touched the ontology. The working copy's ancestor now records the git blob id of the file it was last fully synced against, and sync asks GitHub for the new commit's blob id, a small response. If they match, sync records the commit and returns: no download, no parse, no merge. A publish or resolve that moves the ancestor on its own clears the recorded id, so the next sync compares again.
