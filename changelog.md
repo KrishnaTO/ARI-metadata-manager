@@ -1,5 +1,8 @@
 # Changelog
 
+## claude/issue-11-copy-name
+
+- **Copy a disease name from the record view.** The main page's record heading has a ⧉ button beside the disease name that copies just the name, with the same "Copied" toast as the IRI and link buttons. The reference-review panel and the PR reviewer already had one.
 ## claude/issue-25-choose-diseases
 
 - **Choose which changed diseases go into a pull request.** The publish dialog lists every disease changed since the last publish with a tick box each, all ticked. Untick one to leave it out: it stays in the working copy, still changed, for a later submission. The title follows the ticked diseases ("Update A and B", "Add C; update A") until the curator writes their own, and *Submit* is disabled with nothing ticked. The dialog used to say diseases could not be published separately; that stopped being true when publishing began grafting only its scope onto the branch (#146).

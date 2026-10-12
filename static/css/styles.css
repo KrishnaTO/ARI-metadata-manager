@@ -276,6 +276,9 @@ body.resizing-cols { cursor: col-resize; user-select: none; }
 [data-theme="dark"] .detail h1, [data-theme="dark"] .search-page h1,
 [data-theme="dark"] .modal-head h2, [data-theme="dark"] .right-panel > h2 { color: #fff; }
 .detail.obsolete h1 { color: var(--mute-soft); }
+.detail h1 .name-copy { vertical-align: middle; margin-left: 8px; color: var(--mute-soft); }
+.detail h1 .name-copy:hover { color: var(--accent); background: var(--accent-050); }
+.detail h1 .name-copy .ico { width: 18px; height: 18px; }
 .detail .obsolete-tag { color: var(--danger); font-size: 0.875rem; font-weight: 600; letter-spacing: 0; }
 .rec-actions { margin-left: auto; flex: none; display: flex; gap: 8px; }
 .btn { padding: 9px 16px; border: 1px solid var(--line-strong); border-radius: 8px; background: var(--bg);
