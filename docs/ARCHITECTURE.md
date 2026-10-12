@@ -240,18 +240,22 @@ Steps, in order:
    empty scope is a 400.
 4. **Rebase.** Read the source branch at its current sha and merge it into the
    working copy for the scope. Any conflict is a 409 with the conflicts and sha.
-5. **Review write-back** (only if the request carries verdicts): log each
+5. **Mapping files** (only if the request carries verdicts). The curator's own
+   parked removals for the scope join `flagged`, each given its disease's ARI id
+   and label. Read the branch's SSSOM and equivalencies files and accumulate this
+   request's confirmed, flagged and absent judgments (`sssom_service.build`). A
+   judgment with no ARI id is a 400. This runs before anything is written, so a
+   refusal leaves the working copy as it was.
+6. **Review write-back** (only if the request carries verdicts): log each
    verdict in the disease changelogs, store confirmed ids on the record, remove
-   flagged ids, and (if `apply_enrichment`) fold in selected synonyms and
-   subtypes. The working copy is snapshotted first and restored if anything later
-   fails.
-6. **Build the commit.** Summarise the scoped changes (`diff_service`), graft the
+   flagged ids (from every property holding that vocabulary's ids, so a SNOMED
+   code leaves `ARI_DXCODE` too), and (if `apply_enrichment`) fold in selected
+   synonyms and subtypes. The working copy is snapshotted first and restored if
+   anything later fails.
+7. **Build the commit.** Summarise the scoped changes (`diff_service`), graft the
    scoped diseases from the working copy onto the downloaded branch ontology, and
    splice the result back into the branch's own file order (`owl_splice`), so the
    diff shows only the curator's change.
-7. **Mapping files.** Read the branch's SSSOM and equivalencies files and
-   accumulate this request's confirmed, flagged (including parked removals) and
-   absent judgments (`sssom_service.build`).
 8. **Commit and PR** (`github_service.publish_file`): push to the upstream repo if
    the curator can, otherwise to their fork (created on first use, with
    `maintainer_can_modify`). Reuse the session's branch if it still exists,

@@ -14,6 +14,7 @@ import datetime
 import os
 import re
 
+from .errors import Invalid
 from .xref_registry import CURIE_BASES, PREFIX, normalize_id  # db key -> object/target prefix
 
 # CURIE map for the SSSOM header: object-database prefixes come from the shared
@@ -216,6 +217,19 @@ def _merge_tsv(existing, cols, new_rows, key_idx, header_block="", normalize=Non
     return "\n".join(out) + "\n", added
 
 
+def _subject(c) -> tuple[str, str]:
+    """The disease a judgment is about, as ``(ARI id, label)``.
+
+    A judgment without an ARI id used to be written with an empty subject, which
+    the data repo rejects and which says nothing about which disease it was
+    (issue #171), so it is refused instead.
+    """
+    if not c.get("ari_id"):
+        raise Invalid(f"A {c.get('db')} judgment on {c.get('iri') or 'a disease'} has no ARI id; "
+                      "nothing was published.")
+    return c["ari_id"], c.get("name") or ""
+
+
 def build(confirmed, author, existing_sssom="", existing_equiv="", flagged=None, absent=None):
     """Accumulate confirmed (positive), flagged (negative) and absent cross-references.
 
@@ -236,8 +250,7 @@ def build(confirmed, author, existing_sssom="", existing_equiv="", flagged=None,
     for items, modifier, eq_type in ((confirmed or [], "", "manual"),
                                      (flagged or [], "Not", "manual-negative")):
         for c in items:
-            subj = c.get("ari_id") or ""
-            name = c.get("name") or ""
+            subj, name = _subject(c)
             prefix = PREFIX.get(c["db"], c["db"])
             for ident in c.get("ids", []):
                 # Guard the client-supplied id boundary. A stray placeholder must
@@ -249,15 +262,14 @@ def build(confirmed, author, existing_sssom="", existing_equiv="", flagged=None,
                 obj = _object_curie(c["db"], ident_s)
                 sssom_rows.append([subj, name, "skos:exactMatch", modifier, obj, prefix,
                                    "semapv:ManualMappingCuration", author, today, ""])
-                equiv_rows.append(["ARI", (subj.split(":")[-1] if subj else ""), name,
+                equiv_rows.append(["ARI", subj.split(":")[-1], name,
                                    "skos:exactMatch", prefix, ident_s, eq_type, author])
     for c in (absent or []):
-        subj = c.get("ari_id") or ""
-        name = c.get("name") or ""
+        subj, name = _subject(c)
         prefix = PREFIX.get(c["db"], c["db"])
         sssom_rows.append([subj, name, "skos:exactMatch", "", NO_TERM, prefix,
                            "semapv:ManualMappingCuration", author, today, ""])
-        equiv_rows.append(["ARI", (subj.split(":")[-1] if subj else ""), name,
+        equiv_rows.append(["ARI", subj.split(":")[-1], name,
                            "skos:exactMatch", prefix, NO_TERM_ID, "manual-absent", author])
     # Dedup on (subject, predicate, modifier, object, object_source) so a positive
     # and a later negative for the same triple don't silently collapse into one
