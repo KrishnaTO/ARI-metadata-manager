@@ -24,6 +24,7 @@ runtime ontology is not tracked here).
 ```bash
 pip install -r requirements.txt
 mkdir -p ontologies && cp ../ARI/ontologies/ari_t1d.owl ontologies/
+mkdir -p ari-mappings && cp ../ARI/mappings/ari.synonym_blocklist.tsv ari-mappings/
 python run.py
 ```
 
@@ -110,7 +111,7 @@ static/                    Frontend (no build step)
 
 scripts/                   Data tooling (see "Scripts" below)
 data/2-databases/          Reference indexes for prediction (see its README)
-mappings/                  Mapping files: SSSOM, equivalencies, predicted, synonym blocklist
+mappings/                  Snapshot of the mapping files for the tooling and CI: SSSOM, equivalencies, predicted
 tests/                     pytest suite, review-model.test.js, fixture ontology
 deploy/                    systemd units, update scripts, nginx config
 design/mockups/            Design exploration for the review page (not wired up)
@@ -144,7 +145,7 @@ on the server. Keep `.env` at mode 600.
 | `ARI_ONTOLOGY_FILE` | `ontologies/ari_t1d.owl` | Runtime ontology path. `run.py --file` sets it. |
 | `PORT` | `8001` | `run.py`'s default port. |
 | `APP_REPO_BRANCH` | `main` | Branch of this repo that `deploy/update.sh` tracks. |
-| `ARI_MAPPING_FILES` | the two mapping files | `remote:local` pairs fetched by `deploy/update-mappings.sh`. |
+| `ARI_MAPPING_FILES` | the three mapping files | `remote:local` pairs fetched by `deploy/update-mappings.sh`. |
 
 ## Server-side state
 
@@ -184,7 +185,7 @@ patch `workspace.BASE` and the `config` paths, never the real files.
 | --- | --- |
 | `scripts/fetch_databases.py` | Downloads MONDO, DOID, NCIt, MeSH and Orphanet and builds `data/2-databases/` (`--offline`, `--only`). |
 | `scripts/eval_fuzzy.py` | Replays the confirmed mappings to re-derive the fuzzy-match threshold. |
-| `scripts/report_synonyms.py` | Finds ARI synonyms that name a different disease; writes `mappings/ari.synonym_blocklist.tsv`. |
+| `scripts/report_synonyms.py` | Finds ARI synonyms that name a different disease; writes the synonym blocklist and its report into a data-repo checkout (`--data-repo ../ARI`), to commit there. |
 | `scripts/validate_mappings.py` | Checks the mapping files (prefixes declared, no doubled prefixes, ISO dates, no contradictory live rows). Run in CI. |
 | `scripts/migrate_mappings.py` | One-off: rewrites the mapping files under the current SSSOM header. |
 | `scripts/backfill_id_authors.py` | Seeds the id-authorship ledger from the curated mappings (from `KrishnaTO/ARI@main`, or `--local`). Safe to re-run. |

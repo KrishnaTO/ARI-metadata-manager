@@ -1,5 +1,11 @@
 # Changelog
 
+## claude/issue-216-blocklist-from-data-repo
+
+- **The predictor reads the synonym blocklist from the data repo** (#216). `mappings/ari.synonym_blocklist.tsv` now lives in KrishnaTO/ARI (KrishnaTO/ARI#129), where curators edit it. `deploy/update-mappings.sh` fetches it with the other mapping files into `ari-mappings/`, and prediction and enrichment read it from there (`predict_service.blocklist_path()`), so a curator's edit reaches the predictor within one refresh. The cached predictions are keyed on the blocklist's mtime as well, so a refreshed blocklist re-runs them. The app's own copies of the blocklist and `ari.mis_curated_synonyms.tsv` are deleted.
+- **A missing blocklist is an error, not an empty one.** It used to be read as "nothing blocked", which on a fresh server would quietly bring back the 43 known-wrong synonym matches. Prediction now refuses to run and logs which file is missing, and the review page says the predicted candidates could not be loaded instead of showing none. For local runs, copy the file from a data-repo checkout (README quick start).
+- **`scripts/report_synonyms.py --data-repo ../ARI`** writes the blocklist and its report into a data-repo checkout, to commit there. The tests read a snapshot of the blocklist under `tests/fixtures/mappings/`.
+
 ## claude/release-manifest-atomic
 
 - **A release can no longer wipe the release history.** `releases/releases.json` was written with a plain `write_text`, and a manifest that failed to parse was read as empty, so the next release replaced it with a one-entry list. It is now read and written through `atomic_store`, like the other ledgers: a corrupt manifest stops the release with an error (before any disease is stamped) instead of being overwritten, and a crash mid-write leaves the old manifest whole. A release reads the manifest once, up front.

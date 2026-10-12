@@ -2045,8 +2045,10 @@
     // Pre-existing curated judgments pre-highlight cells; failure is non-fatal.
     mappings = {};
     if (!maps.e) for (const m of maps.v) mappings[m.ari_id + '|' + m.prefix + '|' + m.id] = m.judgment;
-    // Predicted exact-match candidates for blank cells (issue #42); non-fatal.
+    // Predicted exact-match candidates for blank cells (issue #42); non-fatal, but
+    // said out loud: blank cells without candidates look like "nothing matched".
     predicted = preds.e ? {} : RM.indexPredictions(preds.v);
+    if (preds.e) note('Predicted candidates could not be loaded: ' + preds.e.message, 'error');
     // Restore this user's saved review session (verdicts + PR pointer) so a reload
     // resumes their work.
     if (sess.e) console.warn('Could not load review session:', sess.e.message);

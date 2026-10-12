@@ -4,6 +4,9 @@ Covers issue #115 (invalid values dropped silently, the changelog no-op, and
 exception handlers that turned bugs into plausible client errors) and the parts
 of #123 that are testable.
 """
+import os
+import shutil
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -108,6 +111,24 @@ def test_predictions_are_cached_until_the_ontology_changes(service, monkeypatch)
     service.update_disease(iri, {"disease_category": "ZZZ-Test"}, editor="ada")
     service.predict_xrefs()
     assert len(calls) == 2, "an edited ontology must re-run the matching pass"
+
+
+def test_a_refreshed_blocklist_re_runs_predictions(service, monkeypatch, tmp_path):
+    # The blocklist is fetched from the data repo while the app runs; a curator's
+    # edit to it must reach the predictions without an ontology change.
+    from app import predict_service as ps
+    shutil.copy2(ps.blocklist_path(), tmp_path / "ari.synonym_blocklist.tsv")
+    monkeypatch.setattr(config, "MAPPINGS_RUNTIME_DIR", tmp_path)
+    calls = []
+    real = ps.predict_matches
+    monkeypatch.setattr(ps, "predict_matches",
+                        lambda *a, **k: (calls.append(1), real(*a, **k))[1])
+
+    service.predict_xrefs()
+    st = ps.blocklist_path().stat()
+    os.utime(ps.blocklist_path(), ns=(st.st_atime_ns, st.st_mtime_ns + 1_000_000_000))
+    service.predict_xrefs()
+    assert len(calls) == 2, "a refreshed blocklist must re-run the matching pass"
 
 
 # --------------------------------------------------------------- version

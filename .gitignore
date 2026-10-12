@@ -247,8 +247,9 @@ synonym-review/
 # The test snapshot lives in tests/fixtures/ontologies/.
 /ontologies/
 
-# Runtime mapping files: KrishnaTO/ARI's mappings/ari.sssom.tsv and
-# ari.equivalencies.tsv, fetched by deploy/update-mappings.sh (app/config.py
+# Runtime mapping files: KrishnaTO/ARI's mappings/ari.sssom.tsv,
+# ari.equivalencies.tsv and ari.synonym_blocklist.tsv, fetched by
+# deploy/update-mappings.sh (app/config.py
 # MAPPINGS_RUNTIME_DIR). The tracked files of the same name under mappings/ are
 # this repo's snapshot for the tooling and CI.
 /ari-mappings/

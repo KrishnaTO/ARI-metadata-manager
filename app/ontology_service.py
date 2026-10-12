@@ -383,14 +383,16 @@ class OntologyService:
         "predicted" highlights of issue #42. Read-only: nothing is written to the
         ontology. Returns the compact per-cell shape ``to_cells`` produces.
 
-        Cached per (ontology mtime, index directory). The index files were
-        already cached with an mtime signature, but this rebuilt the disease
-        list and re-ran the whole matching pass on every call — and the review
-        page calls it on every load."""
+        Cached per (ontology mtime, index directory, blocklist mtime) — the
+        blocklist is refreshed from the data repo while the app runs. The index
+        files were already cached with an mtime signature, but this rebuilt the
+        disease list and re-ran the whole matching pass on every call — and the
+        review page calls it on every load."""
         from . import predict_service as ps
         index_dir = index_dir or ps.DEFAULT_INDEX_DIR
         try:
-            sig = (self.path.stat().st_mtime_ns, str(index_dir))
+            sig = (self.path.stat().st_mtime_ns, str(index_dir),
+                   ps.blocklist_path().stat().st_mtime_ns)
         except OSError:
             sig = None
         if sig is not None and self._predict_cache and self._predict_cache[0] == sig:
