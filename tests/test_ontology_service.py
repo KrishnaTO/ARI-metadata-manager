@@ -32,6 +32,15 @@ def test_diseases_list_sorted_and_shaped(ro_service):
         assert key in diseases[0]
 
 
+def test_each_symptom_names_its_diseases_by_iri(ro_service):
+    # The symptom search opens a disease from here. It matched names against the
+    # whole disease list instead, which cost a second request.
+    rows = ro_service.get_symptoms_index()
+    assert rows and all("iri" not in r for r in rows)
+    owner = rows[0]["diseases"][0]
+    assert ro_service.get_disease_detail(owner["iri"])["name"] == owner["name"]
+
+
 def test_xref_rows_expose_every_configured_database(ro_service):
     rows = ro_service.get_xref_rows()
     assert rows

@@ -96,31 +96,9 @@ function renderTissue(){
   }).catch(() => $('#tree-pane').innerHTML = '<div class="empty-state">No tissue hierarchy available.</div>');
 }
 
-function renderSymptomsView(){
-  showLoading('#tree-pane');
-  api('/api/v2/symptoms').then(list => {
-    if (!list.length){ $('#tree-pane').innerHTML = '<div class="empty-state">No symptoms in dataset.</div>'; return; }
-    let html = '<div style="padding:4px">';
-    html += `<div class="pane-note">${list.length} symptoms across diseases</div>`;
-    for (const s of list){
-      const lik = (s.likelihood || '').toLowerCase();
-      let badge = 'badge-moderate';
-      if (lik.includes('very common') || lik.includes('common')) badge = 'badge-common';
-      if (lik.includes('rare') || lik.includes('weak')) badge = 'badge-rare';
-      const obs = s.obsolete ? ' style="opacity:.5"' : '';
-      const owner = s.diseases?.[0];
-      html += `<div class="node-row" data-symptom-owner="${esc(s.diseases?.length ? owner : '')}"${obs} title="${esc((s.diseases||[]).join(', '))}">`;
-      html += `<span class="badge ${badge}">${esc(s.likelihood || '')}</span> <span class="nm">${esc(s.name)}</span></div>`;
-    }
-    html += '</div>';
-    $('#tree-pane').innerHTML = html;
-  }).catch(() => $('#tree-pane').innerHTML = '<div class="empty-state">Error loading symptoms.</div>');
-}
-
 function renderTab(){
   if (state.activeTab === 'alphabetical') renderAlphabetical();
   else if (state.activeTab === 'tissue') renderTissue();
-  else if (state.activeTab === 'symptoms') renderSymptomsView();
 }
 
 // Expand any collapsed ancestor rows of a disease and scroll it into view.
@@ -178,8 +156,6 @@ $('#tree-pane').addEventListener('click', e => {
   }
   const dis = e.target.closest('[data-iri]');
   if (dis){ selectDisease(dis.dataset.iri); return; }
-  const sym = e.target.closest('[data-symptom-owner]');
-  if (sym && sym.dataset.symptomOwner){ selectDisease(sym.dataset.symptomOwner); }
 });
 
 // ----------------------------------------------------------------- SEARCH
@@ -189,12 +165,19 @@ function searchSub(r){
   return (r.match && r.match !== 'name') ? r.match : r.local_name;
 }
 let searchTimer;
+// The request in flight for the dropdown. A newer query cancels it, so a slow
+// answer to "art" can no longer land after, and replace, the answer to "arth".
+let searchRequest;
 $('#search').addEventListener('input', e => {
   clearTimeout(searchTimer);
+  searchRequest?.abort();
   const q = e.target.value.trim();
   if (!q){ $('#search-results').classList.add('hidden'); return; }
   searchTimer = setTimeout(async () => {
-    const rs = await api('/api/v2/search?q=' + encodeURIComponent(q));
+    searchRequest = new AbortController();
+    let rs;
+    try { rs = await api('/api/v2/search?q=' + encodeURIComponent(q), { signal: searchRequest.signal }); }
+    catch (err){ if (err.name === 'AbortError') return; throw err; }
     if (!rs.length){ $('#search-results').innerHTML = '<div class="node-row pane-note">No matches</div>'; }
     else {
       let html = rs.slice(0, 12).map(r =>
@@ -214,7 +197,11 @@ $('#search-results').addEventListener('click', e => {
   if (r){ selectDisease(r.dataset.iri); $('#search-results').classList.add('hidden'); $('#search').value = ''; }
 });
 $('#search').addEventListener('keydown', e => {
-  if (e.key === 'Enter'){ const q = e.target.value.trim(); if (q){ showSearchResultsPage(q); $('#search-results').classList.add('hidden'); } }
+  if (e.key === 'Enter'){
+    const q = e.target.value.trim();
+    // The full results page replaces the dropdown; a pending one must not reopen it.
+    if (q){ clearTimeout(searchTimer); searchRequest?.abort(); showSearchResultsPage(q); $('#search-results').classList.add('hidden'); }
+  }
 });
 $('#search').addEventListener('blur', () => setTimeout(() => $('#search-results').classList.add('hidden'), 200));
 

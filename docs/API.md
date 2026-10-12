@@ -67,7 +67,7 @@ form, because the pages address their assets relatively.
 | GET | `/api/v2/diseases` | open | Flat disease list (`iri, name, local_name, obsolete, synonyms`). |
 | GET | `/api/v2/tree/alphabetical` | open | Diseases nested under `hasParentDisease`. |
 | GET | `/api/v2/tree/tissue` | open | UBERON tissue tree with diseases attached. |
-| GET | `/api/v2/symptoms` | open | Every symptom with the diseases that carry it. |
+| GET | `/api/v2/symptoms` | open | Every symptom (`name`, `likelihood`, `obsolete`) with the diseases that carry it, as `{iri, name}`. |
 | GET | `/api/v2/schema` | open | The editable item categories and their fields (`app/schema.py`). |
 | GET | `/api/v2/tissues` | open | Tissue individuals, for the new-disease form. |
 | GET | `/api/v2/disease/{iri}` | open | Full detail of one disease and all its items. |

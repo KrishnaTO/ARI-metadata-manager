@@ -7,7 +7,8 @@ one at a time.
 **Status (2026-10-12):** findings 1, 2, 4, 5, 7, 8, 9, 10, 12, 13 and 14 are
 fixed and deployed (#189–#196, #203–#209); each section says by which PR, with
 the cost after. Finding 6 is fixed in #214. Finding 3 is partly fixed (#206).
-Finding 11 is open.
+Finding 11 is partly fixed (#212, #215); its other items were checked and left
+as they are, with the reasons in §11.
 The measurements below are from before the fixes, except the table
 [after the fixes](#production-after-the-fixes).
 
@@ -115,14 +116,12 @@ in each section.
 | 8 | No HTTP connection reuse | `github_service`, `pr_review/terminology` | One TLS handshake per call; hundreds per PR matrix | Small | Fixed, #207 |
 | 9 | PR reviewer repeats GitHub reads, and one loop is quadratic | `pr_review/github.py`, `pr_review/compare.py` | N+1 calls to list PRs; 3 fetches of one file list | Small | Fixed, #208 |
 | 10 | Downloaded baselines are not reused | `routes/publish.py`, `merge.py`, `settings.py` | ~1.7 MB download + parse per dialog, publish, resolve, export | Medium | Fixed, #209 |
-| 11 | Smaller items | various | see below | Small | Open |
+| 11 | Smaller items | various | see below | Small | Partly fixed, #212 and #215; the rest left as is |
 
-Suggested order for what is open:
-
-1. **§11's `create_release` write.** A durability gap, not a cost.
-2. **The rest of §11.**
-3. **§3, step 3**, only if a measurement shows the remaining loop-blocking
-   work (tens to ~150 ms) matters with more curators at once.
+What is still open: **§3, step 3**, only if a measurement shows the remaining
+loop-blocking work (tens to ~150 ms) matters with more curators at once. §11's
+remaining items were weighed and left as they are; each says why, so revisit
+one only if what it depends on changes.
 
 ---
 
@@ -367,17 +366,33 @@ branch name). Each step then copies the cached file instead of downloading it.
 
 ## 11. Smaller items
 
+**Partly fixed.** The `/symptoms` payload item and the search half of "Tree and
+search" are fixed in #215, and `create_release` in #212. The other items were
+checked and left as they are; each one below says why.
+
 - **Sync on every tab focus** (`static/js/github.js:212`,
   `static/ref-edits/ref-edits.js:614`): every return to the tab posts
   `/api/v2/sync`, which costs one GitHub call against the curator's rate limit.
   With several windows and frequent tab switching, that adds up. Throttle it to
   once a minute per tab. The revision check still catches another window's
   merge.
+  **Left as is.** The sync on focus is also how a background window learns that
+  another window merged (#162): it reads the copy's revision in the same answer.
+  A throttle in the page would skip that check for a minute, and a stale window
+  could save old list values over the merge. A throttle on the server keeps the
+  check but needs its own per-curator state, and it changes what ten sync tests
+  rely on. What it saves is one GitHub call per focus, against a limit of 5,000
+  an hour per curator, over a pooled connection since #207.
 - **Uncached GitHub listings:** `GET /api/v2/settings` lists every branch on
   each open (`routes/settings.py:52`), and `/source` and `/pr-base` list them
   again to validate. `/open-prs` lists all open PRs on each page load. In
   production each costs 112–232 ms against a 22 ms round trip. A 60-second
   cache would cut both the wait and the API traffic.
+  **Left as is.** A cache would hide the branch and pull request a curator has
+  just published until it expired, unless every publish cleared it. The page
+  already fetches `/open-prs` once per load and reuses it (`detail.js`
+  `getOpenPRs`), and `/settings` is read when the settings dialog opens. That is
+  not enough traffic to justify the invalidation.
 - **Large JSON payloads:** `/api/v2/symptoms` (340 KB, 111–182 ms in
   production; it is read for the symptom tab and the symptom search),
   `/api/v2/mappings` (390 KB in production) and `/api/v2/xrefs` (203 KB).
@@ -388,27 +403,50 @@ branch name). Each step then copies the cached file instead of downloading it.
   40% of the payload (142 of 360 KB). The symptom search then fetches
   `/diseases` to turn the disease *names* back into IRIs, which returning the
   owning disease's IRI would make unnecessary.
+  **Fixed in #215 for `/symptoms`.** Each symptom names its diseases as
+  `{iri, name}` and no longer carries its own IRI. The symptom search opens a
+  disease by that IRI: it no longer fetches `/diseases` (50 KB) or matches
+  disease names. The response stays about the same size (363 KB instead of
+  369 KB locally), because every symptom has exactly one disease, whose IRI
+  replaces the symptom's. The symptom tab is not a consumer: `index.html` has no
+  such tab, so its renderer (`renderSymptomsView`) was unreachable and #215
+  deletes it. `/mappings` and `/xrefs` are unchanged.
 - **Vendored libraries on every load:** the record view loads Chart.js (204 KB)
   and D3 (273 KB) up front, though only the prevalence chart, the word cloud
   and the pathophysiology graph use them. They are cached, but parsed on every
   page load. Loading them when a deep dive first needs them would take ~0.5 MB
   of script parsing off the start-up path.
+  **Left as is, measured.** Compiling and running all three, cold (a fresh URL,
+  so no code cache), takes ~16 ms locally: Chart.js 6–7 ms, D3 8–11 ms, the
+  word-cloud layout 1 ms, against 67 ms to `DOMContentLoaded`. Loading them on
+  demand would make the prevalence chart, the word cloud and the graph
+  asynchronous, each able to finish after the curator has moved to another
+  record, to save that.
 - **Local mode reloads the ontology after each write.** With GitHub sign-in
   off, writes go to the shared base file. That changes its mtime, so the next
   request reloads the whole ontology (`workspace.base()`): writes after the
   first took ~125 ms instead of ~46 ms in the local run, and the prediction
   cache was thrown away each time. Production is unaffected (curators write to
   their own copies), but `_save()` on the base could refresh `_BASE_KEY`.
+  **Left as is.** It affects development only, and the fix would couple
+  `OntologyService._save` to `workspace`'s reload key.
 - **Tree and search** (`static/js/trees.js`): switching tabs or toggling
   *Show only autoimmune* refetches the whole tree from the server. The server
   rebuilds it each time (3–7 ms), so it is cheap, but the client could keep it
   until an edit. Search requests are not cancelled, so a slow early response can
   replace a later one. An `AbortController` fixes both the wasted request and the
   out-of-order result.
+  **Search fixed in #215.** A newer query cancels the dropdown's request in
+  flight, and Enter cancels a pending one, so a late answer can no longer replace
+  a newer one or reopen the dropdown over the results page. **The tree is left as
+  is:** the server rebuilds it in 3–7 ms, and a copy kept in the page would need
+  clearing on every edit.
 - **`create_release`** (`ontology_service.py:1380`) reads `releases.json` three
   times and writes it with a plain `write_text` (`:1415`), not
   `atomic_store.write_json`. The repeated reads are trivial. The non-atomic
   write is a durability gap of the kind `atomic_store` was introduced to close.
+  **Fixed in #212.** The manifest is read and written through `atomic_store`, and
+  a corrupt one stops the release instead of being replaced.
 
 ## 12. The review page recomputes every cell from all predictions, on every keystroke
 

@@ -1,9 +1,8 @@
 // "Search by symptoms" — multi-selection board. Pick one or more (deduplicated)
 // symptoms; diseases are ranked by how many of the selected symptoms they have.
 (function () {
-  let DATA = null;            // [{name, key, diseases:[name]}]
+  let DATA = null;            // [{name, key, diseases:[{iri, name}]}]
   let byKey = new Map();      // key -> symptom
-  let name2iri = {};          // disease name(norm) -> iri
   let selected = new Map();   // key -> display name
   let requireAll = false;
 
@@ -11,16 +10,14 @@
   function el(h){ const t = document.createElement('template'); t.innerHTML = h.trim(); return t.content.firstChild; }
 
   async function load(){
-    const [syms, dz] = await Promise.all([api('/api/v2/symptoms'), api('/api/v2/diseases')]);
-    name2iri = {};
-    for (const d of dz) name2iri[norm(d.name)] = d.iri;
+    const syms = await api('/api/v2/symptoms');
     const map = new Map();                      // dedup symptoms by name
     for (const s of syms){
       const k = norm(s.name);
       if (!k) continue;
       let e = map.get(k);
       if (!e){ e = { name: s.name, key: k, diseases: [] }; map.set(k, e); }
-      for (const dn of (s.diseases || [])) if (!e.diseases.some(x => norm(x) === norm(dn))) e.diseases.push(dn);
+      for (const d of s.diseases) if (!e.diseases.some(x => x.iri === d.iri)) e.diseases.push(d);
     }
     DATA = [...map.values()].sort((a, b) => a.name.localeCompare(b.name));
     byKey = map;
@@ -58,9 +55,8 @@
     if (!sel.length) return [];
     const counts = {};
     for (const k of sel){
-      for (const dn of (byKey.get(k)?.diseases || [])){
-        const dk = norm(dn);
-        (counts[dk] || (counts[dk] = { name: dn, count: 0 })).count++;
+      for (const d of (byKey.get(k)?.diseases || [])){
+        (counts[d.iri] || (counts[d.iri] = { ...d, count: 0 })).count++;
       }
     }
     let arr = Object.values(counts);
@@ -74,8 +70,7 @@
     $('#sym-res-count').textContent = sel ? `${arr.length} disease${arr.length === 1 ? '' : 's'} (of ${sel} symptom${sel === 1 ? '' : 's'})` : '';
     if (!sel){ $('#sym-results').innerHTML = '<div class="empty-state" style="padding:12px">Select symptoms to see matching diseases.</div>'; return; }
     $('#sym-results').innerHTML = arr.map(d => {
-      const iri = name2iri[norm(d.name)];
-      const nm = iri ? `<a href="#" class="sym-dz" data-iri="${esc(iri)}">${esc(d.name)}</a>` : esc(d.name);
+      const nm = `<a href="#" class="sym-dz" data-iri="${esc(d.iri)}">${esc(d.name)}</a>`;
       const full = d.count === sel;
       return `<div style="display:flex;justify-content:space-between;gap:8px;padding:6px 4px;border-bottom:1px solid var(--border)">
         <span>${nm}</span>
