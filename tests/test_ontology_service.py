@@ -131,6 +131,29 @@ def test_update_disease_stores_us_and_worldwide_incidence(service):
     assert detail["incidence_world_sources"] == ["https://w.example/x"]
 
 
+def test_update_disease_stores_us_and_worldwide_prevalence(service):
+    iri = service.get_diseases_list()[0]["iri"]
+    detail = service.update_disease(iri, {
+        "prevalence_us_per_100k": "450.5", "prevalence_us_year": "2021",
+        "prevalence_us_sources": "https://a.example/us\nhttps://b.example/us",
+        "prevalence_world_per_100k": "300", "prevalence_world_year": "2019",
+        "prevalence_world_sources": "https://w.example/x",
+    }, editor="tester")
+    assert detail["rejected"] == []
+    assert detail["prevalence_us_per_100k"] == [450.5]
+    assert detail["prevalence_us_year"] == [2021]
+    assert detail["prevalence_us_sources"] == ["https://a.example/us", "https://b.example/us"]
+    assert detail["prevalence_world_per_100k"] == [300.0]
+    assert detail["prevalence_world_year"] == [2019]
+    assert detail["prevalence_world_sources"] == ["https://w.example/x"]
+
+
+def test_us_prevalence_reads_existing_prevalence_per_100k(ro_service):
+    # T1D's fixture value is stored on the older prevalencePer100k property.
+    t1d = next(d for d in ro_service.get_diseases_list() if d["name"] == "Type 1 diabetes mellitus")
+    assert ro_service.get_disease_detail(t1d["iri"])["prevalence_us_per_100k"] == [500.0]
+
+
 def test_update_disease_rejects_non_numeric_incidence_year(service):
     iri = service.get_diseases_list()[0]["iri"]
     detail = service.update_disease(iri, {"incidence_us_year": "circa 2020"}, editor="tester")

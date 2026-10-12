@@ -467,9 +467,15 @@ class OntologyService:
         # Data properties
         d["evidence_quality"] = self._get_data(e, base + "evidenceQuality")
         d["disease_category"] = self._get_data(e, base + "diseaseCategory")
-        d["prevalence_per_100k"] = self._get_data(e, base + "prevalencePer100k")
+        # Prevalence and incidence per region: rate, the year it describes, and
+        # its source URLs. The US prevalence rate is the older prevalencePer100k.
+        d["prevalence_us_per_100k"] = self._get_data(e, base + "prevalencePer100k")
+        d["prevalence_us_year"] = self._get_data(e, base + "prevalenceUSYear")
+        d["prevalence_us_sources"] = self._get_data(e, base + "prevalenceUSSource")
+        d["prevalence_world_per_100k"] = self._get_data(e, base + "prevalenceWorldPer100k")
+        d["prevalence_world_year"] = self._get_data(e, base + "prevalenceWorldYear")
+        d["prevalence_world_sources"] = self._get_data(e, base + "prevalenceWorldSource")
         d["prevalence_value"] = self._get_data(e, base + "prevalenceValue")
-        # Incidence per region: rate, the year it describes, and its source URLs.
         d["incidence_us_per_100k"] = self._get_data(e, base + "incidenceUSPer100k")
         d["incidence_us_year"] = self._get_data(e, base + "incidenceUSYear")
         d["incidence_us_sources"] = self._get_data(e, base + "incidenceUSSource")
@@ -744,7 +750,12 @@ class OntologyService:
         "incidence_world_sources":  ("data_list", "incidenceWorldSource", str),
         "demographic_bias":  ("data", "demographicBias", str),
         "age_range":         ("data", "ageRange", str),
-        "prevalence_per_100k": ("data", "prevalencePer100k", float),
+        "prevalence_us_per_100k":    ("data", "prevalencePer100k", float),
+        "prevalence_us_year":        ("data", "prevalenceUSYear", int),
+        "prevalence_us_sources":     ("data_list", "prevalenceUSSource", str),
+        "prevalence_world_per_100k": ("data", "prevalenceWorldPer100k", float),
+        "prevalence_world_year":     ("data", "prevalenceWorldYear", int),
+        "prevalence_world_sources":  ("data_list", "prevalenceWorldSource", str),
         "prevalence_value":  ("data", "prevalenceValue", float),
     }
 

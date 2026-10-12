@@ -102,23 +102,25 @@ const closeHeader = title =>
 
 function renderPrevalence(d, panel){
   let html = closeHeader('Prevalence &amp; epidemiology');
-  const p100k = first(d.prevalence_per_100k) || 0;
+  const p100k = first(d.prevalence_us_per_100k) || 0;
   const pVal = first(d.prevalence_value) || 0;
   html += `<div class="prev-stats">
-    <div class="stat-card"><div class="value">${p100k}</div><div class="lbl">Per 100,000</div></div>
+    ${epiStatCard(d, 'prevalence', 'us', 'US')}
+    ${epiStatCard(d, 'prevalence', 'world', 'Worldwide')}
     <div class="stat-card"><div class="value">${Number(pVal).toLocaleString()}</div><div class="lbl">US Cases</div></div>
-    ${incidenceStatCard(d, 'us', 'US')}
-    ${incidenceStatCard(d, 'world', 'Worldwide')}
+    ${epiStatCard(d, 'incidence', 'us', 'US')}
+    ${epiStatCard(d, 'incidence', 'world', 'Worldwide')}
   </div>`;
   html += `<div class="chart-container"><canvas id="prevChart"></canvas></div>`;
 
   // Table view of prevalence metrics + sources
   html += `<table class="data-table"><thead><tr><th>Metric</th><th>Value</th></tr></thead><tbody>`;
   const rows = [
-    ['Prevalence (per 100k)', p100k || '—'],
+    ['US prevalence (per 100k)', epiCell(d, 'prevalence', 'us')],
+    ['Worldwide prevalence (per 100k)', epiCell(d, 'prevalence', 'world')],
     ['Estimated US cases', pVal ? Number(pVal).toLocaleString() : '—'],
-    ['US incidence (per 100k/yr)', incidenceCell(d, 'us')],
-    ['Worldwide incidence (per 100k/yr)', incidenceCell(d, 'world')],
+    ['US incidence (per 100k/yr)', epiCell(d, 'incidence', 'us')],
+    ['Worldwide incidence (per 100k/yr)', epiCell(d, 'incidence', 'world')],
     ['Demographic bias', esc(first(d.demographic_bias) || '—')],
     ['Age range', esc(first(d.age_range) || '—')],
     ['Description', esc(first(d.prevalence_desc) || '—')],
@@ -135,19 +137,20 @@ function renderPrevalence(d, panel){
   if (ctx && p100k > 0){
     new Chart(ctx, {
       type: 'bar',
-      data: { labels: ['Per 100k', 'US cases (÷1000)'],
+      data: { labels: ['US per 100k', 'US cases (÷1000)'],
         datasets: [{ label: 'Prevalence', data: [p100k, pVal/1000], backgroundColor: ['#1F6B7A','#3F6699'], borderRadius: 4 }] },
       options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
     });
   }
 }
 
-// One region's incidence: rate per 100,000 per year, the year it describes,
-// and its sources. `region` is 'us' or 'world'.
-function incidenceOf(d, region){
-  return { rate: first(d[`incidence_${region}_per_100k`]),
-           year: first(d[`incidence_${region}_year`]),
-           sources: d[`incidence_${region}_sources`] || [] };
+// One region's prevalence or incidence: rate per 100,000 (per year, for
+// incidence), the year it describes, and its sources. `measure` is
+// 'prevalence' or 'incidence'; `region` is 'us' or 'world'.
+function epiOf(d, measure, region){
+  return { rate: first(d[`${measure}_${region}_per_100k`]),
+           year: first(d[`${measure}_${region}_year`]),
+           sources: d[`${measure}_${region}_sources`] || [] };
 }
 
 function sourceLinks(urls){
@@ -158,16 +161,16 @@ function sourceLinks(urls){
   }).join(', ');
 }
 
-function incidenceStatCard(d, region, label){
-  const { rate, year, sources } = incidenceOf(d, region);
+function epiStatCard(d, measure, region, label){
+  const { rate, year, sources } = epiOf(d, measure, region);
   const yr = year ? ` · ${esc(year)}` : '';
   const src = sources.length ? `<div class="src">${sourceLinks(sources)}</div>` : '';
   return `<div class="stat-card"><div class="value">${rate === '' ? 'N/A' : esc(rate)}</div>` +
-    `<div class="lbl">${label} incidence /100k${yr}</div>${src}</div>`;
+    `<div class="lbl">${label} ${measure} /100k${yr}</div>${src}</div>`;
 }
 
-function incidenceCell(d, region){
-  const { rate, year, sources } = incidenceOf(d, region);
+function epiCell(d, measure, region){
+  const { rate, year, sources } = epiOf(d, measure, region);
   if (rate === '') return '—';
   const yr = year ? ` (${esc(year)})` : '';
   const src = sources.length ? ` <span class="src">— ${sourceLinks(sources)}</span>` : '';
