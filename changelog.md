@@ -3,6 +3,7 @@
 ## claude/csp-inline-handlers
 
 - **The deep-dive Close, the field editor's Cancel and the row-remove buttons work again.** The Content-Security-Policy's `script-src 'self'` blocks inline `onclick=` handlers, so these buttons did nothing (Chrome logged a CSP violation instead). They are wired with `addEventListener` now: Close where each panel is rendered (`renderReadView`, `renderItemEditor`), both Cancel buttons next to Save, and the definition-source and subtype row removes through one delegated handler, since those rows are added after their form is wired, in both the field editor and the new-disease form. No inline handlers are left under `static/`.
+- **Removing a row no longer cancels the editor on narrow screens.** Below 1024px the deep dive is a drawer that closes on a click outside it. The row's × removes its row before that check runs, so the detached button looked like an outside click and the editor was cancelled (or asked to discard changes). The check now reads the click's path as recorded at dispatch (`composedPath()`).
 
 ## claude/issue-173-sibling-target-evidence
 
