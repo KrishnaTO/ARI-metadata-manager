@@ -1,5 +1,4 @@
 """Service layer for reading and editing the ARI T1D ontology via owlready2."""
-import json
 import logging
 import os
 import re
@@ -11,7 +10,7 @@ from pathlib import Path
 
 from owlready2 import AnnotationProperty, World, comment, destroy_entity, label
 
-from . import xref_registry
+from . import atomic_store, xref_registry
 from .errors import Invalid, NotFound
 from .feedback_service import FeedbackStore
 from .id_allocator import IdAllocator
@@ -1397,13 +1396,7 @@ class OntologyService:
         return self._releases_dir / "releases.json"
 
     def list_releases(self) -> list:
-        if self._manifest_path.exists():
-            try:
-                return json.loads(self._manifest_path.read_text(encoding="utf-8"))
-            except (json.JSONDecodeError, OSError) as e:
-                log.warning("Could not read releases manifest %s: %s", self._manifest_path, e)
-                return []
-        return []
+        return atomic_store.read_json(self._manifest_path, [])
 
     def _current_version(self) -> str:
         releases = self.list_releases()
@@ -1416,14 +1409,12 @@ class OntologyService:
                 return v[0]
         return "1.0"
 
-    def _next_version(self) -> str:
-        releases = self.list_releases()
-        return f"1.{len(releases) + 1}"
-
     def create_release(self, version: str = "", notes: str = "", editor: str = "admin") -> dict:
         """Snapshot the current ontology into releases/, stamp the version onto every
         disease, and record a per-disease changelog entry."""
-        version = version.strip() or self._next_version()
+        # Read the manifest first: a corrupt one stops the release before anything is stamped.
+        records = self.list_releases()
+        version = version.strip() or f"1.{len(records) + 1}"
         ts_human = datetime.now(timezone.utc).isoformat(timespec="seconds")
         ts_file = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
 
@@ -1453,9 +1444,8 @@ class OntologyService:
             "diseases": len(self._all_diseases()),
             "individuals": len(list(self.onto.individuals())),
         }
-        records = self.list_releases()
         records.append(record)
-        self._manifest_path.write_text(json.dumps(records, indent=2), encoding="utf-8")
+        atomic_store.write_json(self._manifest_path, records, indent=2)
 
         # Expire per-term feedback (entries flagged "keep" are retained).
         fb = self.feedback.archive_on_release(version)

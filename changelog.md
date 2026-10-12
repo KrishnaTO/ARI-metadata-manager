@@ -1,5 +1,9 @@
 # Changelog
 
+## claude/release-manifest-atomic
+
+- **A release can no longer wipe the release history.** `releases/releases.json` was written with a plain `write_text`, and a manifest that failed to parse was read as empty, so the next release replaced it with a one-entry list. It is now read and written through `atomic_store`, like the other ledgers: a corrupt manifest stops the release with an error (before any disease is stamped) instead of being overwritten, and a crash mid-write leaves the old manifest whole. A release reads the manifest once, up front.
+
 ## claude/target-cells
 
 - **Target cells are a disease-data category.** The data model's "Affected Cell, Tissue or Organ" is now stored in ARI as `affectsCellTissueOrOrgan` items of class `AffectedCellTissueOrOrgan` (KrishnaTO/ARI#124). The 2026-10-08 master list filled them for 218 diseases. They show as a "Target cells" box under Pathophysiology, open as a list with each cell's relevance (its share, such as `80%`), and are added and edited like antigens: label, description, relevance, source, obsolete. Publishing carries them with the disease, like every other item category. `targetsTissue` stays at system level, so the tissue browser and the new-disease tissue list are unchanged. Until the data repo's ontology declares the class, adding a target cell reports that the class is missing.
