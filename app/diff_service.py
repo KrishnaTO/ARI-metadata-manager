@@ -37,13 +37,15 @@ def _cell(v):
     return (s[:300] + "…") if len(s) > 300 else (s or "_(empty)_")
 
 
-def _rows(service):
-    out = {}
-    for it in service.get_diseases_list():
-        d = service.get_disease_detail(it["iri"])
-        key = (d.get("ari_id") or [None])[0] or d.get("iri")
-        out[key] = d
-    return out
+def _index(service):
+    """Every disease by the key the comparison matches records on — its ARI id,
+    or its IRI when it has none — as ``{key: {"iri", "name", ...}}``.
+
+    Read from the review grid's rows, one cheap pass. The full record
+    (``get_disease_detail``) is built only for the diseases being described:
+    building it for every disease on both sides cost ~0.7 s on every publish and
+    every opening of the publish dialog, to describe a handful of records."""
+    return {(r["ari_id"] or r["iri"]): r for r in service.get_xref_rows()}
 
 
 def list_changes(current_service, baseline_service, touched_iris=None) -> list[dict]:
@@ -56,16 +58,17 @@ def list_changes(current_service, baseline_service, touched_iris=None) -> list[d
     (issue #25); this is what it lists, and what the generated title is built
     from. Ordered by disease name, like the summary.
     """
-    cur = _rows(current_service)
-    base = _rows(baseline_service)
+    cur = _index(current_service)
+    base = _index(baseline_service)
 
-    def touched(d):
-        return touched_iris is None or d.get("iri") in touched_iris
+    def touched(row):
+        return touched_iris is None or row["iri"] in touched_iris
 
     out = []
-    for key, d in sorted(cur.items(), key=lambda kv: _fmt(kv[1].get("name"))):
-        if not touched(d):
+    for key, row in sorted(cur.items(), key=lambda kv: _fmt(kv[1]["name"])):
+        if not touched(row):
             continue
+        d = current_service.get_disease_detail(row["iri"])
         # A new disease's parent is reported here, on the child, because that is
         # where the relationship lives: the parent's own record gains only a
         # changelog entry, and no field diff reports those for any edit.
@@ -74,7 +77,7 @@ def list_changes(current_service, baseline_service, touched_iris=None) -> list[d
                  "is_new": key not in base, "removed": False,
                  "parent": _fmt(parent), "fields": []}
         if not entry["is_new"]:
-            b = base[key]
+            b = baseline_service.get_disease_detail(base[key]["iri"])
             for fkey, flabel in FIELDS:
                 ov, nv = _fmt(b.get(fkey)), _fmt(d.get(fkey))
                 if ov != nv:

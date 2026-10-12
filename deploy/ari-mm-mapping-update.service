@@ -1,5 +1,5 @@
 [Unit]
-Description=Fetch latest ARI mapping TSVs from GitHub and restart the manager if changed
+Description=Fetch latest ARI mapping TSVs from GitHub into the manager's runtime files
 After=network-online.target
 Wants=network-online.target
 

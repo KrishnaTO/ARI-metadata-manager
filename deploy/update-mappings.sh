@@ -1,6 +1,12 @@
 #!/usr/bin/env bash
 # Fetch the latest mapping TSV files from the configured ARI repo/branch and
-# restart the app only when any local runtime mapping changes.
+# replace the local copies when they have changed.
+#
+# No restart: the app reads these files from disk on every request that needs
+# them, so a new file is picked up immediately. Restarting used to throw away the
+# loaded reference indexes (the next review-page visitor waited ~5 s for them)
+# and every curator's in-memory working copy, without the deferral update.sh
+# applies while curators have work in progress.
 set -euo pipefail
 
 APP_DIR=/opt/ari/ari-metadata-manager
@@ -21,15 +27,18 @@ TOKEN="${GITHUB_SERVICE_TOKEN:-}"
 # Default mapping files if not configured.
 # Note: the ARI repo currently only hosts two mapping files; the remaining three are
 # managed in the app repo. We therefore only attempt to fetch these two by default.
-DEFAULT_MAPPINGS="mappings/ari.equivalencies.tsv:$APP_DIR/mappings/ari.equivalencies.tsv
-mappings/ari.sssom.tsv:$APP_DIR/mappings/ari.sssom.tsv"
+#
+# They are written to ari-mappings/ (gitignored), which is where the app reads
+# them (app/config.py MAPPINGS_RUNTIME_DIR). Writing them over the tracked copies
+# under mappings/ made update.sh stash and reset them on every tick, and this
+# script then saw them "change" and restart the app every ten minutes.
+DEFAULT_MAPPINGS="mappings/ari.equivalencies.tsv:$APP_DIR/ari-mappings/ari.equivalencies.tsv
+mappings/ari.sssom.tsv:$APP_DIR/ari-mappings/ari.sssom.tsv"
 
 MAPPING_CONFIG="${ARI_MAPPING_FILES:-$DEFAULT_MAPPINGS}"
 
 TMP="$(mktemp)"
 trap 'rm -f "$TMP"' EXIT
-
-any_changed=0
 
 fetch_file() {
   local remote_path="$1"
@@ -77,17 +86,12 @@ while IFS= read -r spec; do
   if [ -f "$local_path" ] && cmp -s "$TMP" "$local_path"; then
     echo "Mapping already up to date: $OWNER/$REPO:$BRANCH:$remote_path -> $local_path"
   else
-    install -m 0644 "$TMP" "$local_path"
+    # Replace atomically: the running app may read the file at any moment, and
+    # must never see it half-written.
+    install -m 0644 "$TMP" "$local_path.new"
+    mv -f "$local_path.new" "$local_path"
     echo "Updated mapping: $OWNER/$REPO:$BRANCH:$remote_path -> $local_path"
-    any_changed=1
   fi
 done <<EOF
 $MAPPING_CONFIG
 EOF
-
-if [ "$any_changed" -eq 1 ]; then
-  sudo systemctl restart ari-mm
-  echo "One or more mappings changed; restarted ari-mm."
-else
-  echo "No mapping changes; ari-mm not restarted."
-fi

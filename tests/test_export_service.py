@@ -37,6 +37,34 @@ def _load(xlsx_bytes):
     return openpyxl.load_workbook(io.BytesIO(xlsx_bytes)).active
 
 
+# ------------------------------------------------------- whole-catalogue cost
+# The sheet carries each disease's own fields, but the export built every
+# disease's full record on both sides: its item lists, plus a scan of every other
+# disease for its subtypes, 428 times over — ~0.6 s locally per export.
+ITEM_KEYS = {"subtypes", "symptoms", "environmental_factors", "antibodies", "genetic",
+             "treatments", "etiology", "biomarkers", "pathway", "cytokines", "tcells", "apcs",
+             "transcription_factors", "innate_components", "complement", "receptors",
+             "netosis", "inflammasome", "acute_phase_reactants", "antigens"}
+
+
+def test_the_export_never_builds_a_full_disease_record(make_service, ro_service, monkeypatch):
+    current = make_service()
+
+    def refuse(iri):
+        raise AssertionError("built a full disease record for the export")
+    for svc in (current, ro_service):
+        monkeypatch.setattr(svc, "get_disease_detail", refuse)
+    assert _load(ex.build_report(current, ro_service)).max_row > 1
+
+
+def test_a_disease_record_is_its_detail_without_the_items(ro_service):
+    details = [ro_service.get_disease_detail(d["iri"]) for d in ro_service.get_diseases_list()]
+    records = ro_service.get_disease_records()
+    assert [r["iri"] for r in records] == [d["iri"] for d in details]
+    for record, detail in zip(records, details):
+        assert record == {k: v for k, v in detail.items() if k not in ITEM_KEYS}
+
+
 def test_build_report_without_baseline(ro_service):
     ws = _load(ex.build_report(ro_service))
     headers = [c.value for c in ws[1]]

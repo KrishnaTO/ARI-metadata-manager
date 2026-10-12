@@ -56,6 +56,29 @@ def changes(edited, ro_service):
     return ds.list_changes(edited.svc, ro_service)
 
 
+# ------------------------------------------------------------- scoped cost
+# A publish describes the few diseases the curator touched, but the comparison
+# built the full record of every disease on both sides first: 428 builds and
+# ~0.7 s on every publish and every opening of the publish dialog.
+def test_a_scoped_list_builds_only_the_scoped_records(edited, ro_service, monkeypatch):
+    built = []
+    for svc in (edited.svc, ro_service):
+        real = svc.get_disease_detail
+        monkeypatch.setattr(svc, "get_disease_detail",
+                            lambda iri, real=real: built.append(iri) or real(iri))
+    ds.list_changes(edited.svc, ro_service, {edited.renamed})
+    assert built == [edited.renamed, edited.renamed], \
+        f"built {len(built)} records to describe one disease"
+
+
+def test_a_scoped_list_is_the_full_list_filtered_to_the_scope(edited, ro_service, changes):
+    new = next(c["iri"] for c in changes if c["is_new"])
+    for scope in ({edited.renamed}, {edited.renamed, edited.other}, {edited.untouched},
+                  {new}, {new, edited.other, edited.untouched}):
+        assert ds.list_changes(edited.svc, ro_service, scope) == \
+            [c for c in changes if c["iri"] in scope], scope
+
+
 @pytest.fixture(scope="module")
 def summary(changes):
     return ds.render_summary(changes)
