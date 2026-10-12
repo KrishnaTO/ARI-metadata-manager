@@ -1,5 +1,9 @@
 # Changelog
 
+## claude/http-connection-reuse
+
+- **GitHub calls reuse one connection.** Every helper in `github_service` opened its own HTTP client, so each step of a sync, publish or settings read paid a fresh TCP and TLS handshake to api.github.com. They now share one pooled client per event loop (one in production), with each call's own headers and timeout. Three sequential calls against the live API took ~335 ms before and ~92 ms after, once warm.
+- **Terminology lookups reuse connections.** The PR reviewer's live lookups (tx.fhir.org, OHDSI, EBI OLS, NLM, NCBI) called `httpx.get`, a new connection each time, for a few hundred lookups per matrix. They now share one thread-safe `httpx.Client`.
 ## claude/offload-index-work
 
 - **Reloading the reference indexes no longer stalls every other request.** The app serves everything from one event loop. When `data/2-databases` changed, the next `/api/v2/predictions` or enrichment preview reloaded the indexes inside its handler (seconds in production), and nothing else was answered meanwhile, not even `/healthz`, which `deploy/update.sh` reads with a 5-second timeout. Both routes now load the indexes (and enrichment's derived tables, `enrich_service.warm`) in a thread first; the ontology reads and the matching (tens of ms) stay on the loop, since owlready2 worlds are not safe to share across threads.

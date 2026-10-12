@@ -91,8 +91,15 @@ _ncbi_last = 0.0
 _NCBI_BATCH = 200
 
 
+# One pooled client for every lookup. ``httpx.get`` opened a connection per call,
+# so a PR matrix's few hundred lookups across tx.fhir.org, OHDSI, EBI OLS and NLM
+# each paid a handshake (EFFICIENCY.md §8). An ``httpx.Client`` is safe to share
+# across the prefetch threads.
+_HTTP = httpx.Client(timeout=30, follow_redirects=True)
+
+
 def _get(url: str, **kw) -> httpx.Response:
-    return httpx.get(url, timeout=30, follow_redirects=True, **kw)
+    return _HTTP.get(url, **kw)
 
 
 def _concept(label: str, names=(), **extra) -> dict:
