@@ -6,6 +6,7 @@ concept lookups it offers, and the per-curator session that lets a review resume
 after a reload.
 """
 import logging
+from pathlib import Path
 
 import httpx
 from fastapi import APIRouter, Body, HTTPException, Request
@@ -50,10 +51,11 @@ async def _mapping_judgments(request: Request) -> list:
         equiv_text = await _read(config.MAPPINGS_EQUIV_PATH)
     if not sssom_text and not equiv_text:
         for p, is_sssom in ((config.MAPPINGS_SSSOM_PATH, True), (config.MAPPINGS_EQUIV_PATH, False)):
+            local = config.MAPPINGS_RUNTIME_DIR / Path(p).name
             try:
-                txt = (config.ROOT / p).read_text(encoding="utf-8")
+                txt = local.read_text(encoding="utf-8")
             except OSError as e:
-                log.debug("Could not read local mapping file %s: %s", p, e)
+                log.debug("Could not read local mapping file %s: %s", local, e)
                 txt = ""
             if is_sssom:
                 sssom_text = txt
@@ -162,7 +164,8 @@ async def mappings(request: Request):
     Read from the accumulated SSSOM (falling back to the equivalencies file) so
     the review page can pre-highlight cells that were confirmed or flagged in an
     earlier session. When signed in, the files are read from the current source
-    branch on GitHub; otherwise the local working-tree copy (if any) is used.
+    branch on GitHub; otherwise from the copies ``deploy/update-mappings.sh``
+    keeps in ``config.MAPPINGS_RUNTIME_DIR`` (none until it has run).
     """
     return await _mapping_judgments(request)
 

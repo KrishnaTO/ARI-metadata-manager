@@ -154,6 +154,67 @@ def test_enrich_many_skips_diseases_without_confirmations():
     assert set(out) == {"iri:t1d"}
 
 
+# ------------------------------------------------------------------- caching
+# Both structures were rebuilt on every preview and again on publish: 1.35 s per
+# call in production, even with nothing confirmed. They depend only on the
+# index files, so they are built once per set of files.
+T1D_CONFIRMED = {"iri:t1d": [{"db": "mondo", "ids": ["0005147"]}]}
+
+
+def _counting(monkeypatch, name):
+    calls = []
+    real = getattr(es, name)
+
+    def wrapper(*args, **kwargs):
+        calls.append(1)
+        return real(*args, **kwargs)
+    monkeypatch.setattr(es, name, wrapper)
+    return calls
+
+
+def test_id_index_is_built_once_per_set_of_indexes(monkeypatch):
+    built = _counting(monkeypatch, "build_id_index")
+    indexes = [HUB]
+    for _ in range(3):
+        es.enrich_many([_disease()], T1D_CONFIRMED, indexes=indexes,
+                       subtypes=SUBTYPES, blocklist={})
+    assert len(built) == 1
+
+    # get_indexes() hands back a new list once the index files change.
+    es.enrich_many([_disease()], T1D_CONFIRMED, indexes=[HUB], subtypes=SUBTYPES, blocklist={})
+    assert len(built) == 2
+
+
+def test_subtype_map_is_reloaded_only_when_its_file_changes(tmp_path, monkeypatch):
+    loaded = _counting(monkeypatch, "load_subtypes")
+    edges = tmp_path / "mondo.subtypes.tsv"
+    edges.write_text("\t".join(es.SUBTYPE_COLS) + "\nMONDO:0005147\tMONDO:0011899\n",
+                     encoding="utf-8")
+    indexes = [HUB, _index(("MONDO:0011899", "type 1 diabetes mellitus 2", [], {}),
+                           ("MONDO:0012819", "type 1 diabetes mellitus 21", [], {}))]
+
+    def subtypes():
+        out = es.enrich_many([_disease()], T1D_CONFIRMED, indexes=indexes,
+                             index_dir=tmp_path, blocklist={})
+        return [e["value"].split(" - ")[0] for e in out["iri:t1d"]["subtypes"]]
+
+    assert subtypes() == ["type 1 diabetes mellitus 2"]
+    assert subtypes() == ["type 1 diabetes mellitus 2"]
+    assert len(loaded) == 1
+
+    edges.write_text("\t".join(es.SUBTYPE_COLS) + "\nMONDO:0005147\tMONDO:0011899\n"
+                     "MONDO:0005147\tMONDO:0012819\n", encoding="utf-8")
+    assert subtypes() == ["type 1 diabetes mellitus 2", "type 1 diabetes mellitus 21"]
+    assert len(loaded) == 2
+
+
+def test_nothing_confirmed_reads_no_index_at_all(monkeypatch):
+    def refuse(*args, **kwargs):
+        raise AssertionError("loaded the reference indexes with nothing to enrich")
+    monkeypatch.setattr(es, "get_indexes", refuse)
+    assert es.enrich_many([_disease()], {}) == {}
+
+
 # --------------------------------------------------------------- subtype file loading
 def test_load_subtypes_resolves_child_labels_from_the_indexes(tmp_path):
     # The edge file carries ids only; the name of each child comes from that child's
