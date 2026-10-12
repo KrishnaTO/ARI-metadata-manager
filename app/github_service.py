@@ -12,6 +12,7 @@ import hashlib
 import logging
 import re
 import time
+import weakref
 
 import httpx
 
@@ -19,6 +20,46 @@ GH = "https://github.com"
 API = "https://api.github.com"
 
 log = logging.getLogger(__name__)
+
+
+# One pooled client per event loop, reused by every call: each helper used to
+# open its own client, so every step of a sync, publish or settings read paid a
+# fresh TCP and TLS handshake to api.github.com (EFFICIENCY.md §8). The app runs
+# one loop, so in production this is one client. It is keyed by loop because an
+# httpx client's connections belong to the loop that opened them.
+_CLIENTS: "weakref.WeakKeyDictionary[asyncio.AbstractEventLoop, httpx.AsyncClient]" =     weakref.WeakKeyDictionary()
+
+
+class _Calls:
+    """The shared client, with one caller's headers and timeout on each request.
+
+    Used as ``async with _Calls(headers, timeout) as c``, the shape the helpers
+    had with a client of their own; leaving the block closes nothing."""
+
+    def __init__(self, headers: dict | None = None, timeout: float = 20):
+        loop = asyncio.get_running_loop()
+        if loop not in _CLIENTS:
+            _CLIENTS[loop] = httpx.AsyncClient()
+        self._client, self._headers, self._timeout = _CLIENTS[loop], headers or {}, timeout
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, *exc):
+        return False
+
+    def request(self, method: str, url: str, **kw):
+        headers = {**self._headers, **(kw.pop("headers", None) or {})}
+        return self._client.request(method, url, headers=headers, timeout=self._timeout, **kw)
+
+    def get(self, url: str, **kw):
+        return self.request("GET", url, **kw)
+
+    def post(self, url: str, **kw):
+        return self.request("POST", url, **kw)
+
+    def patch(self, url: str, **kw):
+        return self.request("PATCH", url, **kw)
 
 
 def _is_fork_of(response, owner: str, repo: str) -> bool:
@@ -104,7 +145,7 @@ def authorize_url(client_id: str, redirect_uri: str, state: str) -> str:
 
 
 async def exchange_code(client_id: str, client_secret: str, code: str, redirect_uri: str) -> str:
-    async with httpx.AsyncClient(timeout=20) as c:
+    async with _Calls(timeout=20) as c:
         r = await c.post(f"{GH}/login/oauth/access_token",
                          headers={"Accept": "application/json"},
                          json={"client_id": client_id, "client_secret": client_secret,
@@ -120,7 +161,7 @@ def _headers(token: str) -> dict:
 
 
 async def get_identity(token: str) -> dict:
-    async with httpx.AsyncClient(timeout=20, headers=_headers(token)) as c:
+    async with _Calls(_headers(token), timeout=20) as c:
         user = (await c.get(f"{API}/user")).json()
         email = user.get("email")
         try:
@@ -159,6 +200,10 @@ async def _catch_up(client, c_owner: str, c_repo: str, branch: str,
     log.info("Merged %s into %s before committing", base_branch, branch)
 
 
+# (owner, repo, label) known to exist upstream, so a publish creates each once.
+_LABELS_KNOWN: set = set()
+
+
 async def publish_file(*, token: str, owner: str, repo: str, base_branch: str, pr_body: str = "",
                        extra_files: dict = None, path: str, content_bytes: bytes,
                        disease_name: str, message: str, identity: dict,
@@ -176,7 +221,7 @@ async def publish_file(*, token: str, owner: str, repo: str, base_branch: str, p
     def _author():
         return {"name": identity["name"], "email": identity["email"]}
 
-    async with httpx.AsyncClient(timeout=30, headers=_headers(token)) as c:
+    async with _Calls(_headers(token), timeout=30) as c:
         # Where can this user push? Upstream if collaborator, else their fork.
         info = await _get(c, f"{API}/repos/{owner}/{repo}")
         can_push = bool(info.json().get("permissions", {}).get("push")) if info.status_code == 200 else False
@@ -246,14 +291,15 @@ async def publish_file(*, token: str, owner: str, repo: str, base_branch: str, p
         parent_commit = (await _get(c, f"{API}/repos/{c_owner}/{c_repo}/git/commits/{parent_sha}")).json()
         base_tree_sha = parent_commit["tree"]["sha"]
 
-        tree_entries = []
-        for fpath, fbytes in files.items():
+        # The uploads are independent of each other, so they go out together.
+        async def _blob(fpath, fbytes):
             blob = await c.post(f"{API}/repos/{c_owner}/{c_repo}/git/blobs", json={
                 "content": base64.b64encode(fbytes).decode(), "encoding": "base64",
             })
             if blob.status_code >= 300:
                 raise ValueError(explain(blob.status_code, blob.json().get("message", "")))
-            tree_entries.append({"path": fpath, "mode": "100644", "type": "blob", "sha": blob.json()["sha"]})
+            return {"path": fpath, "mode": "100644", "type": "blob", "sha": blob.json()["sha"]}
+        tree_entries = list(await asyncio.gather(*(_blob(p, b) for p, b in files.items())))
 
         tree = await c.post(f"{API}/repos/{c_owner}/{c_repo}/git/trees", json={
             "base_tree": base_tree_sha, "tree": tree_entries,
@@ -301,9 +347,14 @@ async def publish_file(*, token: str, owner: str, repo: str, base_branch: str, p
 
         # apply labels on the upstream PR (best effort; outside contributors can't label)
         try:
+            # Created once per process, with their colours: they almost always
+            # exist already, and this was one wasted call per label per publish.
             for name in labels:
+                if (owner, repo, name) in _LABELS_KNOWN:
+                    continue
                 await c.post(f"{API}/repos/{owner}/{repo}/labels",
                              json={"name": name, "color": label_colors.get(name, "ededed")})
+                _LABELS_KNOWN.add((owner, repo, name))
             await c.post(f"{API}/repos/{owner}/{repo}/issues/{prj['number']}/labels",
                          json={"labels": labels})
         except Exception as e:
@@ -323,7 +374,7 @@ async def list_branches(token: str | None, owner: str, repo: str) -> list[str]:
     if token:
         hdrs["Authorization"] = f"Bearer {token}"
     out, page = [], 1
-    async with httpx.AsyncClient(timeout=20, headers=hdrs) as c:
+    async with _Calls(hdrs, timeout=20) as c:
         while True:
             r = await c.get(f"{API}/repos/{owner}/{repo}/branches",
                             params={"per_page": 100, "page": page})
@@ -342,7 +393,7 @@ async def get_file_at(token: str | None, owner: str, repo: str, path: str, ref: 
     hdrs = {"Accept": "application/vnd.github.raw+json"}
     if token:
         hdrs["Authorization"] = f"Bearer {token}"
-    async with httpx.AsyncClient(timeout=30, headers=hdrs) as c:
+    async with _Calls(hdrs, timeout=30) as c:
         r = await c.get(f"{API}/repos/{owner}/{repo}/contents/{path}", params={"ref": ref})
         if r.status_code >= 300:
             raise ValueError(f"Could not fetch {path}@{ref}: {r.status_code} {r.text[:200]}")
@@ -364,7 +415,7 @@ async def file_blob_sha(token: str | None, owner: str, repo: str, path: str, ref
     hdrs = {"Accept": "application/vnd.github.object"}
     if token:
         hdrs["Authorization"] = f"Bearer {token}"
-    async with httpx.AsyncClient(timeout=20, headers=hdrs) as c:
+    async with _Calls(hdrs, timeout=20) as c:
         r = await c.get(f"{API}/repos/{owner}/{repo}/contents/{path}", params={"ref": ref})
         if r.status_code >= 300:
             raise ValueError(f"Could not read the blob id of {path}@{ref}: {r.status_code} {r.text[:200]}")
@@ -385,7 +436,7 @@ async def branch_sha(token: str | None, owner: str, repo: str, branch: str) -> s
     hdrs = {"Accept": "application/vnd.github+json"}
     if token:
         hdrs["Authorization"] = f"Bearer {token}"
-    async with httpx.AsyncClient(timeout=20, headers=hdrs) as c:
+    async with _Calls(hdrs, timeout=20) as c:
         r = await c.get(f"{API}/repos/{owner}/{repo}/branches/{branch}")
         if r.status_code == 404:
             raise BranchNotFound(f"The branch {branch} does not exist.")
@@ -404,7 +455,7 @@ async def list_open_prs(token: str | None, owner: str, repo: str) -> list[dict]:
     if token:
         hdrs["Authorization"] = f"Bearer {token}"
     out, page = [], 1
-    async with httpx.AsyncClient(timeout=20, headers=hdrs) as c:
+    async with _Calls(hdrs, timeout=20) as c:
         while True:
             r = await c.get(f"{API}/repos/{owner}/{repo}/pulls",
                             params={"state": "open", "per_page": 100, "page": page})

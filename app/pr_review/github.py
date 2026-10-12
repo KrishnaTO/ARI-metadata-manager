@@ -33,6 +33,10 @@ class Reader:
         self.repo = f"{config.GH_OWNER}/{config.GH_REPO}"
         self._client = httpx.Client(base_url=API, timeout=60, headers={
             "Authorization": f"Bearer {token}", "Accept": "application/vnd.github+json"})
+        # A Reader lives for one request; within it, a PR and its file list are
+        # read once however many steps need them.
+        self._pulls: dict[int, dict] = {}
+        self._file_lists: dict[int, list[dict]] = {}
 
     def __enter__(self):
         return self
@@ -45,25 +49,72 @@ class Reader:
         resp.raise_for_status()
         return resp.json()
 
+    def _pull(self, number: int) -> dict:
+        if number not in self._pulls:
+            self._pulls[number] = self._json(f"/repos/{self.repo}/pulls/{number}")
+        return self._pulls[number]
+
+    def _files(self, number: int) -> list[dict]:
+        """Every file the PR changes. Only the first 100 used to be read, so a
+        reviewed file past them was missed."""
+        if number not in self._file_lists:
+            files, page = [], 1
+            while True:
+                batch = self._json(f"/repos/{self.repo}/pulls/{number}/files",
+                                   per_page=100, page=page)
+                files += batch
+                if len(batch) < 100:
+                    break
+                page += 1
+            self._file_lists[number] = files
+        return self._file_lists[number]
+
     def _changed_paths(self, number: int) -> list[str]:
-        files = self._json(f"/repos/{self.repo}/pulls/{number}/files", per_page=100)
-        return [f["filename"] for f in files if f["filename"] in REVIEWED_PATHS]
+        return [f["filename"] for f in self._files(number) if f["filename"] in REVIEWED_PATHS]
+
+    # Open PRs with their changed paths, in one GraphQL call per 50 PRs. The REST
+    # listing has no file list, so it took one more call per open PR.
+    _OPEN_PRS = """query($owner: String!, $name: String!, $after: String) {
+      repository(owner: $owner, name: $name) {
+        pullRequests(states: OPEN, first: 50, after: $after) {
+          pageInfo { hasNextPage endCursor }
+          nodes { number title url createdAt headRefOid author { login }
+                  files(first: 100) { totalCount nodes { path } } } } } }"""
 
     def list_review_prs(self) -> list[dict]:
         """Open pull requests whose diff touches the equivalencies or predictions file."""
-        out = []
-        for pr in self._json(f"/repos/{self.repo}/pulls", state="open", per_page=100):
-            paths = self._changed_paths(pr["number"])
-            if paths:
-                out.append({"number": pr["number"], "title": pr["title"],
-                            "author": pr["user"]["login"], "created_at": pr["created_at"],
-                            "url": pr["html_url"], "head_sha": pr["head"]["sha"],
-                            "paths": paths})
-        return out
+        owner, name = self.repo.split("/")
+        out, after = [], None
+        while True:
+            resp = self._client.post("/graphql", json={"query": self._OPEN_PRS, "variables": {
+                "owner": owner, "name": name, "after": after}})
+            resp.raise_for_status()
+            body = resp.json()
+            if body.get("errors"):
+                raise ValueError(f"GitHub GraphQL refused the PR listing: {body['errors']}")
+            page = body["data"]["repository"]["pullRequests"]
+            for pr in page["nodes"]:
+                files = pr["files"]
+                # A PR changing more than 100 files is read in full the REST way.
+                paths = ([n["path"] for n in files["nodes"] if n["path"] in REVIEWED_PATHS]
+                         if files["totalCount"] <= len(files["nodes"])
+                         else self._changed_paths(pr["number"]))
+                if paths:
+                    out.append({"number": pr["number"], "title": pr["title"],
+                                "author": (pr["author"] or {}).get("login", "ghost"),
+                                "created_at": pr["createdAt"], "url": pr["url"],
+                                "head_sha": pr["headRefOid"], "paths": paths})
+            if not page["pageInfo"]["hasNextPage"]:
+                return out
+            after = page["pageInfo"]["endCursor"]
+
+    def head_sha(self, number: int) -> str:
+        """The PR's head commit: one call, and all a cached matrix needs."""
+        return self._pull(number)["head"]["sha"]
 
     def pr_refs(self, number: int) -> dict:
         """Head sha and the merge base the PR's changes are measured from."""
-        pr = self._json(f"/repos/{self.repo}/pulls/{number}")
+        pr = self._pull(number)
         head_sha = pr["head"]["sha"]
         compare = self._json(f"/repos/{self.repo}/compare/{pr['base']['sha']}...{head_sha}")
         return {"number": number, "title": pr["title"], "author": pr["user"]["login"],
@@ -86,8 +137,7 @@ class Reader:
         """``{"LEFT": {...}, "RIGHT": {...}}``: the lines of ``path`` inside the PR's diff
         hunks, the only lines GitHub lets a review comment attach to. Empty when GitHub
         omits the patch (a diff too large to show)."""
-        files = self._json(f"/repos/{self.repo}/pulls/{number}/files", per_page=100)
-        patch = next((f.get("patch", "") for f in files if f["filename"] == path), "")
+        patch = next((f.get("patch", "") for f in self._files(number) if f["filename"] == path), "")
         lines = {"LEFT": set(), "RIGHT": set()}
         left = right = 0
         for ln in patch.splitlines():

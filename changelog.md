@@ -3,6 +3,29 @@
 ## claude/baseline-cache
 
 - **The source branch's ontology is downloaded once per commit.** The publish dialog, the publish, sync, resolve, switching branch and the export each downloaded the branch's ontology (~1.7 MB) from GitHub; a routine publish fetched the same bytes three or four times. The bytes at a commit never change, so `app/baselines.py` keeps them by commit sha under `.user-data/baselines/` (the 8 most recently used) and every caller reads them from there. The publish dialog and the export now name the branch's current commit too, so the publish that follows the dialog reuses its download. A value that is not a 40-character commit sha is refused before it can name a file.
+## claude/pr-reviewer-calls
+
+- **The PR reviewer reads less from GitHub.** Listing open PRs made one `/files` call per open PR to find the ones touching mapping files; it is now one GraphQL call per 50 PRs. Opening a cached matrix made three calls (`/pulls/{n}`, `/compare`, `/files`); it now makes one, and the rest are read only when the head commit has moved. Within a request, a PR and its file list are read once, so posting a review no longer fetches the file list again.
+- **Every changed file is read.** The file list stopped at the first 100 files, so a reviewed file past them was missed; it is now paginated.
+- **Matching ids is linear.** Each changed row scanned every row of the PR's equivalencies file for its disease's other ids; the file is grouped by disease once per matrix.
+## claude/http-connection-reuse
+
+- **GitHub calls reuse one connection.** Every helper in `github_service` opened its own HTTP client, so each step of a sync, publish or settings read paid a fresh TCP and TLS handshake to api.github.com. They now share one pooled client per event loop (one in production), with each call's own headers and timeout. Three sequential calls against the live API took ~335 ms before and ~92 ms after, once warm.
+- **Terminology lookups reuse connections.** The PR reviewer's live lookups (tx.fhir.org, OHDSI, EBI OLS, NLM, NCBI) called `httpx.get`, a new connection each time, for a few hundred lookups per matrix. They now share one thread-safe `httpx.Client`.
+## claude/offload-index-work
+
+- **Reloading the reference indexes no longer stalls every other request.** The app serves everything from one event loop. When `data/2-databases` changed, the next `/api/v2/predictions` or enrichment preview reloaded the indexes inside its handler (seconds in production), and nothing else was answered meanwhile, not even `/healthz`, which `deploy/update.sh` reads with a 5-second timeout. Both routes now load the indexes (and enrichment's derived tables, `enrich_service.warm`) in a thread first; the ontology reads and the matching (tens of ms) stay on the loop, since owlready2 worlds are not safe to share across threads.
+## claude/parallel-server-calls
+
+- **Independent GitHub reads and uploads run together.** A publish uploaded its blobs (the ontology and the two mapping files) one after another; they now go out together. The two mapping files, read for the review page's prior judgments and for every review publish, are fetched together. The PR reviewer's matrix fetched its five to seven files in series; they now share a small thread pool.
+- **PR labels are created once per process.** Every publish posted each label (`edit term`, `sssom`) to be created before applying it, although they almost always exist already: one wasted call per label per publish.
+## claude/parallel-startup
+
+- **Both pages fetch their start-up data together.** The reference-review page fetched the database registry, the grid, the curated mappings, the predictions, the curator's session, id authorship and the review queues one after another, so the matrix waited for their sum; `mappings` alone is two GitHub downloads when signed in and `predictions` can be a cold start. They now go out together after `me` and `sync`, and the page waits for the slowest. The main page does the same for the overview, the field schema and the database registry. Error handling is unchanged: the registry and the grid are required, everything else degrades as before.
+## claude/synonym-review-cache
+
+- **The synonym review no longer re-downloads report 9 on every load.** The report changes only when the data repo's notebook rewrites it, but each load downloaded and parsed it again (0.64-0.95 s in production). `GET /api/v2/synonym-review` now reads the file's git blob id (one small response, ~100 ms locally) and downloads only when it has changed (~410 ms locally for the full file).
+- **Each row carries its disease's IRI.** The page loaded all of `/api/v2/xrefs` (203 KB) only to link each disease back to the review page; the server now adds the IRI, and the page makes one request instead of two.
 
 ## claude/issue-11-copy-name
 

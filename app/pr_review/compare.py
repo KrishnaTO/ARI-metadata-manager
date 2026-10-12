@@ -34,6 +34,7 @@ import io
 import json
 import os
 import tempfile
+from concurrent.futures import ThreadPoolExecutor
 from urllib.parse import quote
 
 from ..concept_service import lookup
@@ -327,15 +328,26 @@ def definition_overlap(a: str, b: str) -> dict | None:
 
 
 # ----------------------------------------------------------------- xref evidence
-def _ari_ids(ari_row: dict | None, head_equiv: dict, ari_num: int, pr_keys: set) -> tuple:
-    """(known, rejected) id maps for one disease: ``(db, match_key) -> origin``."""
+def group_by_ari(equiv: dict) -> dict[int, list]:
+    """``ARI number -> [(row key, row)]`` over a parsed equivalencies file."""
+    out: dict[int, list] = {}
+    for key, row in equiv.items():
+        out.setdefault(key[0], []).append((key, row))
+    return out
+
+
+def _ari_ids(ari_row: dict | None, equiv_rows: list, ari_num: int, pr_keys: set) -> tuple:
+    """(known, rejected) id maps for one disease: ``(db, match_key) -> origin``.
+
+    ``equiv_rows`` are that disease's own equivalencies rows (:func:`group_by_ari`);
+    this used to scan every row of the file for each changed row."""
     known, rejected = {}, {}
     if ari_row:
         for d in XREF_DATABASES:
             for i in ari_row.get(d["key"], []):
                 known[(d["key"], match_key(i))] = "existing"
-    for key, row in head_equiv.items():
-        if key[0] != ari_num or key[1] not in PREFIX_TO_DB:
+    for key, row in equiv_rows:
+        if key[1] not in PREFIX_TO_DB:
             continue
         db_key = (PREFIX_TO_DB[key[1]], key[2])
         target = known if row["type"] == CONFIRMED else rejected
@@ -394,8 +406,19 @@ def hint(status: str, judgment: str, found: bool, score: int, flags: list[str]) 
 # ------------------------------------------------------------------------ matrix
 def build_matrix(refs: dict, reader: github.Reader) -> dict:
     """The matrix for the PR described by ``refs`` (from ``Reader.pr_refs``)."""
+    # Five to seven independent file reads; they ran one after another.
+    wanted = [(github.EQUIV_PATH, refs["head_sha"]), (github.ONTOLOGY_PATH, refs["head_sha"])]
+    if github.EQUIV_PATH in refs["paths"]:
+        wanted += [(github.EQUIV_PATH, refs["merge_base"]), (github.EQUIV_PATH, refs["base_ref"]),
+                   (github.SSSOM_PATH, refs["head_sha"])]
+    if github.PREDICTIONS_PATH in refs["paths"]:
+        wanted += [(github.PREDICTIONS_PATH, ref)
+                   for ref in (refs["merge_base"], refs["head_sha"], refs["base_ref"])]
+    with ThreadPoolExecutor(max_workers=len(wanted)) as pool:
+        files = dict(zip(wanted, pool.map(lambda w: reader.file_at(*w), wanted)))
+
     def text(path, ref):
-        return reader.file_at(path, ref).decode("utf-8")
+        return files[(path, ref)].decode("utf-8")
 
     head_equiv = parse_equivalencies(text(github.EQUIV_PATH, refs["head_sha"]))
     changes = []
@@ -409,7 +432,7 @@ def build_matrix(refs: dict, reader: github.Reader) -> dict:
             parse_predictions(text(github.PREDICTIONS_PATH, refs["merge_base"])),
             parse_predictions(text(github.PREDICTIONS_PATH, refs["head_sha"])),
             parse_predictions(text(github.PREDICTIONS_PATH, refs["base_ref"])))
-    ari = load_ari(reader.file_at(github.ONTOLOGY_PATH, refs["head_sha"]))
+    ari = load_ari(files[(github.ONTOLOGY_PATH, refs["head_sha"])])
     owners = _name_owners(ari)
     indexes = get_indexes()
 
@@ -419,14 +442,15 @@ def build_matrix(refs: dict, reader: github.Reader) -> dict:
     # Ids the PR itself judged; a prediction is not a judgment.
     pr_keys = {c["key"] for c in changes
                if c["status"] != "removed" and c["row"]["type"] != PREDICTED}
-    rows = [_compare_row(c, refs, ari, owners, head_equiv, pr_keys, indexes) for c in changes]
+    by_ari = group_by_ari(head_equiv)
+    rows = [_compare_row(c, refs, ari, owners, by_ari, pr_keys, indexes) for c in changes]
     # File order, equivalencies before predictions; removed rows (numbered in the
     # merge-base file) go last within their file.
     rows.sort(key=lambda r: (r["judgment"] == PREDICTED, r["status"] == "removed", r["line"]))
     return {"pr": refs, "rows": rows}
 
 
-def _compare_row(change, refs, ari, owners, head_equiv, pr_keys, indexes):
+def _compare_row(change, refs, ari, owners, by_ari, pr_keys, indexes):
     row, key = change["row"], change["key"]
     num = key[0]
     db = PREFIX_TO_DB.get(key[1])
@@ -447,7 +471,7 @@ def _compare_row(change, refs, ari, owners, head_equiv, pr_keys, indexes):
     defs = [(v, o) for v, o in defs if o]
     best_def = max(defs, key=lambda p: p[1]["score"], default=(None, None))[1]
 
-    known, rejected = _ari_ids(ari_row, head_equiv, num, pr_keys) if num is not None \
+    known, rejected = _ari_ids(ari_row, by_ari.get(num, []), num, pr_keys) if num is not None \
         else ({}, {})
     evidence = xref_evidence(views, db, known, rejected) if db else \
         {"support": [], "against": [], "conflicts": []}
