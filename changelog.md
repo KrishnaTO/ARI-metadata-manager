@@ -1,5 +1,9 @@
 # Changelog
 
+## claude/issue-160-keep-flag
+
+- **A flagged id removed from its cell keeps its flag.** Saving a cell on the review page cleared the verdict of every id that left it. A flagged id that was then removed (or that a publish had already removed) lost its flag, so the next publish to the same pull request, which rebuilds the mapping files from the base branch and re-sends the session's verdicts, carried no `Not` row for it. The data repo then rejected the id's removal as unjudged (`xref-deleted`, KrishnaTO/ARI#87). A removed id now keeps a flag and loses only a confirmation, which would otherwise publish a positive mapping the record contradicts. The rule lives in `ReviewModel.idEditChanges` with node tests.
+
 ## claude/autostash-cleanup-doc
 
 - **OPERATIONS.md: the autostash cleanup procedure is safer to run.** It now pauses `ari-mm-update.timer` first and restarts it after, so an update run cannot add or shift stash entries mid-cleanup. It checks `git status --porcelain` is empty before starting, and runs the log check (`sudo journalctl`) and the branch deletion from the admin's own shell. Before, the log check ran inside the `ariapp` shell, which has no `sudo` for it.
