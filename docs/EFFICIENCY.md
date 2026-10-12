@@ -4,10 +4,13 @@ A review of the app's key code paths for avoidable work. Each finding says where
 the cost is, how big it is, and what would remove it, so they can be picked up
 one at a time.
 
-**Status (2026-10-12):** findings 1, 2, 4, 5, 12 and 13 are fixed and deployed
-(#189–#196); each section says by which PR, with the cost after. Findings 3, 6,
-7, 8, 9, 10, 11 and 14 are open. The measurements below are from before the
-fixes, except the table [after the fixes](#production-after-the-fixes).
+**Status (2026-10-12):** findings 1, 2, 4, 5, 7, 8, 9, 10, 12, 13 and 14 are
+fixed and deployed (#189–#196, #203–#209); each section says by which PR, with
+the cost after. Finding 6 is fixed in #214. Finding 3 is partly fixed (#206).
+Finding 11 is partly fixed (#212, #215); its other items were checked and left
+as they are, with the reasons in §11.
+The measurements below are from before the fixes, except the table
+[after the fixes](#production-after-the-fixes).
 
 **Baseline:** `main` at `e8c8a6c`, which is also what production runs
 (`2.348 (e8c8a6c, 2026-10-08)`). **Method, in three passes:**
@@ -85,9 +88,16 @@ Re-timed on 2026-10-12 against `2.376 (81667b8)`, signed out, three runs each.
 | `POST /api/v2/enrichment-preview` with an empty list | 1,346 ms | 53–93 ms |
 | `GET /api/v2/export` (no baseline) | 959 ms | 424–499 ms |
 | App restarts from the mapping refresh | every ~10 min | none (§5) |
+| `GET /api/v2/synonym-review`, repeat load | 641–946 ms | 428–490 ms (§14) |
+
+The synonym-review row was timed later, against `2.414 (a069f4a)`, with `curl`
+from a client whose round trip to the app is 57–103 ms (the browser figures
+above had 21–31 ms), so it overstates the wait slightly.
 
 The publish summary and sync need a signed-in session, so their after figures
-are local, in §1 and §13.
+are local, in §1 and §13. Findings 7–10 change sign-in-only paths (sync, publish,
+the PR reviewer); their after figures are local or against the live GitHub API,
+in each section.
 
 ## Summary, by expected payoff
 
@@ -99,23 +109,19 @@ are local, in §1 and §13.
 | 4 | The prediction indexes load on the first request after every restart | `predict_service.get_indexes` | 5.0 s in production for the first review-page visitor | Small | Fixed, #191 |
 | 5 | The mapping refresh restarts the app for no reason | `deploy/update-mappings.sh:89` | Each restart puts the next visitor through the cold start above | Small (ops) | Fixed, #191 and #192 |
 | 13 | Sync merges every disease and re-reads each record several times | `merge_service.merge_into`, `routes/merge.py` | 0.7 s locally (~1.8 s estimated in production) each time the branch moves | Small | Fixed, #196 |
-| 3 | CPU-bound work runs on the event loop and blocks every other request | all `async def` routes in `app/routes/` | Everyone waits for the slowest request | Medium | Open |
-| 7 | Independent network calls run one after another | frontend `init()`s, mapping reads, blob uploads | 4 serial calls before the tree; 5 before the matrix | Small | Open |
-| 14 | The synonym review re-downloads report 9 on every load | `routes/review.py` `synonym_review`, `synonyms.js` | 0.64–0.95 s and 2.7 MB of JSON per load | Small | Open |
-| 6 | Three separate reverse-id indexes over the same records | `predict_service`, `concept_service`, `enrich_service` | ~125 MB resident | Medium | Open |
-| 8 | No HTTP connection reuse | `github_service`, `pr_review/terminology` | One TLS handshake per call; hundreds per PR matrix | Small | Open |
-| 9 | PR reviewer repeats GitHub reads, and one loop is quadratic | `pr_review/github.py`, `pr_review/compare.py` | N+1 calls to list PRs; 3 fetches of one file list | Small | Open |
-| 10 | Downloaded baselines are not reused | `routes/publish.py`, `merge.py`, `settings.py` | ~1.7 MB download + parse per dialog, publish, resolve, export | Medium | Open |
-| 11 | Smaller items | various | see below | Small | Open |
+| 3 | CPU-bound work runs on the event loop and blocks every other request | all `async def` routes in `app/routes/` | Everyone waits for the slowest request | Medium | Partly fixed, #206 |
+| 7 | Independent network calls run one after another | frontend `init()`s, mapping reads, blob uploads | 4 serial calls before the tree; 5 before the matrix | Small | Fixed, #204 and #205 |
+| 14 | The synonym review re-downloads report 9 on every load | `routes/review.py` `synonym_review`, `synonyms.js` | 0.64–0.95 s and 2.7 MB of JSON per load | Small | Fixed, #203 |
+| 6 | Three separate reverse-id indexes over the same records | `predict_service`, `concept_service`, `enrich_service` | ~125 MB resident | Medium | Fixed, #214 |
+| 8 | No HTTP connection reuse | `github_service`, `pr_review/terminology` | One TLS handshake per call; hundreds per PR matrix | Small | Fixed, #207 |
+| 9 | PR reviewer repeats GitHub reads, and one loop is quadratic | `pr_review/github.py`, `pr_review/compare.py` | N+1 calls to list PRs; 3 fetches of one file list | Small | Fixed, #208 |
+| 10 | Downloaded baselines are not reused | `routes/publish.py`, `merge.py`, `settings.py` | ~1.7 MB download + parse per dialog, publish, resolve, export | Medium | Fixed, #209 |
+| 11 | Smaller items | various | see below | Small | Partly fixed, #212 and #215; the rest left as is |
 
-Suggested order for what is open:
-
-1. **§14.** Small and self-contained, with the largest per-load cost left.
-2. **§7.** The review page's start-up waits for the sum of its calls instead of
-   the slowest one.
-3. **§3.** With findings 1, 2 and 4 fixed, what still blocks the loop is
-   shorter, but it grows with the number of curators working at once.
-4. **§8 and §9**, then **§10**, **§6** and **§11**.
+What is still open: **§3, step 3**, only if a measurement shows the remaining
+loop-blocking work (tens to ~150 ms) matters with more curators at once. §11's
+remaining items were weighed and left as they are; each says why, so revisit
+one only if what it depends on changes.
 
 ---
 
@@ -177,6 +183,8 @@ first call, each preview costs only `enrich()` itself (sub-millisecond per
 disease).
 
 ## 3. CPU-bound work runs on the event loop
+
+**Partly fixed in #206.** Steps 1 and 2 below are done. The one case that still held the loop for seconds, an index reload inside the predictions or enrichment-preview handler after `data/2-databases` changed, now runs in a thread (`predict_service.warm`, `enrich_service.warm`), so `/healthz` answers during it. The ontology reads and the matching stay on the loop: locally a prediction recompute after an edit takes ~35 ms, an export with a baseline ~150 ms and `get_xref_rows` ~10 ms. Step 3 is not done.
 
 **Where:** every handler in `app/routes/` except `concept_detail_lookup` and the
 PR-reviewer routes is `async def`, and calls synchronous owlready2 or index code
@@ -248,6 +256,8 @@ This is a change on the server's timer path, so it needs a deliberate deploy.
 
 ## 6. Three reverse-id indexes over the same records
 
+**Fixed in #214.** The compare pane and enrichment now look ids up through `LexicalIndex.records_for`, the per-index map prediction already used, and their own maps are gone: resident memory after the warm-up, one enrichment preview and one compare-pane lookup is 300 MB instead of 372 MB locally. `_REVERSE_CACHE` went with them, so an index rebuild no longer keeps the old map alive. Enrichment now matches ids by `match_key`, as the caveat below anticipated; over the real ontology (every stored id of all 214 diseases treated as confirmed, 1,097 cross-references) the enrichment preview and all 1,276 compare-pane lookups are identical to before. The one id that resolves differently is a MONDO id stored with its prefix (`MONDO:0005147` on ARI:0001080), which exact matching missed; another of that disease's ids already reached the same term.
+
 **Where:**
 
 - `LexicalIndex.records_for` (`predict_service.py:315`): one map per index file,
@@ -278,6 +288,8 @@ one entry, not a dict.
 
 ## 7. Independent network calls run one after another
 
+**Fixed in #204 (pages) and #205 (server).** The review page sends its seven independent start-up requests together after `me` and `sync`, and the main page its three; locally they all start at the same moment instead of one after another. Publish uploads its blobs together and creates each label once per process, the two mapping files are read together, and the PR matrix reads its files through a small thread pool (five reads in flight instead of one).
+
 - **Review page start-up** (`static/ref-edits/ref-edits.js:2021`): `me`, then
   `sync`, then `xref-databases`, `xrefs`, `mappings`, `predictions`,
   `id-authors`, `ref-session` and `assignments`, each awaited in turn. Only
@@ -306,6 +318,8 @@ one entry, not a dict.
 
 ## 8. No HTTP connection reuse
 
+**Fixed in #207.** `github_service` shares one pooled `httpx.AsyncClient` per event loop (one in production), with each call's headers and timeout applied per request. Three sequential GitHub calls take 92 ms warm instead of 335 ms (150 ms instead of 679 ms cold), against the live API. Terminology lookups share one thread-safe `httpx.Client`.
+
 - `github_service` opens a fresh `httpx.AsyncClient` in every helper
   (`:106, :122, :178, :325, :344, :365, :384`). That means a new TCP and TLS
   handshake to `api.github.com` for each step of a sync, a publish or a settings
@@ -318,6 +332,8 @@ one entry, not a dict.
   whole prefetch.
 
 ## 9. PR reviewer: repeated GitHub reads and one quadratic loop
+
+**Fixed in #208.** Listing the PRs that touch mapping files is one GraphQL call per 50 PRs instead of 1 + N. A cached matrix costs one call (the head sha) instead of three, and within a request a PR and its file list are read once. The file list is paginated, so files past the first 100 are no longer missed, and ids are matched through the equivalencies file grouped by disease once per matrix.
 
 - `Reader.list_review_prs` (`pr_review/github.py:52`) makes one `/files` call per
   open PR to find the ones that touch mapping files (N+1).
@@ -336,6 +352,8 @@ one entry, not a dict.
 
 ## 10. Downloaded baselines are not reused
 
+**Fixed in #209.** `app/baselines.py` keeps the source branch's ontology by commit sha under `.user-data/baselines/` (the 8 most recently used, about 14 MB). The publish dialog and the export resolve the branch to its commit first, so the publish that follows the dialog reuses its download. A value that is not a 40-character hex sha is refused before it names a file.
+
 `pending-changes`, `publish`, `sync`, `resolve` and `export` each download the
 source branch's ontology (~1.7 MB) and parse it (~80 ms). A routine publish runs
 pending-changes (dialog open), then publish, then maybe resolve and publish
@@ -348,17 +366,33 @@ branch name). Each step then copies the cached file instead of downloading it.
 
 ## 11. Smaller items
 
+**Partly fixed.** The `/symptoms` payload item and the search half of "Tree and
+search" are fixed in #215, and `create_release` in #212. The other items were
+checked and left as they are; each one below says why.
+
 - **Sync on every tab focus** (`static/js/github.js:212`,
   `static/ref-edits/ref-edits.js:614`): every return to the tab posts
   `/api/v2/sync`, which costs one GitHub call against the curator's rate limit.
   With several windows and frequent tab switching, that adds up. Throttle it to
   once a minute per tab. The revision check still catches another window's
   merge.
+  **Left as is.** The sync on focus is also how a background window learns that
+  another window merged (#162): it reads the copy's revision in the same answer.
+  A throttle in the page would skip that check for a minute, and a stale window
+  could save old list values over the merge. A throttle on the server keeps the
+  check but needs its own per-curator state, and it changes what ten sync tests
+  rely on. What it saves is one GitHub call per focus, against a limit of 5,000
+  an hour per curator, over a pooled connection since #207.
 - **Uncached GitHub listings:** `GET /api/v2/settings` lists every branch on
   each open (`routes/settings.py:52`), and `/source` and `/pr-base` list them
   again to validate. `/open-prs` lists all open PRs on each page load. In
   production each costs 112–232 ms against a 22 ms round trip. A 60-second
   cache would cut both the wait and the API traffic.
+  **Left as is.** A cache would hide the branch and pull request a curator has
+  just published until it expired, unless every publish cleared it. The page
+  already fetches `/open-prs` once per load and reuses it (`detail.js`
+  `getOpenPRs`), and `/settings` is read when the settings dialog opens. That is
+  not enough traffic to justify the invalidation.
 - **Large JSON payloads:** `/api/v2/symptoms` (340 KB, 111–182 ms in
   production; it is read for the symptom tab and the symptom search),
   `/api/v2/mappings` (390 KB in production) and `/api/v2/xrefs` (203 KB).
@@ -369,27 +403,50 @@ branch name). Each step then copies the cached file instead of downloading it.
   40% of the payload (142 of 360 KB). The symptom search then fetches
   `/diseases` to turn the disease *names* back into IRIs, which returning the
   owning disease's IRI would make unnecessary.
+  **Fixed in #215 for `/symptoms`.** Each symptom names its diseases as
+  `{iri, name}` and no longer carries its own IRI. The symptom search opens a
+  disease by that IRI: it no longer fetches `/diseases` (50 KB) or matches
+  disease names. The response stays about the same size (363 KB instead of
+  369 KB locally), because every symptom has exactly one disease, whose IRI
+  replaces the symptom's. The symptom tab is not a consumer: `index.html` has no
+  such tab, so its renderer (`renderSymptomsView`) was unreachable and #215
+  deletes it. `/mappings` and `/xrefs` are unchanged.
 - **Vendored libraries on every load:** the record view loads Chart.js (204 KB)
   and D3 (273 KB) up front, though only the prevalence chart, the word cloud
   and the pathophysiology graph use them. They are cached, but parsed on every
   page load. Loading them when a deep dive first needs them would take ~0.5 MB
   of script parsing off the start-up path.
+  **Left as is, measured.** Compiling and running all three, cold (a fresh URL,
+  so no code cache), takes ~16 ms locally: Chart.js 6–7 ms, D3 8–11 ms, the
+  word-cloud layout 1 ms, against 67 ms to `DOMContentLoaded`. Loading them on
+  demand would make the prevalence chart, the word cloud and the graph
+  asynchronous, each able to finish after the curator has moved to another
+  record, to save that.
 - **Local mode reloads the ontology after each write.** With GitHub sign-in
   off, writes go to the shared base file. That changes its mtime, so the next
   request reloads the whole ontology (`workspace.base()`): writes after the
   first took ~125 ms instead of ~46 ms in the local run, and the prediction
   cache was thrown away each time. Production is unaffected (curators write to
   their own copies), but `_save()` on the base could refresh `_BASE_KEY`.
+  **Left as is.** It affects development only, and the fix would couple
+  `OntologyService._save` to `workspace`'s reload key.
 - **Tree and search** (`static/js/trees.js`): switching tabs or toggling
   *Show only autoimmune* refetches the whole tree from the server. The server
   rebuilds it each time (3–7 ms), so it is cheap, but the client could keep it
   until an edit. Search requests are not cancelled, so a slow early response can
   replace a later one. An `AbortController` fixes both the wasted request and the
   out-of-order result.
+  **Search fixed in #215.** A newer query cancels the dropdown's request in
+  flight, and Enter cancels a pending one, so a late answer can no longer replace
+  a newer one or reopen the dropdown over the results page. **The tree is left as
+  is:** the server rebuilds it in 3–7 ms, and a copy kept in the page would need
+  clearing on every edit.
 - **`create_release`** (`ontology_service.py:1380`) reads `releases.json` three
   times and writes it with a plain `write_text` (`:1415`), not
   `atomic_store.write_json`. The repeated reads are trivial. The non-atomic
   write is a durability gap of the kind `atomic_store` was introduced to close.
+  **Fixed in #212.** The manifest is read and written through `atomic_store`, and
+  a corrupt one stops the release instead of being replaced.
 
 ## 12. The review page recomputes every cell from all predictions, on every keystroke
 
@@ -468,6 +525,8 @@ return to the tab.
    call. That halves the query count even for a full merge.
 
 ## 14. The synonym review re-downloads report 9 on every load
+
+**Fixed in #203.** The endpoint reads the report's git blob id (one small call) and reuses the parsed rows until it changes. Each row carries its disease's IRI, so the page no longer loads `/api/v2/xrefs`. A repeat load in production takes 428–490 ms instead of 641–946 ms (see the [after table](#production-after-the-fixes)).
 
 **Where:** `routes/review.py:110` (`GET /api/v2/synonym-review`) and
 `static/ref-edits/synonyms/synonyms.js`.

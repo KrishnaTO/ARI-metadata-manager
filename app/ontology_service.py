@@ -300,7 +300,11 @@ class OntologyService:
         return [walk(root, set())]
 
     def get_symptoms_index(self) -> list:
-        """Flat list of all symptom individuals across diseases (symptoms context view)."""
+        """Flat list of all symptom individuals across diseases, for the symptom search.
+
+        Each names the diseases that carry it as ``{"iri", "name"}``, so the search
+        opens a disease by its IRI rather than matching its name against the disease
+        list. The symptom's own IRI is left out: nothing reads it."""
         base = self.base
         cls = self.world[base + "Symptom"]
         if cls is None:
@@ -310,11 +314,10 @@ class OntologyService:
         owner = {}
         for d in diseases:
             for s in self._get_objects(d, base + "hasSymptom"):
-                owner.setdefault(s.iri, []).append(self._get_label(d))
+                owner.setdefault(s.iri, []).append({"iri": d.iri, "name": self._get_label(d)})
         results = []
         for s in cls.instances(world=self.world):
             results.append({
-                "iri": s.iri,
                 "name": self._get_label(s),
                 "likelihood": (self._get_data(s, base + "likelihood") or [""])[0],
                 "obsolete": self._is_obsolete(s),

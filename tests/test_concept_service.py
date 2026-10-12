@@ -39,11 +39,11 @@ def _indexes(tmp_path: Path) -> list[ps.LexicalIndex]:
 
 
 # ------------------------------------------------------------- id normalization
-def test_norm_id_strips_prefix_and_leading_zeros():
-    assert cs._norm_id("MONDO:0016264") == cs._norm_id("0016264") == "16264"
-    assert cs._norm_id("DOID:2043") == "2043"
-    assert cs._norm_id("ICD10CM:M32.1") == cs._norm_id("M32.1") == "m32.1"
-    assert cs._norm_id("umls:C0004364") == "c0004364"
+def test_match_key_strips_prefix_and_leading_zeros():
+    assert ps.match_key("MONDO:0016264") == ps.match_key("0016264") == "16264"
+    assert ps.match_key("DOID:2043") == "2043"
+    assert ps.match_key("ICD10CM:M32.1") == ps.match_key("M32.1") == "m32.1"
+    assert ps.match_key("umls:C0004364") == "c0004364"
 
 
 # ------------------------------------------------------------------ direct hits
@@ -191,20 +191,20 @@ def test_present_sidecar_but_term_absent_is_details_available_no_definition(tmp_
 
 
 # --------------------------------------------------- caches
-def test_reverse_cache_invalidates_on_index_change(tmp_path):
+def test_a_rebuilt_index_is_looked_up_fresh(tmp_path):
+    # Lookups read each index's own id map, so a rebuilt index set is answered
+    # from its new terms, and nothing module-level keeps the old set alive (the
+    # reverse map this replaced kept every old index list until restart).
     f = _write_index(tmp_path / "doid.index.tsv",
                      _irow(id="DOID:2043", label="autoimmune hepatitis", doid="2043"))
     idx1 = _indexes(tmp_path)
-    rev1 = cs._reverse_for(idx1)
-    assert cs._reverse_for(idx1) is rev1                 # same list -> cached
+    assert cs.lookup("doid", "9744", idx1)["found"] is False
     time.sleep(0.01)
     _write_index(f, _irow(id="DOID:2043", label="autoimmune hepatitis", doid="2043"),
                  _irow(id="DOID:9744", label="type 1 diabetes mellitus", doid="9744"))
     idx2 = _indexes(tmp_path)                             # get_indexes rebuilds on mtime/size change
     assert idx2 is not idx1
-    rev2 = cs._reverse_for(idx2)
-    assert rev2 is not rev1
-    assert ("doid", "9744") in rev2 and ("doid", "9744") not in rev1
+    assert cs.lookup("doid", "9744", idx2)["label"] == "type 1 diabetes mellitus"
 
 
 def test_only_the_looked_up_databases_sidecar_is_read(tmp_path):

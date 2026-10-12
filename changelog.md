@@ -4,6 +4,23 @@
 
 - **A release can no longer wipe the release history.** `releases/releases.json` was written with a plain `write_text`, and a manifest that failed to parse was read as empty, so the next release replaced it with a one-entry list. It is now read and written through `atomic_store`, like the other ledgers: a corrupt manifest stops the release with an error (before any disease is stamped) instead of being overwritten, and a crash mid-write leaves the old manifest whole. A release reads the manifest once, up front.
 
+## claude/efficiency-smaller-items
+
+- **The symptom search opens diseases by IRI.** `/api/v2/symptoms` names each symptom's diseases as `{iri, name}` (it was names only) and drops the symptom's own IRI, which nothing read. The search used to fetch the whole disease list as well and match names to find each disease; it now makes one request. The response is about the same size, since each symptom has one disease.
+- **A slow search can no longer overwrite a newer one.** The search box's dropdown cancels its request in flight when the query changes, and Enter cancels a pending one, so an answer to an earlier query can't replace the current results or reopen the dropdown over the results page.
+- **Removed the unreachable symptom tab view.** `trees.js` rendered a "symptoms" tab that `index.html` has never offered; its renderer and click handler are deleted.
+- **`docs/EFFICIENCY.md` §11** records which items are fixed (#212, this branch) and why the rest are left as they are: the tab-focus sync, uncached GitHub listings, lazy-loading Chart.js and D3 (measured: ~16 ms cold), the local-mode reload and the tree cache.
+
+## claude/shared-reverse-index
+
+- **One id map per reference index instead of three.** The compare pane (`concept_service`) and enrichment each built their own map from ids to reference terms over the same records as prediction's per-index map (47 MB and 27 MB). Both now read `LexicalIndex.records_for`, and their maps are gone: resident memory after the warm-up, an enrichment preview and a compare-pane lookup is 300 MB instead of 372 MB locally. The compare pane's map was also cached per index list and never evicted, so each index rebuild kept the old one until restart; that cache is gone too.
+- **Enrichment matches ids the way prediction does.** It matched exact strings, so a MONDO id stored with its prefix (`MONDO:0005147`, on ARI:0001080) resolved to nothing. Ids now fold their prefix, leading zeros and case, as prediction and the compare pane fold them. "Unique within one source" is now checked at lookup. Over the real ontology, with every stored id treated as confirmed, the enrichment preview and all 1,276 compare-pane lookups are unchanged.
+
+## claude/efficiency-doc-refresh
+
+- **`docs/EFFICIENCY.md` shows the second round of fixes.** Findings 7, 8, 9, 10 and 14 are marked fixed with the PR that fixed each (#203–#209) and the cost after, and finding 3 partly fixed (#206: index reloads run in a thread; owlready2 calls stay on the loop). The production after-table gains the synonym review's repeat load (428–490 ms instead of 641–946 ms). The suggested order now covers only what is open: §11's `create_release` write, §6, the rest of §11, and §3's step 3 only if measured.
+- **`docs/ARCHITECTURE.md`'s cache table lists the parsed report 9**, keyed by the file's git blob id (#203).
+
 ## claude/target-cells
 
 - **Target cells are a disease-data category.** The data model's "Affected Cell, Tissue or Organ" is now stored in ARI as `affectsCellTissueOrOrgan` items of class `AffectedCellTissueOrOrgan` (KrishnaTO/ARI#124). The 2026-10-08 master list filled them for 218 diseases. They show as a "Target cells" box under Pathophysiology, open as a list with each cell's relevance (its share, such as `80%`), and are added and edited like antigens: label, description, relevance, source, obsolete. Publishing carries them with the disease, like every other item category. `targetsTissue` stays at system level, so the tissue browser and the new-disease tissue list are unchanged. Until the data repo's ontology declares the class, adding a target cell reports that the class is missing.
