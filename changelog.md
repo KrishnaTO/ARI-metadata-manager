@@ -1,5 +1,8 @@
 # Changelog
 
+## claude/publish-summary
+
+- **Publishing and the publish dialog no longer build every disease's record.** To describe the few diseases a curator touched, `diff_service.list_changes` built the full record (every symptom, treatment, pathway step and immune component) of all 214 diseases in the working copy *and* in the downloaded branch: 428 builds, ~0.6 s locally (~1.5 s estimated in production) on every publish and every opening of the publish dialog. It now matches records on a cheap index of ARI ids and builds full records only for the diseases in scope. With four diseases in scope the summary takes 39 ms instead of 595 ms, and the dialog's list 28 ms instead of 526 ms. The summary, the change list and the generated title are identical to before.
 ## claude/autostash-dedupe
 
 - **`deploy/update.sh` no longer piles up identical stash entries.** Before resetting, it stashes any local changes so a reset never destroys them. Something that rewrites tracked files on every run therefore added one identical `pre-update autostash` entry per run, indefinitely, with a one-line warning as the only trace. That is how the mapping refresh writing over tracked files went unnoticed, one entry every ten minutes. A run whose changes are identical to the previous entry (same tree, same untracked files) now drops its new entry and logs an `ERROR` saying something rewrites tracked files every run. The warning also lists the changed files. Every distinct change is still kept.
