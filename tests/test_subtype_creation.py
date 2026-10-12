@@ -55,4 +55,3 @@ def test_both_records_show_up_in_what_the_submission_carries(make_service):
     # record changed only in its changelog, and no field diff reports those.
     assert sub["parent"] == parent["name"]
     assert f"new clinical subtype of {parent['name']}" in ds.render_summary(changes)
-    assert ds.title_for(changes) == "Add Test subtype"

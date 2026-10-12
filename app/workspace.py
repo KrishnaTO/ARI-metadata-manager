@@ -381,6 +381,18 @@ def _clear_touched(login):
         log.warning("Could not clear the touched set for %s: %s", login, e)
 
 
+def untouch(login, iris):
+    """Forget ``iris`` from the touched set, once a publish has carried them.
+
+    Diseases a curator left out of that pull request stay touched for a later
+    one (issue #25)."""
+    left = touched(login) - set(iris)
+    if left:
+        atomic_store.write_json(_touched_path(login), sorted(left))
+    else:
+        _clear_touched(login)
+
+
 def _restore_working_copy(login, svc, snapshot: bytes):
     """Put ``login``'s working copy back to ``snapshot`` after a failed publish."""
     try:

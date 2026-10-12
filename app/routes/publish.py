@@ -86,7 +86,8 @@ async def pending_changes(request: Request):
     The publish dialog offered a free-text title box and nothing else, so a
     curator opening a pull request could not see which diseases it carried, and
     the default title named whichever record happened to be on screen (issue
-    #25). ``title`` is generated from the list.
+    #25). The dialog lists these, lets the curator leave some out, and titles the
+    pull request from the ones ticked (``static/js/publish-title.js``).
 
     Empty for an anonymous user, and empty — rather than an error — when the
     source branch cannot be read, so the dialog degrades to what it did before
@@ -95,7 +96,7 @@ async def pending_changes(request: Request):
     u = sessions._user(request) if config.GH_ENABLED else None
     login = sessions._login(request)
     if not u or not login:
-        return {"changes": [], "title": "Update ontology", "source_branch": ""}
+        return {"changes": [], "source_branch": ""}
     touched = workspace.touched(login)
     baseline = None
     try:
@@ -103,14 +104,12 @@ async def pending_changes(request: Request):
         changes = diff_service.list_changes(workspace.service_for(request), baseline, touched)
     except Exception as e:
         log.warning("Could not list pending changes against the source branch: %s", e)
-        return {"changes": [], "title": "Update ontology",
-                "source_branch": workspace._source_branch(request),
+        return {"changes": [], "source_branch": workspace._source_branch(request),
                 "unavailable": True}
     finally:
         if baseline is not None:
             _discard(baseline.path)
-    return {"changes": changes, "title": diff_service.title_for(changes),
-            "source_branch": workspace._source_branch(request)}
+    return {"changes": changes, "source_branch": workspace._source_branch(request)}
 
 
 def _discard(path):
@@ -137,6 +136,19 @@ async def publish(request: Request, payload: dict = Body(default={})):
     # Confirmed (positive) + flagged (negative) cross-references from a
     # reference-review session (also written to the mapping files further below).
     login = u["identity"]["login"]
+    # The diseases this curator changed, less any they left out of this pull
+    # request in the publish dialog (issue #25). A publish grafts only its scope
+    # onto the branch, so those stay in the working copy, still touched, for a
+    # later one.
+    touched = workspace.touched(login)
+    exclude = set(payload.get("exclude") or [])
+    if not exclude <= touched:
+        return JSONResponse(status_code=400, content={
+            "detail": "Only diseases you have changed can be left out of a submission."})
+    if exclude and not touched - exclude:
+        return JSONResponse(status_code=400, content={
+            "detail": "Choose at least one changed disease to submit."})
+    touched -= exclude
     confirmed = payload.get("confirmed") or []
     flagged = payload.get("flagged") or []
     # An id edited off a disease record is a negative judgment too, and the field
@@ -144,7 +156,7 @@ async def publish(request: Request, payload: dict = Body(default={})):
     # removals join the review page's here, so one list drives both the ontology
     # and the mapping files no matter which page the curator used (see
     # app/xref_removals.py).
-    parked = stores.XREF_REMOVALS.pending(workspace.touched(login), login=login)
+    parked = stores.XREF_REMOVALS.pending(touched, login=login)
     flagged += parked
     # Cells judged to have no term at all in the target database.
     absent = payload.get("absent") or []
@@ -188,7 +200,7 @@ async def publish(request: Request, payload: dict = Body(default={})):
     # in the commit comes from the source branch, so an untouched record cannot
     # be reverted to whatever it looked like when the working copy was made.
     review_iris = {c.get("iri") for c in confirmed + flagged + absent if c.get("iri")}
-    scope = workspace.touched(login) | review_iris
+    scope = touched | review_iris
     if not scope:
         return JSONResponse(status_code=400, content={
             "detail": "Nothing to publish — no disease has been edited or reviewed in this session."})
@@ -359,5 +371,5 @@ async def publish(request: Request, payload: dict = Body(default={})):
 
     _remember_publish(login, request_id, result)
     stores.XREF_REMOVALS.clear(flagged)   # the judgments are in the commit now
-    workspace._clear_touched(login)   # published; later PRs must not re-describe this work
+    workspace.untouch(login, scope)   # published; later PRs must not re-describe this work
     return result

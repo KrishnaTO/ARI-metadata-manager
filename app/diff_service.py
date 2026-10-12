@@ -95,32 +95,6 @@ def list_changes(current_service, baseline_service, touched_iris=None) -> list[d
     return out
 
 
-def title_for(changes: list[dict]) -> str:
-    """A pull-request title that says what the pull request does.
-
-    The default was "Update <whichever disease is open>", which named the record
-    on screen rather than the work: publish three edits and the title still named
-    one of them, and a brand-new disease still read as an update (issue #25).
-    """
-    added = [c["name"] for c in changes if c.get("is_new")]
-    updated = [c["name"] for c in changes if not c.get("is_new")]
-    if not added and not updated:
-        return "Update ontology"
-
-    def phrase(verb, names):
-        if len(names) == 1:
-            return f"{verb} {names[0]}"
-        if len(names) == 2:
-            return f"{verb} {names[0]} and {names[1]}"
-        return f"{verb} {len(names)} diseases"
-
-    if added and updated:
-        # Only the verb drops its capital — lowercasing the whole phrase would
-        # rewrite the disease names with it.
-        return f"{phrase('Add', added)}; {phrase('update', updated)}"
-    return phrase("Add", added) if added else phrase("Update", updated)
-
-
 def render_summary(changes: list[dict]) -> str:
     """The pull-request body's Changes section, from :func:`list_changes`."""
     blocks = []
