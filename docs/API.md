@@ -95,7 +95,7 @@ as pending negative judgments.
 
 | Method | Path | Access | Purpose |
 | --- | --- | --- | --- |
-| GET | `/api/v2/xref-databases` | open | The database registry: `key, label, prefix, link, search, noframe, review, main_app`. |
+| GET | `/api/v2/xref-databases` | open | The database registry: `key, label, prefix, link, search, search_snomed, noframe, review, main_app`. |
 | GET | `/api/v2/xrefs` | open | Non-obsolete diseases with their ids per database, definition and synonyms. |
 | GET | `/api/v2/mappings` | open | Current judgment per cell (`ari_id, prefix, dbs, id, judgment, author, date`). From the source branch on GitHub when signed in, otherwise from the local `mappings/` files. |
 | GET | `/api/v2/predictions` | open | Predicted ids for blank cells (`ari_id, prefix, id, dbs, object_label, match_field, confidence, score, band`). |
