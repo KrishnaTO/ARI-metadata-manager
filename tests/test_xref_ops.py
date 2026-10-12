@@ -198,3 +198,19 @@ def test_flagging_an_id_the_disease_does_not_hold_changes_nothing(service):
 
     assert removed == 0
     assert service.get_disease_detail(iri)["changelog"] == before
+
+
+def test_flagging_a_snomed_id_also_removes_it_from_dxcode(service):
+    """Issue #171: ``ARI_DXCODE`` stores SNOMED codes too, so a flagged code left
+    there was still on the record, and the data repo rejected the PR
+    (``flagged-still-stored``)."""
+    iri = service.get_diseases_list()[0]["iri"]
+    service.update_disease(iri, {"snomed": "195353004, 31996006",
+                                 "dxcode": "195353004"}, editor="setup")
+
+    removed = service.remove_flagged_xrefs(
+        [{"iri": iri, "db": "snomed", "ids": ["195353004"]}], editor="linikujp")
+
+    assert removed == 2
+    detail = service.get_disease_detail(iri)
+    assert detail["snomed"] == ["31996006"] and detail["dxcode"] == []

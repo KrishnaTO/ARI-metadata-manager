@@ -87,17 +87,21 @@ class XrefRemovalStore:
             atomic_store.write_json(self.path, data, indent=2)
         return changed
 
-    def pending(self, iris=None) -> list:
+    def pending(self, iris=None, login=None) -> list:
         """Parked removals as ``flagged`` groups: ``[{iri, db, ids}]``.
 
         ``iris`` limits the result to the diseases a publish is speaking for, so
         a removal on a disease outside its scope stays parked for the publish
-        that does cover it.
+        that does cover it. ``login`` limits it to the removals that curator
+        made: without it, one curator's removal was published under whichever
+        curator next published that disease (issue #171).
         """
         groups: dict = {}
-        for key in self._load():
+        for key, entry in self._load().items():
             iri, db, ident = key.rsplit("|", 2)
             if iris is not None and iri not in iris:
+                continue
+            if login is not None and entry.get("login") != login:
                 continue
             groups.setdefault((iri, db), []).append(ident)
         return [{"iri": iri, "db": db, "ids": ids} for (iri, db), ids in groups.items()]
