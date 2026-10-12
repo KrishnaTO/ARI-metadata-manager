@@ -1,5 +1,11 @@
 # Changelog
 
+## claude/issue-25-choose-diseases
+
+- **Choose which changed diseases go into a pull request.** The publish dialog lists every disease changed since the last publish with a tick box each, all ticked. Untick one to leave it out: it stays in the working copy, still changed, for a later submission. The title follows the ticked diseases ("Update A and B", "Add C; update A") until the curator writes their own, and *Submit* is disabled with nothing ticked. The dialog used to say diseases could not be published separately; that stopped being true when publishing began grafting only its scope onto the branch (#146).
+- **`POST /api/v2/publish` takes `exclude`,** the IRIs left out. Each must be a disease the caller changed, and at least one must remain. After the publish only the published diseases leave the touched set.
+- **One title rule.** The title is worked out in the browser (`static/js/publish-title.js`, with node tests) as the ticks change; `diff_service.title_for` and the `title` field of `GET /api/v2/pending-changes` are gone.
+
 ## claude/autostash-cleanup-doc
 
 - **OPERATIONS.md: the autostash cleanup procedure is safer to run.** It now pauses `ari-mm-update.timer` first and restarts it after, so an update run cannot add or shift stash entries mid-cleanup. It checks `git status --porcelain` is empty before starting, and runs the log check (`sudo journalctl`) and the branch deletion from the admin's own shell. Before, the log check ran inside the `ariapp` shell, which has no `sudo` for it.

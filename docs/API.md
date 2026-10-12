@@ -120,7 +120,7 @@ as pending negative judgments.
 | --- | --- | --- | --- |
 | POST | `/api/v2/sync` | GitHub, locked | Merge the source branch into the caller's working copy. Returns `{merged, conflicts, advanced, sha, revision}`, or `{up_to_date: true, revision}`. 409 with `missing_branch` when the branch is gone. |
 | POST | `/api/v2/resolve` | GitHub, locked | `{sha, choices: {iri: {"<subject>\|<predicate>": "mine"\|"theirs"}}}`. Re-merges at `sha` with the choices; 409 if any remain. |
-| GET | `/api/v2/pending-changes` | open | The caller's changed diseases with per-field differences, and a generated title. Empty when signed out; `unavailable: true` when the branch can't be read. |
+| GET | `/api/v2/pending-changes` | open | The caller's changed diseases with per-field differences. The publish dialog lists them with a tick box each and titles the PR from the ones ticked (`static/js/publish-title.js`). Empty when signed out; `unavailable: true` when the branch can't be read. |
 | POST | `/api/v2/publish` | GitHub, locked | See below. |
 | GET | `/api/v2/settings` | open | `{github_enabled, authenticated, working_branch, source_branch, pr_base, dirty, branches, mapping_license, working_copy}`. |
 | POST | `/api/v2/fetch` | GitHub, locked | `{discard?}`. Replace the working copy with the source branch. Returns `{needs_confirm}` first if there are local edits. |
@@ -135,6 +135,7 @@ as pending negative judgments.
 | --- | --- |
 | `message` | Commit message and PR title. |
 | `disease` | Names the branch slug for a new PR. |
+| `exclude` | IRIs of changed diseases to leave out of this PR; they stay in the working copy for a later one. Each must be one the caller changed, and at least one must remain (400 otherwise). |
 | `comment` | Curator comment, quoted in the PR body. |
 | `confirmed`, `flagged` | `[{iri, ari_id, name, db, ids}]`: verdicts from the review page. Parked removals are added to `flagged`. |
 | `absent` | `[{iri, ari_id, name, db}]`: "no term in this database". |

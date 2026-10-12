@@ -233,9 +233,11 @@ Steps, in order:
 1. **Replay guard.** A `request_id` already completed returns the first result
    (`repeated: true`) instead of committing twice.
 2. **Two-person rule.** A confirmed id the curator added themselves is refused.
-3. **Scope.** The diseases this publish may speak for are the touched set plus
-   the diseases reviewed in this request. Nothing else in the commit comes from
-   the working copy. An empty scope is a 400.
+3. **Scope.** The diseases this publish may speak for are the touched set, less
+   any the curator left out in the publish dialog (`exclude`), plus the diseases
+   reviewed in this request. Nothing else in the commit comes from the working
+   copy, and the diseases left out stay touched for a later pull request. An
+   empty scope is a 400.
 4. **Rebase.** Read the source branch at its current sha and merge it into the
    working copy for the scope. Any conflict is a 409 with the conflicts and sha.
 5. **Review write-back** (only if the request carries verdicts): log each
@@ -258,7 +260,7 @@ Steps, in order:
    API. Open the PR, or update the open one's title. Apply the `edit term` and
    `sssom` labels where permitted.
 9. **Clean up.** Remember the result under `request_id`, clear the parked
-   removals that went out, and clear the touched set.
+   removals that went out, and drop the published diseases from the touched set.
 
 ## Cross-reference review
 

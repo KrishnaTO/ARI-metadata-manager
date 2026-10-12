@@ -68,7 +68,8 @@
   // title box and nothing else: a curator could not see which diseases their
   // submission carried, and the default title named whichever record happened to
   // be on screen — so three edits published under the name of one of them, and a
-  // brand-new disease read as an update (issue #25).
+  // brand-new disease read as an update (issue #25). Each row has a tick box, so
+  // a curator can also leave a disease out for a later submission.
   function changeListHtml(pending) {
     const changes = (pending && pending.changes) || [];
     if (pending && pending.unavailable) {
@@ -84,28 +85,31 @@
       const what = c.removed ? 'removed'
         : c.is_new ? 'new disease'
         : c.fields.map(f => f.label).join(', ');
-      return `<li><span class="pub-d">${esc(c.name)}</span>` +
+      return `<li><label class="pub-pick"><input type="checkbox" class="pub-tick" ` +
+        `data-iri="${esc(c.iri)}" checked>` +
+        `<span class="pub-d">${esc(c.name)}</span>` +
         `<span class="pub-id">${esc(c.ari_id)}</span>` +
-        `<span class="pub-w">${esc(what)}</span></li>`;
+        `<span class="pub-w">${esc(what)}</span></label></li>`;
     }).join('');
-    return `<div class="field"><label>In this submission (${changes.length})</label>
+    return `<div class="field"><label>In this submission (<span id="pub-count">${changes.length}</span>
+        of ${changes.length})</label>
       <ul class="pub-list">${rows}</ul>
-      <p class="pub-note">Everything you have changed goes in together — a pull request
-        carries the whole ontology file, so diseases cannot be published separately.</p></div>`;
+      <p class="pub-note">Untick a disease to leave it out. It stays in your working copy,
+        changed, for a later ${esc(Words.submission)}.</p></div>`;
   }
 
   async function publish() {
     let pending = null;
     try { pending = await api('/api/v2/pending-changes'); }
     catch (e) { console.warn('Could not list pending changes:', e.message); }
-    const def = (pending && pending.title) || 'Update ontology';
+    const changes = (pending && pending.changes) || [];
     const disease = state.detail?.name || '';
     const m = el(`<div class="modal-overlay" id="pub-overlay"><div class="modal">
       <div class="modal-head"><h2>${esc(Words.publish)}</h2><button class="hbtn" id="pub-close">Close</button></div>
       <div class="modal-body">
         <p style="font-size:13px;margin:0 0 10px">Your changes are sent as a ${esc(Words.submission)} with a summary of what changed (previous &rarr; new). Nothing goes live until someone reviews and accepts it.</p>
         ${changeListHtml(pending)}
-        <div class="field"><label>Commit message / PR title</label><input id="pub-msg" value="${esc(def)}"></div>
+        <div class="field"><label>Commit message / PR title</label><input id="pub-msg" value="${esc(PublishTitle.titleFor(changes))}"></div>
         <div class="field"><label>Comments (optional)</label><textarea id="pub-comment" placeholder="Why this change, sources, notes for reviewers..."></textarea></div>
         <div class="edit-actions" style="margin-top:4px"><button class="hbtn primary" id="pub-go">${esc(Words.publish)}</button>
           <button class="hbtn" id="pub-cancel">Cancel</button></div>
@@ -115,12 +119,24 @@
     $('#pub-close').addEventListener('click', close);
     $('#pub-cancel').addEventListener('click', close);
     $('#pub-overlay').addEventListener('click', e => { if (e.target.id === 'pub-overlay') close(); });
+    // The title follows the ticked diseases until the curator writes their own.
+    const ticks = [...document.querySelectorAll('#pub-overlay .pub-tick')];
+    const ticked = () => changes.filter(c => ticks.find(t => t.dataset.iri === c.iri)?.checked);
+    let ownTitle = false;
+    $('#pub-msg').addEventListener('input', () => { ownTitle = true; });
+    ticks.forEach(t => t.addEventListener('change', () => {
+      const chosen = ticked();
+      $('#pub-count').textContent = chosen.length;
+      if (!ownTitle) $('#pub-msg').value = PublishTitle.titleFor(chosen);
+      $('#pub-go').disabled = !chosen.length;
+    }));
     $('#pub-go').addEventListener('click', async () => {
       const message = $('#pub-msg').value.trim();
       const comment = $('#pub-comment').value.trim();
+      const exclude = ticks.filter(t => !t.checked).map(t => t.dataset.iri);
       $('#pub-go').disabled = true; $('#pub-go').textContent = Words.publishing;
       try {
-        const r = await api('/api/v2/publish', { method: 'POST', body: { disease, message, comment } });
+        const r = await api('/api/v2/publish', { method: 'POST', body: { disease, message, comment, exclude } });
         close();
         if (state.activeIri) selectDisease(state.activeIri, { history: false });
         const link = el(`<div class="toast" style="cursor:pointer">${esc(Words.submissionName(r.pr_number))} sent for review — click to view it on GitHub</div>`);
