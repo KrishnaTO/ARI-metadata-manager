@@ -138,7 +138,9 @@ The ontology is one RDF/XML OWL file, compatible with Protégé. The app relies 
   `ARI_Author`, `ARI_AuthorDate`, `ARI_Version`, `ARI_Obsolete`, `ARI_IsGrouping`,
   `ARI_PrevalenceDesc`, `ARI_SurveyCode`, `ARI_ChangeLog`
   (`<utc> | <editor> | <message>`), `ARI_EnrichmentSource`.
-- **Data properties:** `diseaseCategory`, `evidenceQuality`, `prevalencePer100k`,
+- **Data properties:** `diseaseCategory`, `evidenceQuality`, `prevalencePer100k`
+  (the US prevalence rate) / `prevalenceUSYear` / `prevalenceUSSource`,
+  `prevalenceWorldPer100k` / `prevalenceWorldYear` / `prevalenceWorldSource`,
   `prevalenceValue`, `incidenceUSPer100k` / `incidenceUSYear` /
   `incidenceUSSource`, `incidenceWorldPer100k` / `incidenceWorldYear` /
   `incidenceWorldSource`, `demographicBias`, `ageRange`. A data property must be
