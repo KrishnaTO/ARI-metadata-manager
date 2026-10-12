@@ -365,8 +365,10 @@ A source that fails makes the matrix fail rather than show partial data.
 ## Synonym vs subtype review
 
 `/ref-edits/synonyms/` shows report 9 (`data/4-reports/9_Synonym_Review.tsv` in
-the data repo), read live from `GITHUB_BASE_BRANCH` on each load. A header that
-doesn't match the expected columns is refused. Signed-in curators mark each row
+the data repo), read live from `GITHUB_BASE_BRANCH`. Each load reads only the
+file's git blob id; the report is downloaded and parsed again only when that
+changes. Each row carries its disease's IRI for the link back to review. A header
+that doesn't match the expected columns is refused. Signed-in curators mark each row
 correct / incorrect / needs review and add a note; marks are shared and stored in
 `synonym-review/curation.json` with a copy of the row they judge. The page never
 edits the ontology.

@@ -34,6 +34,7 @@ import io
 import json
 import os
 import tempfile
+from concurrent.futures import ThreadPoolExecutor
 from urllib.parse import quote
 
 from ..concept_service import lookup
@@ -394,8 +395,19 @@ def hint(status: str, judgment: str, found: bool, score: int, flags: list[str]) 
 # ------------------------------------------------------------------------ matrix
 def build_matrix(refs: dict, reader: github.Reader) -> dict:
     """The matrix for the PR described by ``refs`` (from ``Reader.pr_refs``)."""
+    # Five to seven independent file reads; they ran one after another.
+    wanted = [(github.EQUIV_PATH, refs["head_sha"]), (github.ONTOLOGY_PATH, refs["head_sha"])]
+    if github.EQUIV_PATH in refs["paths"]:
+        wanted += [(github.EQUIV_PATH, refs["merge_base"]), (github.EQUIV_PATH, refs["base_ref"]),
+                   (github.SSSOM_PATH, refs["head_sha"])]
+    if github.PREDICTIONS_PATH in refs["paths"]:
+        wanted += [(github.PREDICTIONS_PATH, ref)
+                   for ref in (refs["merge_base"], refs["head_sha"], refs["base_ref"])]
+    with ThreadPoolExecutor(max_workers=len(wanted)) as pool:
+        files = dict(zip(wanted, pool.map(lambda w: reader.file_at(*w), wanted)))
+
     def text(path, ref):
-        return reader.file_at(path, ref).decode("utf-8")
+        return files[(path, ref)].decode("utf-8")
 
     head_equiv = parse_equivalencies(text(github.EQUIV_PATH, refs["head_sha"]))
     changes = []
@@ -409,7 +421,7 @@ def build_matrix(refs: dict, reader: github.Reader) -> dict:
             parse_predictions(text(github.PREDICTIONS_PATH, refs["merge_base"])),
             parse_predictions(text(github.PREDICTIONS_PATH, refs["head_sha"])),
             parse_predictions(text(github.PREDICTIONS_PATH, refs["base_ref"])))
-    ari = load_ari(reader.file_at(github.ONTOLOGY_PATH, refs["head_sha"]))
+    ari = load_ari(files[(github.ONTOLOGY_PATH, refs["head_sha"])])
     owners = _name_owners(ari)
     indexes = get_indexes()
 

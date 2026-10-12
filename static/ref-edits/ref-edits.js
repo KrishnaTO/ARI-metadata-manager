@@ -2025,32 +2025,38 @@
     $('#pref-fetch').disabled = !me.authenticated;
     // Merge the branch in before the matrix loads, so it shows current data.
     if (me.authenticated) await syncWorkingCopy();
-    try { buildDatabases(await api('xref-databases')); }
-    catch (e) { $('#matrix').innerHTML = '<p class="muted" style="padding:16px">Failed to load the database registry: ' + esc(e.message) + '</p>'; return; }
-    try { ROWS = await api('xrefs'); } catch (e) { $('#matrix').innerHTML = '<p class="muted" style="padding:16px">Failed to load: ' + esc(e.message) + '</p>'; return; }
+    // Everything below is independent of everything else, but it was fetched one
+    // request after another, so the matrix waited for the sum: `mappings` is two
+    // GitHub downloads and `predictions` can be a cold start (EFFICIENCY.md §7).
+    // The requests go out together; the page waits for the slowest.
+    const settle = p => p.then(v => ({ v }), e => ({ e }));
+    const [dbs, rows, maps, preds, sess] = await Promise.all([
+      settle(api('xref-databases')), settle(api('xrefs')), settle(api('mappings')),
+      settle(api('predictions')),
+      // Anonymous users have no saved session: review state stays in-memory.
+      me.authenticated ? settle(api('ref-session')) : Promise.resolve({ v: null }),
+      loadIdAuthors(),
+      loadOwners(),                    // who holds which disease: owner badges, queue filter
+    ]);
+    if (dbs.e) { $('#matrix').innerHTML = '<p class="muted" style="padding:16px">Failed to load the database registry: ' + esc(dbs.e.message) + '</p>'; return; }
+    buildDatabases(dbs.v);
+    if (rows.e) { $('#matrix').innerHTML = '<p class="muted" style="padding:16px">Failed to load: ' + esc(rows.e.message) + '</p>'; return; }
+    ROWS = rows.v;
     // Pre-existing curated judgments pre-highlight cells; failure is non-fatal.
-    try {
-      mappings = {};
-      for (const m of await api('mappings')) mappings[m.ari_id + '|' + m.prefix + '|' + m.id] = m.judgment;
-    } catch (e) { mappings = {}; }
+    mappings = {};
+    if (!maps.e) for (const m of maps.v) mappings[m.ari_id + '|' + m.prefix + '|' + m.id] = m.judgment;
     // Predicted exact-match candidates for blank cells (issue #42); non-fatal.
-    try { predicted = RM.indexPredictions(await api('predictions')); }
-    catch (e) { predicted = {}; }
-    await loadIdAuthors();
+    predicted = preds.e ? {} : RM.indexPredictions(preds.v);
     // Restore this user's saved review session (verdicts + PR pointer) so a reload
-    // resumes their work. Anonymous users get {} — review state stays in-memory.
-    if (me && me.authenticated) {
-      try {
-        const s = await api('ref-session');
-        reviewed = s.reviewed || {};
-        edited = s.edited || {};
-        published = s.published || {};
-        sessionBranch = s.branch || null;
-        sessionPr = s.pr || null;
-      } catch (e) { console.warn('Could not load review session:', e.message); }
+    // resumes their work.
+    if (sess.e) console.warn('Could not load review session:', sess.e.message);
+    else if (sess.v) {
+      reviewed = sess.v.reviewed || {};
+      edited = sess.v.edited || {};
+      published = sess.v.published || {};
+      sessionBranch = sess.v.branch || null;
+      sessionPr = sess.v.pr || null;
     }
-    // Who holds which disease — drives the owner badges and the queue filter.
-    await loadOwners();
     reflectPr();
     // This window's layout. The pre-paint script in index.html sets data-density
     // too, from the shared default, so the first frame is close — but the value

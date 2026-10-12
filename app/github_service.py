@@ -159,6 +159,10 @@ async def _catch_up(client, c_owner: str, c_repo: str, branch: str,
     log.info("Merged %s into %s before committing", base_branch, branch)
 
 
+# (owner, repo, label) known to exist upstream, so a publish creates each once.
+_LABELS_KNOWN: set = set()
+
+
 async def publish_file(*, token: str, owner: str, repo: str, base_branch: str, pr_body: str = "",
                        extra_files: dict = None, path: str, content_bytes: bytes,
                        disease_name: str, message: str, identity: dict,
@@ -246,14 +250,15 @@ async def publish_file(*, token: str, owner: str, repo: str, base_branch: str, p
         parent_commit = (await _get(c, f"{API}/repos/{c_owner}/{c_repo}/git/commits/{parent_sha}")).json()
         base_tree_sha = parent_commit["tree"]["sha"]
 
-        tree_entries = []
-        for fpath, fbytes in files.items():
+        # The uploads are independent of each other, so they go out together.
+        async def _blob(fpath, fbytes):
             blob = await c.post(f"{API}/repos/{c_owner}/{c_repo}/git/blobs", json={
                 "content": base64.b64encode(fbytes).decode(), "encoding": "base64",
             })
             if blob.status_code >= 300:
                 raise ValueError(explain(blob.status_code, blob.json().get("message", "")))
-            tree_entries.append({"path": fpath, "mode": "100644", "type": "blob", "sha": blob.json()["sha"]})
+            return {"path": fpath, "mode": "100644", "type": "blob", "sha": blob.json()["sha"]}
+        tree_entries = list(await asyncio.gather(*(_blob(p, b) for p, b in files.items())))
 
         tree = await c.post(f"{API}/repos/{c_owner}/{c_repo}/git/trees", json={
             "base_tree": base_tree_sha, "tree": tree_entries,
@@ -301,9 +306,14 @@ async def publish_file(*, token: str, owner: str, repo: str, base_branch: str, p
 
         # apply labels on the upstream PR (best effort; outside contributors can't label)
         try:
+            # Created once per process, with their colours: they almost always
+            # exist already, and this was one wasted call per label per publish.
             for name in labels:
+                if (owner, repo, name) in _LABELS_KNOWN:
+                    continue
                 await c.post(f"{API}/repos/{owner}/{repo}/labels",
                              json={"name": name, "color": label_colors.get(name, "ededed")})
+                _LABELS_KNOWN.add((owner, repo, name))
             await c.post(f"{API}/repos/{owner}/{repo}/issues/{prj['number']}/labels",
                          json={"labels": labels})
         except Exception as e:
