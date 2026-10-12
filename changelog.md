@@ -1,5 +1,10 @@
 # Changelog
 
+## claude/http-connection-reuse
+
+- **GitHub calls reuse one connection.** Every helper in `github_service` opened its own HTTP client, so each step of a sync, publish or settings read paid a fresh TCP and TLS handshake to api.github.com. They now share one pooled client per event loop (one in production), with each call's own headers and timeout. Three sequential calls against the live API took ~335 ms before and ~92 ms after, once warm.
+- **Terminology lookups reuse connections.** The PR reviewer's live lookups (tx.fhir.org, OHDSI, EBI OLS, NLM, NCBI) called `httpx.get`, a new connection each time, for a few hundred lookups per matrix. They now share one thread-safe `httpx.Client`.
+
 ## claude/issue-11-copy-name
 
 - **Copy a disease name from the record view.** The main page's record heading has a ⧉ button beside the disease name that copies just the name, with the same "Copied" toast as the IRI and link buttons. The reference-review panel and the PR reviewer already had one.
