@@ -1,5 +1,9 @@
 # Changelog
 
+## claude/parallel-startup
+
+- **Both pages fetch their start-up data together.** The reference-review page fetched the database registry, the grid, the curated mappings, the predictions, the curator's session, id authorship and the review queues one after another, so the matrix waited for their sum; `mappings` alone is two GitHub downloads when signed in and `predictions` can be a cold start. They now go out together after `me` and `sync`, and the page waits for the slowest. The main page does the same for the overview, the field schema and the database registry. Error handling is unchanged: the registry and the grid are required, everything else degrades as before.
+
 ## claude/issue-11-copy-name
 
 - **Copy a disease name from the record view.** The main page's record heading has a ⧉ button beside the disease name that copies just the name, with the same "Copied" toast as the IRI and link buttons. The reference-review panel and the PR reviewer already had one.
