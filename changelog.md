@@ -1,5 +1,9 @@
 # Changelog
 
+## claude/csp-inline-handlers
+
+- **The deep-dive Close, the field editor's Cancel and the row-remove buttons work again.** The Content-Security-Policy's `script-src 'self'` blocks inline `onclick=` handlers, so these buttons did nothing (Chrome logged a CSP violation instead). They are wired with `addEventListener` now: Close where each panel is rendered (`renderReadView`, `renderItemEditor`), both Cancel buttons next to Save, and the definition-source and subtype row removes through one delegated handler, since those rows are added after their form is wired, in both the field editor and the new-disease form. No inline handlers are left under `static/`.
+
 ## claude/issue-216-blocklist-from-data-repo
 
 - **The predictor reads the synonym blocklist from the data repo** (#216). `mappings/ari.synonym_blocklist.tsv` now lives in KrishnaTO/ARI (KrishnaTO/ARI#129), where curators edit it. `deploy/update-mappings.sh` fetches it with the other mapping files into `ari-mappings/`, and prediction and enrichment read it from there (`predict_service.blocklist_path()`), so a curator's edit reaches the predictor within one refresh. The cached predictions are keyed on the blocklist's mtime as well, so a refreshed blocklist re-runs them. The app's own copies of the blocklist and `ari.mis_curated_synonyms.tsv` are deleted.
