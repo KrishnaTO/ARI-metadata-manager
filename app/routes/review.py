@@ -15,6 +15,7 @@ from fastapi.responses import JSONResponse
 
 from .. import (
     config,
+    enrich_service,
     predict_service,
     sessions,
     sssom_service,
@@ -207,7 +208,14 @@ async def predictions(request: Request):
 
     Exact name/synonym matches against the downloaded reference-database indexes
     (``data/2-databases``); the review page shows these as yellow "predicted" cells
-    the curator can verify and confirm. Empty list when no indexes are present."""
+    the curator can verify and confirm. Empty list when no indexes are present.
+
+    Loading the indexes takes seconds after ``data/2-databases`` changes, and
+    in this handler it held the event loop: nothing else was served meanwhile,
+    not even ``/healthz``. It reads no ontology, so it runs in a thread; the
+    matching that follows (tens of ms) stays here with the ontology reads it
+    needs (EFFICIENCY.md §3)."""
+    await asyncio.to_thread(predict_service.warm)
     return workspace.service_for(request).predict_xrefs()
 
 
@@ -221,6 +229,9 @@ async def enrichment_preview(request: Request, payload: dict = Body(default={}))
     matched terms' own synonyms and their direct children. Read-only preview of the
     ``apply_enrichment`` publish step; empty when nothing new is proposed."""
     confirmed = payload.get("confirmed") or []
+    if confirmed:
+        # The index-derived tables, off the event loop, as for predictions.
+        await asyncio.to_thread(enrich_service.warm)
     return workspace.service_for(request).enrichment_preview(confirmed)
 
 

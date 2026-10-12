@@ -42,7 +42,10 @@ app does reaches `KrishnaTO/ARI` except through a pull request.
 - **Async routes, synchronous work.** Most handlers are `async def` and call
   owlready2 and the index code synchronously, so a slow call holds the loop.
   Network calls (`httpx`) are awaited. The PR-reviewer routes and the concept
-  lookup are plain `def`, so FastAPI runs them in its thread pool. See
+  lookup are plain `def`, so FastAPI runs them in its thread pool. Predictions
+  and the enrichment preview load the reference indexes with
+  `asyncio.to_thread` first (it reads no ontology), so a reload after
+  `data/2-databases` changes doesn't hold the loop; owlready2 calls stay on it. See
   [EFFICIENCY.md §3](EFFICIENCY.md#3-cpu-bound-work-runs-on-the-event-loop).
 - **Background sweep.** `main.lifespan` starts a loop that, every six hours,
   retires idle working copies (`workspace._sweep_user_data`) and expired
