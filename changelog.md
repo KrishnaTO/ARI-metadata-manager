@@ -1,5 +1,12 @@
 # Changelog
 
+## claude/issue-171-removal-subjects
+
+- **Ids removed in the field editor publish with their disease as the subject.** A removal saved by the field editor was parked with only the disease's IRI, and the mapping builder reads the ARI id and label, so every one became a row with an empty subject in both mapping files. KrishnaTO/ARI#88 and #93 each had to be repaired by hand. Publishing now gives each parked removal its disease's ARI id and label, and `sssom_service.build` refuses a judgment with no ARI id (a 400) instead of writing an empty subject. The mapping files are now built before anything is written to the working copy, so a refusal changes nothing.
+- **A curator publishes only their own removals.** Parked removals were picked up by whichever curator next published the disease; they are now limited to the curator who made them.
+- **A flagged SNOMED code also leaves `ARI_DXCODE`.** DXCODE stores SNOMED CT codes too, so a flagged code stayed on the record there and the data repo rejected the PR (`flagged-still-stored`). Removing a flagged id now clears it from every property holding that vocabulary's ids.
+- **Review-page id edits are credited to the curator.** The review page's id editor sent no `editor`, so the changelog read `… | user | Edited: doid`; it now sends the signed-in login.
+
 ## claude/autostash-cleanup-doc
 
 - **OPERATIONS.md: the autostash cleanup procedure is safer to run.** It now pauses `ari-mm-update.timer` first and restarts it after, so an update run cannot add or shift stash entries mid-cleanup. It checks `git status --porcelain` is empty before starting, and runs the log check (`sudo journalctl`) and the branch deletion from the admin's own shell. Before, the log check ran inside the `ariapp` shell, which has no `sudo` for it.

@@ -136,13 +136,16 @@ async def publish(request: Request, payload: dict = Body(default={})):
 
     # Confirmed (positive) + flagged (negative) cross-references from a
     # reference-review session (also written to the mapping files further below).
+    login = u["identity"]["login"]
     confirmed = payload.get("confirmed") or []
     flagged = payload.get("flagged") or []
     # An id edited off a disease record is a negative judgment too, and the field
-    # editor is the only path that does not say so. Its parked removals join the
-    # review page's here, so one list drives both the ontology and the mapping
-    # files no matter which page the curator used (see app/xref_removals.py).
-    flagged += stores.XREF_REMOVALS.pending(workspace.touched(u["identity"]["login"]))
+    # editor is the only path that does not say so. This curator's parked
+    # removals join the review page's here, so one list drives both the ontology
+    # and the mapping files no matter which page the curator used (see
+    # app/xref_removals.py).
+    parked = stores.XREF_REMOVALS.pending(workspace.touched(login), login=login)
+    flagged += parked
     # Cells judged to have no term at all in the target database.
     absent = payload.get("absent") or []
     # author_id lands in the published SSSOM. An ORCID is validated here rather
@@ -154,7 +157,6 @@ async def publish(request: Request, payload: dict = Body(default={})):
     # A curator may not confirm a mapping id they added themselves; the frontend
     # blocks it, and this is the boundary check behind that.
     own = stores.ID_AUTHORS.authors()
-    login = u["identity"]["login"]
     source_branch = workspace._source_branch(request)   # this curator's baseline, not a global
 
     # A retry of a publish that actually succeeded returns the original result
@@ -225,6 +227,34 @@ async def publish(request: Request, payload: dict = Body(default={})):
     # merge_from evicted the loaded copy; resolve it again from the merged file.
     svc = workspace.service_for(request, write=True) if any_review else workspace.service_for(request)
 
+    # The mapping files are built before anything is written, so a judgment the
+    # builder refuses leaves the working copy as it was.
+    SS_PATH = config.MAPPINGS_SSSOM_PATH
+    EQ_PATH = config.MAPPINGS_EQUIV_PATH
+    extra_files = {}
+    if any_review:
+        async def _read(path):
+            try:
+                return (await gh.get_file_at(u["token"], config.GH_OWNER, config.GH_REPO,
+                                             path, source_branch)).decode("utf-8")
+            except Exception as e:
+                log.debug("Could not read existing mapping file %s@%s, starting fresh: %s", path, source_branch, e)
+                return ""
+        try:
+            # A parked removal names only its disease's IRI; the review page's
+            # items carry the ARI id and label the rows are written against.
+            # Without them every field-editor removal became a row with no
+            # subject (issue #171).
+            for g in parked:
+                g.update(svc.get_mapping_subject(g["iri"]))
+            files = sssom_service.build(confirmed, author, await _read(SS_PATH), await _read(EQ_PATH),
+                                        flagged=flagged, absent=absent)
+        except Exception:
+            _discard(baseline.path)
+            raise
+        extra_files = {SS_PATH: files["sssom"].encode("utf-8"),
+                       EQ_PATH: files["equiv"].encode("utf-8")}
+
     rollback = None
     try:
         enrich_note = ""
@@ -281,22 +311,8 @@ async def publish(request: Request, payload: dict = Body(default={})):
     # SSSOM + equivalencies mapping files.
     reuse_branch = payload.get("branch") or None
     labels = payload.get("labels") or ["edit term"]
-    extra_files = {}
-    SS_PATH = config.MAPPINGS_SSSOM_PATH
-    EQ_PATH = config.MAPPINGS_EQUIV_PATH
     map_note = ""
     if any_review:
-        async def _read(path):
-            try:
-                return (await gh.get_file_at(u["token"], config.GH_OWNER, config.GH_REPO,
-                                             path, source_branch)).decode("utf-8")
-            except Exception as e:
-                log.debug("Could not read existing mapping file %s@%s, starting fresh: %s", path, source_branch, e)
-                return ""
-        files = sssom_service.build(confirmed, author, await _read(SS_PATH), await _read(EQ_PATH),
-                                    flagged=flagged, absent=absent)
-        extra_files = {SS_PATH: files["sssom"].encode("utf-8"),
-                       EQ_PATH: files["equiv"].encode("utf-8")}
         # This used to read "3 new 5 positive / 2 negative / 1 no-term-found
         # judgment(s) added to …" — the new-row count and the verdict counts
         # concatenated with no connecting words, in every review PR.
