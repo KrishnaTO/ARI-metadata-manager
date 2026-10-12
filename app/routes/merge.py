@@ -46,13 +46,16 @@ async def sync(request: Request):
     branch = workspace._source_branch(request)
     try:
         sha = await gh.branch_sha(u["token"], config.GH_OWNER, config.GH_REPO, branch)
-        if sha == workspace.ancestor_sha(login):
+        # A copy synced by code that followed other item links may be missing
+        # items, so neither shortcut below applies to it.
+        current = workspace.synced_with_current_links(login)
+        if current and sha == workspace.ancestor_sha(login):
             return {"up_to_date": True, "revision": workspace.copy_revision(login)}
         # The branch moved, but about half the commits to the data repo leave
         # the ontology alone. If its file is the one last synced, there is
         # nothing to merge: record the commit and skip the download.
         blob = workspace.ancestor_blob(login)
-        if blob and blob == await gh.file_blob_sha(u["token"], config.GH_OWNER, config.GH_REPO,
+        if current and blob and blob == await gh.file_blob_sha(u["token"], config.GH_OWNER, config.GH_REPO,
                                                     config.GH_ONTOLOGY_PATH, sha):
             workspace.set_ancestor_sha(login, sha, blob)
             return {"up_to_date": True, "revision": workspace.copy_revision(login)}

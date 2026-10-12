@@ -1,5 +1,9 @@
 # Changelog
 
+## claude/resync-on-new-item-links
+
+- **Diseases open again for curators whose working copy was synced before target cells.** The data repo gained target cells (424 `Cell_*` items) while the server still ran code that didn't know the category. A sync merges a disease's items only along the links it knows (`merge_service.ITEM_LINKS`), so those copies took each disease's `affectsCellTissueOrOrgan` links but not the cells. The new code reads target cells, got bare strings for the missing items, and every disease returned a 500 ("That disease link could not be opened"). The copy's sync record now stores the item links its last full sync followed, and `/api/v2/sync` skips only when they match the running code's. A copy synced under other links is merged again in full on the next page load, which brings in the missing items and keeps the curator's own edits.
+
 ## claude/disease-selection-bug-312d62
 
 - **"Open the disease index" opens the index on narrow screens again.** Below 1200px the index is an overlay that closes on a click outside it. The start screen's button opened it, and then the same click reached that outside-click check, because the button sits outside the rail, so the index closed at once and there was no way to pick a disease from the start screen. The button no longer counts as outside, like the ☰ toggle.
