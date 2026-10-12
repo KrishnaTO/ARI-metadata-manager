@@ -1,5 +1,10 @@
 # Changelog
 
+## claude/pr-reviewer-calls
+
+- **The PR reviewer reads less from GitHub.** Listing open PRs made one `/files` call per open PR to find the ones touching mapping files; it is now one GraphQL call per 50 PRs. Opening a cached matrix made three calls (`/pulls/{n}`, `/compare`, `/files`); it now makes one, and the rest are read only when the head commit has moved. Within a request, a PR and its file list are read once, so posting a review no longer fetches the file list again.
+- **Every changed file is read.** The file list stopped at the first 100 files, so a reviewed file past them was missed; it is now paginated.
+- **Matching ids is linear.** Each changed row scanned every row of the PR's equivalencies file for its disease's other ids; the file is grouped by disease once per matrix.
 ## claude/http-connection-reuse
 
 - **GitHub calls reuse one connection.** Every helper in `github_service` opened its own HTTP client, so each step of a sync, publish or settings read paid a fresh TCP and TLS handshake to api.github.com. They now share one pooled client per event loop (one in production), with each call's own headers and timeout. Three sequential calls against the live API took ~335 ms before and ~92 ms after, once warm.
