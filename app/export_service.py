@@ -86,11 +86,13 @@ def disease_to_row(d: dict) -> dict:
 
 
 def _rows_from_service(service) -> dict:
-    """Map ARI ID (or IRI fallback) -> core-format row dict."""
+    """Map ARI ID (or IRI fallback) -> core-format row dict.
+
+    Reads each disease's own fields (``get_disease_records``), which is all the
+    sheet carries, rather than its full detail with items and subtypes."""
     out = {}
-    for item in service.get_diseases_list():
-        detail = service.get_disease_detail(item["iri"])
-        row = disease_to_row(detail)
+    for record in service.get_disease_records():
+        row = disease_to_row(record)
         out[row["ARI ID"] or row["IRI"]] = row
     return out
 

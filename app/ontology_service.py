@@ -404,9 +404,22 @@ class OntologyService:
             self._predict_cache = (sig, cells)
         return cells
 
-    def get_disease_detail(self, iri: str) -> dict:
-        """Return full detail about a disease individual and all its associations."""
-        e = self._entity(iri)
+    def get_disease_records(self) -> list:
+        """Every disease's own fields, sorted by label: each entry is
+        :meth:`get_disease_detail` without the item lists and ``subtypes``.
+
+        For whole-catalogue views such as the export, which carry only these.
+        Building the full detail for every disease was O(N²): each one scans
+        every other disease for its subtypes, on top of reading all its items."""
+        return sorted((self._record_fields(d) for d in self._all_diseases()),
+                      key=lambda r: r["name"])
+
+    def _record_fields(self, e) -> dict:
+        """A disease's own annotations, data properties and direct links.
+
+        Reads only ``e`` (and the labels of what it links to), never another
+        disease, so it stays cheap. :meth:`get_disease_detail` adds the subtypes
+        and item lists to it, so the two cannot disagree about a field."""
         base = self.base
 
         d = {
@@ -464,6 +477,13 @@ class OntologyService:
         d["tissue_targets"] = [self._ref(o) for o in self._get_objects(e, base + "targetsTissue")]
         d["parent_categories"] = [self._ref(o) for o in self._get_objects(e, base + "hasParentCategory")]
         d["parent_disease"] = [self._ref(o) for o in self._get_objects(e, base + "hasParentDisease")]
+        return d
+
+    def get_disease_detail(self, iri: str) -> dict:
+        """Return full detail about a disease individual and all its associations."""
+        e = self._entity(iri)
+        base = self.base
+        d = self._record_fields(e)
 
         # Subtypes (diseases that name this one as parent)
         d["subtypes"] = []

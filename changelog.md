@@ -1,5 +1,8 @@
 # Changelog
 
+## claude/export-records
+
+- **The Excel export no longer builds every disease's full record.** The sheet carries each disease's own fields (ids, names, codes, definition, tissue, category), but the export built the full detail of every disease, on both sides when marking changes. That meant every item list, plus a scan of every other disease to find each record's subtypes: O(N²). It now reads `OntologyService.get_disease_records()`, each disease's own fields only, which `get_disease_detail` now shares (`_record_fields`), so the two cannot disagree. Locally, the export takes 139 ms instead of 373 ms signed out, and 179 ms instead of 642 ms when marking changes against the source branch (959 ms was measured in production signed out). Cell values and highlights are identical, and `GET /api/v2/disease/{iri}` returns the same JSON.
 ## claude/publish-summary
 
 - **Publishing and the publish dialog no longer build every disease's record.** To describe the few diseases a curator touched, `diff_service.list_changes` built the full record (every symptom, treatment, pathway step and immune component) of all 214 diseases in the working copy *and* in the downloaded branch: 428 builds, ~0.6 s locally (~1.5 s estimated in production) on every publish and every opening of the publish dialog. It now matches records on a cheap index of ARI ids and builds full records only for the diseases in scope. With four diseases in scope the summary takes 39 ms instead of 595 ms, and the dialog's list 28 ms instead of 526 ms. The summary, the change list and the generated title are identical to before.
