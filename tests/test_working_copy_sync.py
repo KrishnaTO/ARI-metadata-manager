@@ -158,6 +158,19 @@ def test_sync_is_a_no_op_when_the_branch_has_not_moved(branch):
                                                   "revision": workspace.copy_revision("ada")}
 
 
+def test_a_copy_synced_under_other_item_links_is_merged_again(branch):
+    """Code that predates a category syncs a disease's links to its new items
+    but not the items, so the branch not having moved proves nothing."""
+    workspace.user_service("ada", create=True)
+    client.post("/api/v2/sync")                         # a full sync at sha-2
+    workspace._update_ancestor_meta("ada", links=["involvesCytokine"])   # older code
+
+    r = client.post("/api/v2/sync").json()
+
+    assert "up_to_date" not in r and r["sha"] == SHA_2   # merged, not skipped
+    assert workspace.synced_with_current_links("ada")
+
+
 def test_sync_merges_the_branch_and_records_its_commit(branch):
     d = _first(workspace.user_service("ada", create=True))
     branch["svc"].update_disease(d, {"definition": "theirs"}, editor="bob")
