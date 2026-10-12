@@ -179,7 +179,7 @@ def signed_in(tmp_path, monkeypatch, base_owl, make_service, ledger):
     committed = {}
 
     async def _sha(*a):
-        return "sha-1"
+        return "1111111111111111111111111111111111111111"
 
     async def _file(token, owner, repo, path, ref):
         if path != config.GH_ONTOLOGY_PATH:

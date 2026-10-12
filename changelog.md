@@ -1,5 +1,8 @@
 # Changelog
 
+## claude/baseline-cache
+
+- **The source branch's ontology is downloaded once per commit.** The publish dialog, the publish, sync, resolve, switching branch and the export each downloaded the branch's ontology (~1.7 MB) from GitHub; a routine publish fetched the same bytes three or four times. The bytes at a commit never change, so `app/baselines.py` keeps them by commit sha under `.user-data/baselines/` (the 8 most recently used) and every caller reads them from there. The publish dialog and the export now name the branch's current commit too, so the publish that follows the dialog reuses its download. A value that is not a 40-character commit sha is refused before it can name a file.
 ## claude/pr-reviewer-calls
 
 - **The PR reviewer reads less from GitHub.** Listing open PRs made one `/files` call per open PR to find the ones touching mapping files; it is now one GraphQL call per 50 PRs. Opening a cached matrix made three calls (`/pulls/{n}`, `/compare`, `/files`); it now makes one, and the rest are read only when the head commit has moved. Within a request, a PR and its file list are read once, so posting a review no longer fetches the file list again.

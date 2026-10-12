@@ -33,7 +33,7 @@ def signed_in(tmp_path, monkeypatch, base_owl, make_service):
     committed = {}
 
     async def _sha(*a):
-        return "sha-1"
+        return "1111111111111111111111111111111111111111"
 
     async def _file(token, owner, repo, path, ref):
         branch._save()                    # as the branch stores it, not the checkout's line endings

@@ -12,9 +12,19 @@ from pathlib import Path
 from fastapi import APIRouter, Body, Request
 from fastapi.responses import JSONResponse
 
-from .. import atomic_store, config, diff_service, merge_service, owl_splice, sessions, sssom_service, stores, workspace
+from .. import (
+    atomic_store,
+    baselines,
+    config,
+    diff_service,
+    merge_service,
+    owl_splice,
+    sessions,
+    sssom_service,
+    stores,
+    workspace,
+)
 from .. import github_service as gh
-from ..ontology_service import OntologyService
 
 log = logging.getLogger(__name__)
 
@@ -64,22 +74,6 @@ def _mapping_author(supplied, login: str) -> str:
     return sssom_service.orcid_curie(supplied.removeprefix("orcid:"))
 
 
-async def _baseline_service(request, u, ref=None):
-    """The source branch's ontology (or ``ref`` of it), as a service. Raises if it cannot be read.
-
-    The pending-changes list and the pull-request summary compare against this,
-    and the publish itself is built on top of it. The caller is responsible for
-    deleting ``service.path``.
-    """
-    import tempfile
-    data = await gh.get_file_at(u["token"], config.GH_OWNER, config.GH_REPO,
-                                config.GH_ONTOLOGY_PATH, ref or workspace._source_branch(request))
-    tf = tempfile.NamedTemporaryFile(suffix=".owl", delete=False)
-    tf.write(data)
-    tf.close()
-    return OntologyService(tf.name)
-
-
 @router.get("/api/v2/pending-changes")
 async def pending_changes(request: Request):
     """The diseases this curator has changed, and what changed in each.
@@ -101,7 +95,10 @@ async def pending_changes(request: Request):
     touched = workspace.touched(login)
     baseline = None
     try:
-        baseline = await _baseline_service(request, u)
+        # By commit, so the publish that follows reuses this download.
+        sha = await gh.branch_sha(u["token"], config.GH_OWNER, config.GH_REPO,
+                                  workspace._source_branch(request))
+        baseline = await baselines.service_at(u["token"], sha)
         changes = diff_service.list_changes(workspace.service_for(request), baseline, touched)
     except Exception as e:
         log.warning("Could not list pending changes against the source branch: %s", e)
@@ -214,7 +211,7 @@ async def publish(request: Request, payload: dict = Body(default={})):
     # same bytes the curator was shown (#164).
     try:
         sha = await gh.branch_sha(u["token"], config.GH_OWNER, config.GH_REPO, source_branch)
-        baseline = await _baseline_service(request, u, ref=sha)
+        baseline = await baselines.service_at(u["token"], sha)
     except Exception as e:
         log.error("Could not read %s at %s to rebase this publish onto: %s",
                   config.GH_ONTOLOGY_PATH, source_branch, e)

@@ -14,9 +14,9 @@ import logging
 from fastapi import APIRouter, Body, Request
 from fastapi.responses import JSONResponse
 
-from .. import config, sessions, workspace
+from .. import baselines, config, sessions, workspace
 from .. import github_service as gh
-from .publish import _baseline_service, _discard
+from .publish import _discard
 
 log = logging.getLogger(__name__)
 
@@ -56,7 +56,7 @@ async def sync(request: Request):
                                                     config.GH_ONTOLOGY_PATH, sha):
             workspace.set_ancestor_sha(login, sha, blob)
             return {"up_to_date": True, "revision": workspace.copy_revision(login)}
-        theirs = await _baseline_service(request, u, ref=sha)
+        theirs = await baselines.service_at(u["token"], sha)
     except gh.BranchNotFound:
         # An edit/* branch deleted once its PR merged. Say so, and offer the way
         # on that keeps the working copy (settings.follow_base), rather than a
@@ -107,7 +107,7 @@ async def resolve(request: Request, payload: dict = Body(...)):
             "detail": "choices must map each disease to {field: 'mine' | 'theirs'}"})
     login = u["identity"]["login"]
     try:
-        theirs = await _baseline_service(request, u, ref=sha)
+        theirs = await baselines.service_at(u["token"], sha)
     except Exception as e:
         log.error("Could not read the source branch at %s to resolve for @%s: %s",
                   sha[:7], login, e)
