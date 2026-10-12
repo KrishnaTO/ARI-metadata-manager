@@ -19,6 +19,9 @@ Per-entry fields:
               ``{id}`` = the raw id (both URL-encoded by the caller). None if the
               database has no standalone link-out.
   search      URL template to search the source by disease name (``{name}``)
+  search_snomed  optional URL template to search the source by one of the disease's
+              SNOMED ids (``{num}``), used instead of ``search`` when it has one.
+              OMOP's: Athena finds the SNOMED concept, whose concept id is the OMOP id.
   noframe     True when the target site refuses to be embedded in an <iframe>
   review      shown as a column on the reference-review page
   main_app    shown as a cross-reference chip on the main disease page
@@ -35,6 +38,7 @@ XREF_DATABASES = [
      "curie_base": "https://athena.ohdsi.org/search-terms/terms/", "ari_suffix": "ARI_OMOP",
      "link": "https://athena.ohdsi.org/search-terms/terms/{num}",
      "search": "https://athena.ohdsi.org/search-terms/terms?query={name}",
+     "search_snomed": "https://athena.ohdsi.org/search-terms/terms?vocabulary=SNOMED&query={num}",
      "noframe": True, "review": True, "main_app": True},
     {"key": "doid", "label": "DOID", "prefix": "DOID",
      "curie_base": "http://purl.obolibrary.org/obo/DOID_", "ari_suffix": "ARI_DOID",
@@ -105,7 +109,8 @@ XREF_SUFFIXES = {d["key"]: d["ari_suffix"] for d in XREF_DATABASES}
 # object-CURIE prefix -> IRI base, de-duplicated (dxcode reuses SNOMEDCT's).
 CURIE_BASES = {d["prefix"]: d["curie_base"] for d in XREF_DATABASES if d.get("curie_base")}
 
-_PUBLIC_KEYS = ("key", "label", "prefix", "link", "search", "noframe", "review", "main_app")
+_PUBLIC_KEYS = ("key", "label", "prefix", "link", "search", "search_snomed", "noframe",
+                "review", "main_app")
 
 # Values that mean "no id was supplied". They arrive as text rather than as None
 # because the review page builds its session keys by string concatenation, so a
@@ -116,7 +121,7 @@ PLACEHOLDER_IDS = frozenset({"null", "none", "nil", "nan", "n/a", "na",
 
 def public_list() -> list:
     """The JSON view the frontends consume (internal fields dropped)."""
-    return [{k: d[k] for k in _PUBLIC_KEYS} for d in XREF_DATABASES]
+    return [{k: d.get(k) for k in _PUBLIC_KEYS} for d in XREF_DATABASES]
 
 
 def normalize_id(db_key: str, value) -> str:

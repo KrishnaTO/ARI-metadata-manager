@@ -405,8 +405,6 @@ body.resizing-cols { cursor: col-resize; user-select: none; }
 .story-step:last-child { padding-right: 0; }
 .story-step.active { background: var(--accent-050); margin-top: -14px; padding-top: 14px; }
 .story-head { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
-.story-num { font-family: var(--font-mono); font-size: 0.6875rem; font-weight: 600; color: var(--accent); }
-.story-num.muted { color: var(--mute-soft); }
 .story-title { font-size: 0.7812rem; font-weight: 600; }
 .story-hint { display: none; }
 /* Category lines are the click targets into the deep dive. */
@@ -441,7 +439,6 @@ body.resizing-cols { cursor: col-resize; user-select: none; }
   display: flex; align-items: center; gap: 10px; margin: 0 -16px 14px; padding: 12px 16px;
   background: var(--paper); border-bottom: 1px solid var(--line); border-radius: 7px 7px 0 0;
   font: 600 0.8125rem/1.35 var(--font-sans); }
-.right-panel > h2 .panel-ord { font-family: var(--font-mono); font-size: 0.6875rem; font-weight: 600; color: var(--accent); }
 .right-panel > h2 .panel-aspect { font-weight: 400; color: var(--mute); }
 /* The title takes the slack so every action clusters on the right at the normal
    gap. (An `auto` margin on each button would split the free space between them
