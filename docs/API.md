@@ -71,7 +71,7 @@ form, because the pages address their assets relatively.
 | GET | `/api/v2/schema` | open | The editable item categories and their fields (`app/schema.py`). |
 | GET | `/api/v2/tissues` | open | Tissue individuals, for the new-disease form. |
 | GET | `/api/v2/disease/{iri}` | open | Full detail of one disease and all its items. |
-| GET | `/api/v2/search?q=` | open | Up to 100 matches on name, synonym or target tissue; diseases first. |
+| GET | `/api/v2/search?q=` | open | Up to 100 matches on name, ARI id (`ARI:0001170`), synonym or target tissue; diseases first. |
 | GET | `/api/v2/releases` | open | `{current, releases}`. |
 
 ## Editing the ontology

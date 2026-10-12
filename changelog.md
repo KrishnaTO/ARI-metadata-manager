@@ -1,5 +1,9 @@
 # Changelog
 
+## claude/issue-217-ari-id-search
+
+- **The search box finds a disease by its ARI id** (#217). Typing the id as the record shows it, `ARI:0001170` (any case, or a prefix of it such as `ARI:000117`), found nothing: search matched the label, the IRI's local name (`ARI_0001170`), synonyms and target tissue, but never the `ARI_ID` annotation. Diseases now match on it too, after the name, and the result shows the id it matched.
+
 ## claude/release-manifest-atomic
 
 - **A release can no longer wipe the release history.** `releases/releases.json` was written with a plain `write_text`, and a manifest that failed to parse was read as empty, so the next release replaced it with a one-entry list. It is now read and written through `atomic_store`, like the other ledgers: a corrupt manifest stops the release with an error (before any disease is stamped) instead of being overwritten, and a crash mid-write leaves the old manifest whole. A release reads the manifest once, up front.
