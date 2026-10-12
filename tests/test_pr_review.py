@@ -96,3 +96,33 @@ def test_post_review_sends_only_my_unposted_notes(tmp_path, monkeypatch):
     client.post("/api/v2/pr-review/prs/7/notes", json={"key": "ARI:0001001|MONDO|1", "text": "edited"})
     assert client.post("/api/v2/pr-review/prs/7/review").status_code == 200
     assert FakeReader.posted[1]["comments"][0]["body"] == "edited"
+
+
+def test_the_matrix_reads_its_files_together(base_owl, monkeypatch):
+    """Five to seven independent file reads per matrix ran one after another
+    (EFFICIENCY.md §7)."""
+    import threading
+    import time
+
+    from app.pr_review import compare
+
+    equiv = "source_prefix\tsource_id\tsource_name\trelation\ttarget_prefix\ttarget_id\ttype\tauthor\n"
+    sssom = "subject_id\tobject_id\tcomment\tauthor_id\tmapping_date\n"
+    served = {github.EQUIV_PATH: equiv, github.SSSOM_PATH: sssom}
+    at_once = {"now": 0, "most": 0}
+    lock = threading.Lock()
+
+    class Reader:
+        def file_at(self, path, ref):
+            with lock:
+                at_once["now"] += 1
+                at_once["most"] = max(at_once["most"], at_once["now"])
+            time.sleep(0.05)
+            with lock:
+                at_once["now"] -= 1
+            return base_owl.read_bytes() if path == github.ONTOLOGY_PATH else served[path].encode()
+
+    monkeypatch.setattr(compare, "get_indexes", lambda: [])
+    refs = {"head_sha": "h", "merge_base": "m", "base_ref": "b", "paths": [github.EQUIV_PATH]}
+    assert compare.build_matrix(refs, Reader()) == {"pr": refs, "rows": []}
+    assert at_once["most"] == 5

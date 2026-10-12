@@ -1,5 +1,10 @@
 # Changelog
 
+## claude/parallel-server-calls
+
+- **Independent GitHub reads and uploads run together.** A publish uploaded its blobs (the ontology and the two mapping files) one after another; they now go out together. The two mapping files, read for the review page's prior judgments and for every review publish, are fetched together. The PR reviewer's matrix fetched its five to seven files in series; they now share a small thread pool.
+- **PR labels are created once per process.** Every publish posted each label (`edit term`, `sssom`) to be created before applying it, although they almost always exist already: one wasted call per label per publish.
+
 ## claude/issue-11-copy-name
 
 - **Copy a disease name from the record view.** The main page's record heading has a ⧉ button beside the disease name that copies just the name, with the same "Copied" toast as the IRI and link buttons. The reference-review panel and the PR reviewer already had one.
