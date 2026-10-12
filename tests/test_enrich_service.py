@@ -46,7 +46,7 @@ def _disease(name="Type 1 diabetes", ari="ARI:0000001", synonyms=None, clinical_
 
 
 def _enrich(disease, confirmed, indexes=(HUB,), subtypes=SUBTYPES, blocklist=None):
-    return es.enrich(disease, confirmed, es.build_id_index(list(indexes)), subtypes, blocklist)
+    return es.enrich(disease, confirmed, list(indexes), subtypes, blocklist)
 
 
 # ------------------------------------------------------------------- synonyms (req 1)
@@ -72,6 +72,15 @@ def test_blocklisted_synonyms_are_dropped():
     out = _enrich(_disease(), [{"db": "mondo", "ids": ["0005147"]}], blocklist=bl)
     assert "juvenile diabetes" not in values(out["synonyms"])
     assert "insulin dependent diabetes" in values(out["synonyms"])
+
+
+def test_a_confirmed_id_matches_as_prediction_matches_it():
+    # The ontology holds one MONDO id with its prefix (ARI:0001080). Enrichment
+    # matched ids as exact strings and missed it; prediction and the compare pane
+    # fold the prefix and leading zeros, and enrichment now shares their lookup.
+    for ident in ("MONDO:0005147", "5147"):
+        out = _enrich(_disease(), [{"db": "mondo", "ids": [ident]}])
+        assert "juvenile diabetes" in values(out["synonyms"]), ident
 
 
 def test_synonyms_resolved_via_a_cross_referenced_id():
@@ -170,19 +179,6 @@ def _counting(monkeypatch, name):
         return real(*args, **kwargs)
     monkeypatch.setattr(es, name, wrapper)
     return calls
-
-
-def test_id_index_is_built_once_per_set_of_indexes(monkeypatch):
-    built = _counting(monkeypatch, "build_id_index")
-    indexes = [HUB]
-    for _ in range(3):
-        es.enrich_many([_disease()], T1D_CONFIRMED, indexes=indexes,
-                       subtypes=SUBTYPES, blocklist={})
-    assert len(built) == 1
-
-    # get_indexes() hands back a new list once the index files change.
-    es.enrich_many([_disease()], T1D_CONFIRMED, indexes=[HUB], subtypes=SUBTYPES, blocklist={})
-    assert len(built) == 2
 
 
 def test_subtype_map_is_reloaded_only_when_its_file_changes(tmp_path, monkeypatch):

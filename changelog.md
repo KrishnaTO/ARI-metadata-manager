@@ -1,5 +1,10 @@
 # Changelog
 
+## claude/shared-reverse-index
+
+- **One id map per reference index instead of three.** The compare pane (`concept_service`) and enrichment each built their own map from ids to reference terms over the same records as prediction's per-index map (47 MB and 27 MB). Both now read `LexicalIndex.records_for`, and their maps are gone: resident memory after the warm-up, an enrichment preview and a compare-pane lookup is 300 MB instead of 372 MB locally. The compare pane's map was also cached per index list and never evicted, so each index rebuild kept the old one until restart; that cache is gone too.
+- **Enrichment matches ids the way prediction does.** It matched exact strings, so a MONDO id stored with its prefix (`MONDO:0005147`, on ARI:0001080) resolved to nothing. Ids now fold their prefix, leading zeros and case, as prediction and the compare pane fold them. "Unique within one source" is now checked at lookup. Over the real ontology, with every stored id treated as confirmed, the enrichment preview and all 1,276 compare-pane lookups are unchanged.
+
 ## claude/efficiency-doc-refresh
 
 - **`docs/EFFICIENCY.md` shows the second round of fixes.** Findings 7, 8, 9, 10 and 14 are marked fixed with the PR that fixed each (#203–#209) and the cost after, and finding 3 partly fixed (#206: index reloads run in a thread; owlready2 calls stay on the loop). The production after-table gains the synonym review's repeat load (428–490 ms instead of 641–946 ms). The suggested order now covers only what is open: §11's `create_release` write, §6, the rest of §11, and §3's step 3 only if measured.

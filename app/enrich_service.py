@@ -38,6 +38,7 @@ from __future__ import annotations
 import csv
 from pathlib import Path
 
+from . import predict_service
 from .predict_service import (
     DEFAULT_BLOCKLIST_PATH,
     DEFAULT_INDEX_DIR,
@@ -113,13 +114,17 @@ def load_subtypes(indexes: list[LexicalIndex],
 
 
 # ------------------------------------------------------------------ reverse lookup
-def build_id_index(indexes: list[LexicalIndex]) -> dict[tuple[str, str], list[dict]]:
-    """``(db_key, bare_id) -> [records]`` across every loaded reference index.
+def _resolve(db: str, ident: str, indexes: list[LexicalIndex]) -> list[dict]:
+    """Reference records a confirmed ``(db, id)`` cross-reference identifies.
 
-    A record is registered under every ``(db, id)`` it carries in ``by_db`` — its
-    own id in its owning column *and* every cross-reference it declares. So a
-    confirmed ``(mondo, 0005147)`` finds the MONDO record directly, and a confirmed
+    A record answers under every ``(db, id)`` it carries in ``by_db`` — its own id
+    in its owning column *and* every cross-reference it declares. So a confirmed
+    ``(mondo, 0005147)`` finds the MONDO record directly, and a confirmed
     ``(snomed, 44054006)`` finds whatever record cross-references that SNOMED id.
+    Ids match as prediction and the compare pane match them
+    (:func:`~app.predict_service.match_key`), through the same per-index map:
+    ``MONDO:0005147`` and ``0005147`` are one id. A separate exact-string map here
+    cost 27 MB and missed a MONDO id stored with its prefix.
 
     **Ambiguous ids are dropped per source.** Many cross-references are coarser than
     a disease concept — a single ICD-10 code such as ``H90.3`` is xreffed by 134
@@ -134,30 +139,20 @@ def build_id_index(indexes: list[LexicalIndex]) -> dict[tuple[str, str], list[di
     per source: ``E10`` pins exactly one MONDO term and reads as agreement while
     still being a rubric over a whole disease family. Which is why ICD-10 is refused
     upstream by :data:`NON_CONCEPT_DBS` instead of being left to this rule. Records
-    stay indexed under their ICD-10 xrefs here; :func:`enrich` is what declines to
+    still answer for their ICD-10 xrefs here; :func:`enrich` is what declines to
     follow that route.
     """
-    out: dict[tuple[str, str], list[dict]] = {}
+    out: list[dict] = []
     for idx in indexes:
-        local: dict[tuple[str, str], list[dict]] = {}
-        for rec in idx.records:
-            for db, ids in rec.get("by_db", {}).items():
-                for ident in ids:
-                    local.setdefault((db, str(ident)), []).append(rec)
-        for key, recs in local.items():
-            if len({r["id"] for r in recs}) == 1:      # unique within this source
-                out.setdefault(key, []).append(recs[0])
+        recs = idx.records_for(db, ident)
+        if recs and len({r["id"] for r in recs}) == 1:     # unique within this source
+            out.append(recs[0])
     return out
-
-
-def _resolve(db: str, ident: str, id_index: dict[tuple[str, str], list[dict]]) -> list[dict]:
-    """Reference records exactly matching a confirmed ``(db, id)`` cross-reference."""
-    return id_index.get((db, str(ident)), [])
 
 
 # ------------------------------------------------------------------------- enrich
 def enrich(disease: dict, confirmed: list[dict],
-           id_index: dict[tuple[str, str], list[dict]],
+           indexes: list[LexicalIndex],
            subtypes: dict[str, list[dict]],
            blocklist: dict[str, set[str]] | None = None) -> dict:
     """Proposed synonym + clinical-subtype additions for one disease.
@@ -190,7 +185,7 @@ def enrich(disease: dict, confirmed: list[dict],
         if db in NON_CONCEPT_DBS:
             continue
         for ident in (c.get("ids") or []):
-            for rec in _resolve(db, str(ident).strip(), id_index):
+            for rec in _resolve(db, str(ident).strip(), indexes):
                 if rec["id"] not in seen_rec:
                     seen_rec.add(rec["id"])
                     records.append(rec)
@@ -233,24 +228,17 @@ def _subtype_name(raw: str) -> str:
 
 
 # ------------------------------------------------------------------------ caching
-# The id index and the subtype map depend only on the reference files, but were
-# rebuilt on every preview and again on publish: 1.35 s per call in production,
-# against well under a millisecond for enrich() itself. Each is kept as a single
-# entry, so a rebuilt index set replaces the old one rather than keeping it alive.
+# The subtype map depends only on the reference files, but was rebuilt on every
+# preview and again on publish (with the id map that ``records_for`` now serves):
+# 1.35 s per call in production, against well under a millisecond for enrich()
+# itself. It is kept as a single entry, so a rebuilt index set replaces the old
+# one rather than keeping it alive.
 #
 # ``get_indexes()`` returns the same list object until an index file changes, so
-# the list's identity is the id index's key. The subtype map also reads the
+# the list's identity is part of the key. The map also reads the
 # ``*.subtypes.tsv`` files, which can change on their own, so their mtimes and
-# sizes are part of its key.
-_ID_INDEX: tuple | None = None       # (indexes, id_index)
+# sizes are part of it too.
 _SUBTYPES: tuple | None = None       # (indexes, index_dir, file signature, subtypes)
-
-
-def _id_index_for(indexes: list[LexicalIndex]) -> dict[tuple[str, str], list[dict]]:
-    global _ID_INDEX
-    if _ID_INDEX is None or _ID_INDEX[0] is not indexes:
-        _ID_INDEX = (indexes, build_id_index(indexes))
-    return _ID_INDEX[1]
 
 
 def _subtypes_for(indexes: list[LexicalIndex], index_dir: str | Path) -> dict[str, list[dict]]:
@@ -269,8 +257,7 @@ def warm(index_dir: str | Path = DEFAULT_INDEX_DIR) -> None:
 
     Reads only the index and subtype files, never an ontology, so the routes
     run it in a thread before the ontology work that must stay on the loop."""
-    indexes = get_indexes(index_dir)
-    _id_index_for(indexes)
+    indexes = predict_service.warm(index_dir)
     _subtypes_for(indexes, index_dir)
 
 
@@ -296,10 +283,9 @@ def enrich_many(diseases: list[dict], confirmed_by_iri: dict[str, list[dict]],
         subtypes = _subtypes_for(indexes, index_dir)
     if blocklist is None:
         blocklist = load_synonym_blocklist(blocklist_path)
-    id_index = _id_index_for(indexes)
     out: dict[str, dict] = {}
     for d in work:
-        result = enrich(d, confirmed_by_iri[d.get("iri")], id_index, subtypes, blocklist)
+        result = enrich(d, confirmed_by_iri[d.get("iri")], indexes, subtypes, blocklist)
         if result["synonyms"] or result["subtypes"]:
             out[d.get("iri")] = result
     return out

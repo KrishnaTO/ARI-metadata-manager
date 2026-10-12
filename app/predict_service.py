@@ -210,8 +210,9 @@ def match_key(raw: str) -> str:
     ``2043`` is only ever compared **within** one database — ``DOID:2043`` can never
     collide with a MeSH descriptor numbered 2043.
 
-    ``concept_service`` keys its reverse index the same way and imports this, so the
-    two cannot drift apart.
+    ``concept_service`` and ``enrich_service`` look ids up through
+    :meth:`LexicalIndex.records_for` too, so prediction, the compare pane and
+    enrichment cannot disagree on whether two ids are the same.
     """
     s = (raw or "").strip()
     if ":" in s:
@@ -228,9 +229,10 @@ class LexicalIndex:
     A *record* is ``{"id", "label", "synonyms", "by_db": {db_key: [ids]}}``. One
     normalized name can map to several records (rare homonyms across the ontology);
     callers decide how to treat ambiguity. ``records`` is the flat, deduplicated
-    term list (one entry per term) that ``concept_service`` walks to build its
-    reverse id->term index; ``path`` lets it find this index's sibling
-    ``<db>.details.tsv`` sidecar for definitions/parents.
+    term list (one entry per term); ``records_for`` answers "which terms carry this
+    id" for prediction, the compare pane (``concept_service``) and enrichment alike.
+    ``path`` lets ``concept_service`` find this index's sibling ``<db>.details.tsv``
+    sidecar for definitions/parents.
     """
 
     def __init__(self, source: str, path: Path | None = None):
