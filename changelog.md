@@ -1,5 +1,9 @@
 # Changelog
 
+## claude/efficiency-doc-status
+
+- **`docs/EFFICIENCY.md` shows what is fixed.** Findings 1, 2, 4, 5, 12 and 13 are marked fixed with the PR that fixed each (#189–#196) and the cost after; a new table re-times the fixed endpoints in production (the empty enrichment preview 53–93 ms instead of 1,346 ms, the export 424–499 ms instead of 959 ms, no cold start on predictions). The suggested order now covers only what is open: §14, §7, §3, then the rest. §3 and §6 are updated for what the fixes changed.
+- **Two stale statements corrected.** `DEPLOY.md` said the mapping refresh restarts the app when a file changes; it hasn't since #191. `docs/ARCHITECTURE.md` said the first request after a restart pays the index parse; the indexes now load at startup. Its cache table gains the two enrichment caches.
 ## claude/issue-171-removal-subjects
 
 - **Ids removed in the field editor publish with their disease as the subject.** A removal saved by the field editor was parked with only the disease's IRI, and the mapping builder reads the ARI id and label, so every one became a row with an empty subject in both mapping files. KrishnaTO/ARI#88 and #93 each had to be repaired by hand. Publishing now gives each parked removal its disease's ARI id and label, and `sssom_service.build` refuses a judgment with no ARI id (a 400) instead of writing an empty subject. The mapping files are now built before anything is written to the working copy, so a refusal changes nothing.
