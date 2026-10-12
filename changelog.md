@@ -1,5 +1,9 @@
 # Changelog
 
+## claude/issue-173-sibling-target-evidence
+
+- **The PR reviewer compares a target with the other targets the PR confirms for the same disease** (#173). Each row was judged only against ARI's own names, so DOID:1757 ("facial hemiatrophy") looked like a weak match for Progressive hemifacial atrophy while the same PR confirmed MONDO:0007710 under that very label. A row whose target shares a name with a sibling target confirmed in the PR now lists it as evidence ("Same name as a target confirmed in this PR", and `= MONDO 0007710` tags in the renamed *Support* column) and gains 2 points, so such a rejection reads "Check rejection". Only names ARI does not list itself count (a shared ARI name is already the name match), and only the target's own term, not hub terms. The CSV export has the new column. On KrishnaTO/ARI#89, 10 rejections move from "Rejection plausible" to "Check rejection".
+
 ## claude/issue-101-drop-story-numbers
 
 - **The record's story steps are no longer numbered** (#101). The spine labelled its steps `01`–`05`, and each deep-dive head repeated its step's number, which read as a five-stage process to complete. They are five aspects of a record, so the numbers are gone: the steps keep their titles, and the deep-dive head reads "Pathophysiology · Adaptive immunity". The Record step is marked `inSidebar` instead of having no number. This was the last open item of #101.
