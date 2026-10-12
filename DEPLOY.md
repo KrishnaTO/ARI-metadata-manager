@@ -141,7 +141,10 @@ different runtime location.
    `KrishnaTO/ARI:GITHUB_BASE_BRANCH` (defaults to two mapping files currently
    in the ARI repo: `mappings/ari.equivalencies.tsv` and
    `mappings/ari.sssom.tsv`), writes them to the local runtime mapping
-   directory, and restarts the app only if any mapping bytes changed.
+   directory, and restarts the app only if any mapping bytes changed. Unlike
+   `update.sh`, this restart is not deferred while curators have work in memory.
+   The app reads these files from disk on every request, so the restart is not
+   needed; see [docs/EFFICIENCY.md §5](docs/EFFICIENCY.md#5-the-mapping-refresh-restarts-the-app-for-nothing).
 
 Note: the remaining three mapping TSVs currently live in the
 `ARI-metadata-manager` repo and are updated via the app-code refresh path
@@ -208,10 +211,10 @@ sudo systemctl restart ari-mm
 
 ## Troubleshooting
 
-### `git config --global --add safe.directory '*'` (or /opt/ari/repo)
-If git complains "dubious ownership", the repo is owned by a different user.
+### Git reports "dubious ownership"
+The repo is owned by a different user from the one running git.
 ```bash
-sudo git config --global --add safe.directory /opt/ari/repo
+sudo git config --global --add safe.directory /opt/ari/ari-metadata-manager
 ```
 
 ### Permission errors
@@ -247,8 +250,11 @@ Check what the running app reports against the branch tip:
 ```bash
 curl -s https://aurint.ca/ari-editor/api/v2/overview | grep -o '"app_version":"[^"]*"'
 ```
-`app_version` is `2.<commit-count> (<date>)`, derived from git at process start, so a
-stale value means the working tree really has not moved.
+`app_version` is `2.<commit-count> (<sha>, <date>)`, derived from git at process start, so a
+stale value means the running process predates the commit. Compare the sha with
+`git -C /opt/ari/ari-metadata-manager rev-parse --short HEAD`: if `HEAD` has moved
+but the app has not, the restart is being deferred while curators have work in
+memory (see `worlds_in_memory` in `/healthz`).
 
 Then check whether the timer is firing and whether the unit it starts is failing —
 these are different faults with the same symptom:
@@ -342,4 +348,4 @@ They are written up in order, with verification and rollback for each, in
 - `.env` is `chmod 600`, git-ignored, never web-served (nginx denies dotfiles).
 - App bound to `127.0.0.1:8001`; only nginx is public; HTTPS via Cloudflare.
 - GitHub token is held server-side (session holds only an opaque id); never sent to the browser.
-- Set `ALLOWED_LOGINS` to restrict who may publish.
+- Set `ALLOWED_LOGINS` to restrict who may sign in (and therefore edit and publish).

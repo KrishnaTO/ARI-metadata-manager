@@ -1,6 +1,12 @@
 #!/usr/bin/env bash
 # Fetch the latest mapping TSV files from the configured ARI repo/branch and
-# restart the app only when any local runtime mapping changes.
+# replace the local copies when they have changed.
+#
+# No restart: the app reads these files from disk on every request that needs
+# them, so a new file is picked up immediately. Restarting used to throw away the
+# loaded reference indexes (the next review-page visitor waited ~5 s for them)
+# and every curator's in-memory working copy, without the deferral update.sh
+# applies while curators have work in progress.
 set -euo pipefail
 
 APP_DIR=/opt/ari/ari-metadata-manager
@@ -33,8 +39,6 @@ MAPPING_CONFIG="${ARI_MAPPING_FILES:-$DEFAULT_MAPPINGS}"
 
 TMP="$(mktemp)"
 trap 'rm -f "$TMP"' EXIT
-
-any_changed=0
 
 fetch_file() {
   local remote_path="$1"
@@ -82,17 +86,12 @@ while IFS= read -r spec; do
   if [ -f "$local_path" ] && cmp -s "$TMP" "$local_path"; then
     echo "Mapping already up to date: $OWNER/$REPO:$BRANCH:$remote_path -> $local_path"
   else
-    install -m 0644 "$TMP" "$local_path"
+    # Replace atomically: the running app may read the file at any moment, and
+    # must never see it half-written.
+    install -m 0644 "$TMP" "$local_path.new"
+    mv -f "$local_path.new" "$local_path"
     echo "Updated mapping: $OWNER/$REPO:$BRANCH:$remote_path -> $local_path"
-    any_changed=1
   fi
 done <<EOF
 $MAPPING_CONFIG
 EOF
-
-if [ "$any_changed" -eq 1 ]; then
-  sudo systemctl restart ari-mm
-  echo "One or more mappings changed; restarted ari-mm."
-else
-  echo "No mapping changes; ari-mm not restarted."
-fi
