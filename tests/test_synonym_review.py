@@ -9,6 +9,28 @@ from app import sessions, synonym_review, synonym_review_store
 
 client = TestClient(main.app)
 
+
+@pytest.fixture(autouse=True)
+def report_source(monkeypatch, ro_service):
+    """Every read sees a fresh cache, a blob id for whatever the test serves, and
+    the fixture ontology (not the shared base) for the disease IRIs."""
+    from app import workspace
+    from app.routes import review
+    monkeypatch.setattr(review, "_REPORT", None)
+    monkeypatch.setattr(workspace, "service_for", lambda request, write=False: ro_service)
+    served = {"text": f"{HEADER}\n{ROW}\n", "downloads": 0}
+
+    async def _blob(token, owner, repo, path, ref):
+        return gh.blob_sha(served["text"].encode())
+
+    async def _file(token, owner, repo, path, ref):
+        served["downloads"] += 1
+        return served["text"].encode()
+
+    monkeypatch.setattr(gh, "file_blob_sha", _blob)
+    monkeypatch.setattr(gh, "get_file_at", _file)
+    return served
+
 HEADER = "\t".join(synonym_review.COLUMNS)
 ROW = ("ARI:0001001\tAcquired epidermolysis bullosa\tEBA\tARI_Synonym\tsynonym\tkeep\t"
        "database evidence\texact: MONDO:0018747\t\t\t2026-10-08")
@@ -112,3 +134,36 @@ def test_report_endpoint_returns_the_curation(curated, monkeypatch):
     d = client.get("/api/v2/synonym-review").json()
     assert d["curation"]["ARI:0001001|EBA"]["status"] == "needs-review"
     assert d["login"] == "curator"
+
+
+# ----------------------------------------------------------- not re-downloaded
+# The report is 2.7 MB of JSON and changes only when the data repo's notebook
+# rewrites it, but every load fetched and parsed it again (0.64-0.95 s in
+# production). A small blob-id read now decides whether it changed.
+def _configured(monkeypatch):
+    monkeypatch.setattr(config, "GH_OWNER", "KrishnaTO")
+    monkeypatch.setattr(config, "GH_REPO", "ARI")
+
+
+def test_an_unchanged_report_is_not_downloaded_again(monkeypatch, report_source):
+    _configured(monkeypatch)
+    first = client.get("/api/v2/synonym-review").json()
+    second = client.get("/api/v2/synonym-review").json()
+    assert report_source["downloads"] == 1
+    assert second["rows"] == first["rows"]
+
+
+def test_a_changed_report_is_downloaded_again(monkeypatch, report_source):
+    _configured(monkeypatch)
+    client.get("/api/v2/synonym-review")
+    report_source["text"] += ROW.replace("EBA", "Epidermolysis bullosa acquisita") + "\n"
+    rows = client.get("/api/v2/synonym-review").json()["rows"]
+    assert report_source["downloads"] == 2 and len(rows) == 2
+
+
+def test_each_row_carries_its_disease_iri(monkeypatch, ro_service):
+    """The page loaded all of /api/v2/xrefs only to link each row back to review."""
+    _configured(monkeypatch)
+    [row] = client.get("/api/v2/synonym-review").json()["rows"]
+    want = next(r["iri"] for r in ro_service.get_xref_rows() if r["ari_id"] == "ARI:0001001")
+    assert row["iri"] == want
