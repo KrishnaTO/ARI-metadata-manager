@@ -18,7 +18,7 @@ from pathlib import Path
 
 from fastapi import HTTPException, Request
 
-from . import atomic_store, config, merge_service, sessions
+from . import atomic_store, config, github_service, merge_service, sessions
 from .ontology_service import OntologyService
 
 log = logging.getLogger(__name__)
@@ -136,6 +136,16 @@ def ancestor_sha(login) -> str | None:
     return _ancestor_meta(login).get("sha")
 
 
+# The git blob id of the branch's ontology file this copy was last fully synced
+# against (or made from). About half the commits to the data repo leave that
+# file alone; when the branch has moved but the file's blob id is this one,
+# there is nothing to merge, and sync skips the download, the parse and the
+# merge. Cleared whenever a partial merge (publish, resolve) moves the ancestor
+# on its own, since the ancestor then no longer stands for one version of it.
+def ancestor_blob(login) -> str | None:
+    return _ancestor_meta(login).get("blob")
+
+
 # The working copy's revision: an opaque token that changes whenever a merge or
 # a fetch rewrites the copy underneath any open page. A window left in the
 # background compares it with the one it loaded, because its own sync would
@@ -151,11 +161,14 @@ def _new_revision(login):
 def set_ancestor(login, data: bytes, sha):
     _ancestor_dir().mkdir(parents=True, exist_ok=True)
     atomic_store.write_bytes(ancestor_path(login), data, mode=0o644)
-    _update_ancestor_meta(login, sha=sha, revision=uuid.uuid4().hex)
+    _update_ancestor_meta(login, sha=sha, blob=github_service.blob_sha(data),
+                          revision=uuid.uuid4().hex)
 
 
-def set_ancestor_sha(login, sha):
-    _update_ancestor_meta(login, sha=sha)
+def set_ancestor_sha(login, sha, blob):
+    """Record that the copy is now fully synced with ``sha``, whose ontology
+    file has blob id ``blob``."""
+    _update_ancestor_meta(login, sha=sha, blob=blob)
 
 
 def _drop_ancestor(login):
@@ -405,6 +418,7 @@ def merge_from(login, theirs, iris, choices=None) -> dict:
             _new_revision(login)
         if out["advanced"]:
             anc._save()
+            _update_ancestor_meta(login, blob=None)     # no longer one version of the file
     except Exception:
         _restore_working_copy(login, svc, snapshot)
         raise

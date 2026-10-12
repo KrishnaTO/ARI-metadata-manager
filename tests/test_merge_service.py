@@ -38,6 +38,37 @@ def _reloaded(svc):
     return OntologyService(str(svc.path))
 
 
+# --------------------------------------------------------------- what to merge
+# A sync merged every disease, ~0.7 s of one-row-at-a-time SQLite reads, though
+# the branch had usually changed a handful. Where the branch holds a disease
+# exactly as the ancestor does, the merge returns the working copy's version
+# untouched and leaves the ancestor alone — so those are left out up front.
+def test_a_bulk_snapshot_reads_every_record_as_the_triples_do(make_service):
+    svc = make_service()
+    snap = merge_service._snapshot(svc)
+    for d in svc.get_diseases_list():
+        assert merge_service._snapshot_record(snap, svc.base, d["iri"]) == \
+            merge_service._record(svc, d["iri"]), d["name"]
+
+
+def test_merge_into_merges_only_the_diseases_the_branch_changed(trio, monkeypatch):
+    base, mine, theirs = trio
+    changed, edited = _iri(theirs, 0), _iri(mine, 1)
+    theirs.update_disease(changed, {"definition": "theirs"}, editor="bob")
+    mine.update_disease(edited, {"definition": "mine"}, editor="ada")
+    merged = []
+    real = merge_service.merge_disease
+    monkeypatch.setattr(merge_service, "merge_disease",
+                        lambda b, m, t, iri, choices=None: merged.append(iri) or real(b, m, t, iri, choices))
+
+    out = merge_service.merge_into(mine, base, theirs,
+                                   {d["iri"] for d in mine.get_diseases_list()}, {edited})
+
+    assert merged == [changed], f"merged {len(merged)} diseases for one upstream change"
+    assert out == {"merged": [changed], "conflicts": [], "advanced": [changed]}
+    assert _reloaded(mine).get_disease_detail(edited)["definition"] == "mine"
+
+
 def test_a_field_only_they_changed_comes_in(trio):
     base, mine, theirs = trio
     d = _iri(mine)
