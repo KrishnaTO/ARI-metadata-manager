@@ -1,5 +1,19 @@
 # Changelog
 
+## claude/app-docs-efficiency-review
+
+- **Rebuilt the documentation from a full review of the code.** `README.md` is now the entry point: what the app is, a quick start, the layout of the repository (including the modules, pages and scripts it used to leave out), every setting, the server-side state and how to run the tests. The detail moved out of the README into `docs/ARCHITECTURE.md` (how each part works, in the present tense) and `docs/API.md` (every endpoint, with who may call it). Endpoints that were never listed are now documented: `/healthz`, `POST /api/v2/disease/{iri}/xref`, `pending-changes`, `predictions`, `enrichment-preview`, `stats`, `synonym-review` and its curation write.
+- **Efficiency review.** `docs/EFFICIENCY.md` lists measured hot spots with fixes, ranked by payoff. They were measured three ways: by reading the code, by profiling every endpoint and service function locally, and by timing production (aurint.ca, signed out, read-only) in the browser. The biggest:
+  - each keystroke in the review page's filter recomputes every cell from all predictions (156 ms per pass against 1.2 ms indexed, with identical results), blocking the page for 37–129 ms in production and 230–620 ms locally;
+  - the first review-page visitor after a restart waits 5 s for predictions;
+  - enrichment rebuilds two whole-index structures on every call (1.35 s in production, even for an empty list);
+  - the publish summary and the export build every disease's full detail on both sides;
+  - sync three-way merges all 214 diseases whenever the branch moves (0.7 s locally);
+  - the synonym review re-downloads 2.7 MB of report from GitHub on every load.
+
+  No code changed.
+- **Corrections.** `DEPLOY.md` had the old version format, a stale `safe.directory` path, and said `ALLOWED_LOGINS` limits publishing (it limits sign-in); it now also notes that the mapping refresh restarts the app without deferring for curators. `OPERATIONS.md`'s backup now includes `pr-review/` and `synonym-review/` and skips folders that don't exist yet. `.env.example` lists the optional settings it was missing and describes `ASSIGN_ADMINS` and `USER_DATA_TTL_DAYS` accurately.
+
 ## feat/synonym-review-marks
 
 - **Mark synonym-review rows and add notes.** Each row on `/ref-edits/synonyms/` has a *Curation* column: ✓ correct, ✗ incorrect, ? needs review, and a note. Signed-in curators only; changes save immediately and are shared by everyone.
