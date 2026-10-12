@@ -1,569 +1,237 @@
 # ARI Disease Metadata Manager
 
-A standalone **FastAPI** web app for browsing and editing the ARI autoimmune‑disease
-catalogue, stored as a single Protégé‑compatible **OWL** ontology. Editors sign in with
-their **own GitHub account**; every saved change is committed and opened as a pull request
-under their identity, so contributions are attributed on GitHub. Deployable on AWS Lightsail
-behind nginx.
+A web app for browsing and curating the Autoimmune Registry (ARI) disease
+catalogue. The catalogue is one Protégé-compatible OWL ontology kept in
+[`KrishnaTO/ARI`](https://github.com/KrishnaTO/ARI). Curators sign in with their
+own GitHub account, edit a private working copy, and publish their changes as a
+pull request under their own name. FastAPI backend, vanilla-JavaScript frontend
+with no build step, deployed on AWS Lightsail behind nginx at
+<https://aurint.ca/ari-editor>.
 
-> **Repository move:** this app was originally developed inside the main
-> [`KrishnaTO/ARI`](https://github.com/KrishnaTO/ARI) repository under the
-> `metadata-manager/` area. It now lives in this standalone repository,
-> [`KrishnaTO/ARI-metadata-manager`](https://github.com/KrishnaTO/ARI-metadata-manager),
-> so paths and setup commands in this README are relative to this repository root.
-
-## Repository scope
-
-This repository contains the metadata-manager app only: the FastAPI backend, vanilla-JS
-frontend, ontology seed/import tooling, and deployment assets. It no longer includes the
-full ARI monorepo history or sibling `data/` and `notebook/` areas from
-[`KrishnaTO/ARI`](https://github.com/KrishnaTO/ARI). The ontology itself belongs to that repo:
-the app's runtime copy at `ontologies/ari_t1d.owl` is not tracked here (it is fetched from
-`KrishnaTO/ARI` by `deploy/update-ontology.sh` on the server, or copied in for local use). The test
-suite runs against the snapshot in `tests/fixtures/ontologies/`.
-
-## Areas (project structure)
-
-```
-ARI-metadata-manager/
-├── run.py                      # Local launcher: uvicorn on 127.0.0.1:8001, opens browser
-├── requirements.txt            # owlready2, fastapi, uvicorn, httpx, itsdangerous, openpyxl
-├── requirements-dev.txt        # Dev/CI tooling only: pytest, ruff
-├── ruff.toml                   # Lint config
-├── instructions.md             # Original product brief for the app
-├── changelog.md                # Human-facing change log
-├── .env.example                # Config template (copy to .env; secrets stay server-side)
-├── DEPLOY.md                   # AWS Lightsail + nginx + Cloudflare SSL deployment guide
-│
-├── app/                        # ── Backend (FastAPI) ──
-│   ├── main.py                 #   App assembly: middleware, health, error handlers, routers
-│   ├── config.py               #   Every setting read at startup (env vars, paths, versions)
-│   ├── sessions.py             #   Server-side token store; who the caller is and may do
-│   ├── workspace.py            #   Per-curator working copies: branch, edits, sweep, expiry
-│   ├── stores.py               #   The assignment, id-provenance + removal ledger singletons
-│   ├── routes/                 #   Endpoints, grouped by the page they serve:
-│   │   ├── ontology.py         #     Disease records: trees, indexes, edits, releases
-│   │   ├── review.py           #     /ref-edits matrix: xrefs, mappings, predictions, session
-│   │   ├── feedback.py         #     Per-term curator commentary
-│   │   ├── auth.py             #     GitHub OAuth round trip, identity, open PRs
-│   │   ├── publish.py          #     Commit + pull request, replay guard, rollback
-│   │   ├── settings.py         #     Source/PR branch selection, fetch, .xlsx export
-│   │   ├── assignments.py      #     Review queue
-│   │   └── pages.py            #     The two HTML pages (asset-token injection)
-│   ├── ontology_service.py     #   owlready2 read/edit layer (one World per working copy)
-│   ├── schema.py               #   Editable data-item field schema (drives forms + writes)
-│   ├── xref_registry.py        #   Single source of truth for cross-reference databases
-│   ├── github_service.py       #   Per-user OAuth, commit, fork, cross-repo pull request
-│   ├── merge_service.py        #   Rebases a curator's diseases onto the source branch
-│   ├── sssom_service.py        #   Confirmed cross-refs -> SSSOM + equivalencies TSV
-│   ├── id_provenance.py        #   Who added each cross-reference id (separation of duties)
-│   ├── xref_removals.py        #   Ids edited off a record, pending as negative judgments
-│   ├── synonym_review.py       #   Parses report 9 (9_Synonym_Review.tsv) from the ARI repo
-│   ├── synonym_review_store.py #   Curators' marks + notes on report 9 (synonym-review/)
-│   ├── enrich_service.py       #   Confirmed cross-refs -> disease synonyms + clinical subtypes
-│   ├── diff_service.py         #   Human-readable change summary for PR bodies
-│   ├── export_service.py       #   Export ontology -> 1_Core_ARI_Diseases.xlsx (marks changes)
-│   └── feedback_service.py     #   File-backed per-term feedback log
-│
-├── scripts/                    # ── Data builders ──
-│   ├── build_t1d_ontology.py   #   Generate the seed T1D ontology from scratch
-│   ├── import_reports.py       #   Fold data/4-reports/ catalogue into the ontology
-│   └── backfill_id_authors.py  #   Seed the id-authorship ledger from the curated mappings
-│
-├── data/2-databases/           # Reference-database indexes (built by fetch_databases.py)
-│   ├── <db>.index.tsv          #   term -> label, synonyms, cross-referenced ids
-│   ├── <db>.details.tsv        #   term -> definition, parent labels (on-demand lookup)
-│   └── <db>.subtypes.tsv       #   direct is_a parent->child edge ids (OBO sources)
-├── tests/                      # pytest suite for the service layer
-├── mappings/                   # Accumulated cross-reference judgments (merged into PRs)
-│   ├── ari.sssom.tsv           #   SSSOM exactMatch mappings
-│   └── ari.equivalencies.tsv   #   biomappings-style equivalencies
-├── .github/workflows/ci.yml    # CI: pytest + advisory ruff lint
-│
-├── static/                     # ── Frontend (vanilla JS, no build step) ──
-│   ├── index.html              #   Main page skeleton (two-column record shell)
-│   ├── css/styles.css          #   All main-page styles (light/dark); ref-edits has its own
-│   ├── js/                     #   Classic scripts, loaded in order:
-│   │   ├── core.js             #     state, constants, API helper, BASE_PATH detection
-│   │   ├── trees.js            #     left nav: alphabetical / tissue trees, search
-│   │   ├── detail.js           #     record view: header, reading column, story spine, sidebar
-│   │   ├── panels.js           #     deep-dive read views (inline card / drawer)
-│   │   ├── graph.js            #     D3 force-directed pathophysiology graph
-│   │   ├── editor.js           #     edit mode, field/item editors, admin releases
-│   │   ├── symptoms.js         #     "search by symptoms" multi-select board
-│   │   ├── feedback.js         #     per-term feedback panel
-│   │   ├── github.js           #     sign-in + publish control
-│   │   ├── settings.js         #     fetch-from-branch, switch source, PR target
-│   │   └── main.js             #     bootstrap
-│   └── ref-edits/              #   Cross-reference review subpage (matrix)
-│       ├── index.html
-│       ├── ref-edits.js        #     diseases x databases grid, side-panel review, SSSOM publish
-│       └── synonyms/           #     Synonym vs subtype review (report 9, read-only)
-│
-├── deploy/                          # ── Hosting (systemd + nginx) ──
-│   ├── ari-mm.service               #   uvicorn service (runs as ariapp on :8001)
-│   ├── ari-mm-update.service        #   oneshot wrapper for update.sh
-│   ├── ari-mm-update.timer          #   every 10 min: pull app branch, restart until running HEAD
-│   ├── update.sh                    #   git reset --hard origin/<branch>; refresh ontology; restart if behind
-│   ├── ari-mm-ontology-update.service  # oneshot wrapper for update-ontology.sh
-│   ├── ari-mm-ontology-update.timer    # every 10 min: refresh ontology from the ARI repo
-│   ├── update-ontology.sh           #   fetch ontology file from GitHub; atomic replace, no restart
-│   └── nginx.conf                   #   reverse proxy; strips the /ari-editor prefix
-│
-├── ontologies/ari_t1d.owl      # Runtime ontology, fetched from KrishnaTO/ARI (gitignored)
-├── releases/                   # Versioned OWL snapshots          (gitignored)
-├── feedback/                   # Runtime feedback log             (gitignored)
-├── .user-data/                 # Per-user working copies          (gitignored, auto-swept)
-└── .sessions.json              # Server-side session store        (gitignored, chmod 600)
-```
-
-## Key subsystems
-
-### Main page: the record view
-The main page is a **two-column record view** in the AurInt design system: a 288px index rail
-and one record column, sized against a 1440px reference. The rail holds the A–Z and Tissue
-trees and scrolls independently of the record. The record is a fixed header
-(breadcrumb, title, `Copy link` · `Edit record`) over a body split into a
-reading column — definition, citations, and the **disease story spine** — and a 340px sidebar
-carrying synonyms, target tissue, the cross-reference ledger, clinical subtypes and the record
-links — each a block whose section label collapses it (expanded by default; a collapsed block
-is remembered under `ari_side_collapsed`).
-
-The story spine is one column per numbered `STORY_GROUPS` step (`01`–`05`); the category lines
-inside a column are the click targets. Picking one expands its **deep dive** as a card inline
-under the spine (below 1024px, as a drawer over the record with a scrim). The card is the
-`#right-col` element from the shell, re-parented into the reading column on every render, so
-`panels.js` and `editor.js` keep rendering into `#right-panel-content` unchanged.
-
-The record header's **Edit record** button (`#edit-toggle`) is the single way in and out of
-edit mode; it reads *Done editing* while editing, and entering edit mode opens the
-disease-field form in the deep-dive slot. It is enabled only once a record is loaded **and**
-a curator is signed in, matching the server-side write gate in `service_for()` — on a
-deployment with GitHub integration switched off there is no identity to demand, so a loaded
-record is the only requirement.
-
-Leaving the form — **Cancel**, *Done editing*, dismissing the drawer, or opening a category
-from the story — routes through the same snapshot comparison (`fieldsDirty()`), so nothing
-unsaved is discarded without a prompt. A category panel opened while curating carries a
-**Disease fields** button back to the form, and its **Close** returns there rather than
-dropping out of edit mode.
-
-The **Prevalence** deep dive shows US and worldwide incidence side by side, each as a rate
-per 100,000 per year with the year it describes and links to its sources. They are stored on
-the disease as the data properties `incidenceUSPer100k` / `incidenceWorldPer100k` (decimal),
-`incidenceUSYear` / `incidenceWorldYear` (integer) and `incidenceUSSource` /
-`incidenceWorldSource` (one string per URL), which the ontology in `KrishnaTO/ARI` must
-declare. Curators keep each region at its latest available year; the form takes one source
-URL per line.
-
-Design tokens (colour, type, spacing, radius, shadow) live in `:root` in
-`static/css/styles.css`, with a dark set under `[data-theme="dark"]`. Type is Barlow Condensed
-(wordmark), IBM Plex Sans (everything), IBM Plex Mono (ids, codes, counts) and IBM Plex Serif
-(blockquotes). There are no emoji anywhere in the UI; icons are inline Lucide SVGs, because
-the page pins its third-party scripts with SRI and cannot add an icon CDN.
-
-### Per-user GitHub identity & publishing
-Sign-in uses the GitHub OAuth Authorization-Code flow. The access token is held
-**server-side only** (in the session store); the browser keeps just an opaque session id.
-On **Publish**, the app commits the edited OWL on a branch named after the disease and opens
-a PR authored by the signed-in user, so GitHub attributes the contribution to them.
-Contributors without push access are handled by **forking**: the app creates a fork, commits
-there, and opens a cross-repo PR with `maintainer_can_modify`. Re-publishing the same disease
-appends commits to the existing PR. The only persistent secret is the OAuth client secret,
-which never leaves the server. `app/github_service.py` owns this logic.
-
-### Publishing merges the working copy with the source branch
-A working copy is made once and lives for days, so committing it whole reverted every record
-merged into the branch since — the incident in issue #146. Each working copy now records the
-version it started from (`.user-data/ancestor/<login>.owl` and the commit it came from), and
-`app/merge_service.py` compares ancestor, working copy and branch triple by triple: list
-fields (synonyms, subtypes, ids, changelog, item links) combine value by value, a single-valued
-field takes whichever side changed it, and only a field both sides changed differently needs a
-person. A copy made before ancestors were kept gains one on its first clean sync. `POST /api/v2/sync` runs this at page load when the branch has moved; publish runs it
-again before committing. Where both sides changed the same field, a dialog shows both values
-and the branch's changelog line — who changed it and why — and the curator picks **Keep all
-mine** / **Keep all theirs** or resolves field by field; `POST /api/v2/resolve` applies the
-answers. The touched set lives at `.user-data/<login>.touched.json` so a restart cannot empty
-it, and it is cleared on a successful publish.
-
-### Per-user working copies & isolation
-Each signed-in editor edits an isolated copy of the ontology at `.user-data/<login>.owl`
-(its own owlready2 World), so one editor's unpublished changes never leak into another's view
-or into the shared baseline. A startup background task sweeps idle copies older than
-`USER_DATA_TTL_DAYS` (default 14) to bound disk use. Defined in `app/config.py`,
-swept by `app/workspace.py`.
-
-### Cross-reference review → SSSOM
-The `ref-edits` subpage lays out every disease against its database cross-references
-(SNOMED, OMOP, DOID, UMLS, MONDO, ICD-10, MeSH, NCI). A curator reviews each id in a
-resizable side panel and marks it correct or needs-change; empty cells link out to the target
-database's search, and can be marked **∅ Not in *DB*** when that database has no term for the
-disease at all. Confirmed matches become `skos:exactMatch` rows in an **SSSOM** TSV plus a
-simpler biomappings-style **equivalencies** TSV — both merged idempotently under `mappings/`
-and included in the PR; an absence is recorded against SSSOM's `NoTermFound` object with the
-database named in `object_source`. Built by `app/sssom_service.py` + `static/ref-edits/`.
-
-The side panel compares the ARI disease with the candidate id's own current record, looked up
-live at each database's source — SNOMED CT and ICD-10-CM on tx.fhir.org, OMOP on OHDSI's FHIR
-server, MONDO/DOID/NCIt/Orphanet on EBI OLS, MeSH on NLM, UMLS via NCBI MedGen — the same
-lookups the PR reviewer uses (`app/pr_review/terminology.py`). It shows the term's label,
-definition, exact synonyms, narrower/broader synonyms, parents and status (inactive, OMOP
-standard/vocabulary). When a source no longer has the code, the pane says so and shows the
-downloaded snapshot; when a source can't be reached, it says that rather than showing nothing.
-
-The page's toolbar carries only what a review turn needs — the filter, the queue scope, review
-progress, the pending and ⚗ enrichment drawers, and **Publish** (its ▾ opens the tracked PR or
-starts a fresh one). Set-and-forget options live behind **⚙**: theme, row density, and whether
-the glyph legend shows. All three persist in `localStorage` per browser.
-
-Review is **two-person**: whoever adds a cross-reference id may not also confirm the mapping
-it stands for, so a second curator always vouches for every match. Every edit that introduces
-an id credits its author in a ledger (`app/id_provenance.py`, served by `GET
-/api/v2/id-authors`); the page then withholds the ✓ from that curator — flagging the id or
-declaring the database empty stays open to everyone — and `POST /api/v2/publish` re-checks
-authorship, so the rule holds regardless of what the client sends.
-
-Removing an id is a judgment too, and until recently only the review page made one. Editing a
-cross-reference out of the disease record wrote the ontology and nothing else, so a curated id
-could leave the registry with no decision behind it — which the data repo rejects on publish.
-Both write paths now park what they take away (`app/xref_removals.py`), and the next publish
-folds those removals into the same `flagged` list the review page fills, so one code path
-produces the negative SSSOM row either way. An id put back before publishing is not a
-judgment and leaves the ledger; a malformed one never enters it, because the published mapping
-set rejects a row carrying an id of the wrong shape.
-
-The ledger only sees edits made through the app, so ids curated before it existed are seeded
-from the curator named on each accumulated mapping — SSSOM `author_id`, equivalencies
-`source` — once per deployment:
-
-```bash
-python scripts/backfill_id_authors.py
-```
-
-It reads the mappings **and** the ontology from the source ARI repo (`KrishnaTO/ARI@main`),
-where publish accumulates them; this repo's tracked copies lag behind. `--local` reads the
-working tree instead. Positive rows only — a negative names who *flagged* a mapping, not who
-added the id — `github:` authors only, and a mapping is recorded only while its id is still on
-file for that disease and database. Both files are read because neither is a superset of the
-other; a mapping in both is recorded once. Re-running is safe: an id keeps its first author. The set of
-databases (labels, CURIE prefixes, and link-out/search URL templates) lives in one place,
-`app/xref_registry.py`, which both frontend pages fetch via `GET /api/v2/xref-databases`, so a
-database is added or changed once instead of in four hand-synced spots.
-
-For signed-in users, review progress is **saved to the server** as they work (verdicts,
-edited-id markers and the open-PR pointer, via `GET`/`PUT /api/v2/ref-session`), so a page
-reload resumes where they left off. The session is stored per user beside their working
-ontology copy and is dropped when they switch source branch. Once a pull request exists,
-**Publish** commits to that same PR, while a **New PR** button opens a fresh one instead.
-
-### Predicting cross-references
-A blank cell is not left for the curator to research from nothing: `app/predict_service.py`
-proposes candidate ids from the `data/2-databases/<db>.index.tsv` files, surfaced as yellow
-cells and written to `mappings/ari.predicted.sssom.tsv` with a `semapv:LexicalMatching`
-justification. Nothing is ever written to the ontology by prediction — a curator confirms
-every one. Four routes propose candidates, in descending order of how much they are worth:
-
-| Route | How the candidate was found |
-|-------|-----------------------------|
-| `xref` | An id already on file for this disease cross-references it. One confirmed MONDO id carries SNOMED, DOID, NCI, ICD-10, Orphanet, UMLS and MeSH at once. |
-| `label` | The disease's own label is exactly a name of the term. |
-| `synonym` | Only one of the disease's synonyms matched; used only when the label matched nothing. |
-| `fuzzy` | Nothing matched exactly, and the term's name merely **shares most of the label's words** ("Adult onset Still's disease" → "adult-onset Still disease"). |
-
-The label is the disease's identity **anchor**: when it matches exactly, only those terms are
-used, because ARI synonym lists sometimes name an *associated* condition rather than a
-variant (filtered further by `mappings/ari.synonym_blocklist.tsv`). Each weaker route runs
-only when every stronger one came up empty, so `fuzzy` never competes with a real match.
-
-Every candidate carries a **0–100 score** and a strong/fair/weak band, so the easy
-confirmations sort to the top of a column: the route sets the floor, independent indexes
-agreeing raises it, and the candidate's own label being the disease's label raises it most.
-A `fuzzy` candidate scores below a synonym even at perfect overlap and always lands in
-`weak` — it is inference from a string, not an assertion by anyone.
-
-`FUZZY_THRESHOLD` (the minimum word overlap) is derived, not guessed. `scripts/eval_fuzzy.py`
-replays every curator-confirmed mapping in `mappings/ari.sssom.tsv` at a range of thresholds
-and reports what each recovers against the candidates it costs a curator to read; re-run it
-when the confirmed corpus grows.
-
-```bash
-python scripts/eval_fuzzy.py
-```
-
-Names sharing no words at all ("Kawasaki disease" for "Acute febrile mucocutaneous lymph node
-syndrome") are out of reach of any lexical route and need a curator or ARI's own synonym list.
-
-**When it runs.** There is no batch job. `GET /api/v2/predictions` computes predictions inside
-the request that serves the review page, against the caller's own working copy. Two in-memory
-caches keep that cheap: the parsed index files sit in a module-level cache shared by the whole
-process (keyed on each file's mtime and size), and each `OntologyService` caches its cell list
-against the ontology file's mtime. So a repeat page load is a **cache hit (~0.1 ms)**; a load
-after that curator edited, published or fetched **recomputes (~40 ms)**; and the first load
-after a restart pays the **cold start (~2.2 s)** to parse the indexes. Merging a PR deploys
-*code* — the systemd timers in `deploy/` pull app code, ontology and mappings every 10 minutes
-— it does not run predictions.
-
-**What it costs.** ~250 MB resident process-wide (index files, plus the lazily built reverse-id
-and word-token maps), and ~6.5 MB per concurrently active curator for their working copy and
-cached cells. A 1 GB instance is comfortable; 512 MB is not.
-
-### Enrichment from confirmed cross-references
-Confirming a cross-reference asserts that the external term **is** the disease, so two of that
-term's facts can be folded back into the ARI record: its label and exact synonyms extend
-`ARI_Synonym`, and its **direct children** extend `ARI_ClinicalSubtype`. `app/enrich_service.py`
-computes both; `OntologyService.apply_enrichment` writes them. Only confirmed (positive)
-mappings feed it — flagged ones never do — and additions are de-duplicated against existing
-values and filtered by the predictor's synonym blocklist.
-
-Many cross-references are coarser than a disease concept: one ICD-10 code is cross-referenced
-by up to 134 DOID terms. An id matching **more than one term within a single source** therefore
-identifies nothing there and is ignored for that source, while an id pinning exactly one term in
-each of several sources is kept from all of them — that is agreement, not ambiguity. A disease is
-never proposed as its own subtype.
-
-Synonyms come from the same `data/2-databases/<db>.index.tsv` files the predictor uses. Subtypes
-come from companion `<db>.subtypes.tsv` files: one row per direct `is_a` parent→child edge, built
-by `scripts/fetch_databases.py` for the OBO sources (MONDO, DOID, NCIt). The edge carries ids
-only — each child's *name* is read from that child's own index row, so the two files cannot
-disagree about a label, and a child the indexes do not know is skipped rather than proposed under
-a name nothing else in the app recognises. That file is the
-`details.tsv` sidecar's hierarchy read the other way round — the sidecar answers "what is this
-term a kind of?" for one term and stores parent *labels* for display, while the engine asks the
-inverse across the whole ontology and needs ids, since a label does not identify a term.
-
-Nothing is written implicitly. The ref-edits page's **⚗ enrichment** chip previews the additions
-(`POST /api/v2/enrichment-preview`, read-only) and arms an "Apply on publish" checkbox; only then
-does publish send `apply_enrichment`, which applies them and notes them in the PR body. The
-server recomputes the additions from the confirmed list at publish time, so the preview can never
-go stale.
-
-### Report import
-`scripts/import_reports.py` folds the curated `data/4-reports/` catalogue (diseases, symptoms,
-age-of-onset, prevalence, clinical subtypes, authorship, and all cross-references) into
-`ontologies/ari_t1d.owl`. The import is additive and idempotent; the proposed-disease (`2_*`)
-and proposed-change (`3_*`) reports are intentionally skipped — only the confirmed catalogue
-is imported.
-
-### Versioning
-The manager reports a git-derived version, `2.<commit-count> (<sha>, <date>)`, that bumps on
-every deployed commit; it is shown in the UI and stamped onto releases.
-
-## Configuration (`.env`)
-
-Copy `.env.example` to `.env` (gitignored, `chmod 600`). Secrets are server-side only and are
-never sent to the browser.
-
-| Key | Purpose |
+| Page | What it is for |
 | --- | --- |
-| `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET` | OAuth App credentials |
-| `GITHUB_OWNER` / `GITHUB_REPO` | Repo the app reads ontology data from and writes ontology PRs to |
-| `GITHUB_BASE_BRANCH` | Default PR target and the branch the ontology refresh tracks |
-| `GITHUB_ONTOLOGY_PATH` | Path to the ontology file within that repo (default `ontologies/ari_t1d.owl`) |
-| `GITHUB_SYNONYM_REVIEW_PATH` | Path to report 9 within that repo (default `data/4-reports/9_Synonym_Review.tsv`) |
-| `GITHUB_SERVICE_TOKEN` | Optional server-side token for unattended ontology refreshes (see `deploy/update-ontology.sh`) |
-| `APP_BASE_URL` | Public URL incl. subpath; must match the OAuth callback |
-| `OAUTH_CALLBACK_PATH` | `/auth/github/callback` |
-| `APP_REPO_BRANCH` | Branch of this app repo that `deploy/update.sh` tracks |
-| `SESSION_SECRET` | Signs the session cookie (`openssl rand -hex 32`) |
-| `ALLOWED_LOGINS` | Optional allow-list of GitHub logins (empty = any user with repo access) |
-| `ASSIGN_ADMINS` | Optional allow-list of logins who may queue work for *other* curators (empty = anyone signed in); filling your own queue is never gated |
-| `PORT` | Default `8001` |
-| `USER_DATA_TTL_DAYS` | Idle per-user copy retention in days (`0` = never sweep) |
+| `/` | The record view: browse diseases by name, tissue or symptom, read a disease's full record, and edit it. |
+| `/ref-edits/` | The cross-reference review matrix: confirm, flag or mark absent each disease's ids in SNOMED, OMOP, DOID, MONDO, NCIt, ICD-10, Orphanet, UMLS and MeSH, with predicted candidates for blank cells. Two-person rule: whoever adds an id cannot confirm it. |
+| `/ref-edits/reviewer/` | Administrators review curators' mapping pull requests row by row against each database's current term. |
+| `/ref-edits/synonyms/` | Curators judge report 9 from the data repo: is each name a synonym or a subtype? |
+| `/stats/` | Curation dashboard: coverage per database, activity per curator, work waiting for a second reviewer. Not linked from the other pages. |
 
-## Running locally
+## Quick start
+
+Requires Python 3.10+ and a checkout of `KrishnaTO/ARI` next to this repo (the
+runtime ontology is not tracked here).
 
 ```bash
 pip install -r requirements.txt
-# The runtime ontology is not tracked here; copy it from your KrishnaTO/ARI checkout:
 mkdir -p ontologies && cp ../ARI/ontologies/ari_t1d.owl ontologies/
-python run.py                 # serves http://127.0.0.1:8001 and opens the browser
+python run.py
 ```
 
-GitHub sign-in needs a `.env` with OAuth credentials and an OAuth App whose callback is
-`http://localhost:8001/auth/github/callback`; without it the app still browses anonymously.
-Custom port / ontology: `python run.py --port 8002 --file path/to.owl`.
+`run.py` serves <http://127.0.0.1:8001> and opens the browser. Options:
+`--port 8002`, `--file path/to/ontology.owl`, `--no-browser`.
 
-### Reviewing synonyms vs subtypes (`/ref-edits/synonyms/`)
+Without a `.env` the app runs with GitHub sign-in switched off. You can browse,
+and edits go straight into `ontologies/ari_t1d.owl`. To sign in locally, create a
+GitHub OAuth App with the callback `http://localhost:8001/auth/github/callback`,
+copy `.env.example` to `.env`, and fill in the GitHub settings,
+`APP_BASE_URL=http://localhost:8001` and a `SESSION_SECRET`.
 
-The **Synonyms** chip in the reference-review header opens a read-only view of report 9,
-`data/4-reports/9_Synonym_Review.tsv` in the ARI repo (written by
-`notebook/synonym-review/` there; its columns are documented in that repo's
-`data/4-reports/README.md`). `GET /api/v2/synonym-review` reads the file live from
-`GITHUB_BASE_BRANCH` of `GITHUB_OWNER`/`GITHUB_REPO`, with the curator's token when signed
-in and anonymously otherwise (the repo is public, so GitHub's unauthenticated rate limit
-applies).
+## How it fits together
 
-The cards pick a view and show its size: **Proposed ARI changes** (withdraw a synonym,
-remove or move a clinical subtype, restore a synonym), **Kept as is**, **Candidate
-synonyms**, **Candidate subtypes** and **All names**. The search box filters on disease,
-ARI id, name, merged spelling variants and note; the two selects filter on verdict and on
-who decided it. Rows are grouped by disease, and each group links back to that disease on
-the reference-review page. The first 400 rows render; *Show all* renders the rest.
+```
+KrishnaTO/ARI ──(ontology, mappings, report 9)──► this app ──► curator's working copy
+      ▲                                                               │
+      └──────────── pull request, authored by the curator ◄───────────┘
+```
 
-**Curation.** Signed-in curators judge each row in its *Curation* column: ✓ correct, ✗
-incorrect, ? needs review (click the pressed mark again to clear it), plus a free-text note
-that saves when the box loses focus. Marks and notes are shared by every curator and saved
-by `PUT /api/v2/synonym-review/curation` to `synonym-review/curation.json` (gitignored
-server state, like `pr-review/`; code in `app/synonym_review_store.py`). Each entry is keyed
-`<ari_id>|<term>` and holds a copy of the row it judges (disease, verdict, action, report
-date) with the status, note, curator and time, so the file still makes sense after the
-report is regenerated. The *review status* filter shows rows not reviewed, needing review,
-both, or marked correct/incorrect; the count line says how many rows in the current view are
-reviewed. Anonymous visitors see the marks read-only. Nothing on the page edits the
-ontology: apply a change through the editor or the data repo.
+- **Anonymous readers** see the shared base ontology, which
+  `deploy/update-ontology.sh` refreshes from the data repo every ten minutes.
+- **A signed-in curator's** first edit copies the base to
+  `.user-data/<login>.owl`. Every page load merges the source branch into it
+  three-way, so their edits and other people's merged work both survive.
+- **Publishing** merges again, then commits only the diseases the curator
+  touched (written over the branch's own file) plus any review verdicts appended
+  to `mappings/ari.sssom.tsv` and `mappings/ari.equivalencies.tsv`. It opens or
+  updates a PR, from the curator's fork if they lack push access.
 
-### Reviewing mapping pull requests (`/ref-edits/reviewer/`)
+[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) explains each part in detail.
 
-The **PR reviewer** page (`https://aurint.ca/ari-editor/ref-edits/reviewer/`, linked from the
-reference-review page's header) is for administrators reviewing curators' mapping PRs on the
-source repository (`GITHUB_OWNER`/`GITHUB_REPO`, i.e.
-[`KrishnaTO/ARI`](https://github.com/KrishnaTO/ARI)). It is open to the logins in
-`ASSIGN_ADMINS` (anyone signed in when that is empty, as for cutting releases) and reads
-GitHub with the reviewer's own OAuth token. Code: `app/pr_review/` (comparison, live
-terminology lookups, GitHub reads, shared marks/notes) and `app/routes/pr_review.py`.
+## Repository layout
 
-Pick an open PR that changes `mappings/ari.equivalencies.tsv` or
-`notebook/ari-grounding/target_predictions.json` (`?pr=89` opens one directly).
-The app diffs that file between the PR's merge base and head, reads the ARI diseases from
-the PR's own `ontologies/ari_t1d.owl`, and looks each target id up at its source
-(see below) and in the local `data/2-databases` indexes. Rows are listed in file order, each with its line number in the
-PR's equivalencies file. The number opens that line in the PR's *Files changed* tab, where you
-can add a review comment on it (a removed row links to its line on the diff's left side).
-Tick **Mark** to flag a row for review. The **Note** column holds a comment per row, saved
-when you leave the box (or press Ctrl/Cmd+Enter); clearing it deletes the note. Marks and
-notes are shared by every reviewer of the PR, stamped with who set them and when, and kept
-per PR in `pr-review/<number>.json` (gitignored server state, like `assignments/`); both
-can be filtered or sorted on and are in the CSV. **Post my notes to PR** sends *your*
-unposted notes to GitHub as one review under your account, each as a comment on its row's
-line. GitHub only anchors comments to lines inside the PR's diff, so a note on any other
-line (e.g. a prediction whose key line didn't change) goes in the review's body with its
-line number. A posted note links to its review; editing it makes it postable again. Each row's
-Target cell also links to a Google search for `"ARI name" vs "target label"`. Rows are grouped per ARI disease
-under a header row with its counts and hints; click it to fold the group (or use *Collapse
-all*). The table scrolls on its own so its column headers stay in view. Columns are
-resizable: drag a header's right edge (double-click it to reset); widths are remembered in
-the browser. A PR that regenerates the predictions file (ARI's `predict_target_matches.py`) gets one
-**predicted** row per (disease, database) pair whose *top* prediction changed: a new pair, a
-different top candidate (the row says which one it replaces), or a pair that lost its
-prediction (removed). Its line opens that pair in the predictions file, its evidence card
-shows the prediction's method, support and route, and *Main* says whether main already
-predicts the same term. Predicted rows are measured exactly like judgments, and the
-*Judgment* filter separates them. Each
-changed row gets:
+```
+run.py                     Local launcher (uvicorn on 127.0.0.1)
+requirements.txt           Runtime dependencies (owlready2, fastapi, uvicorn, httpx, itsdangerous, openpyxl)
+requirements-dev.txt       + pytest, ruff
+ruff.toml                  Lint config
+.env.example               Settings template
+instructions.md            The original product brief
+changelog.md               Changes, per branch
+DEPLOY.md · OPERATIONS.md  Server set-up · one-off server tasks
 
-- **Name / synonym match** — label = label, ARI label = target synonym, ARI synonym =
-  target label, synonym = synonym, else the best word overlap between any two names.
-- **Definition overlap** — shared content words over the shorter definition; the row's
-  detail view highlights them in both definitions.
-- **Xref support** — other ids the target term cross-references that ARI already maps
-  (`*` = added by this same PR), ids ARI has rejected, and databases where the target's
-  ids disagree with ARI's.
-- **Flags** — the target is named like one of the disease's clinical subtypes (narrower),
-  or like a *different* ARI disease.
-- **Main** — whether main already holds the same judgment, or the opposite one (a PR
-  flipping an earlier confirmation).
-- **Hint** — a score from the above (Supported / Review / Weak evidence; for rejections,
-  Rejection plausible / Check rejection). It is local evidence only, not a verdict.
+app/                       Backend (FastAPI)
+  main.py                  Assembly: middleware, CSP, cache policy, /healthz, error handlers, routers
+  config.py                Every setting; app version and asset token
+  sessions.py              Server-side session store; who is calling
+  workspace.py             Per-curator working copies, write gate, ancestors, sweep
+  stores.py                Shared ledgers: assignments, id authorship, xref removals
+  atomic_store.py          Atomic file writes; corrupt stores fail loudly
+  errors.py                NotFound (404), Invalid (400)
+  ontology_service.py      owlready2 read/write layer
+  schema.py                Editable item categories
+  xref_registry.py         The cross-reference databases, in one place
+  id_allocator.py          Server-wide ARI number counter
+  id_provenance.py         Who added each cross-reference id
+  xref_removals.py         Removed ids, pending as negative judgments
+  merge_service.py         Three-way merge; grafting diseases between ontologies
+  owl_splice.py            Keeps a commit in the source file's order
+  diff_service.py          Change list, PR title and summary
+  sssom_service.py         SSSOM + equivalencies files
+  predict_service.py       Lexical indexes and cross-reference prediction
+  enrich_service.py        Synonyms/subtypes from confirmed mappings
+  concept_service.py       What the local indexes know about one id
+  stats_service.py         Dashboard numbers
+  github_service.py        OAuth, file reads, commit + pull request
+  export_service.py        .xlsx export
+  feedback_service.py      Per-term feedback
+  assignment_service.py    Review queues
+  synonym_review.py        Report 9 parser
+  synonym_review_store.py  Marks and notes on report 9
+  pr_review/               Mapping-PR reviewer: GitHub reads, live terminology, comparison, shared notes
+  routes/                  Endpoints: ontology, review, publish, merge, settings, auth,
+                           assignments, feedback, pr_review, pages
 
-Every target id is looked up **live at its source**, so names, synonyms and definitions
-are current rather than the `data/2-databases` snapshot. No keys are needed:
+static/                    Frontend (no build step)
+  index.html, js/, css/    Record view (scripts load in order; see ARCHITECTURE.md)
+  ref-edits/               Review matrix (ref-edits.js, review-model.js)
+    reviewer/              Mapping-PR reviewer
+    synonyms/              Synonym vs subtype review
+  stats/                   Curation dashboard
+  vendor/                  Chart.js, D3, d3-cloud (vendored; see vendor/README.md)
 
-| Database | Source |
-| --- | --- |
-| SNOMED | [tx.fhir.org](https://tx.fhir.org), US edition (International + US extension) |
-| ICD-10 | tx.fhir.org, ICD-10-CM |
-| OMOP | OHDSI's [fhir-terminology.ohdsi.org](https://fhir-terminology.ohdsi.org) (rate-limited per IP), incl. vocabulary, domain, class, standard status, validity and source code |
-| MONDO, DOID, NCIt, Orphanet | EBI [OLS4](https://www.ebi.ac.uk/ols4) |
-| MeSH | NLM's [MeSH lookup API](https://id.nlm.nih.gov/mesh/) |
-| UMLS | NCBI [MedGen](https://www.ncbi.nlm.nih.gov/medgen/), which carries UMLS CUIs for diseases (UMLS itself needs a licence key); a PR's CUIs are fetched in one batch |
+scripts/                   Data tooling (see "Scripts" below)
+data/2-databases/          Reference indexes for prediction (see its README)
+mappings/                  Mapping files: SSSOM, equivalencies, predicted, synonym blocklist
+tests/                     pytest suite, review-model.test.js, fixture ontology
+deploy/                    systemd units, update scripts, nginx config
+design/mockups/            Design exploration for the review page (not wired up)
+docs/                      Architecture, API, efficiency review, design specs
+```
 
-Only **exact** synonyms are matched. When the source lists an ARI name as a *narrow* synonym
-the target is flagged as broader than the disease, and as a *broad* synonym, narrower. A
-code the source lacks, an inactive or obsolete concept (for OMOP, also one whose validity has
-ended) and a non-standard OMOP concept are flagged too. When a name has changed since the
-local snapshot, the Target column shows the old one ("was …").
+## Configuration
 
-The local indexes still supply what the live lookups don't: the MONDO/DOID/NCIt/MeSH/Orphanet
-term's cross-references and parents, and for SNOMED, OMOP, ICD-10 and UMLS the hub terms that
-cross-reference the id, kept alongside as cross-reference evidence ("via"). A PR's lookups
-run in parallel and are cached while the app runs. If a source is unreachable or refuses a
-request, the matrix fails with that error rather than showing partial data. Rows can be filtered, sorted and exported to CSV.
+Settings come from environment variables, with `.env` at the repo root loaded at
+startup (values in `.env` don't override variables already set). Secrets stay
+on the server. Keep `.env` at mode 600.
 
-## Development & tests
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET` | — | OAuth App credentials. Sign-in is on only when these and the owner/repo are set. |
+| `GITHUB_OWNER`, `GITHUB_REPO` | — | The data repo the app reads from and opens PRs on (`KrishnaTO` / `ARI`). |
+| `GITHUB_BASE_BRANCH` | `main` | Default source branch and PR target. |
+| `GITHUB_ONTOLOGY_PATH` | `ontologies/ari_t1d.owl` | The ontology's path in the data repo. |
+| `GITHUB_SSSOM_PATH`, `GITHUB_EQUIV_PATH` | `mappings/ari.sssom.tsv`, `mappings/ari.equivalencies.tsv` | Mapping files, both in the data repo and under this repo's root. |
+| `GITHUB_SYNONYM_REVIEW_PATH` | `data/4-reports/9_Synonym_Review.tsv` | Report 9 in the data repo. |
+| `GITHUB_SERVICE_TOKEN` | — | Optional token for the unattended refresh scripts. |
+| `APP_BASE_URL` | `http://localhost:8001` | Public URL including any subpath; must match the OAuth callback. Cookies are `Secure` when it starts with `https`. |
+| `OAUTH_CALLBACK_PATH` | `/auth/github/callback` | |
+| `SESSION_SECRET` | — | Signs the session cookie. **Required when sign-in is configured**; the app won't start without it. Write it bare, without quotes. |
+| `SESSION_TTL_DAYS` | `30` | Sign-ins older than this are dropped. `0` keeps them forever. |
+| `ALLOWED_LOGINS` | empty (anyone) | Comma-separated GitHub logins allowed to sign in. Set it in production. |
+| `ASSIGN_ADMINS` | empty (anyone signed in) | Logins who may cut releases, use the PR reviewer, and change other curators' queues and feedback. |
+| `USER_DATA_TTL_DAYS` | `14` | Idle working copies are removed after this many days, or archived if they hold unpublished work. `0` disables. |
+| `MAX_LOADED_WORLDS` | `8` | Working copies held in memory at once (least recently used are evicted). |
+| `MAPPING_LICENSE` | CC0 1.0 URL | Licence written into the mapping files and shown before publishing. |
+| `ARI_ONTOLOGY_FILE` | `ontologies/ari_t1d.owl` | Runtime ontology path. `run.py --file` sets it. |
+| `PORT` | `8001` | `run.py`'s default port. |
+| `APP_REPO_BRANCH` | `main` | Branch of this repo that `deploy/update.sh` tracks. |
+| `ARI_MAPPING_FILES` | the two mapping files | `remote:local` pairs fetched by `deploy/update-mappings.sh`. |
+
+## Server-side state
+
+Created at runtime next to the code, all gitignored. Some of it exists nowhere
+else, so back it up ([OPERATIONS.md §6](OPERATIONS.md)).
+
+| Path | Holds | Recoverable? |
+| --- | --- | --- |
+| `ontologies/ari_t1d.owl` | The shared base ontology | Yes, refetched from the data repo |
+| `.user-data/` | Working copies, ancestors, touched sets, branch choices, review sessions, publish replay log, archived idle copies | No: unpublished work |
+| `.sessions.json` | Sessions, including live GitHub tokens (mode 0600) | Lost only signs people out. **Don't back it up unencrypted.** |
+| `provenance/` | Who added each id, pending removals, the ARI number counter | Partly, with `scripts/backfill_id_authors.py` |
+| `assignments/` | Review queues and their audit log | No |
+| `feedback/` | Per-term feedback, its log and per-release archives | No |
+| `releases/` | Release snapshots and `releases.json` | No |
+| `pr-review/` | Reviewers' marks and notes per PR | No |
+| `synonym-review/` | Marks and notes on report 9 | No |
+
+## Development and tests
 
 ```bash
-pip install -r requirements-dev.txt   # adds pytest + ruff
-pytest -q                             # service-layer suite under tests/
-ruff check .                          # lint (config in ruff.toml)
+pip install -r requirements-dev.txt
+pytest -q                              # backend suite, against tests/fixtures/ontologies/ari_t1d.owl
+node --test tests/review-model.test.js # review-page policy
+ruff check .                           # lint
+python scripts/validate_mappings.py    # the published mapping set is valid SSSOM
 ```
 
-CI (`.github/workflows/ci.yml`) runs a blocking smoke gate — install, byte-compile, import
-(which loads the ontology), then `pytest` — on every push to `main` and every PR. A separate
-ruff lint job is advisory for now (`--exit-zero`) while the existing code is brought up to the
-ruleset.
+CI (`.github/workflows/ci.yml`) runs all four on every PR and on pushes to
+`main`; every check is required. Tests import `app`, which loads the ontology at
+import time; `tests/conftest.py` points it at the fixture. Tests that write must
+patch `workspace.BASE` and the `config` paths, never the real files.
+
+## Scripts
+
+| Script | What it does |
+| --- | --- |
+| `scripts/fetch_databases.py` | Downloads MONDO, DOID, NCIt, MeSH and Orphanet and builds `data/2-databases/` (`--offline`, `--only`). |
+| `scripts/eval_fuzzy.py` | Replays the confirmed mappings to re-derive the fuzzy-match threshold. |
+| `scripts/report_synonyms.py` | Finds ARI synonyms that name a different disease; writes `mappings/ari.synonym_blocklist.tsv`. |
+| `scripts/validate_mappings.py` | Checks the mapping files (prefixes declared, no doubled prefixes, ISO dates, no contradictory live rows). Run in CI. |
+| `scripts/migrate_mappings.py` | One-off: rewrites the mapping files under the current SSSOM header. |
+| `scripts/backfill_id_authors.py` | Seeds the id-authorship ledger from the curated mappings (from `KrishnaTO/ARI@main`, or `--local`). Safe to re-run. |
+| `scripts/import_reports.py` | Folds the `data/4-reports/` catalogue into an ontology (additive, idempotent). |
+| `scripts/build_t1d_ontology.py` | Builds the original seed T1D ontology from scratch. |
 
 ## Deployment
 
-See **DEPLOY.md**: Ubuntu 22.04 Lightsail, uvicorn under systemd (`ari-mm`), nginx reverse
-proxy serving the app at `/ari-editor`, and Cloudflare free SSL. Two systemd timers keep the
-box current: one tracks this app repo's `APP_REPO_BRANCH` (code), the other refreshes the
-ontology file from `GITHUB_BASE_BRANCH` of the ARI data repo. Code changes restart the service
-(deferred while curators have work in memory, and retried until the running commit matches
-`HEAD`); ontology changes need no restart, because the shared base ontology reloads whenever its
-file's mtime changes.
+[DEPLOY.md](DEPLOY.md) covers the server: Ubuntu on Lightsail, uvicorn under
+systemd (`ari-mm`), nginx serving the app at `/ari-editor`, and Cloudflare SSL.
+Three timers keep it current every ten minutes:
 
-## REST API
+- **App code** (`update.sh`) tracks this repo's `APP_REPO_BRANCH` and restarts
+  the app when the running commit differs from `HEAD`, deferring while curators
+  have work in memory.
+- **Ontology** (`update-ontology.sh`) replaces the base ontology atomically; the
+  app reloads it without a restart.
+- **Mapping files** (`update-mappings.sh`).
 
-| Method | Path | Purpose |
-| --- | --- | --- |
-| GET | `/api/v2/overview` | Counts + current version |
-| GET | `/api/v2/diseases` | Flat disease list |
-| GET | `/api/v2/tree/alphabetical` | Parent→child disease tree |
-| GET | `/api/v2/tree/tissue` | UBERON tissue tree with diseases attached |
-| GET | `/api/v2/symptoms` | Flat symptom index |
-| GET | `/api/v2/schema` | Field schema for every editable data-item category |
-| GET | `/api/v2/tissues` | Tissue-target individuals (for new-disease forms) |
-| GET | `/api/v2/disease/{iri}` | Full disease detail |
-| POST | `/api/v2/disease` | Create a new disease individual |
-| PUT | `/api/v2/disease/{iri}` | Edit disease fields (appends changelog) |
-| POST | `/api/v2/disease/{iri}/item` | Add a data item |
-| PUT | `/api/v2/item/{iri}` | Edit a data item |
-| DELETE | `/api/v2/item/{iri}` | Delete a data item |
-| GET | `/api/v2/releases` | Current version + release history |
-| POST | `/api/v2/releases` | Cut a versioned release |
-| GET | `/api/v2/xrefs` | Cross-reference matrix for the review page |
-| GET | `/api/v2/xref-databases` | Cross-reference database registry (labels, prefixes, link-outs) |
-| GET | `/api/v2/mappings` | Already-curated positive/negative/absent cross-reference judgments |
-| GET | `/api/v2/id-authors` | Which curator added each cross-reference id (a curator may not confirm their own) |
-| GET | `/api/v2/concept/{db}/{id}` | One target-database id's own current record, looked up live at its source (compare pane); 502 when the source is unreachable |
-| GET / PUT | `/api/v2/ref-session` | Signed-in user's saved cross-reference review session (resume across reloads) |
-| GET / POST / DELETE | `/api/v2/assignments` | List / assign / unassign curator disease queues; `login` defaults to the caller (self-assignment is ungated), and a disease another curator holds needs `reassign` |
-| POST | `/api/v2/assignments/done` | Mark one assigned disease finished (or reopen it) |
-| GET | `/api/v2/search?q=` | Full-text search |
-| GET / POST / PUT / DELETE | `/api/v2/feedback[/{id}]` | Per-term feedback CRUD |
-| GET | `/api/v2/open-prs` | Open pull requests, matched to diseases by branch name |
-| GET | `/api/v2/me` | Current user + `github_enabled` |
-| GET | `/auth/github` | Start OAuth (optional `next`) |
-| GET | `/auth/github/callback` | OAuth callback |
-| POST | `/api/v2/logout` | Sign out |
-| POST | `/api/v2/publish` | Commit the curator's diseases onto the source branch + open/append PR (+ SSSOM files) |
-| GET | `/api/v2/settings` | Source branch, PR target, allowed branches |
-| POST | `/api/v2/fetch` | Pull latest from the source branch |
-| POST | `/api/v2/sync` | Merge the source branch into the curator's working copy (three-way, against the version it started from) |
-| POST | `/api/v2/resolve` | Apply the curator's per-field choices where both sides changed the same field, at the commit (`sha`) the conflicts were shown against |
-| POST | `/api/v2/source` | Switch the source branch |
-| POST | `/api/v2/source/follow-base` | After the source branch was deleted (its PR merged), follow the base branch and keep the working copy |
-| POST | `/api/v2/pr-base` | Set the PR target branch |
-| GET | `/api/v2/export` | Download current state as `1_Core_ARI_Diseases.xlsx` |
-| GET | `/api/v2/pr-review/prs` | Admin: open source-repo PRs that change the equivalencies or predictions file |
-| GET | `/api/v2/pr-review/prs/{number}` | Admin: a PR's comparison matrix, with its shared marks and notes |
-| POST | `/api/v2/pr-review/prs/{number}/marks` | Admin: mark / unmark one row (`key`, `marked`) |
-| POST | `/api/v2/pr-review/prs/{number}/notes` | Admin: save one row's note (`key`, `text`; blank deletes) |
-| POST | `/api/v2/pr-review/prs/{number}/review` | Admin: post the caller's unposted notes as one PR review, each on its row's line |
+[OPERATIONS.md](OPERATIONS.md) lists the server-side tasks a pull request
+cannot do: secrets, allow-lists, OAuth scope, nginx, backups and logs.
 
-## Data sources / provenance
+## Versioning
 
-App data derives from the ARI catalogue sources previously maintained in
-[`KrishnaTO/ARI`](https://github.com/KrishnaTO/ARI) and from the generated local OWL file in
-`ontologies/` (fetched from that repo). No online data sources are pulled into the content at runtime —
-external-database identifiers are rendered as link-outs only.
+The app version is `2.<commit count> (<short sha>, <commit date>)`, derived from
+git at startup. It appears in the page footer, in `/api/v2/overview` and in
+`/healthz`, and it bumps on every deployed commit. Ontology releases are
+separate: an administrator cuts them from the record view, and each is numbered
+`1.<n>` unless given a name.
+
+## Documentation
+
+- [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md): how each part works.
+- [docs/API.md](docs/API.md): every endpoint.
+- [docs/EFFICIENCY.md](docs/EFFICIENCY.md): measured performance costs and suggested fixes.
+- [data/2-databases/README.md](data/2-databases/README.md): the reference indexes.
+- [static/vendor/README.md](static/vendor/README.md): vendored libraries and how to refresh them.
+- [design/mockups/README.md](design/mockups/README.md): review-page design exploration.
+- `docs/superpowers/`: the working-copy merge design and its implementation plan.
+
+## Data sources and licence
+
+Disease content comes from the ARI catalogue in `KrishnaTO/ARI`. The reference
+indexes are built from MONDO, DOID, NCIt, MeSH and Orphanet (licences in
+`data/2-databases/README.md`). The review compare pane and the PR reviewer look
+terms up live at tx.fhir.org, OHDSI, EBI OLS, NLM MeSH and NCBI MedGen. Those
+lookups are read-only and never written into the ontology. Mapping files are
+published under `MAPPING_LICENSE` (CC0 by default).
+
+The code is licensed under the GNU GPL v3 (see [LICENSE](LICENSE)).
