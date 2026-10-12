@@ -153,8 +153,10 @@ limit.
 ## 6. Back up the operational state
 
 **Issue #109.** `.user-data/`, `.sessions.json`, `assignments/`, `provenance/`,
-`releases/` and `feedback/` are all gitignored and exist only on this host. Lose
-the instance and they are gone. `scripts/backfill_id_authors.py` only *partially*
+`releases/`, `feedback/`, `pr-review/` and `synonym-review/` are all gitignored
+and exist only on this host. Lose the instance and they are gone. (`pr-review/`
+and `synonym-review/` hold reviewers' shared marks and notes; they were added
+after this list was first written.) `scripts/backfill_id_authors.py` only *partially*
 rebuilds provenance — positive rows only, `github:` authors only, and only where
 the id is still on file — so the rest is unrecoverable.
 
@@ -176,11 +178,17 @@ REPO=/opt/ari/ari-metadata-manager
 DEST=/opt/ari/state-backups
 STAMP="$(date -u +%Y%m%d_%H%M%S)"
 mkdir -p "$DEST"
+# Only the folders that exist yet: tar exits non-zero on a missing one, which
+# `set -e` turns into a failed backup.
+DIRS=()
+for d in provenance assignments feedback releases .user-data pr-review synonym-review; do
+  if [ -e "$REPO/$d" ]; then DIRS+=("$d"); fi
+done
 # .sessions.json is deliberately excluded: it holds live GitHub tokens, and a
 # lost session store costs only a re-sign-in.
 tar -czf "$DEST/state_$STAMP.tar.gz" -C "$REPO" \
     --exclude=.sessions.json \
-    provenance assignments feedback releases .user-data 2>/dev/null
+    "${DIRS[@]}"
 # Keep 30 days.
 find "$DEST" -name 'state_*.tar.gz' -mtime +30 -delete
 echo "state_$STAMP.tar.gz"
