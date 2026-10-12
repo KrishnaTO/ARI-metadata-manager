@@ -3,6 +3,10 @@
 ## claude/parallel-startup
 
 - **Both pages fetch their start-up data together.** The reference-review page fetched the database registry, the grid, the curated mappings, the predictions, the curator's session, id authorship and the review queues one after another, so the matrix waited for their sum; `mappings` alone is two GitHub downloads when signed in and `predictions` can be a cold start. They now go out together after `me` and `sync`, and the page waits for the slowest. The main page does the same for the overview, the field schema and the database registry. Error handling is unchanged: the registry and the grid are required, everything else degrades as before.
+## claude/synonym-review-cache
+
+- **The synonym review no longer re-downloads report 9 on every load.** The report changes only when the data repo's notebook rewrites it, but each load downloaded and parsed it again (0.64-0.95 s in production). `GET /api/v2/synonym-review` now reads the file's git blob id (one small response, ~100 ms locally) and downloads only when it has changed (~410 ms locally for the full file).
+- **Each row carries its disease's IRI.** The page loaded all of `/api/v2/xrefs` (203 KB) only to link each disease back to the review page; the server now adds the IRI, and the page makes one request instead of two.
 
 ## claude/issue-11-copy-name
 
