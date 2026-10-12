@@ -1,5 +1,9 @@
 # Changelog
 
+## claude/runtime-mappings
+
+- **The server's copies of the data repo's mapping files live in their own folder.** `deploy/update-mappings.sh` fetched `KrishnaTO/ARI`'s `mappings/ari.sssom.tsv` and `ari.equivalencies.tsv` over this repo's *tracked* files of the same name. Every ten minutes `deploy/update.sh` then found the tree dirty, stashed the fetched copies (one new stash entry per run) and reset the tracked snapshot back; the next mapping refresh saw the bytes "change" and restarted the app. Production restarted every ten minutes, and signed-out readers saw the snapshot (442 judgments) instead of the current set (2,466) for part of every cycle. The fetched copies now go to `ari-mappings/` (gitignored, `config.MAPPINGS_RUNTIME_DIR`), and the app reads them from there. The tracked files under `mappings/` stay as the snapshot the tooling and CI use, and are never served.
+- **Deploying:** nothing to configure. Until the mapping timer's next run fills `ari-mappings/`, signed-out readers see no prior judgments; run `sudo -u ariapp /opt/ari/ari-metadata-manager/deploy/update-mappings.sh` once after the deploy to fill it at once.
 ## claude/cold-start
 
 - **The first review-page visitor after a restart no longer waits ~5 s.** The reference indexes were parsed, and their lookups built, inside the first `/api/v2/predictions` request: 5.0 s in production, 2.2 s locally, with every other request queued behind it. They are now loaded at startup in a background thread (`predict_service.warm`, started from `main.lifespan`). Locally the first predictions call after a restart drops from 2,224 ms to 81 ms; requests during the warm-up are answered as usual (7 ms); predictions are byte-identical.
