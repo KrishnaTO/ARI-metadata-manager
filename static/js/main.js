@@ -2,11 +2,18 @@
 // active tree. Runs last so every module's functions and wiring are ready.
 
 async function init(){
-  const o = await api('/api/v2/overview');
+  // Three independent reads, fetched together rather than one after another
+  // (EFFICIENCY.md §7). The schema and registry are optional; the overview is not.
+  const optional = p => p.catch(() => null);
+  const [o, schema, dbs] = await Promise.all([
+    api('/api/v2/overview'),
+    Object.keys(state.schema).length ? null : optional(api('/api/v2/schema')),
+    Object.keys(XREF_DB).length ? null : optional(api('/api/v2/xref-databases')),
+  ]);
   $('#onto-meta').innerHTML =
     `Manager <b>${esc(o.app_version || '')}</b> &middot; <b>${esc(o.disease_count)}</b> disease(s) &middot; <b>${o.individuals}</b> individuals &middot; <b>${o.classes}</b> classes &middot; data v<b>${esc(o.version)}</b>`;
-  if (!Object.keys(state.schema).length){ try { state.schema = await api('/api/v2/schema'); } catch(e){} }
-  if (!Object.keys(XREF_DB).length){ try { setXrefDatabases(await api('/api/v2/xref-databases')); } catch(e){} }
+  if (schema) state.schema = schema;
+  if (dbs) setXrefDatabases(dbs);
   renderTab();
   // Open the disease named directly in the URL (a shared/bookmarked deep link)
   // and scroll the list to it once the tree has rendered.

@@ -110,22 +110,41 @@ async def stats(request: Request):
                                stores.ID_AUTHORS.authors(), stores.ASSIGNMENTS.assignees())
 
 
+# The parsed report and the git blob id it was parsed from.
+_REPORT: tuple[str, list] | None = None
+
+
 @router.get("/api/v2/synonym-review")
 async def synonym_review(request: Request):
     """Report 9 from the ARI repo's base branch, read live so the page always shows
     the report as last committed. Uses the curator's token when signed in (the
-    repo is public, so anonymous reads work within GitHub's unauthenticated limit)."""
+    repo is public, so anonymous reads work within GitHub's unauthenticated limit).
+
+    The report changes only when the data repo's notebook rewrites it, but every
+    load downloaded and parsed it again: 0.64-0.95 s in production. A small read
+    of its blob id now decides whether the parsed copy is still current.
+    """
+    global _REPORT
     if not (config.GH_OWNER and config.GH_REPO):
         raise HTTPException(status_code=503, detail="GITHUB_OWNER and GITHUB_REPO are not configured")
     u = sessions._user(request) if config.GH_ENABLED else None
+    token = u["token"] if u else None
     try:
-        blob = await gh.get_file_at(u["token"] if u else None, config.GH_OWNER, config.GH_REPO,
-                                    config.SYNONYM_REVIEW_PATH, config.GH_BASE_BRANCH)
+        sha = await gh.file_blob_sha(token, config.GH_OWNER, config.GH_REPO,
+                                     config.SYNONYM_REVIEW_PATH, config.GH_BASE_BRANCH)
+        if _REPORT is None or _REPORT[0] != sha:
+            blob = await gh.get_file_at(token, config.GH_OWNER, config.GH_REPO,
+                                        config.SYNONYM_REVIEW_PATH, config.GH_BASE_BRANCH)
+            _REPORT = (sha, synonym_review_report.parse(blob.decode("utf-8")))
     except (ValueError, httpx.HTTPError) as err:
         raise HTTPException(status_code=502, detail=str(err)) from err
+    # Each row links back to its disease on the review page. The page used to
+    # load all of /api/v2/xrefs only to map ARI ids to IRIs.
+    iris = {r["ari_id"]: r["iri"] for r in workspace.service_for(request).get_xref_rows()
+            if r["ari_id"]}
     return {"source": f"{config.GH_OWNER}/{config.GH_REPO}@{config.GH_BASE_BRANCH}:"
                       f"{config.SYNONYM_REVIEW_PATH}",
-            "rows": synonym_review_report.parse(blob.decode("utf-8")),
+            "rows": [{**r, "iri": iris.get(r["ari_id"])} for r in _REPORT[1]],
             "curation": synonym_review_store.read(),
             "login": sessions._login(request)}
 
