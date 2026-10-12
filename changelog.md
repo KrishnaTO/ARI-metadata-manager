@@ -1,5 +1,9 @@
 # Changelog
 
+## claude/release-manifest-atomic
+
+- **A release can no longer wipe the release history.** `releases/releases.json` was written with a plain `write_text`, and a manifest that failed to parse was read as empty, so the next release replaced it with a one-entry list. It is now read and written through `atomic_store`, like the other ledgers: a corrupt manifest stops the release with an error (before any disease is stamped) instead of being overwritten, and a crash mid-write leaves the old manifest whole. A release reads the manifest once, up front.
+
 ## claude/efficiency-smaller-items
 
 - **The symptom search opens diseases by IRI.** `/api/v2/symptoms` names each symptom's diseases as `{iri, name}` (it was names only) and drops the symptom's own IRI, which nothing read. The search used to fetch the whole disease list as well and match names to find each disease; it now makes one request. The response is about the same size, since each symptom has one disease.

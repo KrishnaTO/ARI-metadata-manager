@@ -90,6 +90,16 @@ def test_feedback_store_refuses_to_read_corrupt_json_as_empty(tmp_path):
         store.list()
 
 
+def test_release_manifest_refuses_to_read_corrupt_json_as_empty(make_service):
+    """Reading it as `[]` meant the next release replaced the damaged manifest with
+    a one-entry list, and the release history was gone for good."""
+    svc = make_service()
+    svc._manifest_path.write_text("[{ broken json")
+    with pytest.raises(atomic_store.StoreCorrupt):
+        svc.create_release(version="9.9", editor="ada")
+    assert svc._manifest_path.read_text() == "[{ broken json"
+
+
 # ----------------------------------------------------- #103 working copies
 @pytest.fixture
 def user_dir(tmp_path, monkeypatch, base_owl):
