@@ -338,18 +338,25 @@ those two files and nothing else. The runtime-mappings fix stops the cause, and
 `update.sh` no longer adds duplicates, but the backlog stays until it is removed
 by hand.
 
-Do this **after the runtime-mappings fix is deployed**, as the app user:
+Do this **after the runtime-mappings fix is deployed**.
+
+**0. Pause the deploy timer, then open a shell as the app user.** From your own
+admin shell, so no `update.sh` run adds or shifts stash entries mid-cleanup:
 
 ```bash
+sudo systemctl stop ari-mm-update.timer
 sudo -u ariapp -H bash
 cd /opt/ari/ari-metadata-manager
 ```
 
-**1. Count them, and check nothing else is in the stash list.** The second
-command must print nothing. Anything it does print is not an autostash, so
-leave it alone.
+**1. Check the starting state.** `git status --porcelain` must print nothing:
+no local changes, so nothing is still creating entries (if it prints the
+mapping files, the runtime-mappings fix is not deployed yet — stop). Then
+count the entries. The last command must print nothing; anything it does print
+is not an autostash, so leave it alone.
 
 ```bash
+git status --porcelain
 git stash list | grep -c 'pre-update autostash'
 git stash list | grep -v 'pre-update autostash'
 ```
@@ -377,16 +384,28 @@ git stash list --format='%gd %gs' | grep 'pre-update autostash' | cut -d' ' -f1 
 git stash list | grep -c 'pre-update autostash'    # expect 0
 ```
 
-**4. Confirm it stays clear.** After the next update run, there should be no
-new entry, and the update log should show neither the `WARNING: local changes`
-nor the `ERROR: the previous run already stashed` line:
+**4. Leave the app-user shell and restart the timer:**
 
 ```bash
-git stash list | grep -c 'pre-update autostash'
+exit
+sudo systemctl start ari-mm-update.timer
+```
+
+**5. Confirm it stays clear.** From your own shell, after the next update run
+(within ten minutes): no new entry, and the update log shows neither the
+`WARNING: local changes` nor the `ERROR: the previous run already stashed` line.
+`journalctl` runs as you, not as `ariapp`, which has no `sudo` for it.
+
+```bash
+sudo -u ariapp git -C /opt/ari/ari-metadata-manager stash list | grep -c 'pre-update autostash'
 sudo journalctl -u ari-mm-update.service --since "30 min ago" | grep -E 'WARNING: local changes|ERROR: the previous run'
 ```
 
-Delete the safety branch once you are satisfied: `git branch -D autostash-backup`.
+**6. Delete the safety branch** once you are satisfied:
+
+```bash
+sudo -u ariapp git -C /opt/ari/ari-metadata-manager branch -D autostash-backup
+```
 
 ---
 
