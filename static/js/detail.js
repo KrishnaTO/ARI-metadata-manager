@@ -430,6 +430,7 @@ function boxDefs(d){
     { key:'inflammasome', label:'Inflammasome', count: d.inflammasome?.length||0, show: d.inflammasome?.length },
     { key:'apr', label:'Acute phase reactants', count: d.acute_phase_reactants?.length||0, show: d.acute_phase_reactants?.length },
     { key:'antigens', label:'Antigens', count: d.antigens?.length||0, show: d.antigens?.length },
+    { key:'cells', label:'Target cells', count: d.target_cells?.length||0, show: d.target_cells?.length },
     { key:'changelog', label:'Change log', count: d.changelog?.length||0, show: true, note:'history' },
     { key:'feedback', label:'Feedback', count: 0, show: true, note:'comment' },
   ];

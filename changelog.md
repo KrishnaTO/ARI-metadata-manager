@@ -1,5 +1,8 @@
 # Changelog
 
+## claude/target-cells
+
+- **Target cells are a disease-data category.** The data model's "Affected Cell, Tissue or Organ" is now stored in ARI as `affectsCellTissueOrOrgan` items of class `AffectedCellTissueOrOrgan` (KrishnaTO/ARI#124). The 2026-10-08 master list filled them for 218 diseases. They show as a "Target cells" box under Pathophysiology, open as a list with each cell's relevance (its share, such as `80%`), and are added and edited like antigens: label, description, relevance, source, obsolete. Publishing carries them with the disease, like every other item category. `targetsTissue` stays at system level, so the tissue browser and the new-disease tissue list are unchanged. Until the data repo's ontology declares the class, adding a target cell reports that the class is missing.
 ## claude/prevalence-figures-us-worldwide
 
 - **The Prevalence panel separates US and worldwide prevalence**, like incidence. Each region has a rate per 100,000, the year it describes and its source URLs. The panel shows both as stat cards labelled with their year and linked to their sources, and the metrics table lists each with its year and sources. The record form and the new-disease form have the matching inputs (sources one URL per line); a year that is not a whole number is rejected. The publish diff labels the new fields. *Estimated cases* is now labelled *Estimated US cases*, which is what it holds.

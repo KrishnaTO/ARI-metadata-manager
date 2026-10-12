@@ -147,7 +147,7 @@ const DETAIL_KEY = {
   pathophysiology:'pathway', cytokines:'cytokines', tcells:'tcells', apcs:'apcs',
   transcription:'transcription_factors', innate:'innate_components', complement:'complement',
   receptors:'receptors', netosis:'netosis', inflammasome:'inflammasome',
-  apr:'acute_phase_reactants', antigens:'antigens',
+  apr:'acute_phase_reactants', antigens:'antigens', cells:'target_cells',
 };
 
 // Disease data items arranged as a narrative: triggers -> etiology -> pathophysiology
@@ -160,7 +160,7 @@ const STORY_GROUPS = [
     keys:['etiology'] },
   { num:3, title:'Pathophysiology', hint:'Mechanism — genetic and biochemical signals (TFs) and the other immune components',
     aspectGroups:true,
-    keys:['genetic','pathophysiology','innate','complement','netosis','inflammasome','apr','antibodies','antigens','tcells','apcs','cytokines','transcription','receptors'] },
+    keys:['genetic','pathophysiology','cells','innate','complement','netosis','inflammasome','apr','antibodies','antigens','tcells','apcs','cytokines','transcription','receptors'] },
   { num:4, title:'Biomarkers & treatments', hint:'Diagnosis and management',
     keys:['biomarkers','treatments'] },
   { num:5, title:'Prevalence', hint:'Epidemiology and disease burden',
@@ -182,6 +182,7 @@ const BOX_META = {
   etiology:       { aspect:'Etiology',                 desc:'Suspected and known origins of disease — genetic, external, or idiopathic.' },
   genetic:        { aspect:'Genetics',                 desc:'Susceptibility loci, HLA alleles, and gene polymorphisms implicated via GWAS / linkage.' },
   pathophysiology:{ aspect:'Pathophysiology',          desc:'Mechanistic cascade and the cells, tissues, and organs targeted by the autoimmune process.' },
+  cells:          { aspect:'Pathophysiology',          desc:'Specific cell types, tissues, and organs targeted by the autoimmune process (granular level).' },
   innate:         { aspect:'Innate immune component',  desc:'Pattern-recognition receptors (TLRs, NLRs, CLRs, cGAS-STING) activated or dysregulated in the disease.' },
   complement:     { aspect:'Innate immune component',  desc:'Complement pathway components involved; whether activated, consumed, or deficient.' },
   apr:            { aspect:'Innate immune component',  desc:'Acute-phase proteins that are elevated or depressed during active disease.' },

@@ -347,6 +347,7 @@ function renderImmuneList(d, panel, key){
     inflammasome: { title:'Inflammasome', data: d.inflammasome },
     apr: { title:'Acute phase reactants', data: d.acute_phase_reactants },
     antigens: { title:'Antigens', data: d.antigens },
+    cells: { title:'Target cells', data: d.target_cells },
   };
   const info = map[key];
   let html = closeHeader(info ? info.title : 'Details');
