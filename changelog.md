@@ -1,5 +1,8 @@
 # Changelog
 
+## claude/issue-160-keep-flag
+
+- **A flagged id removed from its cell keeps its flag.** Saving a cell on the review page cleared the verdict of every id that left it. A flagged id that was then removed (or that a publish had already removed) lost its flag, so the next publish to the same pull request, which rebuilds the mapping files from the base branch and re-sends the session's verdicts, carried no `Not` row for it. The data repo then rejected the id's removal as unjudged (`xref-deleted`, KrishnaTO/ARI#87). A removed id now keeps a flag and loses only a confirmation, which would otherwise publish a positive mapping the record contradicts. The rule lives in `ReviewModel.idEditChanges` with node tests.
 ## claude/efficiency-doc-status
 
 - **`docs/EFFICIENCY.md` shows what is fixed.** Findings 1, 2, 4, 5, 12 and 13 are marked fixed with the PR that fixed each (#189–#196) and the cost after; a new table re-times the fixed endpoints in production (the empty enrichment preview 53–93 ms instead of 1,346 ms, the export 424–499 ms instead of 959 ms, no cold start on predictions). The suggested order now covers only what is open: §14, §7, §3, then the rest. §3 and §6 are updated for what the fixes changed.
