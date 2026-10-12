@@ -98,7 +98,10 @@ function recordHeadHTML(d){
   return `<div class="rec-head">
     <div class="rec-head-main">
       <div class="crumbs">${crumbs}</div>
-      <h1>${esc(d.name)}${d.obsolete ? ' <span class="obsolete-tag">(obsolete)</span>' : ''}</h1>
+      <h1>${esc(d.name)}${d.obsolete ? ' <span class="obsolete-tag">(obsolete)</span>' : ''}` +
+        // Just the name, for pasting into another record or a search (issue #11).
+        `<button class="copy-btn name-copy" data-copy="${esc(d.name)}" title="Copy the disease name" ` +
+        `aria-label="Copy the disease name">${COPY_ICON}</button></h1>
     </div>
     <div class="rec-actions">
       <button class="btn copy-btn" data-copy="${esc(diseaseLinkUrl(d.iri))}" title="Copy a shareable link to this disease">Copy link</button>
