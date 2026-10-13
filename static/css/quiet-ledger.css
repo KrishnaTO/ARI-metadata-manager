@@ -43,9 +43,9 @@
 @media (min-width: 1025px) {
   .right-col.open { margin-top: 36px; padding-top: 18px; border: 0; border-top: 1px solid var(--line); border-radius: 0; background: none; }
   .right-panel { padding: 0; }
+  .right-panel > h2 { margin: 0 0 6px; padding: 8px 0; background: var(--bg); border: 0; border-radius: 0;
+    font: 400 1.375rem/1.2 var(--font-sans); letter-spacing: -.01em; }
 }
-.right-panel > h2 { margin: 0 0 6px; padding: 8px 0; background: var(--bg); border: 0; border-radius: 0;
-  font: 400 1.375rem/1.2 var(--font-sans); letter-spacing: -.01em; }
 .right-panel > h2 .panel-ord { display: none; }
 .right-panel > h2 .panel-aspect { font-size: 0.8125rem; }
 .right-panel > h2 .close-btn, .right-panel > h2 .edit-items-btn { border: 0; background: none; padding: 0 0 0 8px; font-size: 0.7812rem; }
@@ -68,6 +68,7 @@
 .xref-ledger .xr:hover { background: none; }
 .detail .synonyms span, .chips > span { padding: 0; border: 0; background: none; font-size: 0.8125rem; }
 .detail .synonyms span:not(:last-child)::after { content: ' \00b7'; color: var(--mute-soft); }
+.chips:not(.synonyms) > span:not(:last-child)::after { content: ' \00b7'; color: var(--mute-soft); }
 .chips.synonyms { gap: 4px 6px; }
 .tissue-chip { background: none !important; border: 0 !important; color: var(--ink); }
 .ref-links { flex-direction: column; gap: 6px; }
