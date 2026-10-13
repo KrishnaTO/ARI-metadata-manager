@@ -3,6 +3,7 @@
 ## claude/ari-editor-ui-redesign-88282a
 
 - **Record view: quiet ledger pass (design 1a).** A reduction pass so the record reads as a calm reference; tokens are unchanged. The definition shows up to three lines with *Show full definition* when it overflows, replacing the sticky context bar. Section labels are small grey eyebrows; the story spine has no step numbers or column rules and underlines the open category; the deep dive is a section under a hairline, with likelihood as a dot plus a word. The sidebar is white with hairline rows. Curate mode is one amber rule under the header and a single status line. The rail legend and autoimmune-only filter are gone (a filter left on is switched off on load), the footer is gone and the version line moves to the settings menu under *About*, and *Cross-references* in the header is a text link. Added as `static/css/quiet-ledger.css` and `static/js/quiet-ledger.js`, loaded after the existing files.
+- **The deep-dive drawer stays opaque on narrow screens.** The hairline-section restyle of the deep dive (no background, no frame, no panel padding) applied at every width, so below 1024px, where the deep dive is a fixed drawer over the record, the record showed through it. That restyle now applies above 1024px only; the drawer keeps its own frame from `styles.css`.
 
 ## claude/resync-on-new-item-links
 

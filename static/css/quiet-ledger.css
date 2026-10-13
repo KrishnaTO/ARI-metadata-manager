@@ -38,9 +38,12 @@
 .story .box { font-size: 0.7812rem; padding: 0 0 3px; border-bottom: 2px solid transparent; }
 .story .box.active { border-bottom-color: var(--accent); }
 
-/* Deep dive: a section under a hairline, not a card. */
-.right-col.open { margin-top: 36px; padding-top: 18px; border: 0; border-top: 1px solid var(--line); border-radius: 0; background: none; }
-.right-panel { padding: 0; }
+/* Deep dive: a section under a hairline, not a card. Wide screens only — below
+   1024px it is a drawer over the record (styles.css) and keeps its own frame. */
+@media (min-width: 1025px) {
+  .right-col.open { margin-top: 36px; padding-top: 18px; border: 0; border-top: 1px solid var(--line); border-radius: 0; background: none; }
+  .right-panel { padding: 0; }
+}
 .right-panel > h2 { margin: 0 0 6px; padding: 8px 0; background: var(--bg); border: 0; border-radius: 0;
   font: 400 1.375rem/1.2 var(--font-sans); letter-spacing: -.01em; }
 .right-panel > h2 .panel-ord { display: none; }
