@@ -1,4 +1,4 @@
-// Quiet ledger (design 1a). Two small behaviours layered over detail.js and
+// Quiet ledger (design 1a). Small behaviours layered over detail.js and
 // trees.js without touching them:
 //  1. The definition shows up to three lines with a Show full definition
 //     control, added only when the text actually overflows.
@@ -37,4 +37,33 @@
   const pane = document.getElementById('detail-pane');
   if (pane) new MutationObserver(clampDefinition).observe(pane, { childList: true });
   window.addEventListener('load', clearAutoimmuneFilter);
+
+  // 3. Mobile (≤640px, mockups 2a–2d): the header search collapses to an icon
+  //    that opens the field across the bar, and the rail drawer carries the
+  //    header links that no longer fit.
+  const mobile = window.matchMedia('(max-width: 640px)');
+  const header = document.querySelector('header');
+  const wrap = document.querySelector('.search-wrap');
+  const input = document.getElementById('search');
+  if (header && wrap && input){
+    wrap.addEventListener('click', () => {
+      if (!mobile.matches || header.classList.contains('search-open')) return;
+      header.classList.add('search-open');
+      input.focus();
+    });
+    const close = () => { if (!input.value) header.classList.remove('search-open'); };
+    input.addEventListener('blur', () => setTimeout(close, 150));
+    input.addEventListener('keydown', e => { if (e.key === 'Escape'){ input.value = ''; input.blur(); header.classList.remove('search-open'); } });
+    mobile.addEventListener('change', () => header.classList.remove('search-open'));
+  }
+  const rail = document.getElementById('disease-index');
+  const matrix = document.getElementById('matrix-link');
+  if (rail && matrix){
+    const links = document.createElement('div');
+    links.className = 'rail-links';
+    links.innerHTML = '<a href="' + matrix.getAttribute('href') + '">Cross-references</a>' +
+      '<button type="button" class="rl-submit">Submit for review</button>';
+    links.querySelector('.rl-submit').addEventListener('click', () => document.querySelector('#gh-slot .hbtn.primary')?.click());
+    rail.appendChild(links);
+  }
 })();

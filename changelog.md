@@ -1,5 +1,9 @@
 # Changelog
 
+## claude/ari-editor-mobile-view-d4c87d
+
+- **Record view on phones (mockups 2a–2d).** At 640px and below the record stacks in one column with 44px tap targets. The header keeps the menu, wordmark, a search icon that opens the field across the bar, the avatar and settings; Cross-references and Submit for review move to the foot of the rail drawer. Disease story categories are full-width rows. The deep dive is a full-width drawer with a framed title bar, and its tables stack one item per row. In curate mode Save and Cancel are pinned to the bottom of the screen, and form fields use 16px text so iOS does not zoom. Added to `static/css/quiet-ledger.css` and `static/js/quiet-ledger.js`; no other files change.
+
 ## claude/ari-editor-ui-redesign-88282a
 
 - **Record view: quiet ledger pass (design 1a).** A reduction pass so the record reads as a calm reference; tokens are unchanged. The definition shows up to three lines with *Show full definition* when it overflows, replacing the sticky context bar. Section labels are small grey eyebrows; the story spine has no step numbers or column rules and underlines the open category; the deep dive is a section under a hairline, with likelihood as a dot plus a word. The sidebar is white with hairline rows. Curate mode is one amber rule under the header and a single status line. The rail legend and autoimmune-only filter are gone (a filter left on is switched off on load), the footer is gone and the version line moves to the settings menu under *About*, and *Cross-references* in the header is a text link. Added as `static/css/quiet-ledger.css` and `static/js/quiet-ledger.js`, loaded after the existing files.

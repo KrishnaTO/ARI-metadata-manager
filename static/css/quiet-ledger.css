@@ -100,3 +100,82 @@ header #matrix-link.hbtn:hover { color: #fff; text-decoration: underline; backgr
   .edit-banner { padding-left: 32px; padding-right: 32px; }
   .rec-read:has(.right-col.open) { padding-top: 24px; }
 }
+
+/* ------------------------------------------------------------ mobile (≤640px)
+   Mobile mockups 2a–2d. The record stacks in one column, the rail is a drawer
+   carrying Cross-references and Submit for review, the deep dive is a
+   full-width drawer with a framed title bar, and curate mode puts Save and
+   Cancel in a bar pinned to the bottom. Tap targets are 44px. */
+.rail-links { display: none; }
+@media (max-width: 640px) {
+  header { gap: 2px; padding: 0 6px; position: relative; }
+  .iconbtn { width: 44px; height: 44px; }
+  #help-btn, header #matrix-link, #gh-slot .hbtn.primary { display: none; }
+  #gh-slot .who { font-size: 0; gap: 0; }
+  #gh-slot .avatar { width: 32px; height: 32px; font-size: 0.6875rem; margin-right: 6px; }
+  .brand { flex-direction: column; align-items: flex-start; gap: 3px; min-width: 0; }
+  .brand-name { font-size: 1.25rem; line-height: 1; }
+  .brand-sub { display: block; font-size: 0.5625rem; line-height: 1; }
+
+  /* Search collapses to an icon; tapping it opens the field across the bar (quiet-ledger.js). */
+  .search-wrap { margin-left: auto; flex: none; width: 44px; height: 44px; min-width: 0; padding: 0;
+    justify-content: center; background: none; cursor: pointer; }
+  .search-wrap input { display: none; }
+  header.search-open .search-wrap { position: absolute; top: 6px; left: 8px; right: 8px; z-index: 5; width: auto;
+    max-width: none; padding: 0 12px; justify-content: flex-start; background: var(--bar);
+    box-shadow: inset 0 0 0 1px rgba(255,255,255,.2); cursor: auto; }
+  header.search-open .search-wrap input { display: block; font-size: 16px; }
+  .dropdown { min-width: 0; }
+  .menu { position: fixed; top: 56px; left: 8px; right: 8px; min-width: 0; max-height: calc(100vh - 64px); overflow: auto; }
+
+  /* Rail drawer */
+  .left-col { width: min(312px, 86vw) !important; min-width: 0 !important; }
+  .left-col .tab { min-height: 36px; }
+  .rail-links { display: flex; flex: none; flex-direction: column; padding: 8px 20px 20px; border-top: 1px solid var(--line); }
+  .rail-links a, .rail-links button { min-height: 44px; display: flex; align-items: center; padding: 0; border: 0;
+    background: none; font: 400 0.875rem var(--font-sans); color: var(--accent-strong); text-decoration: none; cursor: pointer; }
+  body:not(:has(#gh-slot .hbtn.primary)) .rail-links .rl-submit { display: none; }
+
+  /* Record */
+  .rec-head { flex-direction: column; align-items: stretch; gap: 14px; padding: 22px 20px 18px; }
+  .detail h1 { font-size: 2rem; line-height: 1.08; }
+  .rec-actions { margin-left: 0; flex-direction: row-reverse; justify-content: flex-end; }
+  #edit-toggle { min-height: 44px; padding: 0 18px; font-size: 0.875rem; }
+  .rec-actions .copy-btn.btn { min-height: 44px; font-size: 0.875rem; }
+  .rec-read { padding: 18px 20px; }
+  .rec-side { padding: 20px; }
+  .edit-banner { padding: 9px 20px; }
+  .detail .definition { font-size: 1rem; }
+  .def-expand { min-height: 32px; font-size: 0.8125rem; }
+
+  /* Story: one tappable row per category */
+  .story { gap: 0; }
+  .story-step, .story-step:first-child, .story-step:last-child { padding: 10px 0 4px; border-bottom: 1px solid var(--line); }
+  .story-title { font-size: 0.6875rem; color: var(--mute); }
+  .story .box { min-height: 40px; align-items: center; padding: 0; border-bottom: 0; font-size: 0.9375rem; color: var(--ink); }
+  .story .box .count { font-size: 0.8125rem; color: var(--mute); }
+  .story .box::after { content: ''; flex: none; width: 7px; height: 7px; margin: 0 4px;
+    border-top: 1.5px solid var(--mute-soft); border-right: 1.5px solid var(--mute-soft); transform: rotate(45deg); }
+
+  /* Deep dive: full-width drawer, framed title bar */
+  .right-col.open { width: 100vw; border-left: 0; }
+  .right-panel { padding: 0 20px 20px; }
+  .right-panel > h2 { margin: 0 -20px 14px; padding: 8px 8px 8px 20px; flex-wrap: wrap; row-gap: 2px; font-size: 1rem; font-weight: 400; }
+  .right-panel > h2 .close-btn, .right-panel > h2 .edit-items-btn { min-height: 44px; padding: 0 12px; font-size: 0.875rem; }
+  .right-panel .data-table, .right-panel .data-table tbody, .right-panel .data-table tr, .right-panel .data-table td { display: block; width: auto !important; }
+  .right-panel .data-table thead { display: none; }
+  .right-panel .data-table tr { padding: 12px 0; border-bottom: 1px solid var(--line); }
+  .right-panel .data-table td { padding: 2px 0 !important; border: 0; font-size: 0.875rem; }
+  .right-panel .data-table td:first-child { font-size: 0.9375rem; font-weight: 500; }
+
+  /* Curate: Save and Cancel pinned to the bottom */
+  .edit-actions { position: sticky; bottom: 0; z-index: 3; flex-direction: row-reverse; gap: 10px;
+    margin: 16px -20px 0; padding: 12px 20px 16px; background: var(--bg); border-top: 1px solid var(--line);
+    box-shadow: 0 -4px 16px -4px rgba(15,40,64,.10); }
+  .edit-actions .hbtn { flex: 1; min-height: 44px; justify-content: center; font-size: 0.875rem; }
+  .edit-actions .hbtn.primary { flex: 2; }
+  .detail input:not([type=checkbox]):not([type=radio]), .detail select, .detail textarea,
+  .right-panel input:not([type=checkbox]):not([type=radio]), .right-panel select, .right-panel textarea { font-size: 16px; }
+  .detail input:not([type=checkbox]):not([type=radio]), .detail select,
+  .right-panel input:not([type=checkbox]):not([type=radio]), .right-panel select { min-height: 44px; }
+}
