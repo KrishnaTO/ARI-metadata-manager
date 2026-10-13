@@ -1,0 +1,98 @@
+/* ============================================================
+   Quiet ledger (design 1a) — loaded after styles.css.
+   A reduction pass on the record view: less chrome, same tokens.
+   ============================================================ */
+
+/* Section labels: small grey eyebrows. Teal is kept for links and the one primary action. */
+.section-label, .rec-side .section-label, .rec-side .block-toggle { font-size: 0.6875rem; color: var(--mute); }
+.rec-side .block-toggle:hover { color: var(--ink); }
+
+/* Record header */
+.rec-head { align-items: flex-end; padding: 30px 56px 22px; }
+.evidence.established, .evidence.probable { color: var(--mute); }
+.rec-actions { align-items: center; gap: 16px; }
+.rec-actions .copy-btn.btn { border: 0; background: none; padding: 0; min-height: 0; color: var(--accent-strong); font-weight: 400; }
+.rec-actions .copy-btn.btn:hover { background: none; color: var(--ink); text-decoration: underline; }
+#edit-toggle { background: var(--bg); border: 1px solid var(--ink); color: var(--ink); font-weight: 500; }
+#edit-toggle:hover { background: var(--paper); }
+.detail.curating #edit-toggle { background: var(--btn-fill); border-color: var(--btn-fill); color: #fff; font-weight: 600; }
+
+/* Definition: up to three lines, then an expand control (quiet-ledger.js). Replaces the sticky context bar. */
+.detail .definition { font-size: 1.0625rem; max-width: 64ch; }
+.definition.clamped { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.def-expand { display: inline-flex; align-items: center; gap: 4px; padding: 0; border: 0; background: none;
+  font: 400 0.7812rem var(--font-sans); color: var(--accent-strong); cursor: pointer; }
+.def-expand:hover { color: var(--ink); text-decoration: underline; }
+.def-expand svg { width: 13px; height: 13px; transition: transform .2s var(--ease); }
+.def-expand[aria-expanded="true"] svg { transform: rotate(180deg); }
+.def-expand-row { margin: -4px 0 12px; }
+.rec-context, .rec-read:has(.right-col.open) .rec-context { display: none !important; }
+.rec-read:has(.right-col.open) { padding-top: 30px; }
+
+/* Story spine: no step numbers, no column rules, underline for the open category. */
+.story { gap: 0 32px; }
+.story-step, .story-step:first-child, .story-step:last-child { padding: 0; border-left: 0; }
+.story-step.active { background: none; margin-top: 0; padding-top: 0; }
+.story-num { display: none; }
+.story-title { font-size: 0.7812rem; }
+.story .box { font-size: 0.7812rem; padding: 0 0 3px; border-bottom: 2px solid transparent; }
+.story .box.active { border-bottom-color: var(--accent); }
+
+/* Deep dive: a section under a hairline, not a card. */
+.right-col.open { margin-top: 36px; padding-top: 18px; border: 0; border-top: 1px solid var(--line); border-radius: 0; background: none; }
+.right-panel { padding: 0; }
+.right-panel > h2 { margin: 0 0 6px; padding: 8px 0; background: var(--bg); border: 0; border-radius: 0;
+  font: 400 1.375rem/1.2 var(--font-sans); letter-spacing: -.01em; }
+.right-panel > h2 .panel-ord { display: none; }
+.right-panel > h2 .panel-aspect { font-size: 0.8125rem; }
+.right-panel > h2 .close-btn, .right-panel > h2 .edit-items-btn { border: 0; background: none; padding: 0 0 0 8px; font-size: 0.7812rem; }
+.right-panel > h2 .edit-items-btn { color: var(--accent-strong); }
+.right-panel > h2 .close-btn:hover, .right-panel > h2 .edit-items-btn:hover { background: none; color: var(--ink); text-decoration: underline; }
+.data-table td { padding: 11px 16px 11px 0; }
+.data-table th { padding: 0 16px 8px 0; }
+/* Likelihood in tables: dot + word instead of a filled badge. */
+.data-table .badge { background: none !important; padding: 0; color: var(--ink); font-weight: 400; letter-spacing: 0;
+  text-transform: none; font-size: 0.8125rem; display: inline-flex; align-items: center; gap: 8px; }
+.data-table .badge::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: var(--mute-soft); }
+.data-table .badge-common::before { background: var(--success); }
+.data-table .badge-moderate::before { background: var(--warning); }
+
+/* Sidebar: white, hairline rows, no boxed ledger or chips. */
+.rec-body { grid-template-columns: 1fr 320px; }
+.rec-side { background: var(--bg); padding: 28px; }
+.xref-ledger { background: none; border: 0; border-radius: 0; }
+.xref-ledger .xr { padding: 6px 0; }
+.xref-ledger .xr:hover { background: none; }
+.detail .synonyms span, .chips > span { padding: 0; border: 0; background: none; font-size: 0.8125rem; }
+.detail .synonyms span:not(:last-child)::after { content: ' \00b7'; color: var(--mute-soft); }
+.chips.synonyms { gap: 4px 6px; }
+.tissue-chip { background: none !important; border: 0 !important; color: var(--ink); }
+.ref-links { flex-direction: column; gap: 6px; }
+.ref-link { border: 0; padding: 0; }
+.ref-link:hover { background: none; text-decoration: underline; }
+
+/* Curate mode: one amber rule and one status line. */
+.detail.curating .rec-body, [data-theme="dark"] .detail.curating .rec-body { box-shadow: none; background: none; }
+.detail.curating .rec-head { border-bottom: 2px solid var(--warning); }
+.edit-banner, [data-theme="dark"] .edit-banner { margin: 0; padding: 9px 56px; border: 0; border-bottom: 1px solid var(--line);
+  border-radius: 0; background: none; color: var(--mute); font-size: 0.7812rem; }
+.edit-banner::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: var(--warning); flex: none; }
+.edit-banner strong { color: var(--ink); }
+
+/* Rail: legend and autoimmune filter removed (#ai-only stays in the DOM; trees.js binds to it). */
+.rail-legend { display: none; }
+.node-row.autoimmune .nm::after { display: none; }
+.node-row.selected { border-radius: 0 4px 4px 0; }
+
+/* Header: Cross-references as a text link. */
+header #matrix-link.hbtn { border: 0; background: none; padding: 0 4px; color: rgba(255,255,255,.85); font-size: 0.8125rem; }
+header #matrix-link.hbtn:hover { color: #fff; text-decoration: underline; background: none; }
+
+/* Version line now lives in the settings menu. */
+.menu #onto-meta { padding: 4px 8px 6px; font-size: 0.6875rem; color: var(--mute); line-height: 1.5; }
+.menu #onto-meta b { font-family: var(--font-mono); font-weight: 500; color: var(--ink); }
+
+@media (max-width: 1200px) {
+  .edit-banner { padding-left: 32px; padding-right: 32px; }
+  .rec-read:has(.right-col.open) { padding-top: 24px; }
+}

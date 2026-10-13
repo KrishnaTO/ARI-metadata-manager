@@ -1,5 +1,9 @@
 # Changelog
 
+## claude/ari-editor-ui-redesign-88282a
+
+- **Record view: quiet ledger pass (design 1a).** A reduction pass so the record reads as a calm reference; tokens are unchanged. The definition shows up to three lines with *Show full definition* when it overflows, replacing the sticky context bar. Section labels are small grey eyebrows; the story spine has no step numbers or column rules and underlines the open category; the deep dive is a section under a hairline, with likelihood as a dot plus a word. The sidebar is white with hairline rows. Curate mode is one amber rule under the header and a single status line. The rail legend and autoimmune-only filter are gone (a filter left on is switched off on load), the footer is gone and the version line moves to the settings menu under *About*, and *Cross-references* in the header is a text link. Added as `static/css/quiet-ledger.css` and `static/js/quiet-ledger.js`, loaded after the existing files.
+
 ## claude/resync-on-new-item-links
 
 - **Diseases open again for curators whose working copy was synced before target cells.** The data repo gained target cells (424 `Cell_*` items) while the server still ran code that didn't know the category. A sync merges a disease's items only along the links it knows (`merge_service.ITEM_LINKS`), so those copies took each disease's `affectsCellTissueOrOrgan` links but not the cells. The new code reads target cells, got bare strings for the missing items, and every disease returned a 500 ("That disease link could not be opened"). The copy's sync record now stores the item links its last full sync followed, and `/api/v2/sync` skips only when they match the running code's. A copy synced under other links is merged again in full on the next page load, which brings in the missing items and keeps the curator's own edits.
