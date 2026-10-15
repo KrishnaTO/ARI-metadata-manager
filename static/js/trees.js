@@ -50,10 +50,11 @@ function renderAlphabetical(){
       const sel = state.activeIri === n.iri ? ' selected' : '';
       const obs = n.obsolete ? ' obsolete' : '';
       const obsTag = n.obsolete ? ' <span class="obsolete-tag">(obsolete)</span>' : '';
-      let h = `<div class="node${hasKids ? ' collapsed' : ''}">`;
+      // Subtypes start expanded so the whole list is visible at a glance (#232).
+      let h = `<div class="node">`;
       h += `<div class="node-row disease-row${sel}${obs}${autoimmuneClass(n)}" data-iri="${esc(n.iri)}"
              role="treeitem" tabindex="-1" aria-selected="${sel ? 'true' : 'false'}"
-             ${hasKids ? 'aria-expanded="false"' : ''}>${twisty(true, !hasKids, hasKids)}<span class="nm">${esc(n.name)}</span>${obsTag}</div>`;
+             ${hasKids ? 'aria-expanded="true"' : ''}>${twisty(false, !hasKids, hasKids)}<span class="nm">${esc(n.name)}</span>${obsTag}</div>`;
       if (hasKids){ h += `<div class="children">${kids.map(node).join('')}</div>`; }
       h += `</div>`;
       return h;
