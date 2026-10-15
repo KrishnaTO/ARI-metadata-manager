@@ -1,5 +1,8 @@
 # Changelog
 
+## claude/issue-230-settings-menu-colour
+
+- **The settings menu stands apart from the page** (#230). The gear's popover had the page's own background, so its options blended into the record behind it. It is now tinted (`--paper`: light grey in the light theme, a lighter navy in the dark) with a stronger edge (`--line-strong`), and a hovered item darkens to `--bone`.
 ## claude/issue-232-expand-disease-list
 
 - **The A–Z disease list opens with subtypes shown** (#232). A disease with subtypes rendered collapsed, so its subtypes were hidden until its ▶ was clicked. The list now renders every subtype group expanded (▼, `aria-expanded="true"`); the marker still collapses a group. The tissue view already rendered expanded.
