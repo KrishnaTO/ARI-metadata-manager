@@ -152,10 +152,11 @@ header .hbtn:hover { background: rgba(255,255,255,.12); border-color: rgba(255,2
   background: var(--paper); border-top: 1px solid var(--line); font-size: 0.7812rem !important; }
 .search-all-row:hover { background: var(--accent-050); }
 
-/* Preferences popover */
+/* Preferences popover. Tinted (paper, not the page's bg) with a stronger edge so
+   it reads as a layer of options over the record, not part of it (#230). */
 .menuwrap { position: relative; display: flex; flex: none; }
 .menu { display: none; position: absolute; top: calc(100% + 8px); right: 0; z-index: 60; min-width: 268px;
-  padding: 8px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg);
+  padding: 8px; border: 1px solid var(--line-strong); border-radius: 8px; background: var(--paper);
   box-shadow: var(--shadow-3); color: var(--ink); }
 .menu.open { display: block; }
 .menu-h { font-size: 0.6562rem; font-weight: 600; letter-spacing: .1em; text-transform: uppercase;
@@ -164,7 +165,7 @@ header .hbtn:hover { background: rgba(255,255,255,.12); border-color: rgba(255,2
 .menu-sep { height: 1px; background: var(--line); margin: 6px 2px; }
 .menu-item { display: block; width: 100%; text-align: left; padding: 8px 8px; border: 0; border-radius: 4px;
   background: transparent; color: var(--ink); font: 400 0.7812rem var(--font-sans); text-decoration: none; }
-.menu-item:hover { background: var(--paper); color: var(--accent-strong); }
+.menu-item:hover { background: var(--bone); color: var(--accent-strong); }
 .seg { display: flex; border: 1px solid var(--line-strong); border-radius: 999px; overflow: hidden; flex: none; }
 .seg button { border: 0; background: transparent; color: var(--mute); padding: 4px 12px; font-size: 0.7188rem;
   font-weight: 500; white-space: nowrap; }

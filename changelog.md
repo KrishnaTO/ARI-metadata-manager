@@ -6,6 +6,16 @@
 - **Item values are checked before anything is written.** A required item field left empty, a value outside a select's options, a number that does not parse, or a property the ontology does not declare is refused with a 400 and stores nothing. Before, a bad number in a whole-number item field was skipped silently. Required fields are marked `*` in the item form.
 - **The item form no longer closes the drawer behind it.** At 1024px and below the deep dive is a drawer that closes on a click outside it, and the Add/Edit item form (a modal on the page body) counted as outside, so any click in it closed the drawer: a refused save left the curator on the bare record. The form now counts as inside.
 - **Migration.** `scripts/migrate_epidemiology.py <owl>` turns each flat rate into a figure (sex All, with the year and sources stored beside it), notes the move in the disease's change log, removes the flat values and their declarations, and declares the new class and properties. It rewrites the file in its own order (`owl_splice`). It has been run on the test fixture (87 figures). The data repo's `ontologies/ari_t1d.owl` needs the same run, merged with or before this deploy. `scripts/build_t1d_ontology.py` and `scripts/import_reports.py` write figures too.
+## claude/issue-228-mobile-header-scroll
+
+- **The phone header fits the screen** (#228). The wordmark could not shrink (`flex: none`, no wrapping), so signed in, at the Large or Larger text size, or before the condensed font loaded, the bar ran past the screen and the page scrolled sideways to reach the settings button. At 640px and below the wordmark is now the item that gives way: it truncates with an ellipsis and the bar stays at the screen's width.
+- **The record scrolls as one on phones** (#228). The record head stayed put while only the body scrolled beneath it, so a phone had two scroll areas and a third of the screen never moved. At 640px and below the whole record scrolls together; curate mode's Save bar stays pinned to the bottom.
+## claude/issue-230-settings-menu-colour
+
+- **The settings menu stands apart from the page** (#230). The gear's popover had the page's own background, so its options blended into the record behind it. It is now tinted (`--paper`: light grey in the light theme, a lighter navy in the dark) with a stronger edge (`--line-strong`), and a hovered item darkens to `--bone`.
+## claude/issue-232-expand-disease-list
+
+- **The A–Z disease list opens with subtypes shown** (#232). A disease with subtypes rendered collapsed, so its subtypes were hidden until its ▶ was clicked. The list now renders every subtype group expanded (▼, `aria-expanded="true"`); the marker still collapses a group. The tissue view already rendered expanded.
 
 ## claude/ari-editor-mobile-view-d4c87d
 

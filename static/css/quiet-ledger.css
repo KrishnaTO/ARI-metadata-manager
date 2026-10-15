@@ -113,9 +113,12 @@ header #matrix-link.hbtn:hover { color: #fff; text-decoration: underline; backgr
   #help-btn, header #matrix-link, #gh-slot .hbtn.primary { display: none; }
   #gh-slot .who { font-size: 0; gap: 0; }
   #gh-slot .avatar { width: 32px; height: 32px; font-size: 0.6875rem; margin-right: 6px; }
-  .brand { flex-direction: column; align-items: flex-start; gap: 3px; min-width: 0; }
-  .brand-name { font-size: 1.25rem; line-height: 1; }
-  .brand-sub { display: block; font-size: 0.5625rem; line-height: 1; }
+  /* The wordmark is the one item that gives way, so the bar never runs past the
+     screen: signed in, at a larger text size, or before the condensed font
+     loads, it truncates instead of pushing the settings button off the edge (#228). */
+  .brand { flex: 0 1 auto; flex-direction: column; align-items: flex-start; gap: 3px; min-width: 0; overflow: hidden; }
+  .brand-name { max-width: 100%; overflow: hidden; text-overflow: ellipsis; font-size: 1.25rem; line-height: 1; }
+  .brand-sub { display: block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; font-size: 0.5625rem; line-height: 1; }
 
   /* Search collapses to an icon; tapping it opens the field across the bar (quiet-ledger.js). */
   .search-wrap { margin-left: auto; flex: none; width: 44px; height: 44px; min-width: 0; padding: 0;
@@ -136,7 +139,11 @@ header #matrix-link.hbtn:hover { color: #fff; text-decoration: underline; backgr
     background: none; font: 400 0.875rem var(--font-sans); color: var(--accent-strong); text-decoration: none; cursor: pointer; }
   body:not(:has(#gh-slot .hbtn.primary)) .rail-links .rl-submit { display: none; }
 
-  /* Record */
+  /* Record: one scroll for the whole record. The head used to stay put while
+     only the body scrolled under it, which on a phone left a third of the
+     screen fixed and two scroll areas (#228). */
+  .detail { overflow: auto; }
+  .rec-body { flex: none; overflow: visible; }
   .rec-head { flex-direction: column; align-items: stretch; gap: 14px; padding: 22px 20px 18px; }
   .detail h1 { font-size: 2rem; line-height: 1.08; }
   .rec-actions { margin-left: 0; flex-direction: row-reverse; justify-content: flex-end; }
