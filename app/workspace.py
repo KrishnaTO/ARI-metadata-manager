@@ -146,15 +146,16 @@ def ancestor_blob(login) -> str | None:
     return _ancestor_meta(login).get("blob")
 
 
-# The item links the merge followed when the copy was last fully synced. A merge
-# copies a disease's items only along the links it knows (merge_service.ITEM_LINKS),
+# The links the merge followed when the copy was last fully synced. A merge
+# copies a disease's items only along the links it knows (merge_service.SYNCED_LINKS),
 # so code that predates a category brings in a disease's links to that
 # category's items but not the items. The data repo gained target cells while
 # the server still ran such code, and every disease in the copies it synced then
-# failed to load: their target-cell links pointed at nothing. A copy synced
-# under other links is merged again in full, whatever the branch's commit.
+# failed to load: their target-cell links pointed at nothing. Parent categories
+# went the same way (ARI#140). A copy synced under other links is merged again
+# in full, whatever the branch's commit.
 def synced_with_current_links(login) -> bool:
-    return _ancestor_meta(login).get("links") == list(merge_service.ITEM_LINKS)
+    return _ancestor_meta(login).get("links") == list(merge_service.SYNCED_LINKS)
 
 
 # The working copy's revision: an opaque token that changes whenever a merge or
@@ -173,13 +174,13 @@ def set_ancestor(login, data: bytes, sha):
     _ancestor_dir().mkdir(parents=True, exist_ok=True)
     atomic_store.write_bytes(ancestor_path(login), data, mode=0o644)
     _update_ancestor_meta(login, sha=sha, blob=github_service.blob_sha(data),
-                          revision=uuid.uuid4().hex, links=list(merge_service.ITEM_LINKS))
+                          revision=uuid.uuid4().hex, links=list(merge_service.SYNCED_LINKS))
 
 
 def set_ancestor_sha(login, sha, blob):
     """Record that the copy is now fully synced with ``sha``, whose ontology
     file has blob id ``blob``."""
-    _update_ancestor_meta(login, sha=sha, blob=blob, links=list(merge_service.ITEM_LINKS))
+    _update_ancestor_meta(login, sha=sha, blob=blob, links=list(merge_service.SYNCED_LINKS))
 
 
 def _drop_ancestor(login):
@@ -436,7 +437,7 @@ def merge_from(login, theirs, iris, choices=None) -> dict:
     snapshot = svc.path.read_bytes()
     try:
         out = merge_service.merge_into(svc, anc, theirs, iris, touched(login), choices)
-        if out["merged"]:
+        if out["merged"] or out["defined"]:
             svc._save()
             _new_revision(login)
         if out["advanced"]:

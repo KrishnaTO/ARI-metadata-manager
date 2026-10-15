@@ -1,5 +1,13 @@
 # Changelog
 
+## claude/sync-carries-parent-categories
+
+- **Diseases filed under a new category open again for signed-in curators.** KrishnaTO/ARI#140 added a *Combination disease* category (and a `CombinationDisease` class) and filed 16 diseases under it, Morvan syndrome among them. Syncing a working copy merges each disease and the items it owns, but not the shared category its `hasParentCategory` link points at. So the copy got the links and not the category, owlready2 returned each dangling link as a bare string, and `get_disease_detail` failed with `'str' object has no attribute 'iri'`. On the live site that showed as "That disease link could not be opened." Anonymous visitors read the full ontology, so they never saw it.
+- `merge_service.define_parent_categories` runs at the end of every merge. It copies in any category the working copy's diseases name but do not define, along with any class of ours it needs first. It checks the whole copy rather than only the diseases just merged, because a copy that has already synced has an ancestor that agrees with the branch for those 16 diseases, so no per-disease merge would ever pick them up again.
+- The links marker recorded with each ancestor is now `SYNCED_LINKS` (item links plus `hasParentCategory`). Every existing copy therefore skips the "already up to date" shortcuts once after deploy, and its next sync repairs it. This is the same mechanism #225 used for target cells.
+- Replayed against the real data (KrishnaTO/ARI before #140 → `main`): without the fix those 16 diseases fail; with it all 228 open and `Category_Combination` is defined. Tests cover a fresh sync and the repair of an already-broken copy.
+- **Not covered:** `targetsTissue` has the same shape. A new tissue on the branch would reach copies as a dangling link in the same way. No tissue has been added since working copies existed.
+
 ## claude/disease-status-icons-0d4a81
 
 - **Each disease in the list shows whether it is autoimmune** (#231). The quiet-ledger redesign removed the rail legend, the teal dot and the *Show only* filter, so the list no longer said which diseases are confirmed autoimmune. Each disease row now ends in a small antibody mark, read from its `diseaseCategory`: solid teal for confirmed (*Autoimmune*), a dashed grey outline for *Unconfirmed*, and a struck-through grey mark for any other category (e.g. *Immune Deficiency*). Diseases with no category get no mark. There is no standard symbol for autoimmune disease, so the mark is an antibody, the usual shorthand for the immune response. The legend is in the help panel, under *What the marks in the disease list mean*. The tree endpoints now return `ai_status` (`confirmed` / `unconfirmed` / `not` / null) in place of the `autoimmune` boolean.

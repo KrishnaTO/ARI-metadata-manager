@@ -6,13 +6,14 @@ docs/superpowers/specs/2026-09-22-working-copy-merge-design.md).
 """
 import hashlib
 import shutil
+import types
 from collections import OrderedDict
 
 import pytest
 from fastapi.testclient import TestClient
 
 import app.main as main
-from app import config, sessions, workspace
+from app import config, merge_service, sessions, workspace
 from app import github_service as gh
 from app.ontology_service import OntologyService
 
@@ -169,6 +170,52 @@ def test_a_copy_synced_under_other_item_links_is_merged_again(branch):
 
     assert "up_to_date" not in r and r["sha"] == SHA_2   # merged, not skipped
     assert workspace.synced_with_current_links("ada")
+
+
+def _file_under_new_category(svc, iri):
+    """What ARI#140 did: a new category, of a new class, with ``iri`` filed under it."""
+    with svc.onto:
+        cls = types.new_class("CombinationDisease", (svc.onto.DiseaseCategory,))
+        cat = cls("Category_Combination")
+        cat.label = ["Combination disease"]
+        svc.world[iri].hasParentCategory.append(cat)
+    return cat.iri
+
+
+def _category_names(login, iri):
+    return [c["name"] for c in workspace.user_service(login).get_disease_detail(iri)["parent_categories"]]
+
+
+def test_sync_brings_a_new_parent_category_along_with_the_link(branch):
+    """A merge copies a disease and the items it owns, not the shared category
+    it is filed under. Morvan syndrome failed to open in every synced copy."""
+    d = _first(workspace.user_service("ada", create=True))
+    client.post("/api/v2/sync")
+    branch["sha"] = SHA_3
+    _file_under_new_category(branch["svc"], d)
+
+    client.post("/api/v2/sync")
+
+    assert "Combination disease" in _category_names("ada", d)
+
+
+def test_a_copy_already_missing_a_parent_category_is_repaired(branch):
+    """Copies synced before the fix hold the link and an ancestor that already
+    agrees with the branch, so no disease merge would ever bring it in."""
+    d = _first(workspace.user_service("ada", create=True))
+    client.post("/api/v2/sync")
+    branch["sha"] = SHA_3
+    cat = _file_under_new_category(branch["svc"], d)
+    client.post("/api/v2/sync")
+    svc = workspace.user_service("ada")
+    merge_service._write(svc, cat, None, ())           # as the old sync left it
+    svc._save()
+    workspace.USER_SVC.pop("ada")
+    workspace._update_ancestor_meta("ada", links=list(merge_service.ITEM_LINKS))   # old code's marker
+
+    client.post("/api/v2/sync")
+
+    assert "Combination disease" in _category_names("ada", d)
 
 
 def test_sync_merges_the_branch_and_records_its_commit(branch):

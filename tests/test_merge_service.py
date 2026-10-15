@@ -65,7 +65,7 @@ def test_merge_into_merges_only_the_diseases_the_branch_changed(trio, monkeypatc
                                    {d["iri"] for d in mine.get_diseases_list()}, {edited})
 
     assert merged == [changed], f"merged {len(merged)} diseases for one upstream change"
-    assert out == {"merged": [changed], "conflicts": [], "advanced": [changed]}
+    assert out == {"merged": [changed], "conflicts": [], "advanced": [changed], "defined": []}
     assert _reloaded(mine).get_disease_detail(edited)["definition"] == "mine"
 
 
@@ -214,7 +214,7 @@ def test_merge_into_writes_clean_diseases_and_advances_their_ancestor(trio):
 
     out = merge_service.merge_into(mine, base, theirs, [d], touched=set())
 
-    assert out == {"merged": [d], "conflicts": [], "advanced": [d]}
+    assert out == {"merged": [d], "conflicts": [], "advanced": [d], "defined": []}
     assert _reloaded(mine).get_disease_detail(d)["definition"] == "theirs"
     assert _reloaded(base).get_disease_detail(d)["definition"] == "theirs"
 
@@ -240,7 +240,7 @@ def test_merge_into_leaves_a_conflicting_disease_and_its_ancestor_alone(trio):
 def test_merge_into_reports_nothing_for_diseases_already_equal(trio):
     base, mine, theirs = trio
     assert merge_service.merge_into(mine, base, theirs, [_iri(mine)], touched=set()) == \
-        {"merged": [], "conflicts": [], "advanced": []}
+        {"merged": [], "conflicts": [], "advanced": [], "defined": []}
 
 
 def test_without_an_ancestor_an_untouched_disease_takes_theirs(trio):
@@ -265,7 +265,7 @@ def test_merge_into_applies_choices_per_disease(trio):
     out = merge_service.merge_into(mine, base, theirs, [d], touched={d},
                                    choices={d: {key: "mine"}})
 
-    assert out == {"merged": [d], "conflicts": [], "advanced": [d]}
+    assert out == {"merged": [d], "conflicts": [], "advanced": [d], "defined": []}
     reloaded = _reloaded(mine).get_disease_detail(d)
     assert reloaded["definition"] == "mine"
     assert any("| bob |" in e for e in reloaded["changelog"])
