@@ -142,7 +142,7 @@ function resolveEditor(){
 
 // disease-detail array key for each editable category
 const DETAIL_KEY = {
-  symptoms:'symptoms', environmental:'environmental_factors', antibodies:'antibodies',
+  prevalence:'epidemiology', symptoms:'symptoms', environmental:'environmental_factors', antibodies:'antibodies',
   genetic:'genetic', treatments:'treatments', etiology:'etiology', biomarkers:'biomarkers',
   pathophysiology:'pathway', cytokines:'cytokines', tcells:'tcells', apcs:'apcs',
   transcription:'transcription_factors', innate:'innate_components', complement:'complement',

@@ -57,7 +57,7 @@ def _field_labels(base: str) -> dict:
             out[base + suffix] = names.get(key, key)
     for spec in CATEGORIES.values():
         for f in spec["fields"]:
-            if f["kind"] == "data":
+            if f["kind"] in ("data", "intdata", "decdata"):
                 out.setdefault(base + f["key"], f["label"])
     return out
 

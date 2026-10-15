@@ -11,18 +11,9 @@ FIELDS = [
     ("mesh", "MeSH"), ("nci", "NCI"),
     ("def_source", "Definition source"), ("obsolete", "Obsolete"), ("version", "Version"),
     ("disease_category", "Category"), ("evidence_quality", "Evidence quality"),
-    ("prevalence_us_per_100k", "US prevalence /100k"), ("prevalence_us_year", "US prevalence year"),
-    ("prevalence_us_sources", "US prevalence sources"),
-    ("prevalence_world_per_100k", "Worldwide prevalence /100k"),
-    ("prevalence_world_year", "Worldwide prevalence year"),
-    ("prevalence_world_sources", "Worldwide prevalence sources"),
+    ("epidemiology", "Prevalence & incidence"),
     ("prevalence_value", "Estimated cases"),
-    ("incidence_us_per_100k", "US incidence /100k"), ("incidence_us_year", "US incidence year"),
-    ("incidence_us_sources", "US incidence sources"),
-    ("incidence_world_per_100k", "Worldwide incidence /100k"),
-    ("incidence_world_year", "Worldwide incidence year"),
-    ("incidence_world_sources", "Worldwide incidence sources"),
-    ("demographic_bias", "Demographic bias"),
+    ("demographic_bias", "Sex / demographic notes"),
     ("age_range", "Age range"), ("prevalence_desc", "Prevalence description"),
 ]
 
@@ -33,8 +24,16 @@ def _fmt(v):
     if isinstance(v, bool):
         return "yes" if v else "no"
     if isinstance(v, (list, tuple)):
+        if v and isinstance(v[0], dict):
+            return ", ".join(sorted(_figure(x) for x in v))
         return ", ".join(str(x) for x in v)
     return str(v)
+
+
+def _figure(item):
+    """One prevalence or incidence figure: "Prevalence · US · 2019 · All: 12.3/100k"."""
+    rate = _fmt(item.get("rate"))
+    return item.get("name", "") + (f": {rate}/100k" if rate else "")
 
 
 def _cell(v):

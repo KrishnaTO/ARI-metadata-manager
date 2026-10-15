@@ -131,50 +131,81 @@ def test_update_disease_keeps_free_text_multi_fields_verbatim(service):
     assert detail["synonyms"] == ["Type 1: juvenile onset"]
 
 
-def test_update_disease_stores_us_and_worldwide_incidence(service):
-    iri = service.get_diseases_list()[0]["iri"]
-    detail = service.update_disease(iri, {
-        "incidence_us_per_100k": "20.1", "incidence_us_year": "2021",
-        "incidence_us_sources": "https://a.example/us\nhttps://b.example/us",
-        "incidence_world_per_100k": "15", "incidence_world_year": "2022",
-        "incidence_world_sources": "https://w.example/x",
-    }, editor="tester")
-    assert detail["rejected"] == []
-    assert detail["incidence_us_per_100k"] == [20.1]
-    assert detail["incidence_us_year"] == [2021]
-    assert detail["incidence_us_sources"] == ["https://a.example/us", "https://b.example/us"]
-    assert detail["incidence_world_per_100k"] == [15.0]
-    assert detail["incidence_world_year"] == [2022]
-    assert detail["incidence_world_sources"] == ["https://w.example/x"]
+def _t1d(svc):
+    return next(d for d in svc.get_diseases_list() if d["name"] == "Type 1 diabetes mellitus")["iri"]
 
 
-def test_update_disease_stores_us_and_worldwide_prevalence(service):
-    iri = service.get_diseases_list()[0]["iri"]
-    detail = service.update_disease(iri, {
-        "prevalence_us_per_100k": "450.5", "prevalence_us_year": "2021",
-        "prevalence_us_sources": "https://a.example/us\nhttps://b.example/us",
-        "prevalence_world_per_100k": "300", "prevalence_world_year": "2019",
-        "prevalence_world_sources": "https://w.example/x",
-    }, editor="tester")
-    assert detail["rejected"] == []
-    assert detail["prevalence_us_per_100k"] == [450.5]
-    assert detail["prevalence_us_year"] == [2021]
-    assert detail["prevalence_us_sources"] == ["https://a.example/us", "https://b.example/us"]
-    assert detail["prevalence_world_per_100k"] == [300.0]
-    assert detail["prevalence_world_year"] == [2019]
-    assert detail["prevalence_world_sources"] == ["https://w.example/x"]
+FIGURE = {"epiMeasure": "Prevalence", "epiRegion": "US", "epiYear": "2019",
+          "epiSex": "Female", "epiRatePer100k": "18.5", "sourcePMID": "https://a.example/us"}
 
 
-def test_us_prevalence_reads_existing_prevalence_per_100k(ro_service):
-    # T1D's fixture value is stored on the older prevalencePer100k property.
-    t1d = next(d for d in ro_service.get_diseases_list() if d["name"] == "Type 1 diabetes mellitus")
-    assert ro_service.get_disease_detail(t1d["iri"])["prevalence_us_per_100k"] == [500.0]
+def test_t1d_prevalence_is_a_figure(ro_service):
+    # The fixture's flat prevalencePer100k was moved to a figure (#229).
+    [fig] = ro_service.get_disease_detail(_t1d(ro_service))["epidemiology"]
+    assert (fig["name"], fig["rate"]) == ("Prevalence · US · All", [500.0])
 
 
-def test_update_disease_rejects_non_numeric_incidence_year(service):
-    iri = service.get_diseases_list()[0]["iri"]
-    detail = service.update_disease(iri, {"incidence_us_year": "circa 2020"}, editor="tester")
-    assert detail["rejected"][0]["field"] == "incidence_us_year"
+def test_epidemiology_figure_round_trip(service):
+    iri = _t1d(service)
+    detail = service.add_item(iri, "prevalence", FIGURE, editor="t")
+    fig = next(f for f in detail["epidemiology"] if f["sex"] == ["Female"])
+    assert fig["name"] == "Prevalence · US · 2019 · Female"
+    assert (fig["year"], fig["rate"], fig["source"]) == ([2019], [18.5], ["https://a.example/us"])
+
+    # The label follows the fields it is made from.
+    detail = service.update_item(fig["iri"], "prevalence", {"epiSex": "Male"}, disease_iri=iri, editor="t")
+    assert any(f["name"] == "Prevalence · US · 2019 · Male" for f in detail["epidemiology"])
+
+    detail = service.delete_item(fig["iri"], "prevalence", iri, editor="t")
+    assert len(detail["epidemiology"]) == 1
+
+
+@pytest.mark.parametrize("bad", [
+    {"epiRatePer100k": "about 30"},     # not a number
+    {"epiYear": "circa 2020"},          # not a whole number
+    {"epiSex": "Other"},                # not one of the options
+    {"epiRegion": ""},                  # required
+])
+def test_epidemiology_figure_refuses_bad_values(service, bad):
+    from app.errors import Invalid
+    iri = _t1d(service)
+    with pytest.raises(Invalid):
+        service.add_item(iri, "prevalence", {**FIGURE, **bad}, editor="t")
+    # Refused before anything was written.
+    assert len(service.get_disease_detail(iri)["epidemiology"]) == 1
+
+
+def test_migration_moves_flat_rates_to_figures(tmp_path):
+    from owlready2 import AnnotationProperty, DataProperty, Thing, World
+
+    from scripts.migrate_epidemiology import migrate
+    world = World()
+    onto = world.get_ontology("http://example.org/ari#")
+    with onto:
+        class AutoimmuneDisease(Thing): pass
+        class ARI_ChangeLog(AnnotationProperty): pass
+        class prevalencePer100k(DataProperty): range = [float]
+        class incidenceWorldPer100k(DataProperty): range = [float]
+        class incidenceWorldYear(DataProperty): range = [int]
+        class incidenceWorldSource(DataProperty): range = [str]
+    d = AutoimmuneDisease("ARI_0000001")
+    prevalencePer100k[d] = [12.5]
+    incidenceWorldPer100k[d] = [1.1]
+    incidenceWorldYear[d] = [2018]
+    incidenceWorldSource[d] = ["https://w.example/x"]
+    path = tmp_path / "ontologies" / "ari.owl"
+    path.parent.mkdir()
+    onto.save(file=str(path), format="rdfxml")
+
+    assert migrate(path, "tester") == 2
+    svc = OntologyService(str(path))
+    detail = svc.get_disease_detail(d.iri)
+    figs = {f["name"]: f for f in detail["epidemiology"]}
+    assert figs["Prevalence · US · All"]["rate"] == [12.5]
+    inc = figs["Incidence · Worldwide · 2018 · All"]
+    assert (inc["rate"], inc["source"]) == ([1.1], ["https://w.example/x"])
+    assert "Moved to prevalence & incidence figures" in detail["changelog"][-1]
+    assert svc.world[svc.base + "prevalencePer100k"] is None     # flat fields are gone
 
 
 def test_update_disease_ignores_unknown_field(service):

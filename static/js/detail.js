@@ -410,7 +410,7 @@ function renderDetail(d){
 
 function boxDefs(d){
   return [
-    { key:'prevalence', label:'Prevalence', count: 0, note:'data', show: (d.prevalence_us_per_100k?.length || d.prevalence_world_per_100k?.length || d.prevalence_desc?.length) },
+    { key:'prevalence', label:'Prevalence', count: d.epidemiology?.length||0, note:'data', show: (d.epidemiology?.length || d.prevalence_value?.length || d.prevalence_desc?.length) },
     { key:'symptoms', label:'Symptoms', count: d.symptoms?.length||0, show: d.symptoms?.length },
     { key:'environmental', label:'Environmental', count: d.environmental_factors?.length||0, show: d.environmental_factors?.length },
     { key:'antibodies', label:'Antibodies', count: d.antibodies?.length||0, show: d.antibodies?.length },

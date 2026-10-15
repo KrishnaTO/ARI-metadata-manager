@@ -189,12 +189,13 @@ document.getElementById('textsize-seg')?.addEventListener('click', e => {
 (function () {
   const isDrawer = () => window.matchMedia('(max-width: 1024px)').matches;
   const isOpen = () => document.getElementById('right-col').classList.contains('open');
-  // The record's own actions (Edit record, Copy link) and the category lines are
-  // not "outside" — they drive the panel rather than dismissing it. The path is
+  // The record's own actions (Edit record, Copy link), the category lines and the
+  // item form opened from the drawer are not "outside" — they drive the panel
+  // rather than dismissing it. The path is
   // the one recorded at dispatch: a row's × removes its row before this runs,
   // and the detached button no longer has the drawer as an ancestor.
   document.addEventListener('click', e => {
-    const inside = e.composedPath().some(el => el instanceof Element && el.matches('#right-col, .box, .rec-actions'));
+    const inside = e.composedPath().some(el => el instanceof Element && el.matches('#right-col, .box, .rec-actions, .modal-overlay'));
     if (isDrawer() && isOpen() && !inside) requestCloseDeepDive();
   });
   document.addEventListener('keydown', e => {

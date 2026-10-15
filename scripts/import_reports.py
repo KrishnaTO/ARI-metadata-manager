@@ -446,8 +446,16 @@ def import_into(onto_path: Path, reports: Path) -> dict:
                 except (TypeError, ValueError):
                     return None
             us = num(pr.get("usprev"))
-            if us is not None and not P("prevalencePer100k")[ind]:
-                P("prevalencePer100k")[ind] = [us]
+            # The US rate is a prevalence figure (#229), added when the disease has none.
+            if us is not None and not P("hasEpidemiologyProfile")[ind]:
+                with onto:
+                    fig = P("EpidemiologyProfile")(f"Epi_{ari.replace(':', '_')}_US")
+                P("epiMeasure")[fig] = ["Prevalence"]
+                P("epiRegion")[fig] = ["US"]
+                P("epiSex")[fig] = ["All"]
+                P("epiRatePer100k")[fig] = [us]
+                label[fig] = ["Prevalence · US · All"]
+                P("hasEpidemiologyProfile")[ind].append(fig)
             bits = []
             for lbl, key in (("Female", "femaleprev"), ("Male", "maleprev")):
                 v = num(pr.get(key))

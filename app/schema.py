@@ -5,15 +5,19 @@ items. It drives both the add/edit forms in the UI and the generic field-setter
 in :mod:`app.ontology_service`. For a field, ``read`` is the key in the
 disease-detail item object returned by the API, while ``key`` is the OWL
 property suffix (or a special ``kind``) used when writing the value back.
+A ``required`` field must have a value. A category without a label field names
+its items from ``label_from``, the keys whose values make up the label.
 """
 
 SEEALSO_IRI = "http://www.w3.org/2000/01/rdf-schema#seeAlso"
 
 
-def _field(key, label_, type_, read, kind, options=None):
+def _field(key, label_, type_, read, kind, options=None, required=False):
     f = {"key": key, "label": label_, "type": type_, "read": read, "kind": kind}
     if options:
         f["options"] = options
+    if required:
+        f["required"] = True
     return f
 
 
@@ -38,6 +42,17 @@ def _immune(cls, link, prefix, label_, desc_suffix="mediatorDescription"):
 
 
 CATEGORIES = {
+    # One prevalence or incidence figure per item (#229): a disease can hold
+    # several years and a figure per sex. The class and link are the data
+    # model's (KrishnaTO/ARI data_model/immunological_data_model.owl).
+    "prevalence": {"label": "Epidemiology figure", "cls": "EpidemiologyProfile", "link": "hasEpidemiologyProfile",
+                   "id_prefix": "Epi", "label_from": ["epiMeasure", "epiRegion", "epiYear", "epiSex"], "fields": [
+        _field("epiMeasure", "Measure", "select", "measure", "data", ["Prevalence", "Incidence"], required=True),
+        _field("epiRegion", "Region", "select", "region", "data", ["US", "Worldwide"], required=True),
+        _field("epiYear", "Year", "number", "year", "intdata"),
+        _field("epiSex", "Sex", "select", "sex", "data", ["All", "Female", "Male"], required=True),
+        _field("epiRatePer100k", "Rate per 100,000 (per year for incidence)", "number", "rate", "decdata", required=True),
+        _SRC]},
     "symptoms": {"label": "Symptom", "cls": "Symptom", "link": "hasSymptom", "id_prefix": "Sym", "fields": [
         _NAME,
         _field("likelihood", "Likelihood", "text", "likelihood", "data"),
