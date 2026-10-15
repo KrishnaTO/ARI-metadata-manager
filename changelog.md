@@ -1,5 +1,9 @@
 # Changelog
 
+## claude/issue-228-mobile-header-scroll
+
+- **The phone header fits the screen** (#228). The wordmark could not shrink (`flex: none`, no wrapping), so signed in, at the Large or Larger text size, or before the condensed font loaded, the bar ran past the screen and the page scrolled sideways to reach the settings button. At 640px and below the wordmark is now the item that gives way: it truncates with an ellipsis and the bar stays at the screen's width.
+- **The record scrolls as one on phones** (#228). The record head stayed put while only the body scrolled beneath it, so a phone had two scroll areas and a third of the screen never moved. At 640px and below the whole record scrolls together; curate mode's Save bar stays pinned to the bottom.
 ## claude/issue-230-settings-menu-colour
 
 - **The settings menu stands apart from the page** (#230). The gear's popover had the page's own background, so its options blended into the record behind it. It is now tinted (`--paper`: light grey in the light theme, a lighter navy in the dark) with a stronger edge (`--line-strong`), and a hovered item darkens to `--bone`.
