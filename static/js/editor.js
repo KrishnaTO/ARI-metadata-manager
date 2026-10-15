@@ -162,32 +162,6 @@ function fieldArea(id, label, value, hint){
     `<textarea id="${id}">${esc(value)}</textarea></div>`;
 }
 
-// US and worldwide prevalence and incidence: a rate, the year it describes, and
-// its source URLs (one per line). `measure` is 'prevalence' or 'incidence';
-// `prefix` keeps the edit and new-disease forms' ids apart.
-const EPI_UNIT = { prevalence: '/100k', incidence: '/100k/yr' };
-function epiFieldsHTML(prefix, measure, region, label, d){
-  const id = k => `${prefix}_${measure}_${region}_${k}`;
-  const val = k => d[`${measure}_${region}_${k}`];
-  const sources = val('sources');
-  return `<div class="field-grid">` +
-    fieldText(id('per_100k'), `${label} ${measure} ${EPI_UNIT[measure]}`, first(val('per_100k'))) +
-    fieldText(id('year'), `${label} ${measure} year`, first(val('year'))) +
-    `</div>` +
-    fieldArea(id('sources'), `${label} ${measure} sources`,
-      Array.isArray(sources) ? sources.join('\n') : (sources || ''), 'One URL per line.');
-}
-
-// Reads the twelve prevalence and incidence inputs through `read(idWithoutPrefix)`.
-function epiValues(read){
-  const out = {};
-  for (const measure of ['prevalence', 'incidence'])
-    for (const region of ['us', 'world'])
-      for (const k of ['per_100k', 'year', 'sources'])
-        out[`${measure}_${region}_${k}`] = read(`${measure}_${region}_${k}`);
-  return out;
-}
-
 // The definition is the most important prose in the record and it was edited
 // through a three-line window onto nine lines of text — `rows="2"` over a 56px
 // box, with an inner scrollbar (issue #98). This grows to fit what is in it, and
@@ -244,9 +218,7 @@ function draftAsRecord(d, fields){
     const [name, ...rest] = String(main).split(' - ');
     return { name: name.trim(), description: rest.join(' - ').trim(), link_iri: (link || '').trim() };
   });
-  const epi = epiValues(k => k.endsWith('_sources')
-    ? String(fields[k] || '').split(/\s+/).filter(Boolean) : [fields[k]]);
-  return { ...d, ...epi,
+  return { ...d,
     name: fields.name, definition: fields.definition,
     synonyms: fields.synonyms || [], clinical_subtypes_parsed: subs,
     disease_category: [fields.disease_category], evidence_quality: [fields.evidence_quality],
@@ -290,17 +262,14 @@ async function openDiseaseFieldEditor(record, draft){
   html += '<div class="field-grid">';
   html += fieldText('f_disease_category', 'Category', first(d.disease_category));
   html += fieldText('f_evidence_quality', 'Evidence quality', first(d.evidence_quality));
-  html += fieldText('f_demographic_bias', 'Demographic bias', first(d.demographic_bias));
+  html += fieldText('f_demographic_bias', 'Sex / demographic notes', first(d.demographic_bias));
   html += fieldText('f_age_range', 'Age range', first(d.age_range));
   html += '</div>';
   html += `</div><div class="field-group"><h3 class="field-group-h">Prevalence</h3>`;
-  html += epiFieldsHTML('f', 'prevalence', 'us', 'US', d);
-  html += epiFieldsHTML('f', 'prevalence', 'world', 'Worldwide', d);
+  html += `<p class="field-hint">Rates by region, year and sex are figures: open Prevalence in the disease story and add them there.</p>`;
   html += '<div class="field-grid">';
   html += fieldText('f_prevalence_value', 'Estimated US cases', first(d.prevalence_value));
   html += '</div>';
-  html += epiFieldsHTML('f', 'incidence', 'us', 'US', d);
-  html += epiFieldsHTML('f', 'incidence', 'world', 'Worldwide', d);
   html += fieldArea('f_prevalence_desc', 'Prevalence description', first(d.prevalence_desc));
   html += `</div><div class="field-group"><h3 class="field-group-h">Sources &amp; status</h3>`;
   // Database cross-references are curated on the dedicated reference-review page,
@@ -392,7 +361,6 @@ function collectDiseaseFields(){
     // they are curated on the reference-review page, not this form. Sending them
     // here would clear the stored values, since the inputs no longer exist.
     prevalence_value: v('f_prevalence_value'),
-    ...epiValues(id => v('f_' + id)),
     demographic_bias: v('f_demographic_bias'),
     age_range: v('f_age_range'), prevalence_desc: v('f_prevalence_desc'),
     def_source: _collectDefSrcs('f_defsrc_list'),
@@ -510,7 +478,7 @@ function itemSecondary(category, it){
   const map = {
     symptoms:'likelihood', environmental:'likelihood', antibodies:'frequency',
     genetic:'risk_effect', treatments:'type', etiology:'origin_type',
-    biomarkers:'diagnostic_use', pathophysiology:'category',
+    biomarkers:'diagnostic_use', pathophysiology:'category', prevalence:'rate',
   };
   return first(it[map[category] || 'relevance']);
 }
@@ -553,16 +521,17 @@ function openItemModal(category, item){
   for (const f of spec.fields){
     const cur = item ? first(item[f.read]) : '';
     const fid = 'itf_' + f.key;
+    const lbl = esc(f.label) + (f.required ? ' *' : '');
     if (f.type === 'checkbox'){
-      fields += `<div class="field field-row"><input type="checkbox" id="${fid}" ${item && item.obsolete ? 'checked':''}><label style="margin:0">${esc(f.label)}</label></div>`;
+      fields += `<div class="field field-row"><input type="checkbox" id="${fid}" ${item && item.obsolete ? 'checked':''}><label style="margin:0">${lbl}</label></div>`;
     } else if (f.type === 'select'){
       const opts = (f.options||[]).map(o => `<option ${String(cur)===o?'selected':''}>${esc(o)}</option>`).join('');
-      fields += `<div class="field"><label>${esc(f.label)}</label><select id="${fid}"><option value=""></option>${opts}</select></div>`;
+      fields += `<div class="field"><label>${lbl}</label><select id="${fid}"><option value=""></option>${opts}</select></div>`;
     } else if (f.type === 'area'){
-      fields += `<div class="field"><label>${esc(f.label)}</label><textarea id="${fid}">${esc(cur)}</textarea></div>`;
+      fields += `<div class="field"><label>${lbl}</label><textarea id="${fid}">${esc(cur)}</textarea></div>`;
     } else {
       const t = f.type === 'number' ? 'number' : 'text';
-      fields += `<div class="field"><label>${esc(f.label)}</label><input type="${t}" id="${fid}" value="${esc(cur)}"></div>`;
+      fields += `<div class="field"><label>${lbl}</label><input type="${t}" id="${fid}" value="${esc(cur)}"></div>`;
     }
   }
   const html = `<div class="modal-overlay" id="item-overlay"><div class="modal">
@@ -697,13 +666,9 @@ async function openNewDiseaseModal(prefill = {}) {
         </div>
         <div class="field-grid">
           <div class="field"><label>Estimated US cases</label><input id="nd_prevalence_value" value="${preFill('prevalence_value')}"></div>
-          <div class="field"><label>Demographic bias</label><input id="nd_demographic_bias" value="${preFill('demographic_bias')}"></div>
+          <div class="field"><label>Sex / demographic notes</label><input id="nd_demographic_bias" value="${preFill('demographic_bias')}"></div>
           <div class="field"><label>Age range</label><input id="nd_age_range" value="${preFill('age_range')}"></div>
         </div>
-        ${epiFieldsHTML('nd', 'prevalence', 'us', 'US', prefill)}
-        ${epiFieldsHTML('nd', 'prevalence', 'world', 'Worldwide', prefill)}
-        ${epiFieldsHTML('nd', 'incidence', 'us', 'US', prefill)}
-        ${epiFieldsHTML('nd', 'incidence', 'world', 'Worldwide', prefill)}
         <div class="field"><label>Prevalence description</label><textarea id="nd_prevalence_desc">${preFill('prevalence_desc')}</textarea></div>
       </div>
     </details>
@@ -760,7 +725,6 @@ async function saveNewDisease() {
     umls: v('#nd_umls'), mondo: v('#nd_mondo'), mesh: v('#nd_mesh'),
     nci: v('#nd_nci'), omop: v('#nd_omop'),
     prevalence_value:    v('#nd_prevalence_value'),
-    ...epiValues(id => v('#nd_' + id)),
     demographic_bias:    v('#nd_demographic_bias'),
     age_range:           v('#nd_age_range'),
     prevalence_desc:     v('#nd_prevalence_desc'),

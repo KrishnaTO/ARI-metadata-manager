@@ -57,19 +57,13 @@ def build_ontology(output_path: str):
         # ============================================================
         class evidenceQuality(DataProperty):           namespace = onto; range = [str]
         class diseaseCategory(DataProperty):           namespace = onto; range = [str]
-        class prevalencePer100k(DataProperty):         namespace = onto; range = [float]
-        class prevalenceUSYear(DataProperty):          namespace = onto; range = [int]
-        class prevalenceUSSource(DataProperty):        namespace = onto; range = [str]
-        class prevalenceWorldPer100k(DataProperty):    namespace = onto; range = [float]
-        class prevalenceWorldYear(DataProperty):       namespace = onto; range = [int]
-        class prevalenceWorldSource(DataProperty):     namespace = onto; range = [str]
         class prevalenceValue(DataProperty):           namespace = onto; range = [float]
-        class incidenceUSPer100k(DataProperty):        namespace = onto; range = [float]
-        class incidenceUSYear(DataProperty):           namespace = onto; range = [int]
-        class incidenceUSSource(DataProperty):         namespace = onto; range = [str]
-        class incidenceWorldPer100k(DataProperty):     namespace = onto; range = [float]
-        class incidenceWorldYear(DataProperty):        namespace = onto; range = [int]
-        class incidenceWorldSource(DataProperty):      namespace = onto; range = [str]
+        # One prevalence or incidence figure per EpidemiologyProfile item (#229)
+        class epiMeasure(DataProperty):                namespace = onto; range = [str]
+        class epiRegion(DataProperty):                 namespace = onto; range = [str]
+        class epiYear(DataProperty):                   namespace = onto; range = [int]
+        class epiSex(DataProperty):                    namespace = onto; range = [str]
+        class epiRatePer100k(DataProperty):            namespace = onto; range = [float]
         class demographicBias(DataProperty):           namespace = onto; range = [str]
         class ageRange(DataProperty):                  namespace = onto; range = [str]
         class sourcePMID(DataProperty):                namespace = onto; range = [str]
@@ -110,6 +104,7 @@ def build_ontology(output_path: str):
         class hasEtiologyFactor(ObjectProperty):          namespace = onto
         class hasBiomarker(ObjectProperty):               namespace = onto
         class hasPathwayStep(ObjectProperty):             namespace = onto
+        class hasEpidemiologyProfile(ObjectProperty):     namespace = onto
         class targetsTissue(ObjectProperty):              namespace = onto
         class hasParentCategory(ObjectProperty):          namespace = onto
         class involvesCytokine(ObjectProperty):           namespace = onto
@@ -154,6 +149,7 @@ def build_ontology(output_path: str):
         class EtiologyOrigin(Thing):         namespace = onto
         class BiochemicalMarker(Thing):      namespace = onto
         class PathwayStep(Thing):            namespace = onto
+        class EpidemiologyProfile(Thing):    namespace = onto
         class Cytokine(Thing):               namespace = onto
         class TCellSubset(Thing):            namespace = onto
         class APC(Thing):                    namespace = onto
@@ -231,7 +227,14 @@ def build_ontology(output_path: str):
         # Data properties
         evidenceQuality[t1d] = ["High"]
         diseaseCategory[t1d] = ["Autoimmune"]
-        prevalencePer100k[t1d] = [500.0]
+        def add_figure(d, local, measure, region, rate, sex="All"):
+            f = EpidemiologyProfile(local)
+            epiMeasure[f] = [measure]; epiRegion[f] = [region]
+            epiSex[f] = [sex]; epiRatePer100k[f] = [rate]
+            label[f] = [f"{measure} · {region} · {sex}"]
+            hasEpidemiologyProfile[d].append(f)
+
+        add_figure(t1d, "Epi_T1D_US", "Prevalence", "US", 500.0)
         prevalenceValue[t1d]   = [1600000.0]
         demographicBias[t1d] = ["Male predominance 1.3:1; highest in Scandinavia (~60/100k/yr), lowest in East Asia (~1/100k/yr)"]
         ageRange[t1d] = ["Bimodal: 4-7y and 10-14y peaks; adult-onset LADA form"]
@@ -752,7 +755,7 @@ def build_ontology(output_path: str):
             diseaseCategory[d] = ["Autoimmune"]
             evidenceQuality[d] = [evidence]
             ageRange[d] = [age]
-            prevalencePer100k[d] = [prevalence_per_100k]
+            add_figure(d, f"Epi_{name}_US", "Prevalence", "US", prevalence_per_100k)
             ARI_PrevalenceDesc[d] = [prevalence_desc]
             ARI_DefSource[d] = [def_source]
             for s in synonyms:

@@ -471,21 +471,9 @@ class OntologyService:
         # Data properties
         d["evidence_quality"] = self._get_data(e, base + "evidenceQuality")
         d["disease_category"] = self._get_data(e, base + "diseaseCategory")
-        # Prevalence and incidence per region: rate, the year it describes, and
-        # its source URLs. The US prevalence rate is the older prevalencePer100k.
-        d["prevalence_us_per_100k"] = self._get_data(e, base + "prevalencePer100k")
-        d["prevalence_us_year"] = self._get_data(e, base + "prevalenceUSYear")
-        d["prevalence_us_sources"] = self._get_data(e, base + "prevalenceUSSource")
-        d["prevalence_world_per_100k"] = self._get_data(e, base + "prevalenceWorldPer100k")
-        d["prevalence_world_year"] = self._get_data(e, base + "prevalenceWorldYear")
-        d["prevalence_world_sources"] = self._get_data(e, base + "prevalenceWorldSource")
+        # Prevalence and incidence figures are items (get_disease_detail's
+        # "epidemiology"); the estimated case count stays on the disease.
         d["prevalence_value"] = self._get_data(e, base + "prevalenceValue")
-        d["incidence_us_per_100k"] = self._get_data(e, base + "incidenceUSPer100k")
-        d["incidence_us_year"] = self._get_data(e, base + "incidenceUSYear")
-        d["incidence_us_sources"] = self._get_data(e, base + "incidenceUSSource")
-        d["incidence_world_per_100k"] = self._get_data(e, base + "incidenceWorldPer100k")
-        d["incidence_world_year"] = self._get_data(e, base + "incidenceWorldYear")
-        d["incidence_world_sources"] = self._get_data(e, base + "incidenceWorldSource")
         d["demographic_bias"] = self._get_data(e, base + "demographicBias")
         d["age_range"] = self._get_data(e, base + "ageRange")
 
@@ -507,6 +495,21 @@ class OntologyService:
             parents = self._get_objects(other, base + "hasParentDisease")
             if any(p.iri == e.iri for p in parents):
                 d["subtypes"].append(self._ref(other))
+
+        # Prevalence and incidence figures (#229), one per measure, region,
+        # year and sex.
+        d["epidemiology"] = []
+        for o in self._get_objects(e, base + "hasEpidemiologyProfile"):
+            d["epidemiology"].append({
+                "iri": o.iri,
+                "name": self._get_label(o),
+                "measure": self._get_data(o, base + "epiMeasure"),
+                "region": self._get_data(o, base + "epiRegion"),
+                "year": self._get_data(o, base + "epiYear"),
+                "sex": self._get_data(o, base + "epiSex"),
+                "rate": self._get_data(o, base + "epiRatePer100k"),
+                "source": self._get_data(o, base + "sourcePMID"),
+            })
 
         # Symptoms
         d["symptoms"] = []
@@ -752,20 +755,8 @@ class OntologyService:
         "is_grouping":       ("ann", "ARI_IsGrouping", str),
         "evidence_quality":  ("data", "evidenceQuality", str),
         "disease_category":  ("data", "diseaseCategory", str),
-        "incidence_us_per_100k":    ("data", "incidenceUSPer100k", float),
-        "incidence_us_year":        ("data", "incidenceUSYear", int),
-        "incidence_us_sources":     ("data_list", "incidenceUSSource", str),
-        "incidence_world_per_100k": ("data", "incidenceWorldPer100k", float),
-        "incidence_world_year":     ("data", "incidenceWorldYear", int),
-        "incidence_world_sources":  ("data_list", "incidenceWorldSource", str),
         "demographic_bias":  ("data", "demographicBias", str),
         "age_range":         ("data", "ageRange", str),
-        "prevalence_us_per_100k":    ("data", "prevalencePer100k", float),
-        "prevalence_us_year":        ("data", "prevalenceUSYear", int),
-        "prevalence_us_sources":     ("data_list", "prevalenceUSSource", str),
-        "prevalence_world_per_100k": ("data", "prevalenceWorldPer100k", float),
-        "prevalence_world_year":     ("data", "prevalenceWorldYear", int),
-        "prevalence_world_sources":  ("data_list", "prevalenceWorldSource", str),
         "prevalence_value":  ("data", "prevalenceValue", float),
     }
 
@@ -1298,8 +1289,35 @@ class OntologyService:
         """Field schema for every editable disease-data category."""
         return CATEGORIES
 
+    def _check_item_values(self, category: str, values: dict, adding: bool):
+        """Refuse (``Invalid``) item values that cannot be stored as given: a
+        required field left empty (or, when adding, missing), a value outside a
+        select's options, a number that does not parse, or a property the
+        ontology does not declare. Checked before anything is written, so a
+        refused request changes nothing."""
+        for f in CATEGORIES[category]["fields"]:
+            if f["key"] not in values:
+                if adding and f.get("required"):
+                    raise Invalid(f"{f['label']} is required")
+                continue
+            sval = "" if values[f["key"]] is None else str(values[f["key"]]).strip()
+            if not sval:
+                if f.get("required"):
+                    raise Invalid(f"{f['label']} is required")
+                continue
+            if f.get("options") and sval not in f["options"]:
+                raise Invalid(f"{f['label']} must be one of {', '.join(f['options'])}, not {sval!r}")
+            if f["kind"] in ("intdata", "decdata"):
+                try:
+                    int(sval) if f["kind"] == "intdata" else float(sval)
+                except ValueError:
+                    raise Invalid(f"{f['label']} must be a number, not {sval!r}") from None
+            if f["kind"] in ("data", "intdata", "decdata") and self.world[self.base + f["key"]] is None:
+                raise Invalid(f"the ontology declares no {f['key']} property")
+
     def _set_item_field(self, e, field: dict, raw):
-        """Write one field onto an individual based on its declared kind."""
+        """Write one field onto an individual based on its declared kind.
+        Values are checked by :meth:`_check_item_values` first."""
         kind = field["kind"]
         base = self.base
         sval = "" if raw is None else str(raw)
@@ -1317,17 +1335,10 @@ class OntologyService:
             prop = self.world[SEEALSO_IRI]
             if prop is not None:
                 prop[e] = [sval] if sval.strip() else []
-        elif kind == "intdata":
+        elif kind in ("intdata", "decdata"):
             prop = self.world[base + field["key"]]
-            if prop is None:
-                return
-            if sval.strip() == "":
-                prop[e] = []
-            else:
-                try:
-                    prop[e] = [int(float(sval))]
-                except (ValueError, TypeError):
-                    pass
+            num = sval.strip()
+            prop[e] = [int(num) if kind == "intdata" else float(num)] if num else []
         else:  # "data" or "ann"
             prop = self.world[base + field["key"]]
             if prop is None:
@@ -1340,7 +1351,17 @@ class OntologyService:
             if f["key"] in values:
                 self._set_item_field(e, f, values[f["key"]])
                 applied.append(f["key"])
+        self._name_from_fields(e, CATEGORIES[category])
         return applied
+
+    def _name_from_fields(self, e, spec: dict):
+        """Label an item of a category that has no label field from the values
+        named in its ``label_from``: "Prevalence · US · 2019 · Female"."""
+        if "label_from" not in spec:
+            return
+        parts = [str(v) for key in spec["label_from"]
+                 for v in self._get_data(e, self.base + key)]
+        label[e] = [" · ".join(parts)]
 
     def add_item(self, disease_iri: str, category: str, values: dict, editor: str = "user") -> dict:
         if category not in CATEGORIES:
@@ -1350,6 +1371,7 @@ class OntologyService:
         cls = self.world[self.base + spec["cls"]]
         if cls is None:
             raise NotFound(f"Class not found: {spec['cls']}")
+        self._check_item_values(category, values, adding=True)
         local = f"{spec['id_prefix']}_{uuid.uuid4().hex[:8]}"
         with self.onto:
             new = cls(local)
@@ -1367,6 +1389,7 @@ class OntologyService:
         if category not in CATEGORIES:
             raise NotFound(f"Unknown category: {category}")
         e = self._entity(item_iri)
+        self._check_item_values(category, changes, adding=False)
         applied = self._apply_item_fields(e, category, changes)
         if disease_iri and applied:
             de = self._entity(disease_iri)

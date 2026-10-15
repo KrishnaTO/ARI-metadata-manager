@@ -477,18 +477,15 @@ body.resizing-cols { cursor: col-resize; user-select: none; }
 .data-table tr.clickable { cursor: pointer; }
 .data-table tr.clickable:hover td { background: var(--accent-050); }
 
-/* Prevalence stat cards */
-.prev-stats { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 12px; margin-bottom: 16px; }
-.stat-card { border: 1px solid var(--line); border-radius: 8px; padding: 14px 12px; background: var(--bg); }
-.stat-card .value { font-size: 2rem; font-weight: 200; letter-spacing: -.018em; line-height: 1.1; color: var(--ink); }
-.stat-card .lbl { font-size: 0.75rem; color: var(--mute); margin-top: 2px; }
-.stat-card .src { font-size: 0.72rem; margin-top: 4px; overflow-wrap: anywhere; }
+/* Prevalence and incidence figures */
+.epi-table { margin-bottom: 18px; }
+.epi-table .num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.epi-table .unit { color: var(--mute); font-size: 0.75rem; }
 
-/* Word cloud / charts */
+/* Word cloud */
 .wordcloud { width: 100%; height: 220px; }
 .wordcloud text { cursor: pointer; }
 .wordcloud text:hover { fill: var(--accent) !important; }
-.chart-container { height: 220px; margin-bottom: 12px; }
 
 /* Pathograph */
 .patho-map { margin: 4px 0 16px; }

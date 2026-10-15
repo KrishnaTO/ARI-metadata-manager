@@ -167,6 +167,9 @@ header #matrix-link.hbtn:hover { color: #fff; text-decoration: underline; backgr
   .right-panel .data-table tr { padding: 12px 0; border-bottom: 1px solid var(--line); }
   .right-panel .data-table td { padding: 2px 0 !important; border: 0; font-size: 0.875rem; }
   .right-panel .data-table td:first-child { font-size: 0.9375rem; font-weight: 500; }
+  /* A stacked figure row names each value ("Year 2019"), since the header is gone. */
+  .right-panel .epi-table td.num { text-align: left; }
+  .right-panel .epi-table td[data-label]:not(:first-child)::before { content: attr(data-label) ' '; color: var(--mute); }
 
   /* Curate: Save and Cancel pinned to the bottom */
   .edit-actions { position: sticky; bottom: 0; z-index: 3; flex-direction: row-reverse; gap: 10px;

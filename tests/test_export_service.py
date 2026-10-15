@@ -44,7 +44,8 @@ def _load(xlsx_bytes):
 ITEM_KEYS = {"subtypes", "symptoms", "environmental_factors", "antibodies", "genetic",
              "treatments", "etiology", "biomarkers", "pathway", "cytokines", "tcells", "apcs",
              "transcription_factors", "innate_components", "complement", "receptors",
-             "netosis", "inflammasome", "acute_phase_reactants", "antigens", "target_cells"}
+             "netosis", "inflammasome", "acute_phase_reactants", "antigens", "target_cells",
+             "epidemiology"}
 
 
 def test_the_export_never_builds_a_full_disease_record(make_service, ro_service, monkeypatch):

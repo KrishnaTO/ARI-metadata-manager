@@ -138,14 +138,17 @@ The ontology is one RDF/XML OWL file, compatible with Protégé. The app relies 
   `ARI_Author`, `ARI_AuthorDate`, `ARI_Version`, `ARI_Obsolete`, `ARI_IsGrouping`,
   `ARI_PrevalenceDesc`, `ARI_SurveyCode`, `ARI_ChangeLog`
   (`<utc> | <editor> | <message>`), `ARI_EnrichmentSource`.
-- **Data properties:** `diseaseCategory`, `evidenceQuality`, `prevalencePer100k`
-  (the US prevalence rate) / `prevalenceUSYear` / `prevalenceUSSource`,
-  `prevalenceWorldPer100k` / `prevalenceWorldYear` / `prevalenceWorldSource`,
-  `prevalenceValue`, `incidenceUSPer100k` / `incidenceUSYear` /
-  `incidenceUSSource`, `incidenceWorldPer100k` / `incidenceWorldYear` /
-  `incidenceWorldSource`, `demographicBias`, `ageRange`. A data property must be
-  declared in the ontology; writing an undeclared one is rejected with a
-  per-field reason, never dropped silently.
+- **Data properties:** `diseaseCategory`, `evidenceQuality`, `prevalenceValue`
+  (estimated US cases), `demographicBias` (sex / demographic notes), `ageRange`.
+  A data property must be declared in the ontology; writing an undeclared one is
+  rejected with a per-field reason, never dropped silently.
+- **Prevalence and incidence figures** are items of the `prevalence` category
+  (`EpidemiologyProfile`, linked by `hasEpidemiologyProfile`, the data model's
+  names), one per measure, region, year and sex: `epiMeasure` (Prevalence or
+  Incidence), `epiRegion` (US or Worldwide), `epiYear`, `epiSex` (All, Female or
+  Male), `epiRatePer100k` and `sourcePMID`. The label is built from the first four
+  (`schema.py` `label_from`). `scripts/migrate_epidemiology.py` moved the former
+  flat `prevalence*`/`incidence*` rate, year and source properties into figures.
 - **Object properties:** `hasParentDisease`, `hasParentCategory`, `targetsTissue`,
   and one link per item category (`hasSymptom`, `hasTreatment`,
   `involvesCytokine`, …).
