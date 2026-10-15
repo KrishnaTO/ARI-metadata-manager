@@ -1,5 +1,9 @@
 # Changelog
 
+## claude/issue-230-settings-menu-colour
+
+- **The settings menu stands apart from the page** (#230). The gear's popover had the page's own background, so its options blended into the record behind it. It is now tinted (`--paper`: light grey in the light theme, a lighter navy in the dark) with a stronger edge (`--line-strong`), and a hovered item darkens to `--bone`.
+
 ## claude/ari-editor-mobile-view-d4c87d
 
 - **Record view on phones (mockups 2a–2d).** At 640px and below the record stacks in one column with 44px tap targets. The header keeps the menu, wordmark, a search icon that opens the field across the bar, the avatar and settings; Cross-references and Submit for review move to the foot of the rail drawer. Disease story categories are full-width rows. The deep dive is a full-width drawer with a framed title bar, and its tables stack one item per row. In curate mode Save and Cancel are pinned to the bottom of the screen, and form fields use 16px text so iOS does not zoom. Added to `static/css/quiet-ledger.css` and `static/js/quiet-ledger.js`; no other files change.
