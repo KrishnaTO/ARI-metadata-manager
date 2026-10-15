@@ -85,7 +85,6 @@
 
 /* Rail: legend and autoimmune filter removed (#ai-only stays in the DOM; trees.js binds to it). */
 .rail-legend { display: none; }
-.node-row.autoimmune .nm::after { display: none; }
 .node-row.selected { border-radius: 0 4px 4px 0; }
 
 /* Header: Cross-references as a text link. */

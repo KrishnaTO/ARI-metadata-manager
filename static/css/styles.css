@@ -232,9 +232,6 @@ body.resizing-cols { cursor: col-resize; user-select: none; }
 .node.collapsed > .children { display: none; }
 .node-row .sub { margin-left: auto; font-family: var(--font-mono); font-size: 0.6562rem; color: var(--mute-soft); }
 .ari-chip { font-size: 0.625rem; color: var(--mute-soft); margin-left: 6px; }
-/* Confirmed autoimmune: a teal dot after the label. */
-.node-row.autoimmune .nm::after { content: ''; display: inline-block; vertical-align: middle;
-  width: 5px; height: 5px; border-radius: 50%; background: var(--accent); margin-left: 8px; }
 .pane-note { font-size: 0.7188rem; color: var(--mute); padding: 6px 8px 8px; cursor: default; }
 .dropdown .pane-note:hover { background: none; border-left-color: transparent; }
 .rail-legend { flex: none; display: flex; align-items: center; gap: 12px; padding: 12px 16px;

@@ -10,11 +10,13 @@ function twisty(collapsed, leaf, subtype){
   return `<span class="twisty${subtype ? ' subtype' : ''}" title="${subtype ? 'Toggle subtypes' : ''}">${collapsed ? '▶' : '▼'}</span>`;
 }
 
-// Confirmed autoimmune diseases (diseaseCategory "Autoimmune") get a subtle
-// bold + colour shift on their row so they stand out from unconfirmed entries
-// in the hierarchical list, without adding icon clutter (issue #21).
-function autoimmuneClass(d){
-  return d && d.autoimmune ? ' autoimmune' : '';
+// Each disease row ends in a small antibody mark saying whether the disease is
+// confirmed autoimmune, unconfirmed, or not autoimmune (issue #231). Diseases
+// with no category get none. The legend is in the help panel.
+const AI_MARK_LABEL = { confirmed: 'Confirmed autoimmune', unconfirmed: 'Autoimmune, unconfirmed', not: 'Not autoimmune' };
+function aiMark(d){
+  const label = AI_MARK_LABEL[d.ai_status];
+  return label ? `<span class="ai-mark ${d.ai_status}" role="img" aria-label="${label}" title="${label}"></span>` : '';
 }
 
 // The bottom-of-list "Only" toggle restricts both tree views to confirmed
@@ -25,7 +27,7 @@ function filterAlphabetical(nodes){
   const out = [];
   for (const n of nodes){
     const children = filterAlphabetical(n.children || []);
-    if (n.autoimmune || children.length) out.push({ ...n, children });
+    if (n.ai_status === 'confirmed' || children.length) out.push({ ...n, children });
   }
   return out;
 }
@@ -34,7 +36,7 @@ function filterTissue(nodes){
   const out = [];
   for (const n of nodes){
     const children = filterTissue(n.children || []);
-    const diseases = (n.diseases || []).filter(d => d.autoimmune);
+    const diseases = (n.diseases || []).filter(d => d.ai_status === 'confirmed');
     if (children.length || diseases.length) out.push({ ...n, children, diseases });
   }
   return out;
@@ -52,9 +54,9 @@ function renderAlphabetical(){
       const obsTag = n.obsolete ? ' <span class="obsolete-tag">(obsolete)</span>' : '';
       // Subtypes start expanded so the whole list is visible at a glance (#232).
       let h = `<div class="node">`;
-      h += `<div class="node-row disease-row${sel}${obs}${autoimmuneClass(n)}" data-iri="${esc(n.iri)}"
+      h += `<div class="node-row disease-row${sel}${obs}" data-iri="${esc(n.iri)}"
              role="treeitem" tabindex="-1" aria-selected="${sel ? 'true' : 'false'}"
-             ${hasKids ? 'aria-expanded="true"' : ''}>${twisty(false, !hasKids, hasKids)}<span class="nm">${esc(n.name)}</span>${obsTag}</div>`;
+             ${hasKids ? 'aria-expanded="true"' : ''}>${twisty(false, !hasKids, hasKids)}<span class="nm">${esc(n.name)}</span>${obsTag}${aiMark(n)}</div>`;
       if (hasKids){ h += `<div class="children">${kids.map(node).join('')}</div>`; }
       h += `</div>`;
       return h;
@@ -84,8 +86,8 @@ function renderTissue(){
           const sel = state.activeIri === d.iri ? ' selected' : '';
           const obs = d.obsolete ? ' obsolete' : '';
           const obsTag = d.obsolete ? ' <span class="obsolete-tag">(obsolete)</span>' : '';
-          h += `<div class="node"><div class="node-row disease-row${sel}${obs}${autoimmuneClass(d)}" data-iri="${esc(d.iri)}"
-             role="treeitem" tabindex="-1" aria-selected="${sel ? 'true' : 'false'}">${twisty(true, true)}<span class="nm">${esc(d.name)}</span>${obsTag}</div></div>`;
+          h += `<div class="node"><div class="node-row disease-row${sel}${obs}" data-iri="${esc(d.iri)}"
+             role="treeitem" tabindex="-1" aria-selected="${sel ? 'true' : 'false'}">${twisty(true, true)}<span class="nm">${esc(d.name)}</span>${obsTag}${aiMark(d)}</div></div>`;
         }
         h += `</div>`;
       }
