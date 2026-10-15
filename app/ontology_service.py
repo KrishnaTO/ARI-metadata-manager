@@ -146,12 +146,21 @@ class OntologyService:
         vals = self._get_annotation(e, self.base + "ARI_IsGrouping")
         return bool(vals) and str(vals[0]).lower() == "true"
 
+    def _autoimmune_status(self, e) -> str | None:
+        """Where a disease stands on being autoimmune, from its diseaseCategory:
+        "confirmed" ("Autoimmune"), "unconfirmed" ("Unconfirmed"), "not" (any
+        other category, e.g. "Immune Deficiency"), or None when no category is
+        recorded. The disease list marks each row with it (issue #231)."""
+        vals = [str(v).lower() for v in self._get_data(e, self.base + "diseaseCategory")]
+        if any("autoimmune" in v for v in vals):
+            return "confirmed"
+        if any("unconfirmed" in v for v in vals):
+            return "unconfirmed"
+        return "not" if vals else None
+
     def _is_autoimmune(self, e) -> bool:
-        """True for diseases confirmed autoimmune, i.e. carrying the
-        diseaseCategory "Autoimmune" (as opposed to "Unconfirmed" etc.). Used to
-        distinguish confirmed entries in the hierarchical disease list."""
-        vals = self._get_data(e, self.base + "diseaseCategory")
-        return any("autoimmune" in str(v).lower() for v in vals)
+        """True for diseases confirmed autoimmune (diseaseCategory "Autoimmune")."""
+        return self._autoimmune_status(e) == "confirmed"
 
     def _parse_subtype(self, raw: str) -> dict:
         """Parse one clinical-subtype annotation into its display parts.
@@ -249,7 +258,7 @@ class OntologyService:
                 "name": self._get_label(d),
                 "local_name": d.name,
                 "obsolete": self._is_obsolete(d),
-                "autoimmune": self._is_autoimmune(d),
+                "ai_status": self._autoimmune_status(d),
                 "children": [node(k, branch) for k in kids if k.iri not in branch],
             }
 
@@ -277,7 +286,7 @@ class OntologyService:
 
         def walk(cls, seen):
             diseases_here = [
-                {**self._ref(d), "autoimmune": self._is_autoimmune(d)}
+                {**self._ref(d), "ai_status": self._autoimmune_status(d)}
                 for d in diseases if cls.iri in dis_classes[d.iri]
             ]
             diseases_here.sort(key=lambda x: x["name"])

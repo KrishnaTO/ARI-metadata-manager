@@ -26,6 +26,17 @@
       collected and <strong>${esc(W.publish.toLowerCase())}</strong>, and a second
       person merges it.</p>`],
 
+    ['What the marks in the disease list mean', `
+      <table class="help-glyphs">
+        <tr><td><span class="ai-mark confirmed"></span></td><td><strong>Confirmed autoimmune.</strong>
+          The disease is recorded as autoimmune.</td></tr>
+        <tr><td><span class="ai-mark unconfirmed"></span></td><td><strong>Unconfirmed.</strong>
+          The disease may be autoimmune, but that has not been established.</td></tr>
+        <tr><td><span class="ai-mark not"></span></td><td><strong>Not autoimmune.</strong>
+          Another immune condition, such as an immune deficiency.</td></tr>
+      </table>
+      <p>A disease with no mark has no category recorded yet.</p>`],
+
     ['What the symbols in the grid mean', `
       <table class="help-glyphs">
         <tr><td>✓</td><td><strong>Confirmed.</strong> Every id in this cell has been judged
