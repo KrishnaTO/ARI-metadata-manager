@@ -1,5 +1,9 @@
 # Changelog
 
+## claude/issue-232-expand-disease-list
+
+- **The A–Z disease list opens with subtypes shown** (#232). A disease with subtypes rendered collapsed, so its subtypes were hidden until its ▶ was clicked. The list now renders every subtype group expanded (▼, `aria-expanded="true"`); the marker still collapses a group. The tissue view already rendered expanded.
+
 ## claude/ari-editor-mobile-view-d4c87d
 
 - **Record view on phones (mockups 2a–2d).** At 640px and below the record stacks in one column with 44px tap targets. The header keeps the menu, wordmark, a search icon that opens the field across the bar, the avatar and settings; Cross-references and Submit for review move to the foot of the rail drawer. Disease story categories are full-width rows. The deep dive is a full-width drawer with a framed title bar, and its tables stack one item per row. In curate mode Save and Cancel are pinned to the bottom of the screen, and form fields use 16px text so iOS does not zoom. Added to `static/css/quiet-ledger.css` and `static/js/quiet-ledger.js`; no other files change.
