@@ -1,5 +1,10 @@
 # Changelog
 
+## claude/issue-228-mobile-header-scroll
+
+- **The phone header fits the screen** (#228). The wordmark could not shrink (`flex: none`, no wrapping), so signed in, at the Large or Larger text size, or before the condensed font loaded, the bar ran past the screen and the page scrolled sideways to reach the settings button. At 640px and below the wordmark is now the item that gives way: it truncates with an ellipsis and the bar stays at the screen's width.
+- **The record scrolls as one on phones** (#228). The record head stayed put while only the body scrolled beneath it, so a phone had two scroll areas and a third of the screen never moved. At 640px and below the whole record scrolls together; curate mode's Save bar stays pinned to the bottom.
+
 ## claude/ari-editor-mobile-view-d4c87d
 
 - **Record view on phones (mockups 2a–2d).** At 640px and below the record stacks in one column with 44px tap targets. The header keeps the menu, wordmark, a search icon that opens the field across the bar, the avatar and settings; Cross-references and Submit for review move to the foot of the rail drawer. Disease story categories are full-width rows. The deep dive is a full-width drawer with a framed title bar, and its tables stack one item per row. In curate mode Save and Cancel are pinned to the bottom of the screen, and form fields use 16px text so iOS does not zoom. Added to `static/css/quiet-ledger.css` and `static/js/quiet-ledger.js`; no other files change.
