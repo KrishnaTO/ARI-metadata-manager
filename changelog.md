@@ -1,5 +1,9 @@
 # Changelog
 
+## claude/disease-search-filter
+
+- **The header search filters the disease list.** Typing in the search box now narrows the left rail to diseases whose name contains the text, in both the A–Z and tissue views. Parent diseases and tissue classes stay when one of their children matches. The filter combines with the *Only* toggle. Clearing the box, or picking a result from the dropdown, shows the full list again. The rail matches names only; the dropdown still also matches synonyms, ARI ids and tissues.
+
 ## symptom-concept-link
 
 - **Adding or renaming a symptom links it to its shared symptom class.** KrishnaTO/ARI#152 gives every per-disease Symptom a `symptomConcept` annotation: the IRI of the ARIS class in `notebook/symptom-mapping/ari_symptoms.owl` that its label maps to. `notebook/symptom-mapping/symptom_mapping.tsv` owns that link, keyed by the symptom string, and the data repo's validator checks each link against it. Until now a symptom added in the editor got no link, and a renamed one kept its old label's link, until someone reran the build script. `add_item`, and an `update_item` that changes a Symptom's label, now set the link from the table: an `exact` or `broader` row links its own class, a `merged` row links the class of the row in its *Merged Into*, and a `not a symptom` row or a label with no row clears it. Replayed on the local app against ARI `main`, the validator reports no `symptom-concept-*` or `symptom-unmapped` findings.
