@@ -10,7 +10,7 @@ from pathlib import Path
 
 from owlready2 import AnnotationProperty, World, comment, destroy_entity, label, onto_path
 
-from . import atomic_store, config, xref_registry
+from . import atomic_store, config, symptom_mapping, xref_registry
 from .errors import Invalid, NotFound
 from .feedback_service import FeedbackStore
 from .id_allocator import IdAllocator
@@ -1384,6 +1384,28 @@ class OntologyService:
                  for v in self._get_data(e, self.base + key)]
         label[e] = [" · ".join(parts)]
 
+    def _symptom_concept(self, category: str, values: dict) -> str | None:
+        """The ARIS class a Symptom's new label names, looked up before anything
+        is written so a missing mapping table refuses the edit whole."""
+        if category != "symptoms" or "name" not in values:
+            return None
+        return symptom_mapping.concept_for(str(values["name"] or ""))
+
+    def _set_symptom_concept(self, e, concept: str | None):
+        """Link a Symptom to the shared ARIS class its label maps to (ARI#152),
+        or to none. Its label is the key, so adding or renaming one is what
+        leaves the link missing or stale.
+
+        Written as triples: the value is an IRI, and owlready2 has no entity for
+        an ARIS class, so it reads one back as a plain string and on assignment
+        would store a literal and fail to delete the old resource."""
+        prop = self._ensure_annotation_property("symptomConcept")
+        self.onto._del_obj_triple_spo(e.storid, prop.storid, None)
+        self.onto._del_data_triple_spod(e.storid, prop.storid, None, None)
+        if concept:
+            self.onto._add_obj_triple_spo(e.storid, prop.storid, self.world._abbreviate(concept))
+        e.__dict__.pop(prop.python_name, None)     # owlready2's cached values
+
     def add_item(self, disease_iri: str, category: str, values: dict, editor: str = "user") -> dict:
         if category not in CATEGORIES:
             raise NotFound(f"Unknown category: {category}")
@@ -1393,12 +1415,15 @@ class OntologyService:
         if cls is None:
             raise NotFound(f"Class not found: {spec['cls']}")
         self._check_item_values(category, values, adding=True)
+        concept = self._symptom_concept(category, values)
         local = f"{spec['id_prefix']}_{uuid.uuid4().hex[:8]}"
         with self.onto:
             new = cls(local)
         self._apply_item_fields(new, category, values)
         if not (label[new] if hasattr(new, 'storid') else []):
             label[new] = [str(values.get("name") or local)]
+        if category == "symptoms":
+            self._set_symptom_concept(new, concept)
         link = self.world[self.base + spec["link"]]
         link[de].append(new)
         self._append_changelog(de, editor, f"Added {spec['label']}: {self._get_label(new)}")
@@ -1411,7 +1436,10 @@ class OntologyService:
             raise NotFound(f"Unknown category: {category}")
         e = self._entity(item_iri)
         self._check_item_values(category, changes, adding=False)
+        concept = self._symptom_concept(category, changes)
         applied = self._apply_item_fields(e, category, changes)
+        if category == "symptoms" and "name" in changes:
+            self._set_symptom_concept(e, concept)
         if disease_iri and applied:
             de = self._entity(disease_iri)
             self._append_changelog(

@@ -26,9 +26,10 @@ os.environ["ARI_ONTOLOGY_FILE"] = str(BASE_OWL)
 
 @pytest.fixture(scope="session", autouse=True)
 def runtime_mappings():
-    """A snapshot of the data repo's synonym blocklist, served from where
-    deploy/update-mappings.sh puts it (``config.MAPPINGS_RUNTIME_DIR``):
-    prediction refuses to run without it. Tests may patch the directory again."""
+    """A snapshot of the data repo's synonym blocklist and a few rows of its
+    symptom mapping, served from where deploy/update-mappings.sh puts them
+    (``config.MAPPINGS_RUNTIME_DIR``): prediction refuses to run without the
+    one, adding a symptom without the other. Tests may patch the directory again."""
     from app import config
     with pytest.MonkeyPatch.context() as mp:
         mp.setattr(config, "MAPPINGS_RUNTIME_DIR", ROOT / "tests" / "fixtures" / "mappings")
