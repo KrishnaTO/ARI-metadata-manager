@@ -27,6 +27,14 @@ log = logging.getLogger(__name__)
 # the disease alone would leave every symptom and treatment it names dangling.
 ITEM_LINKS = tuple(dict.fromkeys(spec["link"] for spec in CATEGORIES.values()))
 
+# A disease's link to the category it is filed under. Categories are shared, not
+# owned, so a merge does not carry them with the disease; see define_parent_categories.
+PARENT_CATEGORY = "hasParentCategory"
+
+# The links whose targets a sync brings into the working copy. Recorded with
+# each copy's ancestor, so code that followed fewer merges every copy again once.
+SYNCED_LINKS = (*ITEM_LINKS, PARENT_CATEGORY)
+
 CHANGELOG = "ARI_ChangeLog"
 
 RDF_TYPE = "http://www.w3.org/1999/02/22-rdf-syntax-ns#type"
@@ -44,7 +52,7 @@ def _multi_valued(base: str) -> frozenset:
     suffixes = {suffix for kind, suffix, _ in OntologyService.EDITABLE.values()
                 if kind == "multi_ann"}
     suffixes |= {CHANGELOG, "ARI_EnrichmentSource", "hasParentDisease",
-                 "hasParentCategory", *ITEM_LINKS}
+                 PARENT_CATEGORY, *ITEM_LINKS}
     return frozenset({base + s for s in suffixes} | {RDF_TYPE, RDFS + "seeAlso"})
 
 
@@ -173,6 +181,44 @@ def _write(dst, iri, props, sources):
 def _graft(src, dst, iri):
     """Replace everything ``dst`` says about ``iri`` with what ``src`` says."""
     _write(dst, iri, _triples(src, iri), (src,))
+
+
+def _define(dst, iri, src):
+    """Copy ``iri`` from ``src`` into ``dst``, after any class of ours it needs
+    that ``dst`` lacks (a new category usually comes with a new category class)."""
+    pairs = _pairs(src, iri)
+    if not pairs:
+        raise ValueError(f"{iri} is linked to but defined in neither copy")
+    for _, v in pairs:
+        if v[0] == "o" and v[1].startswith(dst.base) and not _pairs(dst, v[1]):
+            _define(dst, v[1], src)
+    _graft(src, dst, iri)
+
+
+def define_parent_categories(dst, src) -> list:
+    """Copy from ``src`` every category ``dst``'s diseases are filed under but
+    ``dst`` does not define, and return their IRIs.
+
+    A merge writes a disease and the items it owns, not the shared categories it
+    links to. ARI#140 added a Combination disease category; synced copies got the
+    16 diseases' links to it but not the category, owlready2 hands back such a
+    link as a bare string, and those diseases failed to open. This looks over
+    the whole copy rather than the diseases just merged, so a copy synced before
+    it existed is repaired as well.
+    """
+    w = dst.world
+    p = w._abbreviate(dst.base + PARENT_CATEGORY, False)
+    if p is None:
+        return []
+    targets = {w._unabbreviate(o) for (o,) in
+               w.graph.execute("SELECT DISTINCT o FROM objs WHERE p=? AND o>0", (p,))}
+    missing = sorted(t for t in targets if not _pairs(dst, t))
+    for iri in missing:
+        _define(dst, iri, src)
+    if missing:
+        log.info("Defined %d missing parent categor(ies) in %s: %s",
+                 len(missing), dst.path.name, ", ".join(missing))
+    return missing
 
 
 def graft_diseases(src, dst, iris) -> int:
@@ -362,6 +408,8 @@ def merge_into(working, ancestor, theirs, iris, touched, choices=None) -> dict:
 
     ``merged`` lists the diseases written into ``working`` and ``advanced`` those
     whose ancestor moved, so the caller saves only what actually changed.
+    ``defined`` lists the parent categories copied into ``working`` (see
+    :func:`define_parent_categories`).
 
     With an ancestor, a disease the branch holds exactly as the ancestor does is
     left out before merging: the merge would return the working copy's version
@@ -397,4 +445,5 @@ def merge_into(working, ancestor, theirs, iris, touched, choices=None) -> dict:
         advanced = [i for i in clean if _record(ancestor, i) != _record(theirs, i)]
         if advanced:
             graft_diseases(theirs, ancestor, advanced)
-    return {"merged": merged, "conflicts": conflicts, "advanced": advanced}
+    defined = define_parent_categories(working, theirs)
+    return {"merged": merged, "conflicts": conflicts, "advanced": advanced, "defined": defined}
