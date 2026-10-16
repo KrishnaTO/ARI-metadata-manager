@@ -23,10 +23,15 @@ runtime ontology is not tracked here).
 
 ```bash
 pip install -r requirements.txt
-mkdir -p ontologies && cp ../ARI/ontologies/ari_t1d.owl ontologies/
+mkdir -p ontologies && cp ../ARI/ontologies/ari_t1d.owl ../ARI/ontologies/ari_uberon.owl ontologies/
 mkdir -p ari-mappings && cp ../ARI/mappings/ari.synonym_blocklist.tsv ari-mappings/
 python run.py
 ```
+
+`ari_t1d.owl` `owl:imports` the UBERON slice `ari_uberon.owl` by an IRI that does
+not resolve on the web. The app finds it in the base ontology's folder, so keep
+the two files together. Until KrishnaTO/ARI#151 merges, ARI `main` has no slice:
+copy `ari_t1d.owl` alone.
 
 `run.py` serves <http://127.0.0.1:8001> and opens the browser. Options:
 `--port 8002`, `--file path/to/ontology.owl`, `--no-browser`.
@@ -155,6 +160,7 @@ else, so back it up ([OPERATIONS.md §6](OPERATIONS.md)).
 | Path | Holds | Recoverable? |
 | --- | --- | --- |
 | `ontologies/ari_t1d.owl` | The shared base ontology | Yes, refetched from the data repo |
+| `ontologies/ari_uberon.owl` | The UBERON slice the base ontology imports | Yes, refetched with it |
 | `.user-data/` | Working copies, ancestors, touched sets, branch choices, review sessions, publish replay log, archived idle copies | No: unpublished work |
 | `.sessions.json` | Sessions, including live GitHub tokens (mode 0600) | Lost only signs people out. **Don't back it up unencrypted.** |
 | `provenance/` | Who added each id, pending removals, the ARI number counter | Partly, with `scripts/backfill_id_authors.py` |

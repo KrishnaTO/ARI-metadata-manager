@@ -124,7 +124,9 @@ There are three independent refresh paths:
 2. **Ontology-data refresh**: `ari-mm-ontology-update.timer` runs
    `deploy/update-ontology.sh`, which fetches `GITHUB_ONTOLOGY_PATH` from
    `KrishnaTO/ARI:GITHUB_BASE_BRANCH`, writes it to the local runtime ontology
-   file atomically when the bytes changed. No restart: the app reloads the shared
+   file atomically when the bytes changed. When that ontology `owl:imports` the
+   UBERON slice, it also fetches `ari_uberon.owl` from the same folder and branch
+   into the runtime ontology's folder, before the ontology itself. No restart: the app reloads the shared
    base ontology on the next request once the file's mtime changes. The runtime
    file is gitignored in the app repo, so `update.sh`'s reset never touches it.
 
