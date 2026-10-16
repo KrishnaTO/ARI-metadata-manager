@@ -19,15 +19,26 @@ function aiMark(d){
   return label ? `<span class="ai-mark ${d.ai_status}" role="img" aria-label="${label}" title="${label}"></span>` : '';
 }
 
-// The bottom-of-list "Only" toggle restricts both tree views to confirmed
-// autoimmune diseases. Grouping rows (alphabetical parents, tissue classes) are
-// kept when they still contain a match, so a confirmed subtype under an
-// unconfirmed parent stays reachable.
+// Two filters narrow both tree views: the bottom-of-list "Only" toggle keeps
+// confirmed autoimmune diseases, and the header search keeps diseases whose
+// name, local id, ARI id or a synonym contains the query. Grouping rows
+// (alphabetical parents, tissue classes) are kept when they still contain a
+// match, so a matching subtype under a non-matching parent stays reachable.
+function treeFiltered(){
+  return state.autoimmuneOnly || !!state.treeQuery;
+}
+
+function keepDisease(d){
+  if (state.autoimmuneOnly && d.ai_status !== 'confirmed') return false;
+  const q = state.treeQuery;
+  return !q || [d.name, d.local_name, ...d.search_terms].some(t => t.toLowerCase().includes(q));
+}
+
 function filterAlphabetical(nodes){
   const out = [];
   for (const n of nodes){
     const children = filterAlphabetical(n.children || []);
-    if (n.ai_status === 'confirmed' || children.length) out.push({ ...n, children });
+    if (keepDisease(n) || children.length) out.push({ ...n, children });
   }
   return out;
 }
@@ -36,16 +47,22 @@ function filterTissue(nodes){
   const out = [];
   for (const n of nodes){
     const children = filterTissue(n.children || []);
-    const diseases = (n.diseases || []).filter(d => d.ai_status === 'confirmed');
+    const diseases = (n.diseases || []).filter(keepDisease);
     if (children.length || diseases.length) out.push({ ...n, children, diseases });
   }
   return out;
 }
 
+function emptyTreeMessage(unfiltered){
+  if (state.treeQuery) return 'No diseases match the search.';
+  if (state.autoimmuneOnly) return 'No confirmed autoimmune diseases.';
+  return unfiltered;
+}
+
 function renderAlphabetical(){
   showLoading('#tree-pane');
   api('/api/v2/tree/alphabetical').then(all => {
-    const roots = state.autoimmuneOnly ? filterAlphabetical(all) : all;
+    const roots = treeFiltered() ? filterAlphabetical(all) : all;
     const node = (n) => {
       const kids = n.children || [];
       const hasKids = kids.length > 0;
@@ -62,7 +79,7 @@ function renderAlphabetical(){
       return h;
     };
     $('#tree-pane').innerHTML = roots.length ? roots.map(node).join('')
-      : `<div class="empty-state">${state.autoimmuneOnly ? 'No confirmed autoimmune diseases.' : 'No diseases.'}</div>`;
+      : `<div class="empty-state">${emptyTreeMessage('No diseases.')}</div>`;
     primeTreeTabStop();
   }).catch(() => $('#tree-pane').innerHTML = '<div class="empty-state">Error loading list.</div>');
 }
@@ -70,7 +87,7 @@ function renderAlphabetical(){
 function renderTissue(){
   showLoading('#tree-pane');
   api('/api/v2/tree/tissue').then(all => {
-    const tree = state.autoimmuneOnly ? filterTissue(all) : all;
+    const tree = treeFiltered() ? filterTissue(all) : all;
     const node = (n) => {
       const subClasses = n.children || [];
       const diseases = n.diseases || [];
@@ -94,7 +111,7 @@ function renderTissue(){
       return h;
     };
     $('#tree-pane').innerHTML = tree.length ? tree.map(node).join('')
-      : `<div class="empty-state">${state.autoimmuneOnly ? 'No confirmed autoimmune diseases.' : 'No tissue hierarchy.'}</div>`;
+      : `<div class="empty-state">${emptyTreeMessage('No tissue hierarchy.')}</div>`;
     primeTreeTabStop();
   }).catch(() => $('#tree-pane').innerHTML = '<div class="empty-state">No tissue hierarchy available.</div>');
 }
@@ -171,12 +188,20 @@ let searchTimer;
 // The request in flight for the dropdown. A newer query cancels it, so a slow
 // answer to "art" can no longer land after, and replace, the answer to "arth".
 let searchRequest;
+// Narrow the disease list to the search box's text; re-renders only on a change.
+function setTreeQuery(q){
+  q = q.toLowerCase();
+  if (q === state.treeQuery) return;
+  state.treeQuery = q;
+  renderTab();
+}
 $('#search').addEventListener('input', e => {
   clearTimeout(searchTimer);
   searchRequest?.abort();
   const q = e.target.value.trim();
-  if (!q){ $('#search-results').classList.add('hidden'); return; }
+  if (!q){ $('#search-results').classList.add('hidden'); setTreeQuery(''); return; }
   searchTimer = setTimeout(async () => {
+    setTreeQuery(q);
     searchRequest = new AbortController();
     let rs;
     try { rs = await api('/api/v2/search?q=' + encodeURIComponent(q), { signal: searchRequest.signal }); }
@@ -197,7 +222,7 @@ $('#search-results').addEventListener('click', e => {
   const all = e.target.closest('[data-search-all]');
   if (all){ showSearchResultsPage(all.dataset.searchAll); $('#search-results').classList.add('hidden'); return; }
   const r = e.target.closest('[data-iri]');
-  if (r){ selectDisease(r.dataset.iri); $('#search-results').classList.add('hidden'); $('#search').value = ''; }
+  if (r){ selectDisease(r.dataset.iri); $('#search-results').classList.add('hidden'); $('#search').value = ''; setTreeQuery(''); }
 });
 $('#search').addEventListener('keydown', e => {
   if (e.key === 'Enter'){
