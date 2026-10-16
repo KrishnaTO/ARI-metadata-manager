@@ -8,9 +8,9 @@ import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 
-from owlready2 import AnnotationProperty, World, comment, destroy_entity, label
+from owlready2 import AnnotationProperty, World, comment, destroy_entity, label, onto_path
 
-from . import atomic_store, xref_registry
+from . import atomic_store, config, xref_registry
 from .errors import Invalid, NotFound
 from .feedback_service import FeedbackStore
 from .id_allocator import IdAllocator
@@ -82,6 +82,14 @@ class OntologyService:
         self._load()
 
     def _load(self):
+        # The ontology owl:imports its UBERON slice (ari_uberon.owl) by an IRI
+        # that does not resolve on the web, so owlready2 must find it on
+        # onto_path. That is the base ontology's folder, not this file's: working
+        # copies live in .user-data/ and baselines in temp files. onto_path is
+        # process-global; owlready2 has no per-World search path.
+        ontologies = str(Path(config.ONTOLOGY_FILE).parent)
+        if ontologies not in onto_path:
+            onto_path.append(ontologies)
         # Load via a file object so Windows paths don't break owlready2's
         # file:// URI handling. The ontology's real base IRI is read from the file.
         self.world = World()
