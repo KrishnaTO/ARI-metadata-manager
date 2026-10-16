@@ -1,5 +1,10 @@
 # Changelog
 
+## claude/autoantibodies-empty-steps
+
+- **The Autoantibodies panel no longer shows a pathway map.** It showed the disease's pathway steps without their descriptions. In 217 of the 218 diseases that have a pathway, the steps are named only "Step 1" to "Step 5" and have no category, so the map showed five empty boxes. Its note that autoantibodies are made at the *autoantibody production* step was only true for Type 1 diabetes. The Pathophysiology box already shows each step in full.
+- The unused `pathographHTML` helper and its `.patho-map` / `.patho-step` / `.patho-arrow` styles are removed.
+
 ## clinical-biomarkers
 
 - **Biochemical markers are now clinical biomarkers.** These are the tests a physician can order to diagnose a disease: laboratory, biopsy, imaging or physiological. Until now the category held only Type 1 diabetes's blood analytes. The data repo renames the class `BiochemicalMarker` to `ClinicalBiomarker`, adds four fields and rebuilds 12 retired symptom findings as biomarkers (KrishnaTO/ARI, branch `claude/clinical-biomarkers-model-1e02a3`, data model v4). New items are created as `ClinicalBiomarker`. The item form gains **Type**, a select with Serological, Biochemical, Cytological, Histopathological, Imaging and Physiological. It also gains **Sensitivity**, **Specificity** and **LOINC code**, and the description field is labelled **Finding**. The record panel is titled *Clinical biomarkers* and shows test, type, finding, diagnostic use, sensitivity and specificity, with the LOINC code under the test name. In the item list each marker's secondary text is its type. Autoantibodies stay under *Antibodies*.

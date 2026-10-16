@@ -222,8 +222,7 @@ function renderEnvironmental(d, panel){
 function renderAntibodies(d, panel){
   let html = closeHeader('Autoantibodies');
   if (!d.antibodies?.length){ panel.innerHTML = html + '<div class="empty-state">No antibody data.</div>'; return; }
-  html += `<p style="font-size:12px;color:var(--muted);margin:0 0 8px">Autoantibodies are produced at the <span class="ab-highlight">autoantibody production</span> step of the pathophysiology map. Select a row for details.</p>`;
-  html += pathographHTML(d, { compact: true });
+  html += `<p style="font-size:12px;color:var(--muted);margin:0 0 8px">Select a row for details.</p>`;
   html += `<div class="section-label">Autoantibody panel</div>`;
   html += `<table class="data-table"><thead><tr><th>Antibody</th><th>Frequency</th><th>Diagnostic value</th></tr></thead><tbody>`;
   d.antibodies.forEach((ab, i) => {
@@ -296,25 +295,6 @@ function renderBiomarkers(d, panel){
   }
   html += `</tbody></table>`;
   panel.innerHTML = html;
-}
-
-// Reusable compact pathograph (vertical flow) — used by the antibodies panel.
-function pathographHTML(d, opts={}){
-  if (!d.pathway?.length) return '<div class="empty-state">No pathophysiology pathway.</div>';
-  let h = '<div class="patho-map">';
-  d.pathway.forEach((p, i) => {
-    const cat = (p.category||'').toLowerCase();
-    const isAb = cat === 'antibody';
-    const nameHtml = isAb ? `<span class="ab-highlight">${esc(p.name)}</span>` : esc(p.name);
-    h += `<div class="patho-step cat-${cat}${isAb?' antibody':''}" data-step="${i}">`+
-      `<div class="ord">${esc(p.order)}</div>`+
-      `<div><h4>${nameHtml} <span class="cat-pill">${esc(p.category)}</span></h4>`+
-      (opts.compact ? '' : `<p>${esc(p.description)}</p>`)+
-      `</div></div>`;
-    if (i < d.pathway.length - 1) h += `<div class="patho-arrow">↓</div>`;
-  });
-  h += '</div>';
-  return h;
 }
 
 function renderImmuneList(d, panel, key){
