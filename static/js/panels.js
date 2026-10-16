@@ -285,12 +285,14 @@ function renderGenetic(d, panel){
 }
 
 function renderBiomarkers(d, panel){
-  let html = closeHeader('Biochemical markers');
+  let html = closeHeader('Clinical biomarkers');
   if (!d.biomarkers?.length){ panel.innerHTML = html + '<div class="empty-state">No biomarker data.</div>'; return; }
-  html += `<table class="data-table"><thead><tr><th>Marker</th><th>Description</th><th>Diagnostic use</th><th>Source</th></tr></thead><tbody>`;
+  html += `<table class="data-table"><thead><tr><th>Test</th><th>Type</th><th>Finding</th><th>Diagnostic use</th><th>Sensitivity</th><th>Specificity</th><th>Source</th></tr></thead><tbody>`;
   for (const m of d.biomarkers){
-    html += `<tr class="${m.obsolete?'obsolete':''}"><td><strong>${esc(m.name)}</strong></td><td>${esc(m.description)}</td>`+
-      `<td>${esc(first(m.diagnostic_use))}</td><td class="src">${(m.source||[]).map(s => `<a href="${esc(s)}" target="_blank">PubMed</a>`).join(', ')}</td></tr>`;
+    const loinc = first(m.loinc) ? `<br><span class="src">LOINC ${esc(first(m.loinc))}</span>` : '';
+    html += `<tr class="${m.obsolete?'obsolete':''}"><td><strong>${esc(m.name)}</strong>${loinc}</td><td>${esc(first(m.type))}</td><td>${esc(m.description)}</td>`+
+      `<td>${esc(first(m.diagnostic_use))}</td><td>${esc(first(m.sensitivity))}</td><td>${esc(first(m.specificity))}</td>`+
+      `<td class="src">${(m.source||[]).map(s => `<a href="${esc(s)}" target="_blank">PubMed</a>`).join(', ')}</td></tr>`;
   }
   html += `</tbody></table>`;
   panel.innerHTML = html;

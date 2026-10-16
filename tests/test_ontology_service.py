@@ -237,6 +237,15 @@ def test_item_crud_round_trip(service):
     assert new["iri"] not in [s["iri"] for s in detail["symptoms"]]
 
 
+def test_a_new_biomarker_is_a_clinical_biomarker(service):
+    iri = service.get_diseases_list()[0]["iri"]
+    detail = service.add_item(iri, "biomarkers", {
+        "name": "Skin biopsy", "markerType": "Histopathological", "markerSensitivity": "90–100%"}, editor="t")
+    new = next(m for m in detail["biomarkers"] if m["name"] == "Skin biopsy")
+    assert (new["type"], new["sensitivity"]) == (["Histopathological"], ["90–100%"])
+    assert service.world[new["iri"]].is_a == [service.world[service.base + "ClinicalBiomarker"]]
+
+
 def test_add_item_rejects_unknown_category(service):
     iri = service.get_diseases_list()[0]["iri"]
     with pytest.raises(KeyError):

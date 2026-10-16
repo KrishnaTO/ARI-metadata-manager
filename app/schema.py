@@ -90,10 +90,15 @@ CATEGORIES = {
         _field("etiologyDescription", "Description", "area", "description", "data"),
         _field("etiologyExcerpt", "Study excerpt", "area", "excerpt", "data"),
         _SRC, _OBS]},
-    "biomarkers": {"label": "Biochemical marker", "cls": "BiochemicalMarker", "link": "hasBiomarker", "id_prefix": "Mark", "fields": [
+    "biomarkers": {"label": "Clinical biomarker", "cls": "ClinicalBiomarker", "link": "hasBiomarker", "id_prefix": "Mark", "fields": [
         _NAME,
-        _field("definition", "Description", "area", "description", "comment"),
+        _field("markerType", "Type", "select", "type", "data",
+               ["Serological", "Biochemical", "Cytological", "Histopathological", "Imaging", "Physiological"]),
+        _field("definition", "Finding", "area", "description", "comment"),
         _field("markerDiagnosticUse", "Diagnostic use", "text", "diagnostic_use", "data"),
+        _field("markerSensitivity", "Sensitivity", "text", "sensitivity", "data"),
+        _field("markerSpecificity", "Specificity", "text", "specificity", "data"),
+        _field("loincCode", "LOINC code", "text", "loinc", "data"),
         _SRC, _OBS]},
     "pathophysiology": {"label": "Pathway step", "cls": "PathwayStep", "link": "hasPathwayStep", "id_prefix": "Path", "fields": [
         _NAME,

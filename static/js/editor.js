@@ -478,7 +478,7 @@ function itemSecondary(category, it){
   const map = {
     symptoms:'likelihood', environmental:'likelihood', antibodies:'frequency',
     genetic:'risk_effect', treatments:'type', etiology:'origin_type',
-    biomarkers:'diagnostic_use', pathophysiology:'category', prevalence:'rate',
+    biomarkers:'type', pathophysiology:'category', prevalence:'rate',
   };
   return first(it[map[category] || 'relevance']);
 }
