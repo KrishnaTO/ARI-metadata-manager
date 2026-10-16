@@ -1,5 +1,10 @@
 # Changelog
 
+## claude/autoantibodies-empty-steps
+
+- **The Autoantibodies panel no longer shows a pathway map.** It showed the disease's pathway steps without their descriptions. In 217 of the 218 diseases that have a pathway, the steps are named only "Step 1" to "Step 5" and have no category, so the map showed five empty boxes. Its note that autoantibodies are made at the *autoantibody production* step was only true for Type 1 diabetes. The Pathophysiology box already shows each step in full.
+- The unused `pathographHTML` helper and its `.patho-map` / `.patho-step` / `.patho-arrow` styles are removed.
+
 ## claude/uberon-import-onto-path
 
 - **The editor loads an ontology that imports the UBERON slice.** KrishnaTO/ARI#151 adds `owl:imports <http://www.aurint.org/ontologies/ari_uberon>` to `ari_t1d.owl`, with the slice beside it as `ontologies/ari_uberon.owl`. That IRI does not resolve on the web, so owlready2 failed with *Cannot download 'http://www.aurint.org/ontologies/ari_uberon/'* and the app could not load the ontology at all. `OntologyService._load` now puts the base ontology's folder (the parent of `ARI_ONTOLOGY_FILE`) on owlready2's `onto_path`, once per process. Working copies in `.user-data/` and the temp copies used for baselines, publishing and PR review resolve the import from that same folder. Saving keeps the `owl:imports` line and does not inline the slice. An ontology without the import loads as before.
