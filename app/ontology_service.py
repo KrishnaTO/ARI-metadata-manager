@@ -599,15 +599,19 @@ class OntologyService:
                 "source": self._get_data(o, base + "sourcePMID"),
             })
 
-        # Biochemical markers
+        # Clinical biomarkers: tests a physician can order to diagnose the disease
         d["biomarkers"] = []
         for o in self._get_objects(e, base + "hasBiomarker"):
             d["biomarkers"].append({
                 "iri": o.iri,
                 "name": self._get_label(o),
                 "obsolete": self._is_obsolete(o),
+                "type": self._get_data(o, base + "markerType"),
                 "description": self._get_comment(o),
                 "diagnostic_use": self._get_data(o, base + "markerDiagnosticUse"),
+                "sensitivity": self._get_data(o, base + "markerSensitivity"),
+                "specificity": self._get_data(o, base + "markerSpecificity"),
+                "loinc": self._get_data(o, base + "loincCode"),
                 "source": self._get_data(o, base + "sourcePMID"),
             })
 

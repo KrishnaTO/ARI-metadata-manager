@@ -85,6 +85,10 @@ def build_ontology(output_path: str):
         class etiologyOriginType(DataProperty):        namespace = onto; range = [str]
         class etiologyExcerpt(DataProperty):           namespace = onto; range = [str]
         class markerDiagnosticUse(DataProperty):       namespace = onto; range = [str]
+        class markerType(DataProperty):                namespace = onto; range = [str]
+        class markerSensitivity(DataProperty):         namespace = onto; range = [str]
+        class markerSpecificity(DataProperty):         namespace = onto; range = [str]
+        class loincCode(DataProperty):                 namespace = onto; range = [str]
         class mediatorDescription(DataProperty):       namespace = onto; range = [str]
         class componentRelevance(DataProperty):        namespace = onto; range = [str]
         class tCellRole(DataProperty):                 namespace = onto; range = [str]
@@ -147,7 +151,7 @@ def build_ontology(output_path: str):
         class GeneVariant(GeneticFactor):    namespace = onto
         class Treatment(Thing):              namespace = onto
         class EtiologyOrigin(Thing):         namespace = onto
-        class BiochemicalMarker(Thing):      namespace = onto
+        class ClinicalBiomarker(Thing):      namespace = onto
         class PathwayStep(Thing):            namespace = onto
         class EpidemiologyProfile(Thing):    namespace = onto
         class Cytokine(Thing):               namespace = onto
@@ -494,13 +498,14 @@ def build_ontology(output_path: str):
             "https://pubmed.ncbi.nlm.nih.gov/30269450/")
 
         # ============================================================
-        # BIOCHEMICAL MARKERS
+        # CLINICAL BIOMARKERS
         # ============================================================
         def add_marker(name, lbl, desc, use, src):
-            m = BiochemicalMarker(name)
+            m = ClinicalBiomarker(name)
             label[m] = [lbl]
             comment[m] = [desc]
             markerDiagnosticUse[m] = [use]
+            markerType[m] = ["Biochemical"]
             sourcePMID[m] = [src]
             ARI_Obsolete[m] = ["false"]
             hasBiomarker[t1d].append(m)

@@ -152,6 +152,22 @@
   <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
 </owl:DatatypeProperty>
 
+<owl:DatatypeProperty rdf:about="#markerType">
+  <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+</owl:DatatypeProperty>
+
+<owl:DatatypeProperty rdf:about="#markerSensitivity">
+  <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+</owl:DatatypeProperty>
+
+<owl:DatatypeProperty rdf:about="#markerSpecificity">
+  <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+</owl:DatatypeProperty>
+
+<owl:DatatypeProperty rdf:about="#loincCode">
+  <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+</owl:DatatypeProperty>
+
 <owl:DatatypeProperty rdf:about="#mediatorDescription">
   <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
 </owl:DatatypeProperty>
@@ -301,7 +317,7 @@
   <rdfs:subClassOf rdf:resource="http://www.w3.org/2002/07/owl#Thing"/>
 </owl:Class>
 
-<owl:Class rdf:about="#BiochemicalMarker">
+<owl:Class rdf:about="#ClinicalBiomarker">
   <rdfs:subClassOf rdf:resource="http://www.w3.org/2002/07/owl#Thing"/>
 </owl:Class>
 
@@ -1091,55 +1107,61 @@
 </owl:NamedIndividual>
 
 <owl:NamedIndividual rdf:about="#Mark_Cpeptide">
-  <rdf:type rdf:resource="#BiochemicalMarker"/>
+  <rdf:type rdf:resource="#ClinicalBiomarker"/>
   <rdfs:label rdf:datatype="http://www.w3.org/2001/XMLSchema#string">C-peptide</rdfs:label>
   <rdfs:comment rdf:datatype="http://www.w3.org/2001/XMLSchema#string">Endogenous insulin measure; low/undetectable in T1D</rdfs:comment>
   <markerDiagnosticUse rdf:datatype="http://www.w3.org/2001/XMLSchema#string">Diagnosis, staging</markerDiagnosticUse>
+  <markerType rdf:datatype="http://www.w3.org/2001/XMLSchema#string">Biochemical</markerType>
   <sourcePMID rdf:datatype="http://www.w3.org/2001/XMLSchema#string">https://pubmed.ncbi.nlm.nih.gov/27062967/</sourcePMID>
   <ARI_Obsolete rdf:datatype="http://www.w3.org/2001/XMLSchema#string">false</ARI_Obsolete>
 </owl:NamedIndividual>
 
 <owl:NamedIndividual rdf:about="#Mark_HbA1c">
-  <rdf:type rdf:resource="#BiochemicalMarker"/>
+  <rdf:type rdf:resource="#ClinicalBiomarker"/>
   <rdfs:label rdf:datatype="http://www.w3.org/2001/XMLSchema#string">HbA1c</rdfs:label>
   <rdfs:comment rdf:datatype="http://www.w3.org/2001/XMLSchema#string">3-month glucose average; diagnosis &gt;=6.5%</rdfs:comment>
   <markerDiagnosticUse rdf:datatype="http://www.w3.org/2001/XMLSchema#string">Diagnosis, monitoring</markerDiagnosticUse>
+  <markerType rdf:datatype="http://www.w3.org/2001/XMLSchema#string">Biochemical</markerType>
   <sourcePMID rdf:datatype="http://www.w3.org/2001/XMLSchema#string">https://pubmed.ncbi.nlm.nih.gov/30609683/</sourcePMID>
   <ARI_Obsolete rdf:datatype="http://www.w3.org/2001/XMLSchema#string">false</ARI_Obsolete>
 </owl:NamedIndividual>
 
 <owl:NamedIndividual rdf:about="#Mark_FastingGlucose">
-  <rdf:type rdf:resource="#BiochemicalMarker"/>
+  <rdf:type rdf:resource="#ClinicalBiomarker"/>
   <rdfs:label rdf:datatype="http://www.w3.org/2001/XMLSchema#string">Fasting plasma glucose</rdfs:label>
   <rdfs:comment rdf:datatype="http://www.w3.org/2001/XMLSchema#string">&gt;=126 mg/dL after &gt;=8h fast</rdfs:comment>
   <markerDiagnosticUse rdf:datatype="http://www.w3.org/2001/XMLSchema#string">Diagnosis</markerDiagnosticUse>
+  <markerType rdf:datatype="http://www.w3.org/2001/XMLSchema#string">Biochemical</markerType>
   <sourcePMID rdf:datatype="http://www.w3.org/2001/XMLSchema#string">https://pubmed.ncbi.nlm.nih.gov/30609683/</sourcePMID>
   <ARI_Obsolete rdf:datatype="http://www.w3.org/2001/XMLSchema#string">false</ARI_Obsolete>
 </owl:NamedIndividual>
 
 <owl:NamedIndividual rdf:about="#Mark_RandomGlucose">
-  <rdf:type rdf:resource="#BiochemicalMarker"/>
+  <rdf:type rdf:resource="#ClinicalBiomarker"/>
   <rdfs:label rdf:datatype="http://www.w3.org/2001/XMLSchema#string">Random plasma glucose</rdfs:label>
   <rdfs:comment rdf:datatype="http://www.w3.org/2001/XMLSchema#string">&gt;=200 mg/dL with symptoms</rdfs:comment>
   <markerDiagnosticUse rdf:datatype="http://www.w3.org/2001/XMLSchema#string">Diagnosis</markerDiagnosticUse>
+  <markerType rdf:datatype="http://www.w3.org/2001/XMLSchema#string">Biochemical</markerType>
   <sourcePMID rdf:datatype="http://www.w3.org/2001/XMLSchema#string">https://pubmed.ncbi.nlm.nih.gov/30609683/</sourcePMID>
   <ARI_Obsolete rdf:datatype="http://www.w3.org/2001/XMLSchema#string">false</ARI_Obsolete>
 </owl:NamedIndividual>
 
 <owl:NamedIndividual rdf:about="#Mark_Ketones">
-  <rdf:type rdf:resource="#BiochemicalMarker"/>
+  <rdf:type rdf:resource="#ClinicalBiomarker"/>
   <rdfs:label rdf:datatype="http://www.w3.org/2001/XMLSchema#string">Ketones (beta-hydroxybutyrate)</rdfs:label>
   <rdfs:comment rdf:datatype="http://www.w3.org/2001/XMLSchema#string">Elevated in DKA</rdfs:comment>
   <markerDiagnosticUse rdf:datatype="http://www.w3.org/2001/XMLSchema#string">DKA detection</markerDiagnosticUse>
+  <markerType rdf:datatype="http://www.w3.org/2001/XMLSchema#string">Biochemical</markerType>
   <sourcePMID rdf:datatype="http://www.w3.org/2001/XMLSchema#string">https://pubmed.ncbi.nlm.nih.gov/30229690/</sourcePMID>
   <ARI_Obsolete rdf:datatype="http://www.w3.org/2001/XMLSchema#string">false</ARI_Obsolete>
 </owl:NamedIndividual>
 
 <owl:NamedIndividual rdf:about="#Mark_OGTT">
-  <rdf:type rdf:resource="#BiochemicalMarker"/>
+  <rdf:type rdf:resource="#ClinicalBiomarker"/>
   <rdfs:label rdf:datatype="http://www.w3.org/2001/XMLSchema#string">OGTT</rdfs:label>
   <rdfs:comment rdf:datatype="http://www.w3.org/2001/XMLSchema#string">75g load; 2h &gt;=200 mg/dL</rdfs:comment>
   <markerDiagnosticUse rdf:datatype="http://www.w3.org/2001/XMLSchema#string">Diagnosis, screening</markerDiagnosticUse>
+  <markerType rdf:datatype="http://www.w3.org/2001/XMLSchema#string">Biochemical</markerType>
   <sourcePMID rdf:datatype="http://www.w3.org/2001/XMLSchema#string">https://pubmed.ncbi.nlm.nih.gov/30609683/</sourcePMID>
   <ARI_Obsolete rdf:datatype="http://www.w3.org/2001/XMLSchema#string">false</ARI_Obsolete>
 </owl:NamedIndividual>

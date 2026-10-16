@@ -1,5 +1,11 @@
 # Changelog
 
+## clinical-biomarkers
+
+- **Biochemical markers are now clinical biomarkers.** These are the tests a physician can order to diagnose a disease: laboratory, biopsy, imaging or physiological. Until now the category held only Type 1 diabetes's blood analytes. The data repo renames the class `BiochemicalMarker` to `ClinicalBiomarker`, adds four fields and rebuilds 12 retired symptom findings as biomarkers (KrishnaTO/ARI, branch `claude/clinical-biomarkers-model-1e02a3`, data model v4). New items are created as `ClinicalBiomarker`. The item form gains **Type**, a select with Serological, Biochemical, Cytological, Histopathological, Imaging and Physiological. It also gains **Sensitivity**, **Specificity** and **LOINC code**, and the description field is labelled **Finding**. The record panel is titled *Clinical biomarkers* and shows test, type, finding, diagnostic use, sensitivity and specificity, with the LOINC code under the test name. In the item list each marker's secondary text is its type. Autoantibodies stay under *Antibodies*.
+- **Deploy with the data repo change.** Existing markers are read through `hasBiomarker`, so they still show against either ontology. But the new fields are refused as undeclared properties until the data repo's `ontologies/ari_t1d.owl` declares them, and before that, new markers would be typed with a class the ontology does not declare.
+- `scripts/build_t1d_ontology.py` and the test fixture use the new class and declarations. A test covers adding a biomarker with its type and sensitivity.
+
 ## claude/sync-carries-parent-categories
 
 - **Diseases filed under a new category open again for signed-in curators.** KrishnaTO/ARI#140 added a *Combination disease* category (and a `CombinationDisease` class) and filed 16 diseases under it, Morvan syndrome among them. Syncing a working copy merges each disease and the items it owns, but not the shared category its `hasParentCategory` link points at. So the copy got the links and not the category, owlready2 returned each dangling link as a bare string, and `get_disease_detail` failed with `'str' object has no attribute 'iri'`. On the live site that showed as "That disease link could not be opened." Anonymous visitors read the full ontology, so they never saw it.

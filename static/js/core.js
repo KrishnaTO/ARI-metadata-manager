@@ -174,7 +174,7 @@ const STORY_GROUPS = [
 const GROUPING_STORY_KEYS = ['changelog', 'feedback'];
 
 // Aspect category + concept description for each box, derived from the
-// Immunological Data Model (v3). Boxes are grouped by `aspect` within a story
+// Immunological Data Model (v4). Boxes are grouped by `aspect` within a story
 // step; `desc` is shown as the box subtitle.
 const BOX_META = {
   symptoms:       { aspect:'Clinical profile',         desc:'Patient-reported subjective experiences; core presenting symptoms.' },
@@ -195,7 +195,7 @@ const BOX_META = {
   cytokines:      { aspect:'Signaling & molecular',    desc:'Key signalling proteins driving inflammation, organ damage, or immune dysregulation.' },
   transcription:  { aspect:'Signaling & molecular',    desc:'Intracellular master regulators of immune gene expression altered in disease.' },
   receptors:      { aspect:'Signaling & molecular',    desc:'Surface or intracellular receptors with altered expression or function contributing to pathogenesis.' },
-  biomarkers:     { aspect:'Biomarkers',               desc:'Measurable serum biomarkers (autoantibodies, proteins, complement levels) used for diagnosis or monitoring.' },
+  biomarkers:     { aspect:'Clinical profile',         desc:'Tests a physician can order to diagnose the disease: laboratory, biopsy, imaging or physiological. Autoantibodies are under Antibodies.' },
   treatments:     { aspect:'Management',               desc:'Known treatments from medically recognised sources and clinical studies.' },
   prevalence:     { aspect:'Epidemiology',             desc:'Total number of cases per defined population; varies by geography and ethnicity.' },
   changelog:      { aspect:'Record',                   desc:'Edit and release history for this disease record.' },
