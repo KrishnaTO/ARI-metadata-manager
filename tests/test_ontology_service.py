@@ -255,3 +255,38 @@ def test_add_item_rejects_unknown_category(service):
 def test_get_disease_detail_unknown_iri_raises(ro_service):
     with pytest.raises(KeyError):
         ro_service.get_disease_detail("https://example.org/nope")
+
+
+def test_a_symptom_links_the_shared_symptom_its_label_maps_to(service):
+    # tests/fixtures/mappings/symptom_mapping.tsv: Polyuria is exact, Bloating
+    # broader, Abdominal bloating merged into Bloating, the last not a symptom.
+    iri = service.get_diseases_list()[0]["iri"]
+    aris = "http://www.aurint.org/ontologies/ari-symptoms#"
+
+    service.add_item(iri, "symptoms", {"name": " Polyuria "}, editor="t")
+    item = next(s["iri"] for s in service.get_disease_detail(iri)["symptoms"] if s["name"] == " Polyuria ")
+
+    def links(svc):
+        """The item's symptomConcept lines as saved: resources, not literals."""
+        text = svc.path.read_text(encoding="utf-8")
+        block = text[text.index(f'rdf:about="#{item.rsplit("#", 1)[1]}"'):]
+        return [line.strip() for line in block[:block.index("\n</")].splitlines()
+                if "symptomConcept" in line]
+
+    assert links(service) == [f'<symptomConcept rdf:resource="{aris}ARIS_0000390"/>']
+    # Each step on a fresh load, where owlready2 reads the link back as a string.
+    for name, want in [("Abdominal bloating", "ARIS_0000034"),
+                       ("Absence of orthostatic hypotension", None),
+                       ("Bloating", "ARIS_0000034"),
+                       ("Polyuria", "ARIS_0000390"),
+                       ("Testitis", None)]:
+        svc = OntologyService(str(service.path))
+        svc.update_item(item, "symptoms", {"name": name}, disease_iri=iri, editor="t")
+        assert links(svc) == ([f'<symptomConcept rdf:resource="{aris}{want}"/>'] if want else []), name
+
+    # Edits that leave the label alone leave the link alone.
+    svc = OntologyService(str(service.path))
+    svc.update_item(item, "symptoms", {"name": "Bloating"}, disease_iri=iri, editor="t")
+    svc.update_item(item, "symptoms", {"likelihood": "Rare"}, disease_iri=iri, editor="t")
+    assert links(svc) == [f'<symptomConcept rdf:resource="{aris}ARIS_0000034"/>']
+    assert svc._get_annotation(svc._entity(item), svc.base + "symptomConcept") == [aris + "ARIS_0000034"]

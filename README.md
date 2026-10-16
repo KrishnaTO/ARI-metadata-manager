@@ -24,7 +24,7 @@ runtime ontology is not tracked here).
 ```bash
 pip install -r requirements.txt
 mkdir -p ontologies && cp ../ARI/ontologies/ari_t1d.owl ../ARI/ontologies/ari_uberon.owl ontologies/
-mkdir -p ari-mappings && cp ../ARI/mappings/ari.synonym_blocklist.tsv ari-mappings/
+mkdir -p ari-mappings && cp ../ARI/mappings/ari.synonym_blocklist.tsv ../ARI/notebook/symptom-mapping/symptom_mapping.tsv ari-mappings/
 python run.py
 ```
 
@@ -150,7 +150,7 @@ on the server. Keep `.env` at mode 600.
 | `ARI_ONTOLOGY_FILE` | `ontologies/ari_t1d.owl` | Runtime ontology path. `run.py --file` sets it. |
 | `PORT` | `8001` | `run.py`'s default port. |
 | `APP_REPO_BRANCH` | `main` | Branch of this repo that `deploy/update.sh` tracks. |
-| `ARI_MAPPING_FILES` | the three mapping files | `remote:local` pairs fetched by `deploy/update-mappings.sh`. |
+| `ARI_MAPPING_FILES` | the four mapping files | `remote:local` pairs fetched by `deploy/update-mappings.sh`. |
 
 ## Server-side state
 
