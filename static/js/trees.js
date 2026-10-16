@@ -20,17 +20,18 @@ function aiMark(d){
 }
 
 // Two filters narrow both tree views: the bottom-of-list "Only" toggle keeps
-// confirmed autoimmune diseases, and the header search keeps diseases whose name
-// contains the query. Grouping rows (alphabetical parents, tissue classes) are
-// kept when they still contain a match, so a matching subtype under a
-// non-matching parent stays reachable.
+// confirmed autoimmune diseases, and the header search keeps diseases whose
+// name, local id, ARI id or a synonym contains the query. Grouping rows
+// (alphabetical parents, tissue classes) are kept when they still contain a
+// match, so a matching subtype under a non-matching parent stays reachable.
 function treeFiltered(){
   return state.autoimmuneOnly || !!state.treeQuery;
 }
 
 function keepDisease(d){
   if (state.autoimmuneOnly && d.ai_status !== 'confirmed') return false;
-  return !state.treeQuery || d.name.toLowerCase().includes(state.treeQuery);
+  const q = state.treeQuery;
+  return !q || [d.name, d.local_name, ...d.search_terms].some(t => t.toLowerCase().includes(q));
 }
 
 function filterAlphabetical(nodes){

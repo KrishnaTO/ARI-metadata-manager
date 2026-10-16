@@ -2,7 +2,8 @@
 
 ## claude/disease-search-filter
 
-- **The header search filters the disease list.** Typing in the search box now narrows the left rail to diseases whose name contains the text, in both the A–Z and tissue views. Parent diseases and tissue classes stay when one of their children matches. The filter combines with the *Only* toggle. Clearing the box, or picking a result from the dropdown, shows the full list again. The rail matches names only; the dropdown still also matches synonyms, ARI ids and tissues.
+- **The header search filters the disease list.** Typing in the search box now narrows the left rail to diseases whose name, local id, ARI id or a synonym contains the text, in both the A–Z and tissue views. Parent diseases and tissue classes stay when one of their children matches. The filter combines with the *Only* toggle. Clearing the box, or picking a result from the dropdown, shows the full list again. The dropdown also matches target tissues; the rail does not.
+- The tree endpoints (`/api/v2/tree/alphabetical`, `/api/v2/tree/tissue`) give each disease a `search_terms` list of its ARI ids and synonyms. The rail filters on those in the browser instead of calling `/api/v2/search`, whose 100-result cap would cut the list short for broad queries.
 
 ## symptom-concept-link
 

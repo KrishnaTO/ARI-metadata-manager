@@ -208,6 +208,13 @@ class OntologyService:
             "obsolete": self._is_obsolete(e),
         }
 
+    def _search_terms(self, d) -> list:
+        """A disease's ARI ids and synonyms, which the disease list filters on
+        alongside its name, as the header search does."""
+        base = self.base
+        return (self._get_annotation(d, base + "ARI_ID")
+                + self._get_annotation(d, base + "ARI_Synonym"))
+
     def _disease_class(self):
         return self.world[self.base + "AutoimmuneDisease"]
 
@@ -267,6 +274,7 @@ class OntologyService:
                 "local_name": d.name,
                 "obsolete": self._is_obsolete(d),
                 "ai_status": self._autoimmune_status(d),
+                "search_terms": self._search_terms(d),
                 "children": [node(k, branch) for k in kids if k.iri not in branch],
             }
 
@@ -294,7 +302,8 @@ class OntologyService:
 
         def walk(cls, seen):
             diseases_here = [
-                {**self._ref(d), "ai_status": self._autoimmune_status(d)}
+                {**self._ref(d), "ai_status": self._autoimmune_status(d),
+                 "search_terms": self._search_terms(d)}
                 for d in diseases if cls.iri in dis_classes[d.iri]
             ]
             diseases_here.sort(key=lambda x: x["name"])
