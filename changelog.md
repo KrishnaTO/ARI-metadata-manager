@@ -6,6 +6,10 @@
 - **The link is written as raw triples, not through owlready2's property setter.** owlready2 has no entity for an ARIS class, so it reads a stored link back as a plain string. Assigning through the setter then stored a string literal and could not delete the old resource. On a working copy reloaded between edits, each rename added one more `symptomConcept`. The test reloads the ontology between renames for this reason.
 - **The app reads the table from `ari-mappings/symptom_mapping.tsv`.** This works like the synonym blocklist: `deploy/update-mappings.sh` now fetches it by default. If the server sets `ARI_MAPPING_FILES` in `.env`, add `notebook/symptom-mapping/symptom_mapping.tsv:/opt/ari/ari-metadata-manager/ari-mappings/symptom_mapping.tsv` to it. Without the file, adding or renaming a symptom is refused with nothing written. A silently missing table would strip every new symptom's link.
 - `delete_item` is unchanged: individuals stay one per disease, each holding its own disease's likelihood, description and source. The SSSOM header and `app/sssom_service.py` are untouched.
+## claude/autoantibodies-empty-steps
+
+- **The Autoantibodies panel no longer shows a pathway map.** It showed the disease's pathway steps without their descriptions. In 217 of the 218 diseases that have a pathway, the steps are named only "Step 1" to "Step 5" and have no category, so the map showed five empty boxes. Its note that autoantibodies are made at the *autoantibody production* step was only true for Type 1 diabetes. The Pathophysiology box already shows each step in full.
+- The unused `pathographHTML` helper and its `.patho-map` / `.patho-step` / `.patho-arrow` styles are removed.
 
 ## claude/uberon-import-onto-path
 

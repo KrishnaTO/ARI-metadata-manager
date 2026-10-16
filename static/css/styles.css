@@ -486,24 +486,6 @@ body.resizing-cols { cursor: col-resize; user-select: none; }
 .wordcloud text:hover { fill: var(--accent) !important; }
 
 /* Pathograph */
-.patho-map { margin: 4px 0 16px; }
-.patho-step { position: relative; display: flex; gap: 10px; border: 1px solid var(--line);
-  border-left: 3px solid var(--mute-soft); border-radius: 8px; padding: 10px 12px; cursor: pointer; background: var(--bg); }
-.patho-step:hover { box-shadow: var(--shadow-1); }
-.patho-step.sel { box-shadow: 0 0 0 2px var(--accent-border); }
-.patho-step.antibody { border-left-color: var(--cat-antibody); background: var(--success-bg); }
-.patho-step.cat-genetic { border-left-color: var(--cat-genetic); }
-.patho-step.cat-trigger { border-left-color: var(--cat-trigger); }
-.patho-step.cat-immune { border-left-color: var(--cat-immune); }
-.patho-step.cat-antibody { border-left-color: var(--cat-antibody); }
-.patho-step.cat-tissuedamage { border-left-color: var(--cat-tissuedamage); }
-.patho-step.cat-outcome { border-left-color: var(--cat-outcome); }
-.patho-step .ord { width: 22px; height: 22px; flex: none; border-radius: 50%; background: var(--ink); color: #fff;
-  font-family: var(--font-mono); font-size: 0.6875rem; font-weight: 600; display: flex; align-items: center; justify-content: center; }
-.patho-step h4 { margin: 0 0 2px; font-size: 0.8438rem; font-weight: 500; }
-.patho-step .cat-pill { font-size: 0.6562rem; text-transform: uppercase; letter-spacing: .1em; font-weight: 600; color: var(--mute); }
-.patho-step p { margin: 2px 0 0; font-size: 0.7812rem; color: var(--ink); }
-.patho-arrow { text-align: center; color: var(--mute-soft); font-size: 0.875rem; line-height: 1; margin: 2px 0; }
 .ab-highlight { background: var(--accent-050); color: var(--accent-strong); padding: 0 5px; border-radius: 4px; font-weight: 600; }
 .patho-graph { width: 100%; border: 1px solid var(--line); border-radius: 8px; background: var(--paper);
   margin: 4px 0 6px; overflow: hidden; }
