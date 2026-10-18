@@ -5,6 +5,7 @@
 - **Editor redesign mockups** in `design/mockups/editor-redesign/`: the record in read and edit modes, search, the changes tray and the phone layout. Every major feature is kept and placed by how often curators use it. See `design/mockups/README.md` for what each file shows.
 - **The top bar and the disease-name bar stay pinned** in the record mockups; only the record scrolls beneath them.
 - **The changes tray has an edit link per disease.** Each changed disease ends in a pencil that opens it in edit mode with its changes marked.
+- **The six high-severity issues are drawn fixed.** Symptom results open their disease rather than a record of their own; Enter opens the highlighted result; search finds diseases by code (`SearchCode.dc.html`); leaving a record with unsaved changes asks first (`Leave.dc.html`); umbrella records show the clinical data they hold (`Umbrella.dc.html`); dialogs keep focus and close with Esc.
 - Mockups only. Nothing under `app/` or `static/` changes.
 
 ## claude/dialog-dark-theme

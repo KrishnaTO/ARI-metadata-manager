@@ -58,6 +58,24 @@ examples.
 - **`Phone.dc.html`** — the record at 390px, with sections as a strip of
   chips.
 
+The next three, with parts of `Search.dc.html` and `Submit.dc.html`, show the
+fixes for the six high-severity issues found in testing the current editor:
+
+- **`Search.dc.html`** — a symptom result opens its disease at the Symptoms
+  section, or a list when several diseases have it, never a record of its own
+  (H1). The highlighted result says Enter opens it (H3).
+- **`SearchCode.dc.html`** — searching `E10` finds Type 1 diabetes mellitus
+  and Fulminant type 1 diabetes by their ICD-10 code, across all nine
+  cross-reference databases (H4).
+- **`Leave.dc.html`** — opening another disease with unsaved changes asks
+  first and names what would be lost, and the draft is kept after every
+  keystroke (H2). One dialog pattern: focus stays inside, Esc keeps editing
+  (H6).
+- **`Umbrella.dc.html`** — an umbrella record shows the clinical data it holds,
+  with a note to move it or make the record a disease (H5). The data is
+  Autoimmune retinal vasculitis's: 25 items in 11 sections.
+- **`Submit.dc.html`** — the tray closes with Esc (H6).
+
 Start at `editor-redesign/Main.dc.html`; links between the files work in the
 browser.
 

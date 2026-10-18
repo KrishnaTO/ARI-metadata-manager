@@ -34,7 +34,7 @@ button{cursor:pointer}
     <div style="flex: 1 1 360px; max-width: 620px; min-width: 0; margin-left: 12px; position: relative">
       <div style="height: 38px; display: flex; align-items: center; gap: 10px; padding: 0 10px 0 12px; border-radius: 8px; background: var(--bg); color: var(--ink); box-shadow: 0 0 0 3px rgba(157,211,214,.55)">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true" style="flex: none; color: var(--mute)"><circle cx="11" cy="11" r="7"/><path d="M16.5 16.5 21 21"/></svg>
-        <input role="combobox" aria-expanded="true" aria-controls="results" aria-label="Search" value="rash" style="flex: 1 1 auto; min-width: 0; border: 0; background: none; font-size: 14px; outline: none">
+        <input role="combobox" aria-expanded="true" aria-controls="results" aria-activedescendant="opt-1" aria-label="Search" value="rash" style="flex: 1 1 auto; min-width: 0; border: 0; background: none; font-size: 14px; outline: none">
         <button aria-label="Clear the search" style="width: 28px; height: 28px; display: grid; place-items: center; border: 0; border-radius: 6px; background: none; color: var(--mute)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
       </div>
 
@@ -47,21 +47,25 @@ button{cursor:pointer}
         </div>
 
         <div style="padding: 10px 16px 4px; font-size: 11px; font-weight: 600; letter-spacing: .12em; color: var(--mute)">DISEASES</div>
-        <div role="option" aria-selected="true" style="display: flex; align-items: baseline; gap: 12px; margin: 0 8px; padding: 9px 10px; border-radius: 8px; background: var(--accent-050)">
+        <div role="option" id="opt-1" aria-selected="true" style="display: flex; align-items: center; gap: 12px; margin: 0 8px; padding: 8px 10px; border-radius: 8px; background: var(--accent-050); box-shadow: inset 0 0 0 1px var(--accent-border)">
           <span style="font-size: 14px; font-weight: 600">Dermatitis herpetiformis</span>
           <span style="flex: 1 1 auto; font-size: 13px; color: var(--mute)">synonym: Gluten rash</span>
           <span style="font-family: var(--font-mono); font-size: 12px; color: var(--accent-strong)">ARI:0001078</span>
+          <span style="display: inline-flex; align-items: center; gap: 4px; padding: 1px 8px; border-radius: 4px; background: var(--bg); border: 1px solid var(--line-strong); font-size: 11px; color: var(--ink)"><kbd style="font-family: var(--font-mono)">Enter</kbd> opens</span>
         </div>
 
-        <div style="padding: 14px 16px 4px; display: flex; align-items: baseline; gap: 12px">
+        <div style="padding: 14px 16px 4px; display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px">
           <span style="font-size: 11px; font-weight: 600; letter-spacing: .12em; color: var(--mute)">SYMPTOMS</span>
-          <span style="font-size: 12px; color: var(--mute)">one row per symptom, with the diseases that list it</span>
+          <span style="font-size: 12px; color: var(--mute)">opens its disease at Symptoms, or a list when several diseases have it; never a record of its own</span>
         </div>
         <sc-for list="{{symptoms}}" as="s" hint-placeholder-count="5">
           <div role="option" aria-selected="false" style="display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 12px; margin: 0 8px; padding: 8px 10px; border-radius: 8px">
             <span style="font-size: 14px">{{s.name}}</span>
             <span style="font-family: var(--font-mono); font-size: 12px; color: var(--mute); text-align: right">{{s.n}}</span>
-            <span style="grid-column: 1 / -1; font-size: 12px; color: var(--mute); white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{s.diseases}}</span>
+            <span style="grid-column: 1 / -1; display: flex; align-items: center; gap: 6px; min-width: 0; font-size: 12px; color: var(--mute)">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: none"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+              <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{s.opens}}</span>
+            </span>
           </div>
         </sc-for>
 
@@ -70,7 +74,7 @@ button{cursor:pointer}
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg></a>
           <a href="#" style="font-size: 13px">See all 20 results</a>
           <span style="flex: 1 1 auto"></span>
-          <span style="font-size: 12px; color: var(--mute)"><kbd style="font-family: var(--font-mono)">↑↓</kbd> move · <kbd style="font-family: var(--font-mono)">Enter</kbd> open · <kbd style="font-family: var(--font-mono)">Esc</kbd> close</span>
+          <span style="font-size: 12px; color: var(--mute)"><kbd style="font-family: var(--font-mono)">↑↓</kbd> move · <kbd style="font-family: var(--font-mono)">Enter</kbd> opens the highlighted result · <kbd style="font-family: var(--font-mono)">Esc</kbd> close</span>
         </div>
       </div>
     </div>
@@ -129,11 +133,11 @@ class Component extends DCLogic {
   renderVals() {
     return {
       symptoms: [
-        { name: 'Rash', n: '27 diseases', diseases: "Acute febrile mucocutaneous lymph node syndrome, Adult onset Still's disease, Antiphospholipid syndrome, …" },
-        { name: 'Butterfly-shaped rash', n: '3 diseases', diseases: 'Systemic lupus erythematosus, Mixed collagen vascular disease, Undifferentiated connective tissue disease' },
-        { name: 'Itchy rash', n: '1 disease', diseases: 'Dermatitis herpetiformis' },
-        { name: 'Painful rashes', n: '1 disease', diseases: 'Cutaneous lupus erythematosus' },
-        { name: 'A salmon/pink-colored rash on chest and thighs during fever', n: '1 disease', diseases: "Adult onset Still's disease" }
+        { name: 'Rash', n: '27 diseases', opens: 'Opens the list of 27 diseases with this symptom' },
+        { name: 'Butterfly-shaped rash', n: '3 diseases', opens: 'Opens the list: Systemic lupus erythematosus, Mixed collagen vascular disease, Undifferentiated connective tissue disease' },
+        { name: 'Itchy rash', n: '1 disease', opens: 'Dermatitis herpetiformis › Symptoms' },
+        { name: 'Painful rashes', n: '1 disease', opens: 'Cutaneous lupus erythematosus › Symptoms' },
+        { name: 'A salmon/pink-colored rash on chest and thighs during fever', n: '1 disease', opens: "Adult onset Still's disease › Symptoms" }
       ]
     };
   }
