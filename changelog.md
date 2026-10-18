@@ -1,5 +1,12 @@
 # Changelog
 
+## claude/dialog-dark-theme
+
+- **Dialogs read in dark mode.** `ui-dialog.css` painted the dialog and its plain buttons with `--card`, which neither page defines, so in dark mode they stayed white under the theme's light text and the title and "Keep editing" could barely be seen. They now use the page background, `--surface` on the review page and `--bg` in the editor, as `.sync-banner` already did. The prompt input uses `--paper`, or `--band` on the review page, which had no `--paper` and showed a white box in dark mode.
+- **The dialog's primary button is legible in dark mode.** It filled with `--accent` under white text: 1.6:1 in the editor, where dark `--accent` is the pale sky, and 3.3:1 on the review page. It now fills with `--btn-fill` (the editor's teal in both themes) and takes `--accent-fg` where the page defines it, so the review page gets dark text on its dark-mode teal. Both read at 5.2:1 or better.
+- **Destructive dialog buttons read in the editor's dark mode.** White on the light coral `--danger` was 2.7:1. The text is now the page background colour, 6.5:1 in dark and unchanged white in light.
+- Checked by rendering a dialog against each page's own theme variables in both themes. Nothing outside `ui-dialog.css` changes.
+
 ## claude/disease-search-filter
 
 - **The header search filters the disease list.** Typing in the search box now narrows the left rail to diseases whose name, local id, ARI id or a synonym contains the text, in both the A–Z and tissue views. Parent diseases and tissue classes stay when one of their children matches. The filter combines with the *Only* toggle. Clearing the box, or picking a result from the dropdown, shows the full list again. The dropdown also matches target tissues; the rail does not.
