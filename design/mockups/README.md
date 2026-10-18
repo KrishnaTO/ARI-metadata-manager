@@ -44,7 +44,11 @@ examples.
   the story spine and stays on screen, so changing section never means
   scrolling back up. Overview gathers the definition, synonyms, target tissue,
   subtypes, all nine cross-references and a preview of every section.
-  Clickable: every section opens, with previous and next at the end.
+  Pathophysiology opens with a map above its steps table: the eight steps
+  down the middle, coloured by category, with the genes, triggers, antigens,
+  antigen-presenting cells, antibodies and immune mediators the app links to
+  each step beside it. It is laid out on a fixed grid, so labels never
+  overlap. Clickable: every section opens, with previous and next at the end.
 - **`Edit.dc.html`** — the same record being edited in place. Fields become
   inputs where they are read, rows edit inline, changed sections carry a dot,
   and a bar at the foot lists unsaved changes with Discard and Save.
