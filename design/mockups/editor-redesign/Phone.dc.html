@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Record on a phone</title>
+<script src="../support.js"></script>
+<link rel="stylesheet" href="ds/ari-catalog/tokens.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@200;300;400;500;600&display=swap">
+<style>
+body{margin:0}
+a{color:#155160}a:hover{color:#0f2840}
+button,input{font:inherit;color:inherit}
+:focus-visible{outline:2px solid #1f6b7a;outline-offset:2px}
+</style>
+</helmet>
+<div data-theme="light" style="width: 390px; height: 844px; box-sizing: border-box; overflow: hidden; display: flex; flex-direction: column; background: var(--bg); color: var(--ink); font-family: var(--font-sans); font-size: 15px; line-height: 1.5">
+  <header style="height: 56px; flex: none; display: flex; align-items: center; gap: 4px; padding: 0 6px; background: var(--bar); color: #fff">
+    <button aria-label="Show the disease index" style="width: 44px; height: 44px; display: grid; place-items: center; border: 0; background: none; color: #fff">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+    </button>
+    <span style="flex: 1 1 auto; font-family: var(--font-cond); font-weight: 600; font-size: 20px; letter-spacing: .01em">ARI METADATA</span>
+    <button aria-label="Search" style="width: 44px; height: 44px; display: grid; place-items: center; border: 0; background: none; color: #fff">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M16.5 16.5 21 21"/></svg>
+    </button>
+    <button aria-label="Your changes, 3" style="position: relative; width: 44px; height: 44px; display: grid; place-items: center; border: 0; background: none; color: #fff">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16v4z"/></svg>
+      <span style="position: absolute; top: 6px; right: 4px; min-width: 18px; height: 18px; display: grid; place-items: center; border-radius: 999px; background: var(--sky); color: var(--ink); font-family: var(--font-mono); font-size: 10px">3</span>
+    </button>
+    <button aria-label="Settings and account" style="width: 44px; height: 44px; display: grid; place-items: center; border: 0; background: none; color: #fff">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/></svg>
+    </button>
+  </header>
+
+  <div style="flex: none; padding: 18px 20px 14px; border-bottom: 1px solid var(--line)">
+    <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; font-size: 12px; color: var(--mute)">
+      <span style="font-family: var(--font-mono); color: var(--accent-strong)">ARI:0001080</span>
+      <span style="display: inline-flex; align-items: center; gap: 6px; padding: 1px 8px; border-radius: 999px; background: var(--success-bg); color: var(--ink); font-weight: 500"><span aria-hidden="true" style="width: 6px; height: 6px; border-radius: 999px; background: var(--success)"></span>High evidence</span>
+    </div>
+    <h1 style="margin: 6px 0 12px; font-weight: 200; font-size: 32px; line-height: 1.08; letter-spacing: -0.02em">Type 1 diabetes mellitus</h1>
+    <div style="display: flex; gap: 8px">
+      <a href="#" style="flex: 1 1 0; height: 44px; display: flex; align-items: center; justify-content: center; border-radius: 8px; background: var(--btn-fill); color: #fff; font-size: 14px; font-weight: 500; text-decoration: none">Edit record</a>
+      <button style="flex: 1 1 0; height: 44px; border: 1px solid var(--line-strong); border-radius: 8px; background: var(--bg); font-size: 14px">Copy link</button>
+    </div>
+  </div>
+
+  <!-- Sections as a swipeable strip, pinned under the head -->
+  <nav aria-label="Sections of this record" style="flex: none; display: flex; gap: 6px; padding: 10px 20px; overflow: hidden; border-bottom: 1px solid var(--line); background: var(--bg)">
+    <button aria-current="true" style="flex: none; height: 36px; padding: 0 14px; border: 0; border-radius: 999px; background: var(--ink); color: #fff; font-size: 13px; font-weight: 500">Overview</button>
+    <button style="flex: none; height: 36px; padding: 0 14px; border: 1px solid var(--line-strong); border-radius: 999px; background: none; font-size: 13px">Symptoms <span style="font-family: var(--font-mono); color: var(--mute)">10</span></button>
+    <button style="flex: none; height: 36px; padding: 0 14px; border: 1px solid var(--line-strong); border-radius: 999px; background: none; font-size: 13px">Biomarkers <span style="font-family: var(--font-mono); color: var(--mute)">6</span></button>
+    <button style="flex: none; height: 36px; padding: 0 14px; border: 1px solid var(--line-strong); border-radius: 999px; background: none; font-size: 13px">Treatments <span style="font-family: var(--font-mono); color: var(--mute)">7</span></button>
+  </nav>
+
+  <div style="flex: 1 1 auto; overflow: hidden; padding: 16px 20px; display: flex; flex-direction: column; gap: 22px">
+    <div>
+      <p style="margin: 0; font-size: 16px; line-height: 1.6; display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden">Type 1 diabetes is a chronic autoimmune disease characterized by the destruction of pancreatic beta cells in the islets of Langerhans, leading to absolute insulin deficiency and hyperglycemia. The autoimmune attack is mediated by autoreactive T-cells targeting beta-cell antigens including insulin, GAD65, IA-2, and ZnT8.</p>
+      <button style="min-height: 40px; padding: 0; border: 0; background: none; font-size: 14px; color: var(--accent-strong)">Show the whole definition</button>
+    </div>
+    <section aria-labelledby="p-rec" style="display: flex; flex-direction: column">
+      <h2 id="p-rec" style="margin: 0 0 4px; font-size: 11px; font-weight: 600; letter-spacing: .14em; color: var(--mute)">RECORDED FOR THIS DISEASE</h2>
+      <sc-for list="{{rows}}" as="r" hint-placeholder-count="6">
+        <button style="display: flex; align-items: center; gap: 10px; min-height: 48px; padding: 0; border: 0; border-bottom: 1px solid var(--line); background: none; text-align: left">
+          <span style="flex: 1 1 auto; font-size: 15px">{{r.label}}</span>
+          <span style="font-family: var(--font-mono); font-size: 13px; color: var(--accent-strong)">{{r.n}}</span>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="color: var(--mute)"><path d="m9 6 6 6-6 6"/></svg>
+        </button>
+      </sc-for>
+    </section>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return { rows: [
+      { label: 'Symptoms', n: '10' }, { label: 'Biomarkers', n: '6' }, { label: 'Treatments', n: '7' },
+      { label: 'Prevalence', n: '2' }, { label: 'Genetics', n: '12' }, { label: 'Synonyms and cross-references', n: '9 · 9' }
+    ] };
+  }
+}
+</script>
+</body>
+</html>

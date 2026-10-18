@@ -1,0 +1,286 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Record, editing in place</title>
+<script src="../support.js"></script>
+<link rel="stylesheet" href="ds/ari-catalog/tokens.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@200;300;400;500;600&display=swap">
+<style>
+body{margin:0}
+a{color:#155160}a:hover{color:#0f2840}
+button,input,textarea,select{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid #1f6b7a;outline-offset:2px}
+</style>
+</helmet>
+<div data-theme="light" style="height: 100vh; min-height: 640px; overflow: hidden; display: flex; flex-direction: column; background: var(--bg); color: var(--ink); font-family: var(--font-sans); font-size: 14px; line-height: 1.5; position: relative">
+
+  <header style="height: 56px; flex: none; display: flex; align-items: center; gap: 12px; padding: 0 16px; background: var(--bar); color: #fff">
+    <button aria-label="Hide the disease index" aria-expanded="true" style="width: 40px; height: 40px; flex: none; display: grid; place-items: center; border: 0; border-radius: 8px; background: rgba(255,255,255,.08); color: #fff">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+    </button>
+    <a href="Main.dc.html" style="flex: none; display: flex; align-items: baseline; gap: 10px; color: #fff; text-decoration: none">
+      <span style="font-family: var(--font-cond); font-weight: 600; font-size: 22px; letter-spacing: .01em">AUTOIMMUNE REGISTRY</span>
+      <span style="font-size: 10px; font-weight: 600; letter-spacing: .14em; color: var(--sky)">METADATA MANAGER</span>
+    </a>
+    <div style="flex: 1 1 360px; max-width: 620px; min-width: 0; margin-left: 12px; height: 38px; display: flex; align-items: center; gap: 10px; padding: 0 10px 0 12px; border-radius: 8px; background: rgba(255,255,255,.10); box-shadow: inset 0 0 0 1px rgba(255,255,255,.14)">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true" style="flex: none; opacity: .75"><circle cx="11" cy="11" r="7"/><path d="M16.5 16.5 21 21"/></svg>
+      <input aria-label="Search" placeholder="Search diseases, synonyms, codes or symptoms" style="flex: 1 1 auto; min-width: 0; border: 0; background: none; color: #fff; font-size: 14px; outline: none">
+      <kbd style="flex: none; padding: 1px 7px; border-radius: 4px; border: 1px solid rgba(255,255,255,.3); font-family: var(--font-mono); font-size: 11px; color: rgba(255,255,255,.75)">/</kbd>
+    </div>
+    <span style="flex: 1 1 0"></span>
+    <a href="#" style="flex: none; color: #fff; text-decoration: none; font-size: 13px; padding: 8px 6px">Cross-references</a>
+    <a href="Submit.dc.html" style="flex: none; height: 36px; display: flex; align-items: center; gap: 8px; padding: 0 12px; border: 1px solid rgba(255,255,255,.28); border-radius: 8px; color: #fff; font-size: 13px; text-decoration: none">
+      Your changes
+      <span style="min-width: 20px; height: 20px; padding: 0 6px; box-sizing: border-box; display: grid; place-items: center; border-radius: 999px; background: var(--sky); color: var(--ink); font-family: var(--font-mono); font-size: 11px; font-weight: 500">3</span>
+    </a>
+    <button aria-label="How this works" style="width: 40px; height: 40px; flex: none; display: grid; place-items: center; border: 0; border-radius: 8px; background: none; color: rgba(255,255,255,.8)">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.6 9.2a2.5 2.5 0 1 1 3.3 2.4c-.6.2-.9.7-.9 1.3v.6"/><path d="M12 17h.01"/></svg>
+    </button>
+    <button aria-label="Settings" style="width: 40px; height: 40px; flex: none; display: grid; place-items: center; border: 0; border-radius: 8px; background: none; color: rgba(255,255,255,.8)">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.6 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+    </button>
+    <button aria-label="Account" style="width: 34px; height: 34px; flex: none; display: grid; place-items: center; border: 0; border-radius: 999px; background: var(--sky); color: var(--ink)">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/></svg>
+    </button>
+  </header>
+
+  <div style="flex: 1 1 auto; display: flex; align-items: stretch; min-height: 0">
+    <nav aria-label="Disease index" style="flex: 0 0 280px; box-sizing: border-box; display: flex; flex-direction: column; background: var(--paper); border-right: 1px solid var(--line)">
+      <div style="padding: 16px 16px 12px; display: flex; flex-direction: column; gap: 10px; border-bottom: 1px solid var(--line)">
+        <div style="display: flex; padding: 3px; border-radius: 999px; background: var(--bone)">
+          <button aria-pressed="true" style="flex: 1 1 0; height: 30px; border: 0; border-radius: 999px; background: var(--bg); box-shadow: var(--shadow-1); font-size: 13px; font-weight: 500">A–Z</button>
+          <button aria-pressed="false" style="flex: 1 1 0; height: 30px; border: 0; border-radius: 999px; background: none; font-size: 13px; color: var(--mute)">By tissue</button>
+        </div>
+        <input aria-label="Filter the index" placeholder="Filter the index" style="height: 34px; box-sizing: border-box; padding: 0 10px; border: 1px solid var(--line-strong); border-radius: 6px; background: var(--bg); font-size: 13px">
+      </div>
+      <ul style="list-style: none; margin: 0; padding: 8px; flex: 1 1 auto; min-height: 0; overflow: auto; display: flex; flex-direction: column; gap: 1px; font-size: 14px">
+        <li><a href="#" style="display: flex; align-items: center; min-height: 34px; padding: 4px 10px; border-radius: 6px; color: var(--ink); text-decoration: none">Systemic sclerosis</a></li>
+        <li><a href="#" style="display: flex; align-items: center; min-height: 34px; padding: 4px 10px; border-radius: 6px; color: var(--ink); text-decoration: none">Tolosa-Hunt syndrome</a></li>
+        <li><a href="#" style="display: flex; align-items: center; min-height: 34px; padding: 4px 10px; border-radius: 6px; color: var(--ink); text-decoration: none">Transverse myelitis</a></li>
+        <li><a href="#" aria-current="page" style="display: flex; align-items: center; gap: 8px; min-height: 34px; padding: 4px 10px; border-radius: 6px; background: var(--warning-bg); color: var(--ink); font-weight: 600; text-decoration: none"><span style="flex: 1 1 auto">Type 1 diabetes mellitus</span><span style="font-size: 11px; font-weight: 500; color: var(--ink)">Editing</span></a></li>
+        <li><a href="#" style="display: flex; align-items: center; min-height: 34px; padding: 4px 10px 4px 26px; border-radius: 6px; color: var(--ink); text-decoration: none">Fulminant type 1 diabetes</a></li>
+        <li><a href="#" style="display: flex; align-items: center; min-height: 34px; padding: 4px 10px 4px 26px; border-radius: 6px; color: var(--ink); text-decoration: none">Latent autoimmune diabetes in adults (LADA)</a></li>
+        <li><a href="#" style="display: flex; align-items: center; min-height: 34px; padding: 4px 10px; border-radius: 6px; color: var(--ink); text-decoration: none">Undifferentiated connective tissue disease</a></li>
+        <li><a href="#" style="display: flex; align-items: center; min-height: 34px; padding: 4px 10px; border-radius: 6px; color: var(--ink); text-decoration: none">Uveitis</a></li>
+      </ul>
+    </nav>
+
+    <main style="flex: 1 1 auto; min-width: 0; min-height: 0; display: flex; flex-direction: column; box-shadow: inset 4px 0 0 var(--warning)">
+      <!-- Disease-name bar: stays put while the record scrolls -->
+      <div style="flex: none; position: relative; z-index: 1; padding: 20px 48px 18px; border-bottom: 2px solid var(--warning); display: flex; flex-wrap: wrap; align-items: flex-end; gap: 16px 24px; background: var(--bg)">
+        <div style="flex: 1 1 420px; min-width: 0">
+          <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; font-size: 12px; color: var(--mute)">
+            <span style="display: inline-flex; align-items: center; gap: 6px; padding: 2px 9px; border-radius: 999px; background: var(--warning-bg); color: var(--ink); font-weight: 600"><span aria-hidden="true" style="width: 6px; height: 6px; border-radius: 999px; background: var(--warning)"></span>Editing</span>
+            <span style="font-family: var(--font-mono); color: var(--accent-strong)">ARI:0001080</span>
+            <span>The id cannot change. Saved changes go to your working copy; reviewers see them only after you submit.</span>
+          </div>
+          <label for="f-name" style="display: block; margin: 12px 0 4px; font-size: 11px; font-weight: 600; letter-spacing: .1em; color: var(--mute)">DISEASE NAME</label>
+          <input id="f-name" value="Type 1 diabetes mellitus" style="width: 100%; max-width: 640px; box-sizing: border-box; height: 56px; padding: 0 12px; border: 1px solid var(--line-strong); border-radius: 8px; background: var(--bg); font-weight: 200; font-size: 34px; letter-spacing: -0.02em">
+        </div>
+        <a href="Main.dc.html" style="flex: none; height: 38px; display: flex; align-items: center; padding: 0 16px; border: 1px solid var(--line-strong); border-radius: 8px; color: var(--ink); font-size: 13px; text-decoration: none">Stop editing</a>
+      </div>
+
+      <div style="flex: 1 1 auto; min-height: 0; overflow: auto; display: flex; align-items: flex-start">
+        <nav aria-label="Sections of this record" style="flex: 0 0 216px; box-sizing: border-box; position: sticky; top: 0; padding: 24px 12px 32px 36px; display: flex; flex-direction: column; gap: 14px">
+          <sc-for list="{{navGroups}}" as="g" hint-placeholder-count="5">
+            <div style="display: flex; flex-direction: column; gap: 1px">
+              <sc-if value="{{g.hasTitle}}" hint-placeholder-val="{{true}}">
+                <div style="padding: 0 10px 4px; font-size: 11px; font-weight: 600; letter-spacing: .12em; color: var(--mute)">{{g.title}}</div>
+              </sc-if>
+              <sc-for list="{{g.items}}" as="it" hint-placeholder-count="4">
+                <sc-if value="{{it.active}}" hint-placeholder-val="{{false}}">
+                  <button onClick="{{it.pick}}" aria-current="true" style="display: flex; align-items: center; gap: 8px; min-height: 30px; padding: 0 10px; border: 0; border-radius: 6px; background: var(--warning-bg); text-align: left; font-size: 13px; font-weight: 600">
+                    <span style="flex: 1 1 auto">{{it.label}}</span>
+                    <sc-if value="{{it.changed}}" hint-placeholder-val="{{false}}"><span role="img" aria-label="Changed" style="width: 7px; height: 7px; border-radius: 999px; background: var(--warning)"></span></sc-if>
+                    <span style="font-family: var(--font-mono); font-size: 11px; color: var(--mute)">{{it.count}}</span>
+                  </button>
+                </sc-if>
+                <sc-if value="{{it.inactive}}" hint-placeholder-val="{{true}}">
+                  <button onClick="{{it.pick}}" style="display: flex; align-items: center; gap: 8px; min-height: 30px; padding: 0 10px; border: 0; border-radius: 6px; background: none; text-align: left; font-size: 13px">
+                    <span style="flex: 1 1 auto">{{it.label}}</span>
+                    <sc-if value="{{it.changed}}" hint-placeholder-val="{{false}}"><span role="img" aria-label="Changed" style="width: 7px; height: 7px; border-radius: 999px; background: var(--warning)"></span></sc-if>
+                    <span style="font-family: var(--font-mono); font-size: 11px; color: var(--mute)">{{it.count}}</span>
+                  </button>
+                </sc-if>
+              </sc-for>
+            </div>
+          </sc-for>
+        </nav>
+
+        <div style="flex: 999 1 460px; min-width: 0; max-width: 880px; box-sizing: border-box; padding: 24px 48px 48px 24px">
+
+          <!-- Overview fields, edited where they are read -->
+          <sc-if value="{{isOverview}}" hint-placeholder-val="{{true}}">
+            <div style="display: flex; flex-direction: column; gap: 28px">
+              <div style="display: flex; flex-direction: column; gap: 6px">
+                <div style="display: flex; align-items: center; gap: 4px">
+                  <label for="f-def" style="flex: 1 1 auto; font-size: 11px; font-weight: 600; letter-spacing: .1em; color: var(--mute)">DEFINITION <span role="img" aria-label="Changed" style="display: inline-block; width: 7px; height: 7px; margin-left: 4px; border-radius: 999px; background: var(--warning)"></span></label>
+                  <button aria-pressed="true" style="height: 28px; padding: 0 10px; border: 1px solid var(--line-strong); border-radius: 6px; background: var(--bg); font-size: 12px">Write</button>
+                  <button aria-pressed="false" style="height: 28px; padding: 0 10px; border: 0; border-radius: 6px; background: none; font-size: 12px; color: var(--mute)">Preview</button>
+                </div>
+                <textarea id="f-def" rows="5" style="box-sizing: border-box; width: 100%; padding: 12px; border: 1px solid var(--accent); border-radius: 8px; box-shadow: var(--focus); background: var(--bg); font-size: 15px; line-height: 1.6; resize: vertical">Type 1 diabetes is a chronic autoimmune disease characterized by the destruction of pancreatic beta cells in the islets of Langerhans, leading to absolute insulin deficiency and hyperglycemia. The autoimmune attack is mediated by autoreactive T-cells targeting beta-cell antigens including insulin, GAD65, IA-2, and ZnT8.</textarea>
+                <span style="font-size: 12px; color: var(--mute)">Markdown: **bold**, *italic*, - list, [text](https://…)</span>
+              </div>
+
+              <fieldset style="margin: 0; padding: 0; border: 0; display: flex; flex-direction: column; gap: 8px">
+                <legend style="padding: 0 0 6px; font-size: 11px; font-weight: 600; letter-spacing: .1em; color: var(--mute)">WHERE THE DEFINITION CAME FROM</legend>
+                <div style="display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) 36px; gap: 8px; align-items: center">
+                  <input aria-label="Source 1 URL or PMID" value="PMID: 38393374" style="height: 36px; box-sizing: border-box; padding: 0 10px; border: 1px solid var(--line-strong); border-radius: 6px; font-family: var(--font-mono); font-size: 13px">
+                  <input aria-label="Source 1 label" value="ADA Standards of Care 2025" style="height: 36px; box-sizing: border-box; padding: 0 10px; border: 1px solid var(--line-strong); border-radius: 6px; font-size: 13px">
+                  <button aria-label="Remove source 1" style="width: 36px; height: 36px; display: grid; place-items: center; border: 0; border-radius: 6px; background: none; color: var(--mute)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+                </div>
+                <button style="align-self: flex-start; height: 32px; display: flex; align-items: center; gap: 6px; padding: 0 10px; border: 1px dashed var(--line-strong); border-radius: 6px; background: none; font-size: 13px; color: var(--accent-strong)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>Add a source</button>
+              </fieldset>
+
+              <div style="display: flex; flex-direction: column; gap: 6px">
+                <label for="f-syn" style="font-size: 11px; font-weight: 600; letter-spacing: .1em; color: var(--mute)">SYNONYMS <span role="img" aria-label="Changed" style="display: inline-block; width: 7px; height: 7px; margin-left: 4px; border-radius: 999px; background: var(--warning)"></span></label>
+                <div style="display: flex; flex-wrap: wrap; gap: 6px; padding: 8px; border: 1px solid var(--line-strong); border-radius: 8px">
+                  <sc-for list="{{synonyms}}" as="s" hint-placeholder-count="9">
+                    <span style="display: inline-flex; align-items: center; gap: 2px; padding: 0 2px 0 9px; border-radius: 4px; background: var(--accent-050); border: 1px solid var(--accent-border); font-size: 13px">{{s.v}}<button aria-label="Remove {{s.v}}" style="width: 26px; height: 26px; display: grid; place-items: center; border: 0; background: none; color: var(--mute)"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button></span>
+                  </sc-for>
+                  <span style="display: inline-flex; align-items: center; gap: 2px; padding: 0 2px 0 9px; border-radius: 4px; background: var(--warning-bg); border: 1px solid var(--warning); font-size: 13px">Autoimmune diabetes<span style="font-size: 11px; color: var(--mute); padding: 0 4px">new</span></span>
+                  <input id="f-syn" placeholder="Add a synonym, then Enter" style="flex: 1 1 180px; min-width: 120px; height: 28px; border: 0; outline: none; font-size: 13px">
+                </div>
+              </div>
+
+              <fieldset style="margin: 0; padding: 0; border: 0; display: flex; flex-direction: column; gap: 6px">
+                <legend style="padding: 0 0 6px; font-size: 11px; font-weight: 600; letter-spacing: .1em; color: var(--mute)">TARGET TISSUE</legend>
+                <div style="display: flex; flex-wrap: wrap; gap: 6px">
+                  <label style="display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 10px; border-radius: 999px; border: 1px solid var(--accent-border); background: var(--accent-050); font-size: 13px"><input type="checkbox" checked style="margin: 0; accent-color: #1f6b7a">Pancreatic beta cell</label>
+                  <label style="display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 10px; border-radius: 999px; border: 1px solid var(--accent-border); background: var(--accent-050); font-size: 13px"><input type="checkbox" checked style="margin: 0; accent-color: #1f6b7a">Islet of Langerhans</label>
+                  <label style="display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 10px; border-radius: 999px; border: 1px solid var(--accent-border); background: var(--accent-050); font-size: 13px"><input type="checkbox" checked style="margin: 0; accent-color: #1f6b7a">Pancreas</label>
+                  <button style="height: 32px; padding: 0 12px; border: 1px dashed var(--line-strong); border-radius: 999px; background: none; font-size: 13px; color: var(--accent-strong)">Add tissue…</button>
+                </div>
+              </fieldset>
+
+              <fieldset style="margin: 0; padding: 0; border: 0; display: flex; flex-direction: column; gap: 8px">
+                <legend style="padding: 0 0 6px; font-size: 11px; font-weight: 600; letter-spacing: .1em; color: var(--mute)">CLINICAL SUBTYPES</legend>
+                <div style="display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr) minmax(0, 1fr) 36px; gap: 8px; align-items: center">
+                  <input aria-label="Subtype 1 name" value="Type 1 diabetes, autoimmune" style="height: 36px; box-sizing: border-box; padding: 0 10px; border: 1px solid var(--line-strong); border-radius: 6px; font-size: 13px">
+                  <input aria-label="Subtype 1 description" value="T-cell mediated destruction of pancreatic β-cells." style="height: 36px; box-sizing: border-box; padding: 0 10px; border: 1px solid var(--line-strong); border-radius: 6px; font-size: 13px">
+                  <select aria-label="Subtype 1 linked disease" style="height: 36px; box-sizing: border-box; padding: 0 8px; border: 1px solid var(--line-strong); border-radius: 6px; background: var(--bg); font-size: 13px"><option>No linked record</option></select>
+                  <button aria-label="Remove subtype 1" style="width: 36px; height: 36px; display: grid; place-items: center; border: 0; background: none; color: var(--mute)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+                  <input aria-label="Subtype 2 name" value="Type 1 diabetes, idiopathic" style="height: 36px; box-sizing: border-box; padding: 0 10px; border: 1px solid var(--line-strong); border-radius: 6px; font-size: 13px">
+                  <input aria-label="Subtype 2 description" value="No detectable autoantibodies." style="height: 36px; box-sizing: border-box; padding: 0 10px; border: 1px solid var(--line-strong); border-radius: 6px; font-size: 13px">
+                  <select aria-label="Subtype 2 linked disease" style="height: 36px; box-sizing: border-box; padding: 0 8px; border: 1px solid var(--line-strong); border-radius: 6px; background: var(--bg); font-size: 13px"><option>No linked record</option></select>
+                  <button aria-label="Remove subtype 2" style="width: 36px; height: 36px; display: grid; place-items: center; border: 0; background: none; color: var(--mute)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+                </div>
+                <button style="align-self: flex-start; height: 32px; display: flex; align-items: center; gap: 6px; padding: 0 10px; border: 1px dashed var(--line-strong); border-radius: 6px; background: none; font-size: 13px; color: var(--accent-strong)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>Add a subtype</button>
+              </fieldset>
+
+              <fieldset style="margin: 0; padding: 0; border: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 24px">
+                <legend style="padding: 0 0 6px; font-size: 11px; font-weight: 600; letter-spacing: .1em; color: var(--mute)">CLASSIFICATION</legend>
+                <label style="display: flex; flex-direction: column; gap: 4px; font-size: 13px">Evidence quality
+                  <select style="height: 36px; padding: 0 8px; border: 1px solid var(--line-strong); border-radius: 6px; background: var(--bg)"><option>High</option></select></label>
+                <label style="display: flex; flex-direction: column; gap: 4px; font-size: 13px">Disease category
+                  <select style="height: 36px; padding: 0 8px; border: 1px solid var(--line-strong); border-radius: 6px; background: var(--bg)"><option>Autoimmune</option></select></label>
+                <label style="display: flex; gap: 10px; align-items: flex-start; font-size: 13px"><input type="checkbox" style="margin: 3px 0 0; width: 16px; height: 16px; accent-color: #1f6b7a"><span><strong style="font-weight: 600">Umbrella category</strong><br><span style="color: var(--mute)">Groups related diseases. Clinical detail already on the record stays visible.</span></span></label>
+                <label style="display: flex; gap: 10px; align-items: flex-start; font-size: 13px"><input type="checkbox" style="margin: 3px 0 0; width: 16px; height: 16px; accent-color: #1f6b7a"><span><strong style="font-weight: 600">No longer in use</strong><br><span style="color: var(--mute)">The record stays and keeps its id, marked obsolete.</span></span></label>
+              </fieldset>
+
+              <div style="display: flex; flex-direction: column; gap: 8px; padding: 14px 16px; border-radius: 8px; background: var(--paper)">
+                <div style="display: flex; align-items: baseline; gap: 12px"><span style="font-size: 11px; font-weight: 600; letter-spacing: .1em; color: var(--mute)">CROSS-REFERENCES</span><span style="font-family: var(--font-mono); font-size: 11px; color: var(--mute)">9 of 9</span></div>
+                <span style="font-size: 13px; color: var(--mute)">Curated and double-checked in the cross-reference matrix, not here. <a href="#">Open this disease in the matrix</a></span>
+              </div>
+            </div>
+          </sc-if>
+
+          <!-- A section's items, edited row by row -->
+          <sc-if value="{{isSymptoms}}" hint-placeholder-val="{{false}}">
+            <section aria-labelledby="sym-h" style="display: flex; flex-direction: column; gap: 14px">
+              <div style="display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px 24px">
+                <div style="flex: 1 1 320px">
+                  <div style="font-size: 11px; font-weight: 600; letter-spacing: .14em; color: var(--mute)">CLINICAL PICTURE</div>
+                  <h2 id="sym-h" style="margin: 4px 0 0; font-weight: 300; font-size: 30px; letter-spacing: -0.018em">Symptoms <span style="font-family: var(--font-mono); font-size: 14px; color: var(--accent-strong); letter-spacing: 0">10</span></h2>
+                </div>
+                <button style="flex: none; height: 36px; display: flex; align-items: center; gap: 6px; padding: 0 14px; border: 0; border-radius: 8px; background: var(--btn-fill); color: #fff; font-size: 13px; font-weight: 500"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>Add a symptom</button>
+              </div>
+              <div style="display: flex; flex-direction: column; border-top: 1px solid var(--ink)">
+                <sc-for list="{{rows}}" as="r" hint-placeholder-count="6">
+                  <sc-if value="{{r.view}}" hint-placeholder-val="{{true}}">
+                    <div style="display: grid; grid-template-columns: minmax(150px, 1.1fr) minmax(120px, .9fr) minmax(0, 2fr) 104px; gap: 16px; align-items: center; min-height: 48px; padding: 4px 0; border-bottom: 1px solid var(--line); font-size: 13px">
+                      <span style="font-weight: 600; font-size: 14px">{{r.a}}</span>
+                      <span>{{r.b}}</span>
+                      <span style="color: var(--mute)">{{r.c}}</span>
+                      <span style="display: flex; justify-content: flex-end; gap: 4px">
+                        <button aria-label="Edit {{r.a}}" style="height: 32px; padding: 0 10px; border: 1px solid var(--line-strong); border-radius: 6px; background: var(--bg); font-size: 12px">Edit</button>
+                        <button aria-label="Remove {{r.a}}" style="width: 32px; height: 32px; display: grid; place-items: center; border: 0; border-radius: 6px; background: none; color: var(--danger)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg></button>
+                      </span>
+                    </div>
+                  </sc-if>
+                  <sc-if value="{{r.editing}}" hint-placeholder-val="{{false}}">
+                    <div style="display: flex; flex-direction: column; gap: 12px; padding: 16px; margin: 6px 0; border: 1px solid var(--warning); border-radius: 8px; background: var(--warning-bg)">
+                      <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px">
+                        <label style="display: flex; flex-direction: column; gap: 4px; font-size: 12px; font-weight: 600">Symptom
+                          <input value="Fatigue" style="height: 36px; padding: 0 10px; border: 1px solid var(--line-strong); border-radius: 6px; background: var(--bg); font-size: 14px; font-weight: 400"></label>
+                        <label style="display: flex; flex-direction: column; gap: 4px; font-size: 12px; font-weight: 600">Likelihood
+                          <select style="height: 36px; padding: 0 8px; border: 1px solid var(--line-strong); border-radius: 6px; background: var(--bg); font-size: 14px; font-weight: 400"><option>Common (60–80%)</option></select></label>
+                        <label style="grid-column: 1 / -1; display: flex; flex-direction: column; gap: 4px; font-size: 12px; font-weight: 600">Description
+                          <textarea rows="2" style="padding: 8px 10px; border: 1px solid var(--line-strong); border-radius: 6px; background: var(--bg); font-size: 14px; font-weight: 400">Chronic tiredness from metabolic dysregulation</textarea></label>
+                        <label style="display: flex; flex-direction: column; gap: 4px; font-size: 12px; font-weight: 600">HPO term
+                          <input value="HP:0012378" style="height: 36px; padding: 0 10px; border: 1px solid var(--line-strong); border-radius: 6px; background: var(--bg); font-family: var(--font-mono); font-size: 13px; font-weight: 400"></label>
+                        <label style="display: flex; flex-direction: column; gap: 4px; font-size: 12px; font-weight: 600">Source
+                          <input value="https://pubmed.ncbi.nlm.nih.gov/…" style="height: 36px; padding: 0 10px; border: 1px solid var(--line-strong); border-radius: 6px; background: var(--bg); font-size: 13px; font-weight: 400"></label>
+                      </div>
+                      <div style="display: flex; gap: 8px; justify-content: flex-end">
+                        <button style="height: 34px; padding: 0 12px; border: 1px solid var(--line-strong); border-radius: 6px; background: var(--bg); font-size: 13px">Cancel</button>
+                        <button style="height: 34px; padding: 0 14px; border: 0; border-radius: 6px; background: var(--btn-fill); color: #fff; font-size: 13px; font-weight: 500">Done</button>
+                      </div>
+                    </div>
+                  </sc-if>
+                </sc-for>
+              </div>
+            </section>
+          </sc-if>
+        </div>
+      </div>
+
+      <!-- Unsaved work is always visible, and always one click from safe -->
+      <div role="region" aria-label="Unsaved changes" style="flex: none; display: flex; flex-wrap: wrap; align-items: center; gap: 12px 16px; padding: 14px 48px; background: var(--bg); border-top: 2px solid var(--warning); box-shadow: var(--shadow-2)">
+        <span style="width: 8px; height: 8px; border-radius: 999px; background: var(--warning)" aria-hidden="true"></span>
+        <span style="flex: 1 1 320px; font-size: 13px"><strong style="font-weight: 600">3 unsaved changes</strong> <span style="color: var(--mute)">· Definition, Synonyms, Symptoms › Fatigue. Leaving this record asks first.</span></span>
+        <button style="height: 38px; padding: 0 14px; border: 1px solid var(--line-strong); border-radius: 8px; background: var(--bg); font-size: 13px">Discard</button>
+        <button style="height: 38px; padding: 0 18px; border: 0; border-radius: 8px; background: var(--btn-fill); color: #fff; font-size: 13px; font-weight: 500">Save changes</button>
+      </div>
+    </main>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const cur = (this.state && this.state.s) || 'overview';
+    const pick = k => () => this.setState({ s: k });
+    const it = (key, label, count, changed) => ({ label, count: count == null ? '' : String(count), changed: !!changed,
+      active: cur === key, inactive: cur !== key, pick: (key === 'overview' || key === 'symptoms') ? pick(key) : () => {} });
+    const navGroups = [
+      { title: '', hasTitle: false, items: [it('overview', 'Overview', null, true)] },
+      { title: 'CLINICAL PICTURE', hasTitle: true, items: [it('symptoms', 'Symptoms', 10, true), it('biomarkers', 'Biomarkers', 6), it('treatments', 'Treatments', 7), it('prevalence', 'Prevalence', 2)] },
+      { title: 'CAUSES', hasTitle: true, items: [it('environmental', 'Environmental triggers', 9), it('etiology', 'Etiology', 8), it('genetic', 'Genetics', 12)] },
+      { title: 'MECHANISM', hasTitle: true, items: [it('pathophysiology', 'Pathophysiology', 8), it('antibodies', 'Antibodies', 5), it('antigens', 'Antigens', 5), it('tcells', 'T-cells', 5), it('cytokines', 'Cytokines', 6), it('apcs', 'APCs', 3), it('transcription', 'Transcription factors', 4), it('receptors', 'Receptors', 4), it('innate', 'Innate immunity', 3), it('complement', 'Complement', 2), it('netosis', 'NETosis', 3), it('inflammasome', 'Inflammasome', 3), it('apr', 'Acute phase reactants', 3), it('cells', 'Target cells', 1)] },
+      { title: 'RECORD', hasTitle: true, items: [it('changelog', 'Change log', 10), it('feedback', 'Feedback', null)] }
+    ];
+    const rows = [
+      ['Polyuria', 'Very common (≥90%)', 'Excessive urination due to osmotic diuresis from hyperglycemia'],
+      ['Polydipsia', 'Very common (≥90%)', 'Excessive thirst caused by dehydration from osmotic diuresis'],
+      ['Unintended weight loss', 'Common (60–80%)', 'Weight loss despite normal/increased appetite'],
+      ['Fatigue', '', '', true],
+      ['Increased appetite (polyphagia)', 'Common (50–70%)', 'Excessive hunger despite high blood glucose'],
+      ['Irritability / mood changes', 'Common (40–60%)', 'Behavioral changes from hyperglycemia'],
+      ['Nocturia', 'Moderate (30–50%)', 'Nighttime urination from impaired renal concentrating ability'],
+      ['Diabetic ketoacidosis (DKA)', 'Variable (25–40%)', 'Metabolic decompensation with ketone production']
+    ].map(([a, b, c, e]) => ({ a, b, c, editing: !!e, view: !e }));
+    const synonyms = ['T1D', 'Type 1 diabetes', 'Insulin-dependent diabetes mellitus', 'IDDM', 'Juvenile-onset diabetes', 'Diabetes mellitus type 1', 'Juvenile diabetes', 'Insulin dependent diabetes'].map(v => ({ v }));
+    return { isOverview: cur === 'overview', isSymptoms: cur === 'symptoms', navGroups, rows, synonyms };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,5 +1,12 @@
 # Changelog
 
+## claude/editor-redesign-mockups
+
+- **Editor redesign mockups** in `design/mockups/editor-redesign/`: the record in read and edit modes, search, the changes tray and the phone layout. Every major feature is kept and placed by how often curators use it. See `design/mockups/README.md` for what each file shows.
+- **The top bar and the disease-name bar stay pinned** in the record mockups; only the record scrolls beneath them.
+- **The changes tray has an edit link per disease.** Each changed disease ends in a pencil that opens it in edit mode with its changes marked.
+- Mockups only. Nothing under `app/` or `static/` changes.
+
 ## claude/dialog-dark-theme
 
 - **Dialogs read in dark mode.** `ui-dialog.css` painted the dialog and its plain buttons with `--card`, which neither page defines, so in dark mode they stayed white under the theme's light text and the title and "Keep editing" could barely be seen. They now use the page background, `--surface` on the review page and `--bg` in the editor, as `.sync-banner` already did. The prompt input uses `--paper`, or `--band` on the review page, which had no `--paper` and showed a white box in dark mode.
