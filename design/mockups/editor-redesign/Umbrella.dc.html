@@ -1,0 +1,227 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Umbrella record with clinical data</title>
+<script src="../support.js"></script>
+<link rel="stylesheet" href="ds/ari-catalog/tokens.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@200;300;400;500;600&display=swap">
+<style>
+body{margin:0}
+a{color:#155160}a:hover{color:#0f2840}
+button,input{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid #1f6b7a;outline-offset:2px}
+/* Under 1400px wide the disease index becomes an overlay opened from the menu button, and the bar keeps icons only. */
+.rail{display:flex}
+.scrim{display:none}
+.namebar{padding:22px 48px 18px}
+.rec-title{font-size:44px}
+.secnav{padding:24px 12px 32px 36px}
+.reading{padding:24px 48px 64px 24px}
+@media (min-width:1400px){.rail.toggled{display:none}}
+@media (max-width:1399px){
+.rail{display:none;position:absolute;top:0;left:0;bottom:0;z-index:20;box-shadow:var(--shadow-3)}
+.rail.toggled{display:flex}
+.scrim.toggled{display:block}
+.lbl,.wm-sub{display:none}
+.namebar{padding:18px 32px 14px}
+.secnav{padding:20px 8px 32px 20px}
+.reading{padding:20px 32px 48px 16px}
+}
+/* Short screens: a slimmer disease-name bar leaves more of the height to the record. */
+@media (max-height:760px){.namebar{padding-top:12px;padding-bottom:10px}.rec-title{font-size:34px}}
+</style>
+</helmet>
+<div data-theme="light" style="height: 100vh; min-height: 640px; overflow: hidden; display: flex; flex-direction: column; background: var(--bg); color: var(--ink); font-family: var(--font-sans); font-size: 14px; line-height: 1.5">
+
+  <header style="height: 56px; flex: none; display: flex; align-items: center; gap: 12px; padding: 0 16px; background: var(--bar); color: #fff">
+    <button onClick="{{toggleRail}}" aria-label="{{railLabel}}" title="{{railLabel}}" aria-expanded="{{railShown}}" aria-controls="disease-index" style="width: 40px; height: 40px; flex: none; display: grid; place-items: center; border: 0; border-radius: 8px; background: rgba(255,255,255,.08); color: #fff">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+    </button>
+    <a href="Main.dc.html" style="flex: none; display: flex; align-items: baseline; gap: 10px; color: #fff; text-decoration: none">
+      <span style="font-family: var(--font-cond); font-weight: 600; font-size: 22px; letter-spacing: .01em">AUTOIMMUNE REGISTRY</span>
+      <span class="wm-sub" style="font-size: 10px; font-weight: 600; letter-spacing: .14em; color: var(--sky)">METADATA MANAGER</span>
+    </a>
+    <div style="flex: 1 1 360px; max-width: 620px; min-width: 0; margin-left: 12px; height: 38px; display: flex; align-items: center; gap: 10px; padding: 0 10px 0 12px; border-radius: 8px; background: rgba(255,255,255,.10); box-shadow: inset 0 0 0 1px rgba(255,255,255,.14)">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true" style="flex: none; opacity: .75"><circle cx="11" cy="11" r="7"/><path d="M16.5 16.5 21 21"/></svg>
+      <input aria-label="Search" placeholder="Search diseases, synonyms, codes or symptoms" style="flex: 1 1 auto; min-width: 0; border: 0; background: none; color: #fff; font-size: 14px; outline: none">
+      <kbd style="flex: none; padding: 1px 7px; border-radius: 4px; border: 1px solid rgba(255,255,255,.3); font-family: var(--font-mono); font-size: 11px; color: rgba(255,255,255,.75)">/</kbd>
+    </div>
+    <span style="flex: 1 1 0"></span>
+    <a href="#" aria-label="Cross-references" title="Cross-references" style="flex: none; height: 40px; display: flex; align-items: center; gap: 8px; padding: 0 10px; border-radius: 8px; color: #fff; text-decoration: none; font-size: 13px">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M9 4v16"/></svg>
+      <span class="lbl">Cross-references</span>
+    </a>
+    <a href="Submit.dc.html" aria-label="Your changes, 3" title="Your changes" style="flex: none; height: 36px; display: flex; align-items: center; gap: 8px; padding: 0 12px; border: 1px solid rgba(255,255,255,.28); border-radius: 8px; color: #fff; font-size: 13px; text-decoration: none">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 13h4l2 3h4l2-3h4"/><path d="M5.5 5h13L20 13v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-5z"/></svg>
+      <span class="lbl">Your changes</span>
+      <span style="min-width: 20px; height: 20px; padding: 0 6px; box-sizing: border-box; display: grid; place-items: center; border-radius: 999px; background: var(--sky); color: var(--ink); font-family: var(--font-mono); font-size: 11px; font-weight: 500">3</span>
+    </a>
+    <button aria-label="How this works" style="width: 40px; height: 40px; flex: none; display: grid; place-items: center; border: 0; border-radius: 8px; background: none; color: rgba(255,255,255,.8)">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.6 9.2a2.5 2.5 0 1 1 3.3 2.4c-.6.2-.9.7-.9 1.3v.6"/><path d="M12 17h.01"/></svg>
+    </button>
+    <button aria-label="Settings" style="width: 40px; height: 40px; flex: none; display: grid; place-items: center; border: 0; border-radius: 8px; background: none; color: rgba(255,255,255,.8)">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.6 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+    </button>
+    <button aria-label="Account" style="width: 34px; height: 34px; flex: none; display: grid; place-items: center; border: 0; border-radius: 999px; background: var(--sky); color: var(--ink)">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/></svg>
+    </button>
+  </header>
+
+  <div style="flex: 1 1 auto; display: flex; align-items: stretch; min-height: 0; position: relative">
+    <button class="scrim {{railCls}}" onClick="{{closeRail}}" tabindex="-1" aria-label="Close the disease index" style="position: absolute; inset: 0; z-index: 15; border: 0; padding: 0; background: rgba(15,40,64,.4)"></button>
+    <nav id="disease-index" class="rail {{railCls}}" aria-label="Disease index" style="flex: 0 0 280px; width: 280px; box-sizing: border-box; flex-direction: column; background: var(--paper); border-right: 1px solid var(--line)">
+      <div style="padding: 16px 16px 12px; display: flex; flex-direction: column; gap: 10px; border-bottom: 1px solid var(--line)">
+        <div style="display: flex; padding: 3px; border-radius: 999px; background: var(--bone)">
+          <button aria-pressed="true" style="flex: 1 1 0; height: 30px; border: 0; border-radius: 999px; background: var(--bg); box-shadow: var(--shadow-1); font-size: 13px; font-weight: 500">A–Z</button>
+          <button aria-pressed="false" style="flex: 1 1 0; height: 30px; border: 0; border-radius: 999px; background: none; font-size: 13px; color: var(--mute)">By tissue</button>
+        </div>
+        <input aria-label="Filter the index" placeholder="Filter the index" style="height: 34px; box-sizing: border-box; padding: 0 10px; border: 1px solid var(--line-strong); border-radius: 6px; background: var(--bg); font-size: 13px">
+      </div>
+      <ul style="list-style: none; margin: 0; padding: 8px; flex: 1 1 auto; min-height: 0; overflow: auto; display: flex; flex-direction: column; gap: 1px; font-size: 14px">
+        <li><a href="#" style="display: flex; min-height: 34px; align-items: center; padding: 4px 10px; border-radius: 6px; color: var(--ink); text-decoration: none">Transverse myelitis</a></li>
+        <li><a href="Main.dc.html" style="display: flex; min-height: 34px; align-items: center; padding: 4px 10px; border-radius: 6px; color: var(--ink); text-decoration: none">Type 1 diabetes mellitus</a></li>
+        <li><a href="#" style="display: flex; min-height: 34px; align-items: center; padding: 4px 10px; border-radius: 6px; color: var(--ink); text-decoration: none">Undifferentiated connective tissue disease</a></li>
+        <li><a href="#" style="display: flex; min-height: 34px; align-items: center; padding: 4px 10px; border-radius: 6px; color: var(--ink); text-decoration: none">Uveitis</a></li>
+        <li><a href="#" aria-current="page" style="display: flex; gap: 8px; min-height: 34px; align-items: center; padding: 4px 10px 4px 26px; border-radius: 6px; background: var(--accent-050); color: var(--ink); font-weight: 600; text-decoration: none"><span style="flex: 1 1 auto">Autoimmune retinal vasculitis</span><span style="font-size: 11px; font-weight: 500; color: var(--mute)">Umbrella</span></a></li>
+        <li><a href="#" style="display: flex; min-height: 34px; align-items: center; padding: 4px 10px 4px 26px; border-radius: 6px; color: var(--ink); text-decoration: none">Birdshot chorioretinopathy</a></li>
+        <li><a href="#" style="display: flex; min-height: 34px; align-items: center; padding: 4px 10px 4px 26px; border-radius: 6px; color: var(--ink); text-decoration: none">Intermediate uveitis</a></li>
+        <li><a href="#" style="display: flex; min-height: 34px; align-items: center; padding: 4px 10px 4px 26px; border-radius: 6px; color: var(--ink); text-decoration: none">Sympathetic uveitis</a></li>
+        <li><a href="#" style="display: flex; min-height: 34px; align-items: center; padding: 4px 10px 4px 26px; border-radius: 6px; color: var(--ink); text-decoration: none">Vogt-Koyanagi-Harada disease</a></li>
+        <li><a href="#" style="display: flex; min-height: 34px; align-items: center; padding: 4px 10px; border-radius: 6px; color: var(--ink); text-decoration: none">Vitiligo</a></li>
+      </ul>
+    </nav>
+
+    <main style="flex: 1 1 auto; min-width: 0; min-height: 0; display: flex; flex-direction: column">
+      <div class="namebar" style="flex: none; position: relative; z-index: 1; border-bottom: 1px solid var(--line); background: var(--bg); box-shadow: 0 6px 12px -10px rgba(15,40,64,.35); display: flex; flex-wrap: wrap; align-items: flex-end; gap: 16px 24px">
+        <div style="flex: 1 1 420px; min-width: 0">
+          <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; font-size: 12px; color: var(--mute)">
+            <span style="font-family: var(--font-mono); color: var(--accent-strong)">ARI:0001046</span>
+            <span aria-hidden="true">·</span>
+            <span style="padding: 2px 9px; border-radius: 999px; background: var(--bone); color: var(--ink); font-weight: 500">Umbrella category</span>
+            <span aria-hidden="true">·</span>
+            <span>Subtype of <a href="#">Autoimmune vasculitis</a> and <a href="#">Uveitis</a></span>
+          </div>
+          <h1 class="rec-title" style="margin: 8px 0 0; font-weight: 200; line-height: 1.04; letter-spacing: -0.025em">Autoimmune retinal vasculitis</h1>
+        </div>
+        <div style="flex: none; display: flex; align-items: center; gap: 8px">
+          <button style="height: 38px; padding: 0 14px; border: 1px solid var(--line-strong); border-radius: 8px; background: var(--bg); font-size: 13px">Copy link</button>
+          <a href="Edit.dc.html" style="height: 38px; display: flex; align-items: center; padding: 0 16px; border-radius: 8px; background: var(--btn-fill); color: #fff; font-size: 13px; font-weight: 500; text-decoration: none">Edit record</a>
+        </div>
+      </div>
+
+      <div style="flex: 1 1 auto; min-height: 0; overflow: auto; display: flex; align-items: flex-start">
+        <nav class="secnav" aria-label="Sections of this record" style="flex: 0 0 216px; box-sizing: border-box; position: sticky; top: 0; display: flex; flex-direction: column; gap: 14px">
+          <sc-for list="{{nav}}" as="g" hint-placeholder-count="5">
+            <div style="display: flex; flex-direction: column; gap: 1px">
+              <sc-if value="{{g.hasTitle}}" hint-placeholder-val="{{true}}">
+                <div style="padding: 0 10px 4px; font-size: 11px; font-weight: 600; letter-spacing: .12em; color: var(--mute)">{{g.title}}</div>
+              </sc-if>
+              <sc-for list="{{g.items}}" as="it" hint-placeholder-count="3">
+                <button style="display: flex; align-items: center; gap: 8px; min-height: 30px; padding: 0 10px; border: 0; border-radius: 6px; background: {{it.bg}}; text-align: left; font-size: 13px; font-weight: {{it.weight}}">
+                  <span style="flex: 1 1 auto">{{it.label}}</span>
+                  <span style="font-family: var(--font-mono); font-size: 11px; color: var(--mute)">{{it.count}}</span>
+                </button>
+              </sc-for>
+            </div>
+          </sc-for>
+        </nav>
+
+        <div class="reading" style="flex: 999 1 460px; min-width: 0; max-width: 880px; box-sizing: border-box; display: flex; flex-direction: column; gap: 32px">
+          <div role="status" style="display: flex; flex-wrap: wrap; gap: 12px 20px; align-items: flex-start; padding: 14px 16px; border-radius: 8px; background: var(--warning-bg)">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: none; margin-top: 2px; color: var(--ink)"><path d="M12 3 2 20h20L12 3z"/><path d="M12 10v4M12 17h.01"/></svg>
+            <div style="flex: 1 1 360px; display: flex; flex-direction: column; gap: 4px; font-size: 14px">
+              <strong style="font-weight: 600">This umbrella record holds clinical data.</strong>
+              <span>Umbrella categories group related diseases and usually carry no symptoms or mechanism. This one has 25 items in 11 sections and no member diseases. They are shown so they can be checked: clear Umbrella category to make it a disease, or move the items to a member disease.</span>
+            </div>
+            <a href="Edit.dc.html" style="flex: none; height: 36px; display: flex; align-items: center; padding: 0 14px; border: 1px solid var(--line-strong); border-radius: 8px; background: var(--bg); color: var(--ink); font-size: 13px; text-decoration: none">Review in edit mode</a>
+          </div>
+
+          <p style="margin: 0; max-width: 64ch; font-size: 17px; line-height: 1.65">Autoimmune retinal vasculitis is an inflammatory condition affecting the blood vessels of the retina that arises without an associated systemic rheumatic disease. Inflammation and occlusion of retinal vessels can cause blurred vision, blind spots, floaters, and potential retinal ischemia. Treatment involves localized and systemic corticosteroids and immunomodulatory agents to preserve eyesight.</p>
+
+          <section aria-labelledby="u-facts" style="display: flex; flex-direction: column">
+            <h2 id="u-facts" style="margin: 0 0 6px; font-size: 11px; font-weight: 600; letter-spacing: .14em; color: var(--mute)">AT A GLANCE</h2>
+            <dl style="margin: 0; display: grid; grid-template-columns: minmax(120px, 160px) minmax(0, 1fr); border-top: 1px solid var(--line); font-size: 14px">
+              <dt style="padding: 11px 0; border-bottom: 1px solid var(--line); color: var(--mute); font-size: 13px">Target tissue</dt>
+              <dd style="margin: 0; padding: 9px 0; border-bottom: 1px solid var(--line)"><span style="padding: 3px 9px; border-radius: 4px; background: var(--accent-050); border: 1px solid var(--accent-border); font-size: 13px">Eye</span></dd>
+              <dt style="padding: 11px 0; border-bottom: 1px solid var(--line); color: var(--mute); font-size: 13px">Member diseases</dt>
+              <dd style="margin: 0; padding: 11px 0; border-bottom: 1px solid var(--line); color: var(--mute)">None</dd>
+              <dt style="padding: 11px 0; border-bottom: 1px solid var(--line); color: var(--mute); font-size: 13px">Cross-references</dt>
+              <dd style="margin: 0; padding: 11px 0; border-bottom: 1px solid var(--line)"><span style="font-family: var(--font-mono); font-size: 12px; color: var(--mute)">0 of 9</span> · <a href="#">Add them in the matrix</a></dd>
+            </dl>
+          </section>
+
+          <section aria-labelledby="u-rec" style="display: flex; flex-direction: column">
+            <h2 id="u-rec" style="margin: 0 0 6px; font-size: 11px; font-weight: 600; letter-spacing: .14em; color: var(--mute)">CLINICAL DATA ON THIS RECORD</h2>
+            <div style="display: flex; flex-direction: column; border-top: 1px solid var(--line)">
+              <sc-for list="{{recorded}}" as="r" hint-placeholder-count="11">
+                <button style="display: grid; grid-template-columns: minmax(130px, 170px) 40px minmax(0, 1fr) 16px; align-items: center; gap: 12px; min-height: 44px; padding: 8px 4px; border: 0; border-bottom: 1px solid var(--line); background: none; text-align: left">
+                  <span style="font-size: 14px; font-weight: 500">{{r.label}}</span>
+                  <span style="font-family: var(--font-mono); font-size: 12px; color: var(--accent-strong); text-align: right">{{r.n}}</span>
+                  <span style="font-size: 13px; color: var(--mute); white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{r.preview}}</span>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="color: var(--mute)"><path d="m9 6 6 6-6 6"/></svg>
+                </button>
+              </sc-for>
+            </div>
+          </section>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  componentDidMount() {
+    this._mq = window.matchMedia('(min-width: 1400px)');
+    this._onMq = () => this.forceUpdate();
+    this._mq.addEventListener('change', this._onMq);
+  }
+  componentWillUnmount() {
+    if (this._mq) this._mq.removeEventListener('change', this._onMq);
+  }
+  railVals() {
+    const toggled = !!(this.state && this.state.railToggled);
+    const shown = window.matchMedia('(min-width: 1400px)').matches ? !toggled : toggled;
+    return {
+      railCls: toggled ? 'toggled' : '',
+      railShown: shown ? 'true' : 'false',
+      railLabel: shown ? 'Hide the disease index' : 'Show the disease index',
+      toggleRail: () => this.setState({ railToggled: !toggled }),
+      closeRail: () => this.setState({ railToggled: false })
+    };
+  }
+  renderVals() {
+    const it = (label, count, on) => ({ label, count: count == null ? '' : String(count), bg: on ? 'var(--accent-050)' : 'none', weight: on ? '600' : '400' });
+    const nav = [
+      { title: '', hasTitle: false, items: [it('Overview', null, true)] },
+      { title: 'CLINICAL PICTURE', hasTitle: true, items: [it('Symptoms', 3), it('Biomarkers', 1), it('Prevalence', 2)] },
+      { title: 'CAUSES', hasTitle: true, items: [it('Environmental triggers', 3), it('Etiology', 3)] },
+      { title: 'MECHANISM', hasTitle: true, items: [it('Pathophysiology', 5), it('Antibodies', 1), it('Antigens', 2), it('T-cells', 2), it('APCs', 1), it('Target cells', 2)] },
+      { title: 'RECORD', hasTitle: true, items: [it('Change log', 13), it('Feedback', null)] }
+    ];
+    const recorded = [
+      ['Symptoms', 3, 'Painless progressive visual blurriness, Vitreous floaters and haze, Visual field scotomas'],
+      ['Biomarkers', 1, 'Retinal angiography'],
+      ['Prevalence', 2, 'US 0.75 per 100k, Worldwide 0.75 per 100k'],
+      ['Environmental triggers', 3, 'Systemic vasculitis / autoimmune disease, Chronic ocular inflammation, Viral infections'],
+      ['Etiology', 3, 'Molecular mimicry: Mycobacterium tuberculosis, Herpesviruses (HSV, CMV), Toxoplasma gondii'],
+      ['Pathophysiology', 5, 'Step 1, Step 2, Step 3, Step 4, Step 5'],
+      ['Antibodies', 1, 'Anti-retinal autoantibodies (anti-recoverin, anti-S-antigen)'],
+      ['Antigens', 2, 'Retinal S-antigen (arrestin), Recoverin'],
+      ['T-cells', 2, 'Autoreactive CD4+ Th1 / Th17 cells, Autoreactive CD8+ cytotoxic T cells'],
+      ['APCs', 1, 'Autoreactive B cells / plasma cells'],
+      ['Target cells', 2, 'Retinal vascular endothelial cells, Photoreceptor outer segments']
+    ].map(([label, n, preview]) => ({ label, n: String(n), preview }));
+    return Object.assign(this.railVals(), { nav, recorded });
+  }
+}
+</script>
+</body>
+</html>

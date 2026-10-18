@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Find a disease</title>
+<script src="../support.js"></script>
+<link rel="stylesheet" href="ds/ari-catalog/tokens.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@200;300;400;500;600&display=swap">
+<style>
+body{margin:0}
+a{color:#155160}a:hover{color:#0f2840}
+button,input,textarea,select{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid #1f6b7a;outline-offset:2px}
+/* Under 1400px wide the bar keeps icons only. */
+@media (max-width:1399px){.lbl,.wm-sub{display:none}}
+</style>
+</helmet>
+<div data-theme="light" style="min-height: 900px; display: flex; flex-direction: column; background: var(--bg); color: var(--ink); font-family: var(--font-sans); font-size: 14px; line-height: 1.5">
+
+  <header style="height: 56px; flex: none; display: flex; align-items: center; gap: 12px; padding: 0 16px; background: var(--bar); color: #fff; position: relative; z-index: 2">
+    <button aria-label="Show the disease index" aria-expanded="false" style="width: 40px; height: 40px; flex: none; display: grid; place-items: center; border: 0; border-radius: 8px; background: none; color: #fff">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+    </button>
+    <a href="Main.dc.html" style="flex: none; display: flex; align-items: baseline; gap: 10px; color: #fff; text-decoration: none">
+      <span style="font-family: var(--font-cond); font-weight: 600; font-size: 22px; letter-spacing: .01em">AUTOIMMUNE REGISTRY</span>
+      <span class="wm-sub" style="font-size: 10px; font-weight: 600; letter-spacing: .14em; color: var(--sky)">METADATA MANAGER</span>
+    </a>
+
+    <!-- Search, open: one box for names, synonyms, codes and symptoms -->
+    <div style="flex: 1 1 360px; max-width: 620px; min-width: 0; margin-left: 12px; position: relative">
+      <div style="height: 38px; display: flex; align-items: center; gap: 10px; padding: 0 10px 0 12px; border-radius: 8px; background: var(--bg); color: var(--ink); box-shadow: 0 0 0 3px rgba(157,211,214,.55)">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true" style="flex: none; color: var(--mute)"><circle cx="11" cy="11" r="7"/><path d="M16.5 16.5 21 21"/></svg>
+        <input role="combobox" aria-expanded="true" aria-controls="results" aria-activedescendant="opt-1" aria-label="Search" value="rash" style="flex: 1 1 auto; min-width: 0; border: 0; background: none; font-size: 14px; outline: none">
+        <button aria-label="Clear the search" style="width: 28px; height: 28px; display: grid; place-items: center; border: 0; border-radius: 6px; background: none; color: var(--mute)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+      </div>
+
+      <div id="results" role="listbox" aria-label="Search results" style="position: absolute; top: 46px; left: 0; width: min(720px, 92vw); box-sizing: border-box; display: flex; flex-direction: column; background: var(--bg); color: var(--ink); border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--shadow-3); overflow: hidden">
+        <div role="group" aria-label="Show" style="display: flex; gap: 4px; padding: 10px 12px; border-bottom: 1px solid var(--line)">
+          <button aria-pressed="true" style="height: 30px; padding: 0 12px; border: 0; border-radius: 999px; background: var(--ink); color: #fff; font-size: 12px; font-weight: 500">All <span style="font-family: var(--font-mono)">20</span></button>
+          <button aria-pressed="false" style="height: 30px; padding: 0 12px; border: 1px solid var(--line-strong); border-radius: 999px; background: none; font-size: 12px">Diseases <span style="font-family: var(--font-mono)">1</span></button>
+          <button aria-pressed="false" style="height: 30px; padding: 0 12px; border: 1px solid var(--line-strong); border-radius: 999px; background: none; font-size: 12px">Symptoms <span style="font-family: var(--font-mono)">19</span></button>
+          <button aria-pressed="false" style="height: 30px; padding: 0 12px; border: 1px solid var(--line-strong); border-radius: 999px; background: none; font-size: 12px">Codes <span style="font-family: var(--font-mono)">0</span></button>
+        </div>
+
+        <div style="padding: 10px 16px 4px; font-size: 11px; font-weight: 600; letter-spacing: .12em; color: var(--mute)">DISEASES</div>
+        <div role="option" id="opt-1" aria-selected="true" style="display: flex; align-items: center; gap: 12px; margin: 0 8px; padding: 8px 10px; border-radius: 8px; background: var(--accent-050); box-shadow: inset 0 0 0 1px var(--accent-border)">
+          <span style="font-size: 14px; font-weight: 600">Dermatitis herpetiformis</span>
+          <span style="flex: 1 1 auto; font-size: 13px; color: var(--mute)">synonym: Gluten rash</span>
+          <span style="font-family: var(--font-mono); font-size: 12px; color: var(--accent-strong)">ARI:0001078</span>
+          <span style="display: inline-flex; align-items: center; gap: 4px; padding: 1px 8px; border-radius: 4px; background: var(--bg); border: 1px solid var(--line-strong); font-size: 11px; color: var(--ink)"><kbd style="font-family: var(--font-mono)">Enter</kbd> opens</span>
+        </div>
+
+        <div style="padding: 14px 16px 4px; display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px">
+          <span style="font-size: 11px; font-weight: 600; letter-spacing: .12em; color: var(--mute)">SYMPTOMS</span>
+          <span style="font-size: 12px; color: var(--mute)">opens its disease at Symptoms, or a list when several diseases have it; never a record of its own</span>
+        </div>
+        <sc-for list="{{symptoms}}" as="s" hint-placeholder-count="5">
+          <div role="option" aria-selected="false" style="display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 12px; margin: 0 8px; padding: 8px 10px; border-radius: 8px">
+            <span style="font-size: 14px">{{s.name}}</span>
+            <span style="font-family: var(--font-mono); font-size: 12px; color: var(--mute); text-align: right">{{s.n}}</span>
+            <span style="grid-column: 1 / -1; display: flex; align-items: center; gap: 6px; min-width: 0; font-size: 12px; color: var(--mute)">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: none"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+              <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{s.opens}}</span>
+            </span>
+          </div>
+        </sc-for>
+
+        <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; margin-top: 8px; padding: 12px 16px; border-top: 1px solid var(--line); background: var(--paper)">
+          <a href="#" style="display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 500">Match several symptoms at once
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg></a>
+          <a href="#" style="font-size: 13px">See all 20 results</a>
+          <span style="flex: 1 1 auto"></span>
+          <span style="font-size: 12px; color: var(--mute)"><kbd style="font-family: var(--font-mono)">↑↓</kbd> move · <kbd style="font-family: var(--font-mono)">Enter</kbd> opens the highlighted result · <kbd style="font-family: var(--font-mono)">Esc</kbd> close</span>
+        </div>
+      </div>
+    </div>
+
+    <span style="flex: 1 1 0"></span>
+    <a href="#" aria-label="Cross-references" title="Cross-references" style="flex: none; height: 40px; display: flex; align-items: center; gap: 8px; padding: 0 10px; border-radius: 8px; color: #fff; text-decoration: none; font-size: 13px">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M9 4v16"/></svg>
+      <span class="lbl">Cross-references</span>
+    </a>
+    <a href="Submit.dc.html" aria-label="Your changes, 3" title="Your changes" style="flex: none; height: 36px; display: flex; align-items: center; gap: 8px; padding: 0 12px; border: 1px solid rgba(255,255,255,.28); border-radius: 8px; color: #fff; font-size: 13px; text-decoration: none">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 13h4l2 3h4l2-3h4"/><path d="M5.5 5h13L20 13v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-5z"/></svg>
+      <span class="lbl">Your changes</span>
+      <span style="min-width: 20px; height: 20px; padding: 0 6px; box-sizing: border-box; display: grid; place-items: center; border-radius: 999px; background: var(--sky); color: var(--ink); font-family: var(--font-mono); font-size: 11px; font-weight: 500">3</span>
+    </a>
+    <button aria-label="How this works" style="width: 40px; height: 40px; flex: none; display: grid; place-items: center; border: 0; border-radius: 8px; background: none; color: rgba(255,255,255,.8)">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.6 9.2a2.5 2.5 0 1 1 3.3 2.4c-.6.2-.9.7-.9 1.3v.6"/><path d="M12 17h.01"/></svg>
+    </button>
+    <button aria-label="Settings" style="width: 40px; height: 40px; flex: none; display: grid; place-items: center; border: 0; border-radius: 8px; background: none; color: rgba(255,255,255,.8)">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.6 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+    </button>
+    <button aria-label="Account" style="width: 34px; height: 34px; flex: none; display: grid; place-items: center; border: 0; border-radius: 999px; background: var(--sky); color: var(--ink)">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/></svg>
+    </button>
+  </header>
+
+  <!-- Start page, with the index rail collapsed -->
+  <main style="flex: 1 1 auto; display: flex; justify-content: center; padding: 72px 32px 48px; background: var(--paper)">
+    <div style="width: 100%; max-width: 880px; display: flex; flex-direction: column; gap: 32px; opacity: .55" aria-hidden="true">
+      <div>
+        <h1 style="margin: 0; font-weight: 200; font-size: 44px; letter-spacing: -0.025em">Find a disease</h1>
+        <p style="margin: 6px 0 0; font-size: 15px; color: var(--mute)">228 diseases. Search by name, synonym, code or symptom, or browse below.</p>
+      </div>
+      <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px">
+        <section style="display: flex; flex-direction: column; gap: 8px; padding: 20px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg)">
+          <h2 style="margin: 0; font-size: 11px; font-weight: 600; letter-spacing: .14em; color: var(--mute)">RECENTLY OPENED</h2>
+          <a href="Main.dc.html">Type 1 diabetes mellitus</a>
+          <a href="#">Multiple sclerosis</a>
+          <a href="#">Systemic lupus erythematosus</a>
+        </section>
+        <section style="display: flex; flex-direction: column; gap: 10px; padding: 20px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg)">
+          <h2 style="margin: 0; font-size: 11px; font-weight: 600; letter-spacing: .14em; color: var(--mute)">BROWSE BY TISSUE</h2>
+          <div style="display: flex; flex-wrap: wrap; gap: 6px">
+            <a href="#" style="padding: 4px 10px; border-radius: 999px; border: 1px solid var(--line-strong); text-decoration: none; font-size: 13px">Skin</a>
+            <a href="#" style="padding: 4px 10px; border-radius: 999px; border: 1px solid var(--line-strong); text-decoration: none; font-size: 13px">Nervous system</a>
+            <a href="#" style="padding: 4px 10px; border-radius: 999px; border: 1px solid var(--line-strong); text-decoration: none; font-size: 13px">Blood</a>
+            <a href="#" style="padding: 4px 10px; border-radius: 999px; border: 1px solid var(--line-strong); text-decoration: none; font-size: 13px">Thyroid gland</a>
+            <a href="#" style="padding: 4px 10px; border-radius: 999px; border: 1px solid var(--line-strong); text-decoration: none; font-size: 13px">Eye</a>
+            <a href="#" style="padding: 4px 10px; border-radius: 999px; border: 1px solid var(--line-strong); text-decoration: none; font-size: 13px">Kidney</a>
+            <a href="#" style="padding: 4px 10px; border-radius: 999px; border: 1px solid var(--line-strong); text-decoration: none; font-size: 13px">Musculoskeletal</a>
+            <a href="#" style="padding: 4px 10px; border-radius: 999px; border: 1px solid var(--line-strong); text-decoration: none; font-size: 13px">All 23 tissues</a>
+          </div>
+        </section>
+      </div>
+    </div>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {
+      symptoms: [
+        { name: 'Rash', n: '27 diseases', opens: 'Opens the list of 27 diseases with this symptom' },
+        { name: 'Butterfly-shaped rash', n: '3 diseases', opens: 'Opens the list: Systemic lupus erythematosus, Mixed collagen vascular disease, Undifferentiated connective tissue disease' },
+        { name: 'Itchy rash', n: '1 disease', opens: 'Dermatitis herpetiformis › Symptoms' },
+        { name: 'Painful rashes', n: '1 disease', opens: 'Cutaneous lupus erythematosus › Symptoms' },
+        { name: 'A salmon/pink-colored rash on chest and thighs during fever', n: '1 disease', opens: "Adult onset Still's disease › Symptoms" }
+      ]
+    };
+  }
+}
+</script>
+</body>
+</html>

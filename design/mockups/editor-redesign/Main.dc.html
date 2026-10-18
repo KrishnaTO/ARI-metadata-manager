@@ -1,0 +1,670 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Record, read mode</title>
+<script src="../support.js"></script>
+<link rel="stylesheet" href="ds/ari-catalog/tokens.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@200;300;400;500;600&display=swap">
+<style>
+body{margin:0}
+a{color:#155160}a:hover{color:#0f2840}
+button,input,textarea,select{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid #1f6b7a;outline-offset:2px}
+/* Under 1400px wide the disease index becomes an overlay opened from the menu button, and the bar keeps icons only. */
+.rail{display:flex}
+.scrim{display:none}
+.namebar{padding:22px 48px 18px}
+.rec-title{font-size:44px}
+.secnav{padding:24px 12px 32px 36px}
+.reading{padding:24px 48px 64px 24px}
+@media (min-width:1400px){.rail.toggled{display:none}}
+@media (max-width:1399px){
+.rail{display:none;position:absolute;top:0;left:0;bottom:0;z-index:20;box-shadow:var(--shadow-3)}
+.rail.toggled{display:flex}
+.scrim.toggled{display:block}
+.lbl,.wm-sub{display:none}
+.namebar{padding:18px 32px 14px}
+.secnav{padding:20px 8px 32px 20px}
+.reading{padding:20px 32px 48px 16px}
+}
+/* Short screens: a slimmer disease-name bar leaves more of the height to the record. */
+@media (max-height:760px){.namebar{padding-top:12px;padding-bottom:10px}.rec-title{font-size:34px}}
+</style>
+</helmet>
+<div data-theme="light" style="height: 100vh; min-height: 640px; overflow: hidden; display: flex; flex-direction: column; background: var(--bg); color: var(--ink); font-family: var(--font-sans); font-size: 14px; line-height: 1.5">
+
+  <!-- Top bar: find, the review matrix, your changes, help, settings, account -->
+  <header style="height: 56px; flex: none; display: flex; align-items: center; gap: 12px; padding: 0 16px; background: var(--bar); color: #fff">
+    <button onClick="{{toggleRail}}" aria-label="{{railLabel}}" title="{{railLabel}}" aria-expanded="{{railShown}}" aria-controls="disease-index" style="width: 40px; height: 40px; flex: none; display: grid; place-items: center; border: 0; border-radius: 8px; background: rgba(255,255,255,.08); color: #fff">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+    </button>
+    <a href="#" style="flex: none; display: flex; align-items: baseline; gap: 10px; color: #fff; text-decoration: none">
+      <span style="font-family: var(--font-cond); font-weight: 600; font-size: 22px; letter-spacing: .01em">AUTOIMMUNE REGISTRY</span>
+      <span class="wm-sub" style="font-size: 10px; font-weight: 600; letter-spacing: .14em; color: var(--sky)">METADATA MANAGER</span>
+    </a>
+    <div style="flex: 1 1 360px; max-width: 620px; min-width: 0; margin-left: 12px; height: 38px; display: flex; align-items: center; gap: 10px; padding: 0 10px 0 12px; border-radius: 8px; background: rgba(255,255,255,.10); box-shadow: inset 0 0 0 1px rgba(255,255,255,.14)">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true" style="flex: none; opacity: .75"><circle cx="11" cy="11" r="7"/><path d="M16.5 16.5 21 21"/></svg>
+      <input aria-label="Search" placeholder="Search diseases, synonyms, codes or symptoms" style="flex: 1 1 auto; min-width: 0; border: 0; background: none; color: #fff; font-size: 14px; outline: none">
+      <kbd style="flex: none; padding: 1px 7px; border-radius: 4px; border: 1px solid rgba(255,255,255,.3); font-family: var(--font-mono); font-size: 11px; color: rgba(255,255,255,.75)">/</kbd>
+    </div>
+    <span style="flex: 1 1 0"></span>
+    <a href="#" aria-label="Cross-references" title="Cross-references" style="flex: none; height: 40px; display: flex; align-items: center; gap: 8px; padding: 0 10px; border-radius: 8px; color: #fff; text-decoration: none; font-size: 13px">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M9 4v16"/></svg>
+      <span class="lbl">Cross-references</span>
+    </a>
+    <a href="Submit.dc.html" aria-label="Your changes, 3" title="Your changes" style="flex: none; height: 36px; display: flex; align-items: center; gap: 8px; padding: 0 12px; border: 1px solid rgba(255,255,255,.28); border-radius: 8px; color: #fff; font-size: 13px; text-decoration: none">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 13h4l2 3h4l2-3h4"/><path d="M5.5 5h13L20 13v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-5z"/></svg>
+      <span class="lbl">Your changes</span>
+      <span style="min-width: 20px; height: 20px; padding: 0 6px; box-sizing: border-box; display: grid; place-items: center; border-radius: 999px; background: var(--sky); color: var(--ink); font-family: var(--font-mono); font-size: 11px; font-weight: 500">3</span>
+    </a>
+    <button aria-label="How this works" style="width: 40px; height: 40px; flex: none; display: grid; place-items: center; border: 0; border-radius: 8px; background: none; color: rgba(255,255,255,.8)">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.6 9.2a2.5 2.5 0 1 1 3.3 2.4c-.6.2-.9.7-.9 1.3v.6"/><path d="M12 17h.01"/></svg>
+    </button>
+    <button aria-label="Settings" style="width: 40px; height: 40px; flex: none; display: grid; place-items: center; border: 0; border-radius: 8px; background: none; color: rgba(255,255,255,.8)">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.6 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+    </button>
+    <button aria-label="Account" style="width: 34px; height: 34px; flex: none; display: grid; place-items: center; border: 0; border-radius: 999px; background: var(--sky); color: var(--ink)">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/></svg>
+    </button>
+  </header>
+
+  <div style="flex: 1 1 auto; display: flex; align-items: stretch; min-height: 0; position: relative">
+
+    <!-- Disease index: docked on wide screens, an overlay below 1400px -->
+    <button class="scrim {{railCls}}" onClick="{{closeRail}}" tabindex="-1" aria-label="Close the disease index" style="position: absolute; inset: 0; z-index: 15; border: 0; padding: 0; background: rgba(15,40,64,.4)"></button>
+    <nav id="disease-index" class="rail {{railCls}}" aria-label="Disease index" style="flex: 0 0 280px; width: 280px; box-sizing: border-box; flex-direction: column; background: var(--paper); border-right: 1px solid var(--line)">
+      <div style="padding: 16px 16px 12px; display: flex; flex-direction: column; gap: 10px; border-bottom: 1px solid var(--line)">
+        <div style="display: flex; padding: 3px; border-radius: 999px; background: var(--bone)">
+          <button aria-pressed="true" style="flex: 1 1 0; height: 30px; border: 0; border-radius: 999px; background: var(--bg); box-shadow: var(--shadow-1); font-size: 13px; font-weight: 500">A–Z</button>
+          <button aria-pressed="false" style="flex: 1 1 0; height: 30px; border: 0; border-radius: 999px; background: none; font-size: 13px; color: var(--mute)">By tissue</button>
+        </div>
+        <input aria-label="Filter the index" placeholder="Filter the index" style="height: 34px; box-sizing: border-box; padding: 0 10px; border: 1px solid var(--line-strong); border-radius: 6px; background: var(--bg); font-size: 13px">
+        <label style="display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--mute)">
+          <input type="checkbox" style="width: 16px; height: 16px; margin: 0; accent-color: #1f6b7a">
+          Confirmed autoimmune only
+        </label>
+      </div>
+      <ul style="list-style: none; margin: 0; padding: 8px; flex: 1 1 auto; min-height: 0; overflow: auto; display: flex; flex-direction: column; gap: 1px; font-size: 14px">
+        <sc-for list="{{index}}" as="row" hint-placeholder-count="14">
+          <li style="display: flex">
+            <sc-if value="{{row.selected}}" hint-placeholder-val="{{false}}">
+              <a href="#" aria-current="page" style="flex: 1 1 auto; display: flex; align-items: center; gap: 8px; min-height: 34px; padding: 4px 10px 4px {{row.pad}}px; border-radius: 6px; background: var(--accent-050); color: var(--ink); font-weight: 600; text-decoration: none">
+                <span style="flex: 1 1 auto">{{row.name}}</span>
+                <span role="img" aria-label="{{row.markLabel}}" title="{{row.markLabel}}" style="flex: none; width: 8px; height: 8px; border-radius: 999px; box-sizing: border-box; border: 1.5px solid var(--accent); background: {{row.markFill}}"></span>
+              </a>
+            </sc-if>
+            <sc-if value="{{row.plain}}" hint-placeholder-val="{{true}}">
+              <a href="#" style="flex: 1 1 auto; display: flex; align-items: center; gap: 8px; min-height: 34px; padding: 4px 10px 4px {{row.pad}}px; border-radius: 6px; color: var(--ink); text-decoration: none">
+                <span style="flex: 1 1 auto">{{row.name}}</span>
+                <sc-if value="{{row.hasMark}}" hint-placeholder-val="{{true}}">
+                  <span role="img" aria-label="{{row.markLabel}}" title="{{row.markLabel}}" style="flex: none; width: 8px; height: 8px; border-radius: 999px; box-sizing: border-box; border: 1.5px solid var(--accent); background: {{row.markFill}}"></span>
+                </sc-if>
+              </a>
+            </sc-if>
+          </li>
+        </sc-for>
+      </ul>
+      <div style="padding: 12px 16px 16px; border-top: 1px solid var(--line); display: flex; flex-direction: column; gap: 12px">
+        <div style="display: flex; flex-direction: column; gap: 2px; font-size: 12px; color: var(--mute)">
+          <span style="display: inline-flex; align-items: center; gap: 6px"><span aria-hidden="true" style="width: 8px; height: 8px; border-radius: 999px; background: var(--accent); box-sizing: border-box; border: 1.5px solid var(--accent)"></span>Confirmed autoimmune</span>
+          <span style="display: inline-flex; align-items: center; gap: 6px"><span aria-hidden="true" style="width: 8px; height: 8px; border-radius: 999px; box-sizing: border-box; border: 1.5px solid var(--accent)"></span>Autoimmune, unconfirmed</span>
+        </div>
+        <button style="height: 36px; display: flex; align-items: center; justify-content: center; gap: 8px; border: 1px solid var(--line-strong); border-radius: 8px; background: var(--bg); font-size: 13px">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+          New disease…
+        </button>
+      </div>
+    </nav>
+
+    <!-- The record -->
+    <main style="flex: 1 1 auto; min-width: 0; min-height: 0; display: flex; flex-direction: column">
+      <!-- Disease-name bar: stays put; only the record below it scrolls -->
+      <div class="namebar" style="flex: none; position: relative; z-index: 1; border-bottom: 1px solid var(--line); background: var(--bg); box-shadow: 0 6px 12px -10px rgba(15,40,64,.35); display: flex; flex-wrap: wrap; align-items: flex-end; gap: 16px 24px">
+        <div style="flex: 1 1 420px; min-width: 0">
+          <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; font-size: 12px; color: var(--mute)">
+            <span style="display: inline-flex; align-items: center; gap: 4px">
+              <span style="font-family: var(--font-mono); color: var(--accent-strong)">ARI:0001080</span>
+              <button aria-label="Copy the IRI for this disease" style="width: 28px; height: 28px; display: grid; place-items: center; border: 0; border-radius: 6px; background: none; color: var(--mute)">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>
+              </button>
+            </span>
+            <span aria-hidden="true">·</span>
+            <span>Autoimmune</span>
+            <span aria-hidden="true">·</span>
+            <span style="display: inline-flex; align-items: center; gap: 6px; padding: 2px 9px; border-radius: 999px; background: var(--success-bg); color: var(--ink); font-weight: 500"><span aria-hidden="true" style="width: 6px; height: 6px; border-radius: 999px; background: var(--success)"></span>High evidence</span>
+          </div>
+          <h1 class="rec-title" style="margin: 8px 0 0; font-weight: 200; line-height: 1.04; letter-spacing: -0.025em">Type 1 diabetes mellitus</h1>
+        </div>
+        <div style="flex: none; display: flex; align-items: center; gap: 8px">
+          <button style="height: 38px; display: flex; align-items: center; gap: 8px; padding: 0 14px; border: 1px solid var(--line-strong); border-radius: 8px; background: var(--bg); font-size: 13px">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/></svg>
+            Copy link
+          </button>
+          <a href="Edit.dc.html" style="height: 38px; display: flex; align-items: center; gap: 8px; padding: 0 16px; border-radius: 8px; background: var(--btn-fill); color: #fff; font-size: 13px; font-weight: 500; text-decoration: none">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16v4z"/></svg>
+            Edit record
+          </a>
+        </div>
+      </div>
+
+      <div style="flex: 1 1 auto; min-height: 0; overflow: auto; display: flex; align-items: flex-start">
+        <!-- Sections of this record: always on screen, so changing section never means scrolling back up -->
+        <nav class="secnav" aria-label="Sections of this record" style="flex: 0 0 216px; box-sizing: border-box; position: sticky; top: 0; display: flex; flex-direction: column; gap: 14px">
+          <sc-for list="{{navGroups}}" as="g" hint-placeholder-count="5">
+            <div style="display: flex; flex-direction: column; gap: 1px">
+              <sc-if value="{{g.hasTitle}}" hint-placeholder-val="{{true}}">
+                <div style="padding: 0 10px 4px; font-size: 11px; font-weight: 600; letter-spacing: .12em; color: var(--mute)">{{g.title}}</div>
+              </sc-if>
+              <sc-for list="{{g.items}}" as="it" hint-placeholder-count="4">
+                <sc-if value="{{it.active}}" hint-placeholder-val="{{false}}">
+                  <button onClick="{{it.pick}}" aria-current="true" style="display: flex; align-items: center; gap: 8px; min-height: 30px; padding: 0 10px; border: 0; border-radius: 6px; background: var(--accent-050); text-align: left; font-size: 13px; font-weight: 600; color: var(--ink)">
+                    <span style="flex: 1 1 auto">{{it.label}}</span>
+                    <span style="font-family: var(--font-mono); font-size: 11px; color: var(--accent-strong)">{{it.count}}</span>
+                  </button>
+                </sc-if>
+                <sc-if value="{{it.inactive}}" hint-placeholder-val="{{true}}">
+                  <button onClick="{{it.pick}}" style="display: flex; align-items: center; gap: 8px; min-height: 30px; padding: 0 10px; border: 0; border-radius: 6px; background: none; text-align: left; font-size: 13px; color: var(--ink)">
+                    <span style="flex: 1 1 auto">{{it.label}}</span>
+                    <span style="font-family: var(--font-mono); font-size: 11px; color: var(--mute)">{{it.count}}</span>
+                  </button>
+                </sc-if>
+              </sc-for>
+            </div>
+          </sc-for>
+        </nav>
+
+        <div class="reading" style="flex: 999 1 460px; min-width: 0; max-width: 880px; box-sizing: border-box">
+
+          <!-- Overview -->
+          <sc-if value="{{isOverview}}" hint-placeholder-val="{{true}}">
+            <div style="display: flex; flex-direction: column; gap: 36px">
+              <section aria-label="Definition" style="display: flex; flex-direction: column; gap: 12px">
+                <p style="margin: 0; max-width: 64ch; font-size: 17px; line-height: 1.65">Type 1 diabetes is a chronic autoimmune disease characterized by the destruction of pancreatic beta cells in the islets of Langerhans, leading to absolute insulin deficiency and hyperglycemia. The autoimmune attack is mediated by autoreactive T-cells targeting beta-cell antigens including insulin, GAD65, IA-2, and ZnT8.</p>
+                <div style="display: flex; flex-wrap: wrap; gap: 6px 16px; align-items: baseline; font-size: 12px">
+                  <a href="#" style="font-family: var(--font-mono)">ADA Standards of Care 2025</a>
+                  <a href="#" style="font-family: var(--font-mono)">PMID 38393374</a>
+                  <span style="color: var(--mute)">Profile by Neha Sha Ramjuttun, February 2025</span>
+                </div>
+              </section>
+
+              <section aria-labelledby="facts-h" style="display: flex; flex-direction: column; gap: 4px">
+                <h2 id="facts-h" style="margin: 0 0 6px; font-size: 11px; font-weight: 600; letter-spacing: .14em; color: var(--mute)">AT A GLANCE</h2>
+                <dl style="margin: 0; display: grid; grid-template-columns: minmax(120px, 160px) minmax(0, 1fr); border-top: 1px solid var(--line)">
+                  <dt style="padding: 12px 0; border-bottom: 1px solid var(--line); color: var(--mute); font-size: 13px">Synonyms <span style="font-family: var(--font-mono); font-size: 11px">9</span></dt>
+                  <dd style="margin: 0; padding: 10px 0; border-bottom: 1px solid var(--line); display: flex; flex-wrap: wrap; gap: 6px">
+                    <sc-for list="{{synonyms}}" as="s" hint-placeholder-count="9">
+                      <span style="padding: 3px 9px; border-radius: 4px; background: var(--paper); border: 1px solid var(--line); font-size: 13px">{{s}}</span>
+                    </sc-for>
+                  </dd>
+                  <dt style="padding: 12px 0; border-bottom: 1px solid var(--line); color: var(--mute); font-size: 13px">Target tissue</dt>
+                  <dd style="margin: 0; padding: 10px 0; border-bottom: 1px solid var(--line); display: flex; flex-wrap: wrap; gap: 6px">
+                    <span style="padding: 3px 9px; border-radius: 4px; background: var(--accent-050); border: 1px solid var(--accent-border); font-size: 13px">Pancreatic beta cell</span>
+                    <span style="padding: 3px 9px; border-radius: 4px; background: var(--accent-050); border: 1px solid var(--accent-border); font-size: 13px">Islet of Langerhans</span>
+                    <span style="padding: 3px 9px; border-radius: 4px; background: var(--accent-050); border: 1px solid var(--accent-border); font-size: 13px">Pancreas</span>
+                  </dd>
+                  <dt style="padding: 12px 0; border-bottom: 1px solid var(--line); color: var(--mute); font-size: 13px">Clinical subtypes</dt>
+                  <dd style="margin: 0; padding: 10px 0; border-bottom: 1px solid var(--line); display: flex; flex-direction: column; gap: 4px; font-size: 14px">
+                    <span><strong style="font-weight: 600">Type 1 diabetes, autoimmune</strong> <span style="color: var(--mute)">— T-cell mediated destruction of pancreatic β-cells.</span></span>
+                    <span><strong style="font-weight: 600">Type 1 diabetes, idiopathic</strong> <span style="color: var(--mute)">— No detectable autoantibodies.</span></span>
+                  </dd>
+                  <dt style="padding: 12px 0; border-bottom: 1px solid var(--line); color: var(--mute); font-size: 13px">Subtypes in the index</dt>
+                  <dd style="margin: 0; padding: 10px 0; border-bottom: 1px solid var(--line); display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 14px">
+                    <a href="#">Fulminant type 1 diabetes</a>
+                    <a href="#">Latent autoimmune diabetes in adults (LADA)</a>
+                  </dd>
+                </dl>
+              </section>
+
+              <section aria-labelledby="xref-h" style="display: flex; flex-direction: column; gap: 10px">
+                <div style="display: flex; align-items: baseline; gap: 12px">
+                  <h2 id="xref-h" style="margin: 0; font-size: 11px; font-weight: 600; letter-spacing: .14em; color: var(--mute)">CROSS-REFERENCES</h2>
+                  <span style="font-family: var(--font-mono); font-size: 11px; color: var(--mute)">9 of 9 databases</span>
+                  <span style="flex: 1 1 auto"></span>
+                  <a href="#" style="font-size: 13px">Review in the matrix</a>
+                </div>
+                <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1px; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: var(--line)">
+                  <sc-for list="{{xrefs}}" as="x" hint-placeholder-count="9">
+                    <a href="#" style="display: flex; align-items: baseline; justify-content: space-between; gap: 8px; padding: 10px 14px; background: var(--bg); text-decoration: none">
+                      <span style="font-family: var(--font-mono); font-size: 11px; letter-spacing: .04em; color: var(--mute)">{{x.db}}</span>
+                      <span style="font-family: var(--font-mono); font-size: 13px; color: var(--accent-strong)">{{x.id}}</span>
+                    </a>
+                  </sc-for>
+                </div>
+              </section>
+
+              <section aria-labelledby="rec-h" style="display: flex; flex-direction: column; gap: 4px">
+                <h2 id="rec-h" style="margin: 0 0 6px; font-size: 11px; font-weight: 600; letter-spacing: .14em; color: var(--mute)">RECORDED FOR THIS DISEASE</h2>
+                <div style="display: flex; flex-direction: column; border-top: 1px solid var(--line)">
+                  <sc-for list="{{recorded}}" as="r" hint-placeholder-count="9">
+                    <button onClick="{{r.pick}}" style="display: grid; grid-template-columns: minmax(130px, 170px) 40px minmax(0, 1fr) 16px; align-items: center; gap: 12px; min-height: 44px; padding: 8px 4px; border: 0; border-bottom: 1px solid var(--line); background: none; text-align: left">
+                      <span style="font-size: 14px; font-weight: 500">{{r.label}}</span>
+                      <span style="font-family: var(--font-mono); font-size: 12px; color: var(--accent-strong); text-align: right">{{r.count}}</span>
+                      <span style="font-size: 13px; color: var(--mute); white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{r.preview}}</span>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="color: var(--mute)"><path d="m9 6 6 6-6 6"/></svg>
+                    </button>
+                  </sc-for>
+                </div>
+              </section>
+
+              <section aria-labelledby="ext-h" style="display: flex; flex-direction: column; gap: 10px">
+                <h2 id="ext-h" style="margin: 0; font-size: 11px; font-weight: 600; letter-spacing: .14em; color: var(--mute)">PATIENT AND CLINICAL RESOURCES <span style="font-family: var(--font-mono); letter-spacing: 0">12</span></h2>
+                <div style="display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 13px">
+                  <sc-for list="{{refs}}" as="l" hint-placeholder-count="12">
+                    <a href="#">{{l}}</a>
+                  </sc-for>
+                </div>
+              </section>
+            </div>
+          </sc-if>
+
+          <!-- One section -->
+          <sc-if value="{{isSection}}" hint-placeholder-val="{{false}}">
+            <section aria-labelledby="sec-h" style="display: flex; flex-direction: column; gap: 14px">
+              <div style="display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px 24px">
+                <div style="flex: 1 1 320px; min-width: 0">
+                  <div style="font-size: 11px; font-weight: 600; letter-spacing: .14em; color: var(--mute)">{{sec.eyebrow}}</div>
+                  <h2 id="sec-h" style="margin: 4px 0 0; font-weight: 300; font-size: 30px; letter-spacing: -0.018em">{{sec.title}} <span style="font-family: var(--font-mono); font-size: 14px; color: var(--accent-strong); letter-spacing: 0">{{sec.count}}</span></h2>
+                  <p style="margin: 6px 0 0; max-width: 72ch; font-size: 13px; color: var(--mute)">{{sec.desc}}</p>
+                </div>
+                <a href="Edit.dc.html" style="flex: none; height: 36px; display: flex; align-items: center; padding: 0 14px; border: 1px solid var(--line-strong); border-radius: 8px; color: var(--ink); font-size: 13px; text-decoration: none">Edit items</a>
+              </div>
+              <!-- Pathophysiology map: the cascade down the middle, and the genes, triggers,
+                   antigens, antibodies and immune mediators the app links to each step. -->
+              <sc-if value="{{isPatho}}" hint-placeholder-val="{{false}}">
+                <figure aria-label="Pathophysiology map" style="margin: 0 0 8px; display: flex; flex-direction: column; gap: 10px">
+                  <div style="display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 12px; color: var(--mute)">
+                    <span style="display: inline-flex; align-items: center; gap: 6px"><span aria-hidden="true" style="width: 10px; height: 10px; border-radius: 999px; background: var(--cat-genetic)"></span>Genetic</span>
+                    <span style="display: inline-flex; align-items: center; gap: 6px"><span aria-hidden="true" style="width: 10px; height: 10px; border-radius: 999px; background: var(--cat-trigger)"></span>Trigger</span>
+                    <span style="display: inline-flex; align-items: center; gap: 6px"><span aria-hidden="true" style="width: 10px; height: 10px; border-radius: 999px; background: var(--cat-immune)"></span>Immune</span>
+                    <span style="display: inline-flex; align-items: center; gap: 6px"><span aria-hidden="true" style="width: 10px; height: 10px; border-radius: 999px; background: var(--cat-antibody)"></span>Antibody</span>
+                    <span style="display: inline-flex; align-items: center; gap: 6px"><span aria-hidden="true" style="width: 10px; height: 10px; border-radius: 999px; background: var(--cat-tissuedamage)"></span>Tissue damage</span>
+                    <span style="display: inline-flex; align-items: center; gap: 6px"><span aria-hidden="true" style="width: 10px; height: 10px; border-radius: 999px; background: var(--cat-outcome)"></span>Outcome</span>
+                  </div>
+                  <div style="overflow-x: auto; padding: 16px 0; border-radius: 8px; background: var(--paper)">
+                  <div style="position: relative; width: 800px; height: 836px; margin: 0 auto">
+                    <!-- spine: step to step -->
+                    <svg width="8" height="49" viewBox="0 0 8 49" preserveAspectRatio="none" style="position: absolute; left: 396px; top: 69px; width: 8px; height: 49px; overflow: visible; fill: none; stroke: #5c6675; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round"><defs><marker id="dc-arrow-head-filled-1" orient="auto" markerWidth="5" markerHeight="5" refX="2" refY="2" overflow="visible"><path d="M0 0 L4 2 L0 4 Z" fill="#5c6675" stroke="none" style="stroke: none; fill: #5c6675; fill: context-stroke"/></marker></defs><path d="M 4 0 L 4 45" marker-end="url(#dc-arrow-head-filled-1)"></path></svg>
+                    <svg width="8" height="32" viewBox="0 0 8 32" preserveAspectRatio="none" style="position: absolute; left: 396px; top: 163px; width: 8px; height: 32px; overflow: visible; fill: none; stroke: #5c6675; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round"><defs><marker id="dc-arrow-head-filled-2" orient="auto" markerWidth="5" markerHeight="5" refX="2" refY="2" overflow="visible"><path d="M0 0 L4 2 L0 4 Z" fill="#5c6675" stroke="none" style="stroke: none; fill: #5c6675; fill: context-stroke"/></marker></defs><path d="M 4 0 L 4 28" marker-end="url(#dc-arrow-head-filled-2)"></path></svg>
+                    <svg width="8" height="49" viewBox="0 0 8 49" preserveAspectRatio="none" style="position: absolute; left: 396px; top: 240px; width: 8px; height: 49px; overflow: visible; fill: none; stroke: #5c6675; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round"><defs><marker id="dc-arrow-head-filled-3" orient="auto" markerWidth="5" markerHeight="5" refX="2" refY="2" overflow="visible"><path d="M0 0 L4 2 L0 4 Z" fill="#5c6675" stroke="none" style="stroke: none; fill: #5c6675; fill: context-stroke"/></marker></defs><path d="M 4 0 L 4 45" marker-end="url(#dc-arrow-head-filled-3)"></path></svg>
+                    <svg width="8" height="83" viewBox="0 0 8 83" preserveAspectRatio="none" style="position: absolute; left: 396px; top: 334px; width: 8px; height: 83px; overflow: visible; fill: none; stroke: #5c6675; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round"><defs><marker id="dc-arrow-head-filled-4" orient="auto" markerWidth="5" markerHeight="5" refX="2" refY="2" overflow="visible"><path d="M0 0 L4 2 L0 4 Z" fill="#5c6675" stroke="none" style="stroke: none; fill: #5c6675; fill: context-stroke"/></marker></defs><path d="M 4 0 L 4 79" marker-end="url(#dc-arrow-head-filled-4)"></path></svg>
+                    <svg width="8" height="83" viewBox="0 0 8 83" preserveAspectRatio="none" style="position: absolute; left: 396px; top: 462px; width: 8px; height: 83px; overflow: visible; fill: none; stroke: #5c6675; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round"><defs><marker id="dc-arrow-head-filled-5" orient="auto" markerWidth="5" markerHeight="5" refX="2" refY="2" overflow="visible"><path d="M0 0 L4 2 L0 4 Z" fill="#5c6675" stroke="none" style="stroke: none; fill: #5c6675; fill: context-stroke"/></marker></defs><path d="M 4 0 L 4 79" marker-end="url(#dc-arrow-head-filled-5)"></path></svg>
+                    <svg width="8" height="83" viewBox="0 0 8 83" preserveAspectRatio="none" style="position: absolute; left: 396px; top: 590px; width: 8px; height: 83px; overflow: visible; fill: none; stroke: #5c6675; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round"><defs><marker id="dc-arrow-head-filled-6" orient="auto" markerWidth="5" markerHeight="5" refX="2" refY="2" overflow="visible"><path d="M0 0 L4 2 L0 4 Z" fill="#5c6675" stroke="none" style="stroke: none; fill: #5c6675; fill: context-stroke"/></marker></defs><path d="M 4 0 L 4 79" marker-end="url(#dc-arrow-head-filled-6)"></path></svg>
+                    <svg width="8" height="49" viewBox="0 0 8 49" preserveAspectRatio="none" style="position: absolute; left: 396px; top: 718px; width: 8px; height: 49px; overflow: visible; fill: none; stroke: #5c6675; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round"><defs><marker id="dc-arrow-head-filled-7" orient="auto" markerWidth="5" markerHeight="5" refX="2" refY="2" overflow="visible"><path d="M0 0 L4 2 L0 4 Z" fill="#5c6675" stroke="none" style="stroke: none; fill: #5c6675; fill: context-stroke"/></marker></defs><path d="M 4 0 L 4 45" marker-end="url(#dc-arrow-head-filled-7)"></path></svg>
+
+                    <!-- links, step 1 -->
+                    <svg width="20" height="8" viewBox="0 0 20 8" preserveAspectRatio="none" style="position: absolute; left: 230px; top: 26px; width: 20px; height: 8px; overflow: visible; fill: none; stroke: #c2cad4; stroke-width: 1.5; stroke-linecap: round"><path d="M 0 4 L 20 4"></path></svg>
+                    <svg width="20" height="8" viewBox="0 0 20 8" preserveAspectRatio="none" style="position: absolute; left: 230px; top: 60px; width: 20px; height: 8px; overflow: visible; fill: none; stroke: #c2cad4; stroke-width: 1.5; stroke-linecap: round"><path d="M 0 4 L 20 4"></path></svg>
+                    <svg width="8" height="34" viewBox="0 0 8 34" preserveAspectRatio="none" style="position: absolute; left: 246px; top: 30px; width: 8px; height: 34px; overflow: visible; fill: none; stroke: #c2cad4; stroke-width: 1.5; stroke-linecap: round"><path d="M 4 0 L 4 34"></path></svg>
+                    <svg width="20" height="8" viewBox="0 0 20 8" preserveAspectRatio="none" style="position: absolute; left: 250px; top: 43px; width: 20px; height: 8px; overflow: visible; fill: none; stroke: #c2cad4; stroke-width: 1.5; stroke-linecap: round"><path d="M 0 4 L 20 4"></path></svg>
+                    <svg width="20" height="8" viewBox="0 0 20 8" preserveAspectRatio="none" style="position: absolute; left: 530px; top: 43px; width: 20px; height: 8px; overflow: visible; fill: none; stroke: #c2cad4; stroke-width: 1.5; stroke-linecap: round"><path d="M 0 4 L 20 4"></path></svg>
+                    <svg width="8" height="34" viewBox="0 0 8 34" preserveAspectRatio="none" style="position: absolute; left: 546px; top: 30px; width: 8px; height: 34px; overflow: visible; fill: none; stroke: #c2cad4; stroke-width: 1.5; stroke-linecap: round"><path d="M 4 0 L 4 34"></path></svg>
+                    <svg width="20" height="8" viewBox="0 0 20 8" preserveAspectRatio="none" style="position: absolute; left: 550px; top: 26px; width: 20px; height: 8px; overflow: visible; fill: none; stroke: #c2cad4; stroke-width: 1.5; stroke-linecap: round"><path d="M 0 4 L 20 4"></path></svg>
+                    <svg width="20" height="8" viewBox="0 0 20 8" preserveAspectRatio="none" style="position: absolute; left: 550px; top: 60px; width: 20px; height: 8px; overflow: visible; fill: none; stroke: #c2cad4; stroke-width: 1.5; stroke-linecap: round"><path d="M 0 4 L 20 4"></path></svg>
+                    <!-- links, step 2 -->
+                    <svg width="20" height="8" viewBox="0 0 20 8" preserveAspectRatio="none" style="position: absolute; left: 230px; top: 120px; width: 20px; height: 8px; overflow: visible; fill: none; stroke: #c2cad4; stroke-width: 1.5; stroke-linecap: round"><path d="M 0 4 L 20 4"></path></svg>
+                    <svg width="20" height="8" viewBox="0 0 20 8" preserveAspectRatio="none" style="position: absolute; left: 230px; top: 154px; width: 20px; height: 8px; overflow: visible; fill: none; stroke: #c2cad4; stroke-width: 1.5; stroke-linecap: round"><path d="M 0 4 L 20 4"></path></svg>
+                    <svg width="8" height="34" viewBox="0 0 8 34" preserveAspectRatio="none" style="position: absolute; left: 246px; top: 124px; width: 8px; height: 34px; overflow: visible; fill: none; stroke: #c2cad4; stroke-width: 1.5; stroke-linecap: round"><path d="M 4 0 L 4 34"></path></svg>
+                    <svg width="20" height="8" viewBox="0 0 20 8" preserveAspectRatio="none" style="position: absolute; left: 250px; top: 137px; width: 20px; height: 8px; overflow: visible; fill: none; stroke: #c2cad4; stroke-width: 1.5; stroke-linecap: round"><path d="M 0 4 L 20 4"></path></svg>
+                    <svg width="40" height="8" viewBox="0 0 40 8" preserveAspectRatio="none" style="position: absolute; left: 530px; top: 137px; width: 40px; height: 8px; overflow: visible; fill: none; stroke: #c2cad4; stroke-width: 1.5; stroke-linecap: round"><path d="M 0 4 L 40 4"></path></svg>
+                    <!-- links, step 4 -->
+                    <svg width="20" height="8" viewBox="0 0 20 8" preserveAspectRatio="none" style="position: absolute; left: 230px; top: 274px; width: 20px; height: 8px; overflow: visible; fill: none; stroke: #c2cad4; stroke-width: 1.5; stroke-linecap: round"><path d="M 0 4 L 20 4"></path></svg>
+                    <svg width="20" height="8" viewBox="0 0 20 8" preserveAspectRatio="none" style="position: absolute; left: 230px; top: 308px; width: 20px; height: 8px; overflow: visible; fill: none; stroke: #c2cad4; stroke-width: 1.5; stroke-linecap: round"><path d="M 0 4 L 20 4"></path></svg>
+                    <svg width="20" height="8" viewBox="0 0 20 8" preserveAspectRatio="none" style="position: absolute; left: 230px; top: 342px; width: 20px; height: 8px; overflow: visible; fill: none; stroke: #c2cad4; stroke-width: 1.5; stroke-linecap: round"><path d="M 0 4 L 20 4"></path></svg>
+                    <svg width="8" height="68" viewBox="0 0 8 68" preserveAspectRatio="none" style="position: absolute; left: 246px; top: 278px; width: 8px; height: 68px; overflow: visible; fill: none; stroke: #c2cad4; stroke-width: 1.5; stroke-linecap: round"><path d="M 4 0 L 4 68"></path></svg>
+                    <svg width="20" height="8" viewBox="0 0 20 8" preserveAspectRatio="none" style="position: absolute; left: 250px; top: 308px; width: 20px; height: 8px; overflow: visible; fill: none; stroke: #c2cad4; stroke-width: 1.5; stroke-linecap: round"><path d="M 0 4 L 20 4"></path></svg>
+                    <svg width="20" height="8" viewBox="0 0 20 8" preserveAspectRatio="none" style="position: absolute; left: 530px; top: 308px; width: 20px; height: 8px; overflow: visible; fill: none; stroke: #c2cad4; stroke-width: 1.5; stroke-linecap: round"><path d="M 0 4 L 20 4"></path></svg>
+                    <svg width="8" height="68" viewBox="0 0 8 68" preserveAspectRatio="none" style="position: absolute; left: 546px; top: 278px; width: 8px; height: 68px; overflow: visible; fill: none; stroke: #c2cad4; stroke-width: 1.5; stroke-linecap: round"><path d="M 4 0 L 4 68"></path></svg>
+                    <svg width="20" height="8" viewBox="0 0 20 8" preserveAspectRatio="none" style="position: absolute; left: 550px; top: 274px; width: 20px; height: 8px; overflow: visible; fill: none; stroke: #c2cad4; stroke-width: 1.5; stroke-linecap: round"><path d="M 0 4 L 20 4"></path></svg>
+                    <svg width="20" height="8" viewBox="0 0 20 8" preserveAspectRatio="none" style="position: absolute; left: 550px; top: 308px; width: 20px; height: 8px; overflow: visible; fill: none; stroke: #c2cad4; stroke-width: 1.5; stroke-linecap: round"><path d="M 0 4 L 20 4"></path></svg>
+                    <svg width="20" height="8" viewBox="0 0 20 8" preserveAspectRatio="none" style="position: absolute; left: 550px; top: 342px; width: 20px; height: 8px; overflow: visible; fill: none; stroke: #c2cad4; stroke-width: 1.5; stroke-linecap: round"><path d="M 0 4 L 20 4"></path></svg>
+                    <!-- links, step 5 -->
+                    <svg width="20" height="8" viewBox="0 0 20 8" preserveAspectRatio="none" style="position: absolute; left: 230px; top: 402px; width: 20px; height: 8px; overflow: visible; fill: none; stroke: #c2cad4; stroke-width: 1.5; stroke-linecap: round"><path d="M 0 4 L 20 4"></path></svg>
+                    <svg width="20" height="8" viewBox="0 0 20 8" preserveAspectRatio="none" style="position: absolute; left: 230px; top: 436px; width: 20px; height: 8px; overflow: visible; fill: none; stroke: #c2cad4; stroke-width: 1.5; stroke-linecap: round"><path d="M 0 4 L 20 4"></path></svg>
+                    <svg width="20" height="8" viewBox="0 0 20 8" preserveAspectRatio="none" style="position: absolute; left: 230px; top: 470px; width: 20px; height: 8px; overflow: visible; fill: none; stroke: #c2cad4; stroke-width: 1.5; stroke-linecap: round"><path d="M 0 4 L 20 4"></path></svg>
+                    <svg width="8" height="68" viewBox="0 0 8 68" preserveAspectRatio="none" style="position: absolute; left: 246px; top: 406px; width: 8px; height: 68px; overflow: visible; fill: none; stroke: #c2cad4; stroke-width: 1.5; stroke-linecap: round"><path d="M 4 0 L 4 68"></path></svg>
+                    <svg width="20" height="8" viewBox="0 0 20 8" preserveAspectRatio="none" style="position: absolute; left: 250px; top: 436px; width: 20px; height: 8px; overflow: visible; fill: none; stroke: #c2cad4; stroke-width: 1.5; stroke-linecap: round"><path d="M 0 4 L 20 4"></path></svg>
+                    <svg width="20" height="8" viewBox="0 0 20 8" preserveAspectRatio="none" style="position: absolute; left: 530px; top: 436px; width: 20px; height: 8px; overflow: visible; fill: none; stroke: #c2cad4; stroke-width: 1.5; stroke-linecap: round"><path d="M 0 4 L 20 4"></path></svg>
+                    <svg width="8" height="34" viewBox="0 0 8 34" preserveAspectRatio="none" style="position: absolute; left: 546px; top: 423px; width: 8px; height: 34px; overflow: visible; fill: none; stroke: #c2cad4; stroke-width: 1.5; stroke-linecap: round"><path d="M 4 0 L 4 34"></path></svg>
+                    <svg width="20" height="8" viewBox="0 0 20 8" preserveAspectRatio="none" style="position: absolute; left: 550px; top: 419px; width: 20px; height: 8px; overflow: visible; fill: none; stroke: #c2cad4; stroke-width: 1.5; stroke-linecap: round"><path d="M 0 4 L 20 4"></path></svg>
+                    <svg width="20" height="8" viewBox="0 0 20 8" preserveAspectRatio="none" style="position: absolute; left: 550px; top: 453px; width: 20px; height: 8px; overflow: visible; fill: none; stroke: #c2cad4; stroke-width: 1.5; stroke-linecap: round"><path d="M 0 4 L 20 4"></path></svg>
+                    <!-- links, step 6 -->
+                    <svg width="20" height="8" viewBox="0 0 20 8" preserveAspectRatio="none" style="position: absolute; left: 230px; top: 530px; width: 20px; height: 8px; overflow: visible; fill: none; stroke: #c2cad4; stroke-width: 1.5; stroke-linecap: round"><path d="M 0 4 L 20 4"></path></svg>
+                    <svg width="20" height="8" viewBox="0 0 20 8" preserveAspectRatio="none" style="position: absolute; left: 230px; top: 564px; width: 20px; height: 8px; overflow: visible; fill: none; stroke: #c2cad4; stroke-width: 1.5; stroke-linecap: round"><path d="M 0 4 L 20 4"></path></svg>
+                    <svg width="20" height="8" viewBox="0 0 20 8" preserveAspectRatio="none" style="position: absolute; left: 230px; top: 598px; width: 20px; height: 8px; overflow: visible; fill: none; stroke: #c2cad4; stroke-width: 1.5; stroke-linecap: round"><path d="M 0 4 L 20 4"></path></svg>
+                    <svg width="8" height="68" viewBox="0 0 8 68" preserveAspectRatio="none" style="position: absolute; left: 246px; top: 534px; width: 8px; height: 68px; overflow: visible; fill: none; stroke: #c2cad4; stroke-width: 1.5; stroke-linecap: round"><path d="M 4 0 L 4 68"></path></svg>
+                    <svg width="20" height="8" viewBox="0 0 20 8" preserveAspectRatio="none" style="position: absolute; left: 250px; top: 564px; width: 20px; height: 8px; overflow: visible; fill: none; stroke: #c2cad4; stroke-width: 1.5; stroke-linecap: round"><path d="M 0 4 L 20 4"></path></svg>
+                    <svg width="20" height="8" viewBox="0 0 20 8" preserveAspectRatio="none" style="position: absolute; left: 530px; top: 564px; width: 20px; height: 8px; overflow: visible; fill: none; stroke: #c2cad4; stroke-width: 1.5; stroke-linecap: round"><path d="M 0 4 L 20 4"></path></svg>
+                    <svg width="8" height="68" viewBox="0 0 8 68" preserveAspectRatio="none" style="position: absolute; left: 546px; top: 534px; width: 8px; height: 68px; overflow: visible; fill: none; stroke: #c2cad4; stroke-width: 1.5; stroke-linecap: round"><path d="M 4 0 L 4 68"></path></svg>
+                    <svg width="20" height="8" viewBox="0 0 20 8" preserveAspectRatio="none" style="position: absolute; left: 550px; top: 530px; width: 20px; height: 8px; overflow: visible; fill: none; stroke: #c2cad4; stroke-width: 1.5; stroke-linecap: round"><path d="M 0 4 L 20 4"></path></svg>
+                    <svg width="20" height="8" viewBox="0 0 20 8" preserveAspectRatio="none" style="position: absolute; left: 550px; top: 564px; width: 20px; height: 8px; overflow: visible; fill: none; stroke: #c2cad4; stroke-width: 1.5; stroke-linecap: round"><path d="M 0 4 L 20 4"></path></svg>
+                    <svg width="20" height="8" viewBox="0 0 20 8" preserveAspectRatio="none" style="position: absolute; left: 550px; top: 598px; width: 20px; height: 8px; overflow: visible; fill: none; stroke: #c2cad4; stroke-width: 1.5; stroke-linecap: round"><path d="M 0 4 L 20 4"></path></svg>
+                    <!-- links, step 7 -->
+                    <svg width="20" height="8" viewBox="0 0 20 8" preserveAspectRatio="none" style="position: absolute; left: 230px; top: 658px; width: 20px; height: 8px; overflow: visible; fill: none; stroke: #c2cad4; stroke-width: 1.5; stroke-linecap: round"><path d="M 0 4 L 20 4"></path></svg>
+                    <svg width="20" height="8" viewBox="0 0 20 8" preserveAspectRatio="none" style="position: absolute; left: 230px; top: 692px; width: 20px; height: 8px; overflow: visible; fill: none; stroke: #c2cad4; stroke-width: 1.5; stroke-linecap: round"><path d="M 0 4 L 20 4"></path></svg>
+                    <svg width="20" height="8" viewBox="0 0 20 8" preserveAspectRatio="none" style="position: absolute; left: 230px; top: 726px; width: 20px; height: 8px; overflow: visible; fill: none; stroke: #c2cad4; stroke-width: 1.5; stroke-linecap: round"><path d="M 0 4 L 20 4"></path></svg>
+                    <svg width="8" height="68" viewBox="0 0 8 68" preserveAspectRatio="none" style="position: absolute; left: 246px; top: 662px; width: 8px; height: 68px; overflow: visible; fill: none; stroke: #c2cad4; stroke-width: 1.5; stroke-linecap: round"><path d="M 4 0 L 4 68"></path></svg>
+                    <svg width="20" height="8" viewBox="0 0 20 8" preserveAspectRatio="none" style="position: absolute; left: 250px; top: 692px; width: 20px; height: 8px; overflow: visible; fill: none; stroke: #c2cad4; stroke-width: 1.5; stroke-linecap: round"><path d="M 0 4 L 20 4"></path></svg>
+                    <svg width="20" height="8" viewBox="0 0 20 8" preserveAspectRatio="none" style="position: absolute; left: 530px; top: 692px; width: 20px; height: 8px; overflow: visible; fill: none; stroke: #c2cad4; stroke-width: 1.5; stroke-linecap: round"><path d="M 0 4 L 20 4"></path></svg>
+                    <svg width="8" height="68" viewBox="0 0 8 68" preserveAspectRatio="none" style="position: absolute; left: 546px; top: 662px; width: 8px; height: 68px; overflow: visible; fill: none; stroke: #c2cad4; stroke-width: 1.5; stroke-linecap: round"><path d="M 4 0 L 4 68"></path></svg>
+                    <svg width="20" height="8" viewBox="0 0 20 8" preserveAspectRatio="none" style="position: absolute; left: 550px; top: 658px; width: 20px; height: 8px; overflow: visible; fill: none; stroke: #c2cad4; stroke-width: 1.5; stroke-linecap: round"><path d="M 0 4 L 20 4"></path></svg>
+                    <svg width="20" height="8" viewBox="0 0 20 8" preserveAspectRatio="none" style="position: absolute; left: 550px; top: 692px; width: 20px; height: 8px; overflow: visible; fill: none; stroke: #c2cad4; stroke-width: 1.5; stroke-linecap: round"><path d="M 0 4 L 20 4"></path></svg>
+                    <svg width="20" height="8" viewBox="0 0 20 8" preserveAspectRatio="none" style="position: absolute; left: 550px; top: 726px; width: 20px; height: 8px; overflow: visible; fill: none; stroke: #c2cad4; stroke-width: 1.5; stroke-linecap: round"><path d="M 0 4 L 20 4"></path></svg>
+
+                    <!-- steps -->
+                    <div title="Genetic" style="position: absolute; left: 270px; top: 25px; width: 260px; height: 44px; box-sizing: border-box; padding: 0 10px 0 8px; display: flex; align-items: center; gap: 10px; border: 1px solid var(--line-strong); border-radius: 8px; background: var(--bg); box-shadow: var(--shadow-1); font-size: 13px; font-weight: 600; line-height: 1.2"><span style="flex: none; width: 26px; height: 26px; border-radius: 999px; background: var(--cat-genetic); color: #fff; display: inline-flex; align-items: center; justify-content: center; font-size: 12px">1</span><span>Genetic susceptibility</span></div>
+                    <div title="Trigger" style="position: absolute; left: 270px; top: 119px; width: 260px; height: 44px; box-sizing: border-box; padding: 0 10px 0 8px; display: flex; align-items: center; gap: 10px; border: 1px solid var(--line-strong); border-radius: 8px; background: var(--bg); box-shadow: var(--shadow-1); font-size: 13px; font-weight: 600; line-height: 1.2"><span style="flex: none; width: 26px; height: 26px; border-radius: 999px; background: var(--cat-trigger); color: #fff; display: inline-flex; align-items: center; justify-content: center; font-size: 12px">2</span><span>Environmental trigger</span></div>
+                    <div title="Immune" style="position: absolute; left: 270px; top: 196px; width: 260px; height: 44px; box-sizing: border-box; padding: 0 10px 0 8px; display: flex; align-items: center; gap: 10px; border: 1px solid var(--line-strong); border-radius: 8px; background: var(--bg); box-shadow: var(--shadow-1); font-size: 13px; font-weight: 600; line-height: 1.2"><span style="flex: none; width: 26px; height: 26px; border-radius: 999px; background: var(--cat-immune); color: #fff; display: inline-flex; align-items: center; justify-content: center; font-size: 12px">3</span><span>Loss of immune tolerance</span></div>
+                    <div title="Immune" style="position: absolute; left: 270px; top: 290px; width: 260px; height: 44px; box-sizing: border-box; padding: 0 10px 0 8px; display: flex; align-items: center; gap: 10px; border: 1px solid var(--line-strong); border-radius: 8px; background: var(--bg); box-shadow: var(--shadow-1); font-size: 13px; font-weight: 600; line-height: 1.2"><span style="flex: none; width: 26px; height: 26px; border-radius: 999px; background: var(--cat-immune); color: #fff; display: inline-flex; align-items: center; justify-content: center; font-size: 12px">4</span><span>Antigen presentation</span></div>
+                    <div title="Antibody" style="position: absolute; left: 270px; top: 418px; width: 260px; height: 44px; box-sizing: border-box; padding: 0 10px 0 8px; display: flex; align-items: center; gap: 10px; border: 1px solid var(--line-strong); border-radius: 8px; background: var(--bg); box-shadow: var(--shadow-1); font-size: 13px; font-weight: 600; line-height: 1.2"><span style="flex: none; width: 26px; height: 26px; border-radius: 999px; background: var(--cat-antibody); color: #fff; display: inline-flex; align-items: center; justify-content: center; font-size: 12px">5</span><span>Autoantibody production</span></div>
+                    <div title="Immune" style="position: absolute; left: 270px; top: 546px; width: 260px; height: 44px; box-sizing: border-box; padding: 0 10px 0 8px; display: flex; align-items: center; gap: 10px; border: 1px solid var(--line-strong); border-radius: 8px; background: var(--bg); box-shadow: var(--shadow-1); font-size: 13px; font-weight: 600; line-height: 1.2"><span style="flex: none; width: 26px; height: 26px; border-radius: 999px; background: var(--cat-immune); color: #fff; display: inline-flex; align-items: center; justify-content: center; font-size: 12px">6</span><span>T-cell insulitis</span></div>
+                    <div title="Tissue damage" style="position: absolute; left: 270px; top: 674px; width: 260px; height: 44px; box-sizing: border-box; padding: 0 10px 0 8px; display: flex; align-items: center; gap: 10px; border: 1px solid var(--line-strong); border-radius: 8px; background: var(--bg); box-shadow: var(--shadow-1); font-size: 13px; font-weight: 600; line-height: 1.2"><span style="flex: none; width: 26px; height: 26px; border-radius: 999px; background: var(--cat-tissuedamage); color: #fff; display: inline-flex; align-items: center; justify-content: center; font-size: 12px">7</span><span>Beta-cell destruction</span></div>
+                    <div title="Outcome" style="position: absolute; left: 270px; top: 768px; width: 260px; height: 44px; box-sizing: border-box; padding: 0 10px 0 8px; display: flex; align-items: center; gap: 10px; border: 1px solid var(--line-strong); border-radius: 8px; background: var(--bg); box-shadow: var(--shadow-1); font-size: 13px; font-weight: 600; line-height: 1.2"><span style="flex: none; width: 26px; height: 26px; border-radius: 999px; background: var(--cat-outcome); color: #fff; display: inline-flex; align-items: center; justify-content: center; font-size: 12px">8</span><span>Insulin deficiency &amp; hyperglycemia</span></div>
+
+                    <!-- linked items: genes, triggers, antigens, APCs, antibodies, T-cells, cytokines, complement, inflammasome, NETosis -->
+                    <div title="Gene: HLA-DR3-DQ2 (DRB1*03:01-DQA1*05:01-DQB1*02:01)" style="position: absolute; left: 8px; top: 17px; width: 222px; height: 26px; box-sizing: border-box; padding: 0 10px; display: flex; align-items: center; gap: 7px; border: 1px solid var(--line); border-radius: 999px; background: var(--bg); font-size: 12px; white-space: nowrap; overflow: hidden"><span style="flex: none; width: 7px; height: 7px; border-radius: 999px; background: var(--cat-genetic)"></span><span style="overflow: hidden; text-overflow: ellipsis">HLA-DR3-DQ2</span></div>
+                    <div title="Gene: HLA-DR4-DQ8 (DRB1*04:01-DQA1*03:01-DQB1*03:02)" style="position: absolute; left: 8px; top: 51px; width: 222px; height: 26px; box-sizing: border-box; padding: 0 10px; display: flex; align-items: center; gap: 7px; border: 1px solid var(--line); border-radius: 999px; background: var(--bg); font-size: 12px; white-space: nowrap; overflow: hidden"><span style="flex: none; width: 7px; height: 7px; border-radius: 999px; background: var(--cat-genetic)"></span><span style="overflow: hidden; text-overflow: ellipsis">HLA-DR4-DQ8</span></div>
+                    <div title="Gene: INS VNTR" style="position: absolute; left: 570px; top: 17px; width: 222px; height: 26px; box-sizing: border-box; padding: 0 10px; display: flex; align-items: center; gap: 7px; border: 1px solid var(--line); border-radius: 999px; background: var(--bg); font-size: 12px; white-space: nowrap; overflow: hidden"><span style="flex: none; width: 7px; height: 7px; border-radius: 999px; background: var(--cat-genetic)"></span><span style="overflow: hidden; text-overflow: ellipsis">INS VNTR</span></div>
+                    <div title="Gene: PTPN22 R620W (C1858T)" style="position: absolute; left: 570px; top: 51px; width: 222px; height: 26px; box-sizing: border-box; padding: 0 10px; display: flex; align-items: center; gap: 7px; border: 1px solid var(--line); border-radius: 999px; background: var(--bg); font-size: 12px; white-space: nowrap; overflow: hidden"><span style="flex: none; width: 7px; height: 7px; border-radius: 999px; background: var(--cat-genetic)"></span><span style="overflow: hidden; text-overflow: ellipsis">PTPN22 R620W</span></div>
+
+                    <div title="Trigger: Enterovirus (Coxsackie B)" style="position: absolute; left: 8px; top: 111px; width: 222px; height: 26px; box-sizing: border-box; padding: 0 10px; display: flex; align-items: center; gap: 7px; border: 1px solid var(--line); border-radius: 999px; background: var(--bg); font-size: 12px; white-space: nowrap; overflow: hidden"><span style="flex: none; width: 7px; height: 7px; border-radius: 999px; background: var(--cat-trigger)"></span><span style="overflow: hidden; text-overflow: ellipsis">Enterovirus (Coxsackie B)</span></div>
+                    <div title="Trigger: Early childhood viral enteritis" style="position: absolute; left: 8px; top: 145px; width: 222px; height: 26px; box-sizing: border-box; padding: 0 10px; display: flex; align-items: center; gap: 7px; border: 1px solid var(--line); border-radius: 999px; background: var(--bg); font-size: 12px; white-space: nowrap; overflow: hidden"><span style="flex: none; width: 7px; height: 7px; border-radius: 999px; background: var(--cat-trigger)"></span><span style="overflow: hidden; text-overflow: ellipsis">Early childhood viral enteritis</span></div>
+                    <div title="Trigger: Cold climate / high latitude rearing" style="position: absolute; left: 570px; top: 128px; width: 222px; height: 26px; box-sizing: border-box; padding: 0 10px; display: flex; align-items: center; gap: 7px; border: 1px solid var(--line); border-radius: 999px; background: var(--bg); font-size: 12px; white-space: nowrap; overflow: hidden"><span style="flex: none; width: 7px; height: 7px; border-radius: 999px; background: var(--cat-trigger)"></span><span style="overflow: hidden; text-overflow: ellipsis">Cold climate, high latitude</span></div>
+
+                    <div title="Antigen: (Pro)insulin" style="position: absolute; left: 8px; top: 265px; width: 222px; height: 26px; box-sizing: border-box; padding: 0 10px; display: flex; align-items: center; gap: 7px; border: 1px solid var(--line); border-radius: 999px; background: var(--bg); font-size: 12px; white-space: nowrap; overflow: hidden"><span style="flex: none; width: 7px; height: 7px; border-radius: 999px; background: var(--cat-immune)"></span><span style="overflow: hidden; text-overflow: ellipsis">(Pro)insulin</span></div>
+                    <div title="Antigen: GAD65 (glutamic acid decarboxylase 65)" style="position: absolute; left: 8px; top: 299px; width: 222px; height: 26px; box-sizing: border-box; padding: 0 10px; display: flex; align-items: center; gap: 7px; border: 1px solid var(--line); border-radius: 999px; background: var(--bg); font-size: 12px; white-space: nowrap; overflow: hidden"><span style="flex: none; width: 7px; height: 7px; border-radius: 999px; background: var(--cat-immune)"></span><span style="overflow: hidden; text-overflow: ellipsis">GAD65</span></div>
+                    <div title="APC: Dendritic cells" style="position: absolute; left: 8px; top: 333px; width: 222px; height: 26px; box-sizing: border-box; padding: 0 10px; display: flex; align-items: center; gap: 7px; border: 1px solid var(--line); border-radius: 999px; background: var(--bg); font-size: 12px; white-space: nowrap; overflow: hidden"><span style="flex: none; width: 7px; height: 7px; border-radius: 999px; background: var(--cat-immune)"></span><span style="overflow: hidden; text-overflow: ellipsis">Dendritic cells</span></div>
+                    <div title="Antigen: IA-2 (tyrosine phosphatase)" style="position: absolute; left: 570px; top: 265px; width: 222px; height: 26px; box-sizing: border-box; padding: 0 10px; display: flex; align-items: center; gap: 7px; border: 1px solid var(--line); border-radius: 999px; background: var(--bg); font-size: 12px; white-space: nowrap; overflow: hidden"><span style="flex: none; width: 7px; height: 7px; border-radius: 999px; background: var(--cat-immune)"></span><span style="overflow: hidden; text-overflow: ellipsis">IA-2 (tyrosine phosphatase)</span></div>
+                    <div title="Antigen: Islet antigen 2 (IA-2)" style="position: absolute; left: 570px; top: 299px; width: 222px; height: 26px; box-sizing: border-box; padding: 0 10px; display: flex; align-items: center; gap: 7px; border: 1px solid var(--line); border-radius: 999px; background: var(--bg); font-size: 12px; white-space: nowrap; overflow: hidden"><span style="flex: none; width: 7px; height: 7px; border-radius: 999px; background: var(--cat-immune)"></span><span style="overflow: hidden; text-overflow: ellipsis">Islet antigen 2 (IA-2)</span></div>
+                    <div title="APC: Macrophages" style="position: absolute; left: 570px; top: 333px; width: 222px; height: 26px; box-sizing: border-box; padding: 0 10px; display: flex; align-items: center; gap: 7px; border: 1px solid var(--line); border-radius: 999px; background: var(--bg); font-size: 12px; white-space: nowrap; overflow: hidden"><span style="flex: none; width: 7px; height: 7px; border-radius: 999px; background: var(--cat-immune)"></span><span style="overflow: hidden; text-overflow: ellipsis">Macrophages</span></div>
+
+                    <div title="Autoantibody: Anti-GAD65 (GADA)" style="position: absolute; left: 8px; top: 393px; width: 222px; height: 26px; box-sizing: border-box; padding: 0 10px; display: flex; align-items: center; gap: 7px; border: 1px solid var(--line); border-radius: 999px; background: var(--bg); font-size: 12px; white-space: nowrap; overflow: hidden"><span style="flex: none; width: 7px; height: 7px; border-radius: 999px; background: var(--cat-antibody)"></span><span style="overflow: hidden; text-overflow: ellipsis">Anti-GAD65 (GADA)</span></div>
+                    <div title="Autoantibody: Anti-IA-2 (IA-2A)" style="position: absolute; left: 8px; top: 427px; width: 222px; height: 26px; box-sizing: border-box; padding: 0 10px; display: flex; align-items: center; gap: 7px; border: 1px solid var(--line); border-radius: 999px; background: var(--bg); font-size: 12px; white-space: nowrap; overflow: hidden"><span style="flex: none; width: 7px; height: 7px; border-radius: 999px; background: var(--cat-antibody)"></span><span style="overflow: hidden; text-overflow: ellipsis">Anti-IA-2 (IA-2A)</span></div>
+                    <div title="Autoantibody: Anti-insulin (IAA)" style="position: absolute; left: 8px; top: 461px; width: 222px; height: 26px; box-sizing: border-box; padding: 0 10px; display: flex; align-items: center; gap: 7px; border: 1px solid var(--line); border-radius: 999px; background: var(--bg); font-size: 12px; white-space: nowrap; overflow: hidden"><span style="flex: none; width: 7px; height: 7px; border-radius: 999px; background: var(--cat-antibody)"></span><span style="overflow: hidden; text-overflow: ellipsis">Anti-insulin (IAA)</span></div>
+                    <div title="Autoantibody: Anti-ZnT8 (ZnT8A)" style="position: absolute; left: 570px; top: 410px; width: 222px; height: 26px; box-sizing: border-box; padding: 0 10px; display: flex; align-items: center; gap: 7px; border: 1px solid var(--line); border-radius: 999px; background: var(--bg); font-size: 12px; white-space: nowrap; overflow: hidden"><span style="flex: none; width: 7px; height: 7px; border-radius: 999px; background: var(--cat-antibody)"></span><span style="overflow: hidden; text-overflow: ellipsis">Anti-ZnT8 (ZnT8A)</span></div>
+                    <div title="Autoantibody: Islet Cell Antibodies (ICA)" style="position: absolute; left: 570px; top: 444px; width: 222px; height: 26px; box-sizing: border-box; padding: 0 10px; display: flex; align-items: center; gap: 7px; border: 1px solid var(--line); border-radius: 999px; background: var(--bg); font-size: 12px; white-space: nowrap; overflow: hidden"><span style="flex: none; width: 7px; height: 7px; border-radius: 999px; background: var(--cat-antibody)"></span><span style="overflow: hidden; text-overflow: ellipsis">Islet cell antibodies (ICA)</span></div>
+
+                    <div title="T-cell subset: CD4+ Th1 cells" style="position: absolute; left: 8px; top: 521px; width: 222px; height: 26px; box-sizing: border-box; padding: 0 10px; display: flex; align-items: center; gap: 7px; border: 1px solid var(--line); border-radius: 999px; background: var(--bg); font-size: 12px; white-space: nowrap; overflow: hidden"><span style="flex: none; width: 7px; height: 7px; border-radius: 999px; background: var(--cat-immune)"></span><span style="overflow: hidden; text-overflow: ellipsis">CD4+ Th1 cells</span></div>
+                    <div title="T-cell subset: CD4+ Th17 cells" style="position: absolute; left: 8px; top: 555px; width: 222px; height: 26px; box-sizing: border-box; padding: 0 10px; display: flex; align-items: center; gap: 7px; border: 1px solid var(--line); border-radius: 999px; background: var(--bg); font-size: 12px; white-space: nowrap; overflow: hidden"><span style="flex: none; width: 7px; height: 7px; border-radius: 999px; background: var(--cat-immune)"></span><span style="overflow: hidden; text-overflow: ellipsis">CD4+ Th17 cells</span></div>
+                    <div title="T-cell subset: CD4+ Treg cells" style="position: absolute; left: 8px; top: 589px; width: 222px; height: 26px; box-sizing: border-box; padding: 0 10px; display: flex; align-items: center; gap: 7px; border: 1px solid var(--line); border-radius: 999px; background: var(--bg); font-size: 12px; white-space: nowrap; overflow: hidden"><span style="flex: none; width: 7px; height: 7px; border-radius: 999px; background: var(--cat-immune)"></span><span style="overflow: hidden; text-overflow: ellipsis">CD4+ Treg cells</span></div>
+                    <div title="Cytokine: IL-1B" style="position: absolute; left: 570px; top: 521px; width: 222px; height: 26px; box-sizing: border-box; padding: 0 10px; display: flex; align-items: center; gap: 7px; border: 1px solid var(--line); border-radius: 999px; background: var(--bg); font-size: 12px; white-space: nowrap; overflow: hidden"><span style="flex: none; width: 7px; height: 7px; border-radius: 999px; background: var(--cat-immune)"></span><span style="overflow: hidden; text-overflow: ellipsis">IL-1B</span></div>
+                    <div title="Cytokine: IFN-g" style="position: absolute; left: 570px; top: 555px; width: 222px; height: 26px; box-sizing: border-box; padding: 0 10px; display: flex; align-items: center; gap: 7px; border: 1px solid var(--line); border-radius: 999px; background: var(--bg); font-size: 12px; white-space: nowrap; overflow: hidden"><span style="flex: none; width: 7px; height: 7px; border-radius: 999px; background: var(--cat-immune)"></span><span style="overflow: hidden; text-overflow: ellipsis">IFN-g</span></div>
+                    <div title="Cytokine: TNF-a" style="position: absolute; left: 570px; top: 589px; width: 222px; height: 26px; box-sizing: border-box; padding: 0 10px; display: flex; align-items: center; gap: 7px; border: 1px solid var(--line); border-radius: 999px; background: var(--bg); font-size: 12px; white-space: nowrap; overflow: hidden"><span style="flex: none; width: 7px; height: 7px; border-radius: 999px; background: var(--cat-immune)"></span><span style="overflow: hidden; text-overflow: ellipsis">TNF-a</span></div>
+
+                    <div title="Complement: Complement C3" style="position: absolute; left: 8px; top: 649px; width: 222px; height: 26px; box-sizing: border-box; padding: 0 10px; display: flex; align-items: center; gap: 7px; border: 1px solid var(--line); border-radius: 999px; background: var(--bg); font-size: 12px; white-space: nowrap; overflow: hidden"><span style="flex: none; width: 7px; height: 7px; border-radius: 999px; background: var(--cat-tissuedamage)"></span><span style="overflow: hidden; text-overflow: ellipsis">Complement C3</span></div>
+                    <div title="Complement: Complement C4" style="position: absolute; left: 8px; top: 683px; width: 222px; height: 26px; box-sizing: border-box; padding: 0 10px; display: flex; align-items: center; gap: 7px; border: 1px solid var(--line); border-radius: 999px; background: var(--bg); font-size: 12px; white-space: nowrap; overflow: hidden"><span style="flex: none; width: 7px; height: 7px; border-radius: 999px; background: var(--cat-tissuedamage)"></span><span style="overflow: hidden; text-overflow: ellipsis">Complement C4</span></div>
+                    <div title="Inflammasome: NLRP3 inflammasome" style="position: absolute; left: 8px; top: 717px; width: 222px; height: 26px; box-sizing: border-box; padding: 0 10px; display: flex; align-items: center; gap: 7px; border: 1px solid var(--line); border-radius: 999px; background: var(--bg); font-size: 12px; white-space: nowrap; overflow: hidden"><span style="flex: none; width: 7px; height: 7px; border-radius: 999px; background: var(--cat-tissuedamage)"></span><span style="overflow: hidden; text-overflow: ellipsis">NLRP3 inflammasome</span></div>
+                    <div title="Inflammasome: Caspase-1" style="position: absolute; left: 570px; top: 649px; width: 222px; height: 26px; box-sizing: border-box; padding: 0 10px; display: flex; align-items: center; gap: 7px; border: 1px solid var(--line); border-radius: 999px; background: var(--bg); font-size: 12px; white-space: nowrap; overflow: hidden"><span style="flex: none; width: 7px; height: 7px; border-radius: 999px; background: var(--cat-tissuedamage)"></span><span style="overflow: hidden; text-overflow: ellipsis">Caspase-1</span></div>
+                    <div title="NETosis: Neutrophil extracellular traps (NETs)" style="position: absolute; left: 570px; top: 683px; width: 222px; height: 26px; box-sizing: border-box; padding: 0 10px; display: flex; align-items: center; gap: 7px; border: 1px solid var(--line); border-radius: 999px; background: var(--bg); font-size: 12px; white-space: nowrap; overflow: hidden"><span style="flex: none; width: 7px; height: 7px; border-radius: 999px; background: var(--cat-tissuedamage)"></span><span style="overflow: hidden; text-overflow: ellipsis">Neutrophil extracellular traps</span></div>
+                    <div title="NETosis: PAD4 (citrullination)" style="position: absolute; left: 570px; top: 717px; width: 222px; height: 26px; box-sizing: border-box; padding: 0 10px; display: flex; align-items: center; gap: 7px; border: 1px solid var(--line); border-radius: 999px; background: var(--bg); font-size: 12px; white-space: nowrap; overflow: hidden"><span style="flex: none; width: 7px; height: 7px; border-radius: 999px; background: var(--cat-tissuedamage)"></span><span style="overflow: hidden; text-overflow: ellipsis">PAD4 (citrullination)</span></div>
+                  </div>
+                  </div>
+                  <figcaption style="font-size: 12px; color: var(--mute)">Steps run top to bottom. Beside each are the genes, triggers, antigens, antigen-presenting cells, antibodies and immune mediators the record links to it; hover one for its full name and kind. The table below gives each step's detail.</figcaption>
+                </figure>
+              </sc-if>
+              <div role="table" aria-label="{{sec.title}}" style="display: flex; flex-direction: column; border-top: 1px solid var(--ink)">
+                <div role="row" style="display: grid; grid-template-columns: minmax(150px, 1.15fr) minmax(110px, .85fr) minmax(200px, 2fr) minmax(80px, .65fr); gap: 16px; padding: 10px 0; border-bottom: 1px solid var(--line); font-size: 11px; font-weight: 600; letter-spacing: .1em; color: var(--mute)">
+                  <span role="columnheader">{{sec.c1}}</span><span role="columnheader">{{sec.c2}}</span><span role="columnheader">{{sec.c3}}</span><span role="columnheader">{{sec.c4}}</span>
+                </div>
+                <sc-for list="{{sec.rows}}" as="row" hint-placeholder-count="8">
+                  <div role="row" style="display: grid; grid-template-columns: minmax(150px, 1.15fr) minmax(110px, .85fr) minmax(200px, 2fr) minmax(80px, .65fr); gap: 16px; padding: 11px 0; border-bottom: 1px solid var(--line); font-size: 13px; align-items: baseline">
+                    <span role="cell" style="font-weight: 600; font-size: 14px">{{row.a}}</span>
+                    <span role="cell">{{row.b}}</span>
+                    <span role="cell" style="color: var(--mute)">{{row.c}}</span>
+                    <span role="cell" style="font-family: var(--font-mono); font-size: 12px; color: var(--accent-strong)">{{row.d}}</span>
+                  </div>
+                </sc-for>
+              </div>
+              <sc-if value="{{sec.hasNote}}" hint-placeholder-val="{{false}}">
+                <p style="margin: 4px 0 0; max-width: 72ch; font-size: 13px; color: var(--mute); white-space: pre-line">{{sec.note}}</p>
+              </sc-if>
+              <div style="display: flex; justify-content: space-between; gap: 12px; padding-top: 8px">
+                <button onClick="{{prev.pick}}" style="min-height: 44px; display: flex; align-items: center; gap: 8px; padding: 0 4px; border: 0; background: none; font-size: 13px; color: var(--accent-strong)">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 6-6 6 6 6"/></svg>{{prev.label}}
+                </button>
+                <button onClick="{{next.pick}}" style="min-height: 44px; display: flex; align-items: center; gap: 8px; padding: 0 4px; border: 0; background: none; font-size: 13px; color: var(--accent-strong)">
+                  {{next.label}}<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg>
+                </button>
+              </div>
+            </section>
+          </sc-if>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  data() {
+    if (this._d) return this._d;
+    const S = (key, group, label, desc, cols, rows, note) => ({ key, group, label, desc, cols, rows, note: note || '' });
+    const imm = 'Name,Role,Details,'.split(',');
+    this._d = [
+      S('symptoms', 'Clinical picture', 'Symptoms', 'Patient-reported subjective experiences; core presenting symptoms.', ['SYMPTOM','LIKELIHOOD','DESCRIPTION','HPO'], [
+        ['Polyuria','Very common (≥90%)','Excessive urination due to osmotic diuresis from hyperglycemia','HP:0100626'],
+        ['Polydipsia','Very common (≥90%)','Excessive thirst caused by dehydration from osmotic diuresis','HP:0100627'],
+        ['Unintended weight loss','Common (60–80%)','Weight loss despite normal/increased appetite','HP:0001824'],
+        ['Fatigue','Common (60–80%)','Chronic tiredness from metabolic dysregulation','HP:0012378'],
+        ['Increased appetite (polyphagia)','Common (50–70%)','Excessive hunger despite high blood glucose','HP:0002591'],
+        ['Irritability / mood changes','Common (40–60%)','Behavioral changes from hyperglycemia','HP:0000737'],
+        ['Nocturia','Moderate (30–50%)','Nighttime urination from impaired renal concentrating ability','HP:0000017'],
+        ['Diabetic ketoacidosis (DKA)','Variable (25–40%)','Metabolic decompensation with ketone production','HP:0001953'],
+        ['Blurred vision','Moderate (20–40%)','Lens swelling due to hyperglycemia','HP:0025147'],
+        ['Recurrent infections','Moderate','Increased susceptibility to skin, UT, and yeast infections','HP:0002718']]),
+      S('biomarkers', 'Clinical picture', 'Biomarkers', 'Tests a physician can order to diagnose the disease. Autoantibodies are under Antibodies.', ['TEST','TYPE','FINDING','USE'], [
+        ['C-peptide','Biochemical','Endogenous insulin measure; low/undetectable in T1D','Diagnosis, staging'],
+        ['HbA1c','Biochemical','3-month glucose average; diagnosis ≥6.5%','Diagnosis, monitoring'],
+        ['Fasting plasma glucose','Biochemical','≥126 mg/dL after ≥8h fast','Diagnosis'],
+        ['Random plasma glucose','Biochemical','≥200 mg/dL with symptoms','Diagnosis'],
+        ['Ketones (beta-hydroxybutyrate)','Biochemical','Elevated in DKA','DKA detection'],
+        ['OGTT','Biochemical','75g load; 2h ≥200 mg/dL','Diagnosis, screening']]),
+      S('treatments', 'Clinical picture', 'Treatments', 'Known treatments from medically recognised sources and clinical studies.', ['TREATMENT','TYPE','STATUS',''], [
+        ['Exogenous insulin therapy','Pharmacotherapy','Approved',''],
+        ['CSII (insulin pump)','Medical device','Approved',''],
+        ['Continuous glucose monitor','Medical device','Approved',''],
+        ['Hybrid closed-loop system','Medical device','Approved',''],
+        ['Teplizumab (anti-CD3)','Immunotherapy','FDA 2022',''],
+        ['Pramlintide (amylin analog)','Pharmacotherapy','Approved',''],
+        ['Pancreatic/islet transplant','Surgical','Select cases','']]),
+      S('prevalence', 'Clinical picture', 'Prevalence', 'Cases per defined population; varies by geography and ethnicity.', ['MEASURE','REGION','SEX','RATE /100K'], [
+        ['Prevalence','US','All','299.9'],
+        ['Prevalence','Worldwide','All','150.0']],
+        'Estimated US cases: 1,600,000.\nMale predominance 1.3:1; highest in Scandinavia (~60/100k/yr), lowest in East Asia (~1/100k/yr).\nBimodal onset: 4–7 and 10–14 years; adult-onset LADA form.'),
+      S('environmental', 'Causes', 'Environmental triggers', 'Environmental, infectious, chemical or hormonal catalysts known to start or worsen the disease.', ['TRIGGER','LIKELIHOOD','DESCRIPTION',''], [
+        ['Enterovirus (Coxsackie B)','Moderate','Viral molecular mimicry triggers beta-cell autoimmunity; viral RNA in pancreatic islets',''],
+        ['Rapid weight gain in infancy','Moderate','Increased metabolic demand on beta-cells',''],
+        ["Early cow's milk exposure",'Low–moderate','Hypothesized antigen mimicry between bovine and human insulin',''],
+        ['Vitamin D deficiency','Low–moderate','Immunomodulatory role in T-cell regulation',''],
+        ['Early gluten exposure','Low','May modulate gut permeability and immune response',''],
+        ['Advanced maternal age','Weak','Modest increase in T1D risk in offspring',''],
+        ['C-section delivery','Weak','Altered microbiome may influence immune programming',''],
+        ['Early childhood viral enteritis','—','',''],
+        ['Cold climate / high latitude rearing','—','','']]),
+      S('etiology', 'Causes', 'Etiology', 'Suspected and known origins of the disease: genetic, external or idiopathic.', ['ORIGIN','TYPE','DETAIL',''], [
+        ['Genetic susceptibility','Genetic','~50% MZ twin concordance; polygenic risk (HLA, INS, PTPN22, CTLA4, IL2RA, IFIH1)',''],
+        ['Viral trigger','External','Enterovirus precedes seroconversion; viral RNA detected in islets',''],
+        ['Molecular mimicry','External','Coxsackie P2-C / GAD65 homology drives cross-reactive T-cells',''],
+        ['Molecular mimicry','External','Coxsackievirus B4',''],
+        ['Molecular mimicry','External','Enteroviruses, Rubella virus',''],
+        ['Molecular mimicry','External','Cytomegalovirus, Rotavirus',''],
+        ['Loss of immune tolerance','Idiopathic','Defective central/peripheral tolerance; impaired Treg function',''],
+        ['Beta-cell ER stress','Idiopathic','Unfolded protein response increases beta-cell immunogenicity','']]),
+      S('genetic', 'Causes', 'Genetics', 'Susceptibility loci, HLA alleles and gene polymorphisms implicated by GWAS or linkage.', ['GENE / HLA','LOCUS','EFFECT','ODDS RATIO'], [
+        ['HLA-DR3-DQ2','6p21.32','Strongest risk; DR3/DR4 heterozygotes highest','~5–7'],
+        ['HLA-DR4-DQ8','6p21.32','Strongest risk; DR3/DR4 heterozygotes highest','~5–7'],
+        ['INS VNTR','11p15.5','VNTR affects thymic insulin expression','~2–3'],
+        ['PTPN22 R620W (C1858T)','1p13.2','Loss of function impairs TCR signalling and tolerance','~1.5–2'],
+        ['CTLA4','2q33.2','Impaired Treg function from reduced expression','~1.2–1.5'],
+        ['IFIH1 (MDA5)','2q24.2','Innate antiviral sensor; LOF variants protective','~1.2–1.4'],
+        ['IL2RA (CD25)','10p15.1','Affects Treg development','~1.1–1.3'],
+        ['PTPN2','18p11.21','Beta-cell apoptosis susceptibility','~1.1–1.3'],
+        ['DRB1*03:01-DQA1*05:01-DQB1*02:01','—','Strong susceptibility','—'],
+        ['DRB1*04:01-DQA1*03:01-DQB1*03:02','—','Strong susceptibility','—'],
+        ['DRB1*15:01-DQA1*01:02-DQB1*06:02','—','Strong protection','—'],
+        ['DRB1*04:03-DQB1*03:02','—','Dominant protection','—']]),
+      S('pathophysiology', 'Mechanism', 'Pathophysiology', 'The mechanistic cascade, step by step, with what the record links to each step.', ['STEP','CATEGORY','WHAT HAPPENS',''], [
+        ['1 · Genetic susceptibility','Genetic','HLA-DR3/DR4-DQ, INS VNTR, PTPN22, CTLA4 establish a permissive genetic background.',''],
+        ['2 · Environmental trigger','Trigger','Enteroviral infection or dietary antigens precipitate islet autoimmunity.',''],
+        ['3 · Loss of immune tolerance','Immune','Impaired tolerance and defective Treg function permit autoreactive clones.',''],
+        ['4 · Antigen presentation','Immune','Dendritic cells and macrophages present beta-cell antigens in pancreatic lymph nodes.',''],
+        ['5 · Autoantibody production','Antibody','B-cells produce GADA, IA-2A, IAA and ZnT8A.',''],
+        ['6 · T-cell insulitis','Immune','CD8+ cytotoxic and CD4+ Th1 cells infiltrate the islets.',''],
+        ['7 · Beta-cell destruction','Tissue damage','Perforin/granzyme, Fas-FasL and cytokine toxicity destroy beta cells.',''],
+        ['8 · Insulin deficiency','Outcome','Loss of >80–90% beta-cell mass yields absolute insulin deficiency.','']]),
+      S('antibodies', 'Mechanism', 'Antibodies', 'Disease-specific or associated autoantibodies, with diagnostic and pathogenic relevance.', ['ANTIBODY','FREQUENCY','DIAGNOSTIC VALUE',''], [
+        ['Anti-GAD65 (GADA)','70–80%','Persistent marker; slower progression in adults',''],
+        ['Islet cell antibodies (ICA)','70–80%','Classic marker; replaced by specific antigen assays',''],
+        ['Anti-ZnT8 (ZnT8A)','60–80%','Increases diagnostic sensitivity in combination',''],
+        ['Anti-IA-2 (IA-2A)','50–70%','Predictive of rapid progression',''],
+        ['Anti-insulin (IAA)','50–70% child, 10–30% adult','Earliest predictor in young children','']]),
+      S('antigens', 'Mechanism', 'Antigens', 'Self-antigens targeted by the autoimmune response.', imm, [
+        ['(Pro)insulin','Primary autoantigen','B:9-23 epitope central to disease initiation',''],
+        ['GAD65','Major autoantigen','Major islet autoantigen targeted by GADA',''],
+        ['IA-2 (tyrosine phosphatase)','Autoantigen','Islet autoantigen; target of IA-2A',''],
+        ['ZnT8 (zinc transporter 8)','Autoantigen','Beta-cell zinc transporter; target of ZnT8A',''],
+        ['Islet antigen 2 (IA-2)','—','','']]),
+      S('tcells', 'Mechanism', 'T-cells', 'T-cell subsets implicated and their pro- or anti-inflammatory roles.', imm, [
+        ['CD8+ cytotoxic T-cells','Primary effector','Beta-cell destruction via perforin/granzyme, Fas-FasL',''],
+        ['CD4+ Th1 cells','Dominant pathogenic','IFN-g mediated; dominant pathogenic subset',''],
+        ['CD4+ Th17 cells','Contributory','IL-17; neutrophil recruitment',''],
+        ['CD4+ Tfh cells','Drive autoantibodies','B-cell maturation and autoantibody production',''],
+        ['CD4+ Treg cells','Defective regulation','Impaired FoxP3 and suppressive function','']]),
+      S('cytokines', 'Mechanism', 'Cytokines', 'Signalling proteins driving inflammation, organ damage or immune dysregulation.', imm, [
+        ['IL-1B','Beta-cell toxicity','Pro-inflammatory; beta-cell apoptosis via NF-kB and NO',''],
+        ['IFN-g','Pro-inflammatory','Macrophage activation; MHC-I upregulation',''],
+        ['TNF-a','Pro-inflammatory','Insulitis and beta-cell damage',''],
+        ['IL-21','Pro-inflammatory','Tfh-derived B-cell differentiation',''],
+        ['IL-17A','Pro-inflammatory','Neutrophil recruitment to islets',''],
+        ['IL-10','Regulatory (dysregulated)','Regulatory; impaired in T1D','']]),
+      S('apcs', 'Mechanism', 'APCs', 'Antigen-presenting cells involved and their dysfunction.', imm, [
+        ['Dendritic cells','Initiation','Present antigens in pancreatic lymph nodes',''],
+        ['Macrophages','Inflammation','Pro-inflammatory cytokines in islets',''],
+        ['B-cells','Autoantibodies','APC in lymph nodes; autoantibody production','']]),
+      S('transcription', 'Mechanism', 'Transcription factors', 'Intracellular master regulators of immune gene expression.', imm, [
+        ['STAT4','Th1 differentiation','GWAS locus',''],
+        ['T-bet (TBX21)','Th1 lineage','Master Th1 regulator',''],
+        ['FoxP3','Treg','Master Treg regulator; reduced in T1D',''],
+        ['RORgt (RORC)','Th17 lineage','Master Th17 regulator','']]),
+      S('receptors', 'Mechanism', 'Receptors', 'Receptors with altered expression or function.', imm, [
+        ['IL-2R (CD25)','Treg','Treg maintenance; GWAS locus',''],
+        ['CTLA-4 (CD152)','Checkpoint','Reduced in T1D',''],
+        ['PD-1 (CD279)','Exhaustion','Inhibitory; T1D polymorphisms',''],
+        ['Fas (CD95)','Apoptosis','Death receptor on beta-cells','']]),
+      S('innate', 'Mechanism', 'Innate immunity', 'Pattern-recognition receptors activated or dysregulated.', imm, [
+        ['TLR2','DAMP','DAMPs from stressed beta-cells',''],
+        ['TLR4','DAMP','HMGB1 from necrotic beta-cells',''],
+        ['IFIH1/MDA5','Viral sensing','Viral RNA sensor; GWAS','']]),
+      S('complement', 'Mechanism', 'Complement', 'Complement components involved: activated, consumed or deficient.', imm, [
+        ['Complement C3','Islet inflammation','Central complement; elevated in T1D',''],
+        ['Complement C4','Classical pathway','C4d deposition in islets','']]),
+      S('netosis', 'Mechanism', 'NETosis', 'Role of neutrophil extracellular traps in pathogenesis.', imm, [
+        ['Neutrophil extracellular traps','Early autoimmunity','Increased NETosis precedes onset; NET components deposit in islets',''],
+        ['PAD4 (citrullination)','Neoantigen generation','Drives NET formation and neoantigen citrullination',''],
+        ['Myeloperoxidase (MPO)','Inflammatory marker','Elevated neutrophil activity in new-onset T1D','']]),
+      S('inflammasome', 'Mechanism', 'Inflammasome', 'Inflammasome complexes activated, their triggers and effectors.', imm, [
+        ['NLRP3 inflammasome','IL-1B activation','Activated by beta-cell DAMPs; drives caspase-1 cleavage',''],
+        ['Caspase-1','Cytokine maturation','Converts pro-IL-1B/pro-IL-18 to active cytokines',''],
+        ['ASC (PYCARD)','Inflammasome scaffold','Adaptor protein nucleating inflammasome assembly','']]),
+      S('apr', 'Mechanism', 'Acute phase reactants', 'Acute-phase proteins raised or lowered during active disease.', imm, [
+        ['C-reactive protein (CRP)','Inflammation marker','Low-grade elevation reflects subclinical inflammation',''],
+        ['Serum amyloid A (SAA)','Inflammation marker','Raised during islet inflammation',''],
+        ['Fibrinogen','Vascular risk','Contributes to vascular complication risk','']]),
+      S('cells', 'Mechanism', 'Target cells', 'Cell types, tissues and organs targeted by the autoimmune process.', imm, [
+        ['Pancreatic islet beta cells','100%','','']]),
+      S('changelog', 'Record', 'Change log', 'Every change to this record, newest first.', ['DATE','BY','CHANGE',''], [
+        ['2026-10-15','migration (#229)','Moved to prevalence and incidence figures: US 299.9/100k; worldwide 150.0/100k',''],
+        ['2026-10-15','Leon Islas','Imported from ARI Master List 2026-10-08, row 93: 5 associated diseases',''],
+        ['2026-10-12','Leon Islas','Prevalence and incidence from ARI Master List 2026-10-08, row 93',''],
+        ['2026-10-12','Leon Islas','Imported from ARI Master List 2026-10-08, row 93: 1 target antigen, 1 target cell',''],
+        ['2026-09-25','maffersi','Cross-reference review: confirmed SNOMED 46635009',''],
+        ['2026-09-25','maffersi','Cross-reference review: confirmed SNOMED, DOID 9744, MONDO 0005147',''],
+        ['2026-09-25','maffersi','Stored confirmed cross-reference: ORPHANET 243377',''],
+        ['2026-06-15','Importer','Enriched from ARI core reports',''],
+        ['2026-06-12','System','Symptoms, triggers, antibodies, genetics, treatments, etiology, markers and pathway added',''],
+        ['2026-06-12','System','Initial T1D entry creation','']]),
+      S('feedback', 'Record', 'Feedback', 'Comments about this term. Cleared at the next release unless marked keep after release.', ['COMMENT','BY','DATE',''], [],
+        'No comments on this disease yet. Sign in with GitHub to leave one.')
+    ];
+    return this._d;
+  }
+  componentDidMount() {
+    this._mq = window.matchMedia('(min-width: 1400px)');
+    this._onMq = () => this.forceUpdate();
+    this._mq.addEventListener('change', this._onMq);
+  }
+  componentWillUnmount() {
+    if (this._mq) this._mq.removeEventListener('change', this._onMq);
+  }
+  // One button, two meanings, as in the app today: on wide screens it hides the
+  // docked index; below 1400px it opens the index over the record.
+  railVals() {
+    const toggled = !!(this.state && this.state.railToggled);
+    const shown = window.matchMedia('(min-width: 1400px)').matches ? !toggled : toggled;
+    return {
+      railCls: toggled ? 'toggled' : '',
+      railShown: shown ? 'true' : 'false',
+      railLabel: shown ? 'Hide the disease index' : 'Show the disease index',
+      toggleRail: () => this.setState({ railToggled: !toggled }),
+      closeRail: () => this.setState({ railToggled: false })
+    };
+  }
+  renderVals() {
+    const cur = (this.state && this.state.s) || 'overview';
+    const all = this.data();
+    const pick = k => () => this.setState({ s: k });
+    const item = (key, label, count) => ({ label, count: count == null ? '' : String(count), active: cur === key, inactive: cur !== key, pick: pick(key) });
+    const groups = [];
+    groups.push({ title: '', hasTitle: false, items: [item('overview', 'Overview', null)] });
+    for (const name of ['Clinical picture', 'Causes', 'Mechanism', 'Record']) {
+      groups.push({ title: name.toUpperCase(), hasTitle: true,
+        items: all.filter(s => s.group === name).map(s => item(s.key, s.label, s.key === 'feedback' ? '' : s.rows.length)) });
+    }
+    const order = ['overview'].concat(all.map(s => s.key));
+    const i = order.indexOf(cur);
+    const lab = k => k === 'overview' ? 'Overview' : all.find(s => s.key === k).label;
+    const prevKey = order[(i - 1 + order.length) % order.length];
+    const nextKey = order[(i + 1) % order.length];
+    const s = all.find(x => x.key === cur);
+    const sec = s ? {
+      eyebrow: s.group.toUpperCase(), title: s.label, count: s.key === 'feedback' ? '' : String(s.rows.length), desc: s.desc,
+      c1: s.cols[0], c2: s.cols[1], c3: s.cols[2], c4: s.cols[3],
+      rows: s.rows.map(r => ({ a: r[0], b: r[1], c: r[2], d: r[3] })),
+      hasNote: !!s.note, note: s.note
+    } : { rows: [] };
+    const previewOf = k => { const x = all.find(y => y.key === k);
+      const preview = k === 'prevalence' ? x.rows.map(r => `${r[1]} ${r[3]} per 100k`).join(', ') : x.rows.map(r => r[0]).join(', ');
+      return { label: x.label, count: String(x.rows.length), preview, pick: pick(k) }; };
+    const mark = st => st === 'confirmed' ? { hasMark: true, markLabel: 'Confirmed autoimmune', markFill: 'var(--accent)' }
+      : st === 'unconfirmed' ? { hasMark: true, markLabel: 'Autoimmune, unconfirmed', markFill: 'transparent' } : { hasMark: false, markLabel: '', markFill: 'transparent' };
+    const idx = [
+      ['Systemic mast cell disease', 0, 'unconfirmed'], ['Systemic sclerosis', 0, 'confirmed'],
+      ['Systemic sclerosis with limited cutaneous involvement', 1, 'confirmed'], ['CREST syndrome', 2, ''],
+      ['Tolosa-Hunt syndrome', 0, 'unconfirmed'], ['Transverse myelitis', 0, 'confirmed'],
+      ['Type 1 diabetes mellitus', 0, 'confirmed', true], ['Fulminant type 1 diabetes', 1, 'confirmed'],
+      ['Latent autoimmune diabetes in adults (LADA)', 1, 'confirmed'], ['Undifferentiated connective tissue disease', 0, 'unconfirmed'],
+      ['Uveitis', 0, 'confirmed'], ['Autoimmune retinal vasculitis', 1, 'unconfirmed'], ['Birdshot chorioretinopathy', 1, 'confirmed'],
+      ['Intermediate uveitis', 1, 'confirmed'], ['Sympathetic uveitis', 1, 'confirmed'],
+      ['Vogt-Koyanagi-Harada disease', 1, 'confirmed'], ['Vitiligo', 0, 'confirmed']
+    ].map(([name, depth, st, sel]) => Object.assign({ name, pad: 10 + depth * 16, selected: !!sel, plain: !sel }, mark(st)));
+    return Object.assign(this.railVals(), {
+      isOverview: cur === 'overview', isSection: cur !== 'overview', isPatho: cur === 'pathophysiology',
+      navGroups: groups, sec,
+      prev: { label: lab(prevKey), pick: pick(prevKey) }, next: { label: lab(nextKey), pick: pick(nextKey) },
+      index: idx,
+      synonyms: ['T1D', 'Type 1 diabetes', 'Insulin-dependent diabetes mellitus', 'IDDM', 'Juvenile-onset diabetes', 'Diabetes mellitus type 1', 'Juvenile diabetes', 'Insulin dependent diabetes', 'Type 1 diabetes mellitus'],
+      xrefs: [['SNOMED','46635009'],['OMOP','201254'],['DOID','9744'],['MONDO','0005147'],['NCI','C2986'],['ICD-10','E10'],['ORPHANET','243377'],['UMLS','C0011854'],['MESH','D003922']].map(([db, id]) => ({ db, id })),
+      recorded: ['symptoms','biomarkers','treatments','prevalence','environmental','etiology','genetic','pathophysiology','antibodies'].map(previewOf),
+      refs: ['American Diabetes Association', 'Cleveland Clinic', 'Juvenile Diabetes Research Foundation', 'Beyond Type 1', 'T1D Exchange', 'Healthline', "Children's Diabetes Foundation", 'Diabetes Sangha', 'Six Until Me', 'Death of a Pancreas', 'Texting My Pancreas', 'Our Diabetic Life']
+    });
+  }
+}
+</script>
+</body>
+</html>

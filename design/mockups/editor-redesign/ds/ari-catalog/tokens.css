@@ -1,0 +1,100 @@
+/* ARI Catalog Design System — generated from tokens.json */
+:root, [data-theme="light"] {
+  --ink: #0f2840;
+  --ink-deep: #081a2c;
+  --ink-soft: #1f3a58;
+  --bar: #0f2840;
+  --accent: #1f6b7a;
+  --accent-strong: #155160;
+  --accent-900: #0e3d49;
+  --btn-fill: #1f6b7a;
+  --btn-fill-hover: #0e3d49;
+  --sky: #9dd3d6;
+  --accent-100: #d4e7ea;
+  --accent-050: #ecf4f5;
+  --paper: #f4f6f8;
+  --bone: #e3e8ee;
+  --bg: #ffffff;
+  --line: #dde3ea;
+  --line-strong: #c2cad4;
+  --mute: #5c6675;
+  --mute-soft: #6e7787;
+  --success: #2f8f6f;
+  --success-bg: #e2f1eb;
+  --warning: #b5841a;
+  --warning-bg: #f8efd6;
+  --danger: #b7382d;
+  --danger-bg: #f4e1df;
+  --cat-genetic: #6c57a3;
+  --cat-trigger: #b5841a;
+  --cat-immune: #3f6699;
+  --cat-antibody: #2f8f6f;
+  --cat-tissuedamage: #b7382d;
+  --cat-outcome: #1f6b7a;
+  --text: var(--ink);
+  --muted: var(--mute);
+  --border: var(--line);
+  --border-strong: var(--line-strong);
+  --bg-side: var(--paper);
+  --accent-soft: var(--accent-050);
+  --accent-border: #a9cfd5;
+  --warn: var(--warning);
+  --danger-soft: var(--danger-bg);
+  --shadow-1: 0 1px 2px rgba(15,40,64,.06), 0 1px 1px rgba(15,40,64,.04);
+  --shadow-2: 0 4px 16px -4px rgba(15,40,64,.10), 0 2px 4px rgba(15,40,64,.04);
+  --shadow-3: 0 18px 40px -16px rgba(15,40,64,.22), 0 4px 10px rgba(15,40,64,.06);
+  --focus: 0 0 0 3px rgba(31,107,122,.32);
+  --shadow-sm: 0 1px 2px rgba(15,40,64,.06), 0 1px 1px rgba(15,40,64,.04);
+  --shadow-md: 0 4px 16px -4px rgba(15,40,64,.10), 0 2px 4px rgba(15,40,64,.04);
+  --shadow-lg: 0 18px 40px -16px rgba(15,40,64,.22), 0 4px 10px rgba(15,40,64,.06);
+}
+[data-theme="dark"] {
+  --ink: #e3e8ee;
+  --accent: #9dd3d6;
+  --accent-strong: #9dd3d6;
+  --accent-900: #d4e7ea;
+  --accent-100: rgba(157,211,214,.18);
+  --accent-050: rgba(157,211,214,.10);
+  --paper: #0f2840;
+  --bone: #1f3a58;
+  --bg: #081a2c;
+  --line: rgba(255,255,255,.08);
+  --line-strong: rgba(255,255,255,.16);
+  --mute: #8a93a2;
+  --success: #6fc5a3;
+  --success-bg: rgba(47,143,111,.18);
+  --warning: #e0b45c;
+  --warning-bg: rgba(181,132,26,.18);
+  --danger: #e58279;
+  --danger-bg: rgba(183,56,45,.20);
+  --text: var(--ink);
+  --muted: var(--mute);
+  --border: var(--line);
+  --border-strong: var(--line-strong);
+  --bg-side: var(--paper);
+  --accent-soft: var(--accent-050);
+  --accent-border: rgba(157,211,214,.35);
+  --warn: var(--warning);
+  --danger-soft: var(--danger-bg);
+  --shadow-1: 0 1px 2px rgba(0,0,0,.4);
+  --shadow-2: 0 4px 16px -4px rgba(0,0,0,.5);
+  --shadow-3: 0 18px 40px -16px rgba(0,0,0,.6);
+  --shadow-sm: 0 1px 2px rgba(0,0,0,.4);
+  --shadow-md: 0 4px 16px -4px rgba(0,0,0,.5);
+  --shadow-lg: 0 18px 40px -16px rgba(0,0,0,.6);
+}
+:root {
+  --font-sans: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-cond: "Barlow Condensed", "IBM Plex Sans", system-ui, sans-serif;
+  --font-serif: "IBM Plex Serif", Georgia, "Times New Roman", serif;
+  --font-mono: "IBM Plex Mono", "SFMono-Regular", Consolas, monospace;
+}
+.wordmark { font-family: var(--font-cond); font-size: 1.625rem; font-weight: 600; letter-spacing: -0.01em; }
+.record-title { font-family: var(--font-sans); font-size: 2.75rem; font-weight: 200; line-height: 1.02; letter-spacing: -0.025em; }
+.dialog-title { font-family: var(--font-sans); font-size: 1.25rem; font-weight: 300; letter-spacing: -0.018em; }
+.definition { font-family: var(--font-sans); font-size: 1.0625rem; font-weight: 400; line-height: 1.65; }
+.body { font-family: var(--font-sans); font-size: 0.8438rem; font-weight: 400; line-height: 1.5; }
+.section-label { font-family: var(--font-sans); font-size: 0.6875rem; font-weight: 600; letter-spacing: 0.14em; }
+.field-label { font-family: var(--font-sans); font-size: 0.6562rem; font-weight: 600; letter-spacing: 0.1em; }
+.identifier { font-family: var(--font-mono); font-size: 0.75rem; font-weight: 400; }
+.excerpt { font-family: var(--font-serif); font-size: 0.7812rem; font-weight: 400; }

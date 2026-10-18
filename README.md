@@ -119,7 +119,7 @@ data/2-databases/          Reference indexes for prediction (see its README)
 mappings/                  Snapshot of the mapping files for the tooling and CI: SSSOM, equivalencies, predicted
 tests/                     pytest suite, review-model.test.js, fixture ontology
 deploy/                    systemd units, update scripts, nginx config
-design/mockups/            Design exploration for the review page (not wired up)
+design/mockups/            Design exploration for the review page and the editor (not wired up)
 docs/                      Architecture, API, efficiency review, design specs
 ```
 
@@ -229,7 +229,7 @@ separate: an administrator cuts them from the record view, and each is numbered
 - [docs/EFFICIENCY.md](docs/EFFICIENCY.md): measured performance costs and suggested fixes.
 - [data/2-databases/README.md](data/2-databases/README.md): the reference indexes.
 - [static/vendor/README.md](static/vendor/README.md): vendored libraries and how to refresh them.
-- [design/mockups/README.md](design/mockups/README.md): review-page design exploration.
+- [design/mockups/README.md](design/mockups/README.md): design exploration for the review page and the editor redesign.
 - `docs/superpowers/`: the working-copy merge design and its implementation plan.
 
 ## Data sources and licence
