@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>When the server does not answer</title>
+<script src="../support.js"></script>
+<link rel="stylesheet" href="ds/ari-catalog/tokens.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@200;300;400;500;600&display=swap">
+<style>
+body{margin:0}
+a{color:#155160}a:hover{color:#0f2840}
+button,input{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid #1f6b7a;outline-offset:2px}
+</style>
+</helmet>
+<div data-theme="light" style="height: 100vh; min-height: 640px; overflow: hidden; display: flex; flex-direction: column; background: var(--bg); color: var(--ink); font-family: var(--font-sans); font-size: 14px; line-height: 1.5">
+  <header style="height: 56px; flex: none; display: flex; align-items: center; gap: 12px; padding: 0 16px; background: var(--bar); color: #fff; position: relative; z-index: 2">
+    <button aria-label="Hide the disease index" aria-expanded="true" style="width: 40px; height: 40px; flex: none; display: grid; place-items: center; border: 0; border-radius: 8px; background: rgba(255,255,255,.08); color: #fff"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button>
+    <span style="flex: none; font-family: var(--font-cond); font-weight: 600; font-size: 22px; letter-spacing: .01em">AUTOIMMUNE REGISTRY</span>
+    <div style="flex: 1 1 360px; max-width: 620px; min-width: 0; margin-left: 12px; position: relative">
+      <div style="height: 38px; display: flex; align-items: center; gap: 10px; padding: 0 10px 0 12px; border-radius: 8px; background: var(--bg); color: var(--ink); box-shadow: 0 0 0 3px rgba(157,211,214,.55)">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true" style="flex: none; color: var(--mute)"><circle cx="11" cy="11" r="7"/><path d="M16.5 16.5 21 21"/></svg>
+        <input role="combobox" aria-expanded="true" aria-controls="off-results" aria-label="Search" value="lupus" style="flex: 1 1 auto; min-width: 0; border: 0; background: none; font-size: 14px; outline: none">
+      </div>
+      <div id="off-results" role="alert" style="position: absolute; top: 46px; left: 0; width: min(560px, 92vw); box-sizing: border-box; display: flex; gap: 12px; align-items: flex-start; padding: 16px; background: var(--bg); color: var(--ink); border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--shadow-3)">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: none; margin-top: 2px; color: var(--danger)"><path d="M2 8.5a15 15 0 0 1 20 0M5 12a10 10 0 0 1 9.5-2.6M8.5 15.5a5 5 0 0 1 4-1.4M12 19h.01M3 3l18 18"/></svg>
+        <div style="flex: 1 1 auto; display: flex; flex-direction: column; gap: 8px; font-size: 14px">
+          <span><strong style="font-weight: 600">Search isn't working right now.</strong> The server didn't answer. Check your connection, then try again.</span>
+          <button style="align-self: flex-start; height: 34px; padding: 0 14px; border: 1px solid var(--line-strong); border-radius: 8px; background: var(--bg); font-size: 13px">Try again</button>
+        </div>
+      </div>
+    </div>
+    <span style="flex: 1 1 0"></span>
+  </header>
+
+  <div style="flex: 1 1 auto; display: flex; min-height: 0">
+    <nav aria-label="Disease index" style="flex: 0 0 280px; box-sizing: border-box; padding: 12px 8px; background: var(--paper); border-right: 1px solid var(--line); display: flex; flex-direction: column; gap: 1px; font-size: 14px">
+      <a href="#" style="display: flex; align-items: center; min-height: 34px; padding: 4px 10px; border-radius: 6px; color: var(--ink); text-decoration: none">Moyamoya disease</a>
+      <a href="#" style="display: flex; align-items: center; gap: 8px; min-height: 34px; padding: 4px 10px; border-radius: 6px; color: var(--ink); text-decoration: none"><span style="flex: 1 1 auto">Multiple sclerosis</span><span role="img" aria-label="Didn't open" title="Didn't open" style="width: 8px; height: 8px; border-radius: 999px; background: var(--danger)"></span></a>
+      <a href="#" style="display: flex; align-items: center; min-height: 34px; padding: 4px 10px 4px 26px; border-radius: 6px; color: var(--ink); text-decoration: none">Balo concentric sclerosis</a>
+      <a href="#" style="display: flex; align-items: center; min-height: 34px; padding: 4px 10px; border-radius: 6px; color: var(--ink); text-decoration: none">Myasthenia gravis</a>
+      <a href="Main.dc.html" aria-current="page" style="display: flex; align-items: center; min-height: 34px; margin-top: 12px; padding: 4px 10px; border-radius: 6px; background: var(--accent-050); color: var(--ink); font-weight: 600; text-decoration: none">Type 1 diabetes mellitus</a>
+    </nav>
+
+    <main style="flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column">
+      <div style="flex: none; padding: 22px 48px 18px; border-bottom: 1px solid var(--line)">
+        <div style="font-family: var(--font-mono); font-size: 12px; color: var(--accent-strong)">ARI:0001080</div>
+        <h1 style="margin: 8px 0 0; font-weight: 200; font-size: 44px; line-height: 1.04; letter-spacing: -0.025em">Type 1 diabetes mellitus</h1>
+      </div>
+      <div style="flex: 1 1 auto; padding: 24px 48px; display: flex; flex-direction: column; gap: 24px">
+        <!-- The record you were on stays; the failure is said where it happened, with a way forward. -->
+        <div role="alert" style="max-width: 880px; display: flex; flex-wrap: wrap; gap: 12px 20px; align-items: flex-start; padding: 14px 16px; border-radius: 8px; background: var(--danger-bg)">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: none; margin-top: 2px; color: var(--danger)"><circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16h.01"/></svg>
+          <div style="flex: 1 1 360px; display: flex; flex-direction: column; gap: 2px; font-size: 14px">
+            <strong style="font-weight: 600">Multiple sclerosis didn't open.</strong>
+            <span>The server didn't answer, so you're still on Type 1 diabetes mellitus. Nothing was changed or lost.</span>
+          </div>
+          <div style="flex: none; display: flex; gap: 8px">
+            <button style="height: 36px; padding: 0 14px; border: 0; border-radius: 8px; background: var(--btn-fill); color: #fff; font-size: 13px; font-weight: 500">Try again</button>
+            <button style="height: 36px; padding: 0 14px; border: 1px solid var(--line-strong); border-radius: 8px; background: var(--bg); font-size: 13px">Dismiss</button>
+          </div>
+        </div>
+        <p aria-hidden="true" style="margin: 0; max-width: 64ch; font-size: 17px; line-height: 1.65; color: var(--mute)">Type 1 diabetes is a chronic autoimmune disease characterized by the destruction of pancreatic beta cells in the islets of Langerhans, leading to absolute insulin deficiency and hyperglycemia.</p>
+      </div>
+    </main>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

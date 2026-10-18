@@ -36,7 +36,7 @@ button{cursor:pointer}
   <div aria-hidden="true" style="position: absolute; inset: 0; background: rgba(15,40,64,.4)"></div>
 
   <!-- The changes tray: what will be sent, per disease, before anything leaves -->
-  <aside role="dialog" aria-modal="true" aria-labelledby="tray-h" style="position: absolute; top: 0; right: 0; bottom: 0; width: min(560px, 100%); box-sizing: border-box; display: flex; flex-direction: column; background: var(--bg); box-shadow: var(--shadow-3)">
+  <div role="dialog" aria-modal="true" aria-labelledby="tray-h" style="position: absolute; top: 0; right: 0; bottom: 0; width: min(560px, 100%); box-sizing: border-box; display: flex; flex-direction: column; background: var(--bg); box-shadow: var(--shadow-3)">
     <div style="display: flex; align-items: flex-start; gap: 12px; padding: 22px 24px 16px; border-bottom: 1px solid var(--line)">
       <div style="flex: 1 1 auto">
         <h2 id="tray-h" style="margin: 0; font-weight: 300; font-size: 24px; letter-spacing: -0.018em">Your changes</h2>
@@ -80,7 +80,7 @@ button{cursor:pointer}
       <button style="height: 40px; padding: 0 16px; border: 1px solid var(--line-strong); border-radius: 8px; background: var(--bg); font-size: 13px">Not now</button>
       <button style="height: 40px; padding: 0 18px; border: 0; border-radius: 8px; background: var(--btn-fill); color: #fff; font-size: 13px; font-weight: 500">Submit 2 diseases for review</button>
     </div>
-  </aside>
+  </div>
 </div>
 </x-dc>
 <script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>

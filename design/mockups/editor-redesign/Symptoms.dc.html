@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Match several symptoms</title>
+<script src="../support.js"></script>
+<link rel="stylesheet" href="ds/ari-catalog/tokens.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@200;300;400;500;600&display=swap">
+<style>
+body{margin:0}
+a{color:#155160}a:hover{color:#0f2840}
+button,input{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid #1f6b7a;outline-offset:2px}
+</style>
+</helmet>
+<div data-theme="light" style="height: 100vh; min-height: 640px; overflow: hidden; position: relative; background: var(--paper); color: var(--ink); font-family: var(--font-sans); font-size: 14px; line-height: 1.5">
+  <div aria-hidden="true" style="height: 56px; display: flex; align-items: center; padding: 0 16px 0 72px; background: var(--bar); color: #fff"><span style="font-family: var(--font-cond); font-weight: 600; font-size: 22px">AUTOIMMUNE REGISTRY</span></div>
+  <div aria-hidden="true" style="position: absolute; inset: 0; background: rgba(15,40,64,.4)"></div>
+
+  <!-- Opened from “Match several symptoms at once” in search. Both lists scroll inside the dialog, which never grows past the window. -->
+  <div role="dialog" aria-modal="true" aria-labelledby="sm-title" style="position: absolute; top: 32px; bottom: 32px; left: 50%; transform: translateX(-50%); width: min(980px, calc(100% - 32px)); box-sizing: border-box; display: flex; flex-direction: column; border-radius: 14px; background: var(--bg); box-shadow: var(--shadow-3); overflow: hidden">
+    <div style="flex: none; display: flex; align-items: flex-start; gap: 12px; padding: 20px 24px 12px">
+      <div style="flex: 1 1 auto">
+        <h2 id="sm-title" style="margin: 0; font-weight: 300; font-size: 24px; letter-spacing: -0.018em">Match several symptoms</h2>
+        <p style="margin: 4px 0 0; font-size: 13px; color: var(--mute)">Pick the symptoms a patient has. Diseases are ranked by how many of them they list.</p>
+      </div>
+      <button aria-label="Close" title="Close (Esc)" style="height: 40px; flex: none; display: flex; align-items: center; gap: 6px; padding: 0 8px; border: 0; border-radius: 8px; background: none; color: var(--mute)"><kbd style="padding: 0 5px; border: 1px solid var(--line-strong); border-radius: 4px; font-family: var(--font-mono); font-size: 11px">Esc</kbd><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+    </div>
+
+    <div role="group" aria-label="Selected symptoms" style="flex: none; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 0 24px 14px; border-bottom: 1px solid var(--line)">
+      <span style="font-size: 12px; color: var(--mute); margin-right: 4px">Selected</span>
+      <sc-for list="{{selected}}" as="s" hint-placeholder-count="3">
+        <span style="display: inline-flex; align-items: center; gap: 2px; height: 30px; padding: 0 2px 0 12px; border-radius: 999px; background: var(--accent-050); border: 1px solid var(--accent-border); font-size: 13px">{{s}}<button aria-label="Remove {{s}}" style="width: 28px; height: 28px; display: grid; place-items: center; border: 0; background: none; color: var(--mute)"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button></span>
+      </sc-for>
+      <button style="height: 30px; padding: 0 8px; border: 0; background: none; font-size: 13px; color: var(--accent-strong)">Clear all</button>
+    </div>
+
+    <div style="flex: 1 1 auto; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr)">
+      <section aria-labelledby="sm-list-h" style="min-height: 0; display: flex; flex-direction: column; border-right: 1px solid var(--line)">
+        <div style="flex: none; padding: 14px 24px 10px; display: flex; flex-direction: column; gap: 6px">
+          <label id="sm-list-h" for="sm-filter" style="font-size: 13px; font-weight: 600">Find a symptom <span style="font-weight: 400; color: var(--mute)">825 in the registry</span></label>
+          <input id="sm-filter" value="fever" style="height: 38px; box-sizing: border-box; padding: 0 12px; border: 1px solid var(--accent); border-radius: 8px; box-shadow: var(--focus); font-size: 14px">
+        </div>
+        <div style="flex: 1 1 auto; min-height: 0; overflow: auto; padding: 0 16px 16px">
+          <sc-for list="{{matches}}" as="m" hint-placeholder-count="6">
+            <label style="display: grid; grid-template-columns: 18px minmax(0, 1fr) auto; gap: 10px; align-items: start; padding: 8px; border-radius: 6px; background: {{m.bg}}; cursor: pointer">
+              <input type="checkbox" checked="{{m.on}}" style="width: 16px; height: 16px; margin: 2px 0 0; accent-color: #1f6b7a">
+              <span style="font-size: 14px">{{m.name}}</span>
+              <span style="font-family: var(--font-mono); font-size: 12px; color: var(--mute)">{{m.n}}</span>
+            </label>
+          </sc-for>
+        </div>
+      </section>
+
+      <section aria-labelledby="sm-res-h" style="min-height: 0; display: flex; flex-direction: column">
+        <div style="flex: none; padding: 14px 24px 10px; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px">
+          <h3 id="sm-res-h" style="margin: 0; flex: 1 1 auto; font-size: 13px; font-weight: 600">18 diseases list all three <span style="font-weight: 400; color: var(--mute)">· 93 list at least one</span></h3>
+          <label style="display: inline-flex; align-items: center; gap: 8px; font-size: 13px"><input type="checkbox" checked="{{allOnly}}" style="width: 16px; height: 16px; margin: 0; accent-color: #1f6b7a">Only those with all selected</label>
+        </div>
+        <ol style="flex: 1 1 auto; min-height: 0; overflow: auto; list-style: none; margin: 0; padding: 0 16px 16px">
+          <sc-for list="{{results}}" as="r" hint-placeholder-count="12">
+            <li style="border-bottom: 1px solid var(--line)"><a href="Main.dc.html" style="display: flex; align-items: center; gap: 12px; min-height: 40px; padding: 4px 8px; color: var(--ink); text-decoration: none"><span style="flex: 1 1 auto">{{r}}</span><span style="font-family: var(--font-mono); font-size: 12px; padding: 1px 8px; border-radius: 999px; background: var(--success-bg)">3 of 3</span></a></li>
+          </sc-for>
+        </ol>
+      </section>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const m = (name, n, on) => ({ name, n: String(n), on: !!on, bg: on ? 'var(--accent-050)' : 'transparent' });
+    return {
+      allOnly: true,
+      selected: ['Fatigue', 'Joint pain', 'Fever'],
+      matches: [m('Fever', 45, true), m('Low-grade fever', 1), m('A salmon/pink-colored rash on chest and thighs during fever', 1), m('Abrupt shaking chills, high fever, and back/flank or abdominal pain', 1), m('Meningoencephalitis symptoms: subacute fever, severe headache, and neck stiffness', 1), m('Weight loss, low-grade fevers, and cyanosis in advanced disease', 1)],
+      results: ['Autoimmune vasculitis', 'Chronic Lyme disease', 'Felty syndrome', 'Lupus vasculitis', 'Palindromic rheumatism', 'Polyarteritis nodosa', 'Polymyositis', 'Postmyocardial infarction syndrome', 'Reactive arthritis', 'Relapsing polychondritis', 'Rheumatic fever', 'Rheumatoid arthritis', 'Sarcoidosis', 'Schnitzler syndrome', 'Subacute bacterial endocarditis', 'Systemic lupus erythematosus', "Takayasu's arteritis", 'Ulcerative colitis']
+    };
+  }
+}
+</script>
+</body>
+</html>

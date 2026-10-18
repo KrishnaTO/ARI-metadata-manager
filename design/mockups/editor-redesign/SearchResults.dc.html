@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Search results page</title>
+<script src="../support.js"></script>
+<link rel="stylesheet" href="ds/ari-catalog/tokens.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@200;300;400;500;600&display=swap">
+<style>
+body{margin:0}
+a{color:#155160}a:hover{color:#0f2840}
+button,input{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid #1f6b7a;outline-offset:2px}
+</style>
+</helmet>
+<div data-theme="light" style="height: 100vh; min-height: 640px; overflow: hidden; display: flex; flex-direction: column; background: var(--bg); color: var(--ink); font-family: var(--font-sans); font-size: 14px; line-height: 1.5">
+  <header style="height: 56px; flex: none; display: flex; align-items: center; gap: 12px; padding: 0 16px; background: var(--bar); color: #fff">
+    <button aria-label="Show the disease index" aria-expanded="false" style="width: 40px; height: 40px; flex: none; display: grid; place-items: center; border: 0; border-radius: 8px; background: none; color: #fff"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button>
+    <a href="Main.dc.html" style="flex: none; color: #fff; text-decoration: none; font-family: var(--font-cond); font-weight: 600; font-size: 22px; letter-spacing: .01em">AUTOIMMUNE REGISTRY</a>
+    <div style="flex: 1 1 360px; max-width: 620px; min-width: 0; margin-left: 12px; height: 38px; display: flex; align-items: center; gap: 10px; padding: 0 10px 0 12px; border-radius: 8px; background: rgba(255,255,255,.10); box-shadow: inset 0 0 0 1px rgba(255,255,255,.14)">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true" style="flex: none; opacity: .75"><circle cx="11" cy="11" r="7"/><path d="M16.5 16.5 21 21"/></svg>
+      <input aria-label="Search" value="rash" style="flex: 1 1 auto; min-width: 0; border: 0; background: none; color: #fff; font-size: 14px; outline: none">
+    </div>
+    <span style="flex: 1 1 0"></span>
+  </header>
+
+  <main style="flex: 1 1 auto; min-height: 0; overflow: auto">
+    <div style="max-width: 960px; margin: 0 auto; padding: 28px 48px 64px; display: flex; flex-direction: column; gap: 24px">
+      <div style="display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px 24px">
+        <div style="flex: 1 1 360px">
+          <div style="font-size: 11px; font-weight: 600; letter-spacing: .14em; color: var(--mute)">SEARCH</div>
+          <h1 style="margin: 6px 0 0; font-weight: 200; font-size: 40px; line-height: 1.1; letter-spacing: -0.02em">20 results for “rash”</h1>
+        </div>
+        <button title="Copy a link that opens these results" style="height: 38px; display: flex; align-items: center; gap: 8px; padding: 0 14px; border: 1px solid var(--line-strong); border-radius: 8px; background: var(--bg); font-size: 13px">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/></svg>
+          Copy link to these results
+        </button>
+      </div>
+
+      <div role="group" aria-label="Show" style="display: flex; gap: 6px">
+        <button aria-pressed="true" style="height: 32px; padding: 0 14px; border: 0; border-radius: 999px; background: var(--ink); color: #fff; font-size: 13px; font-weight: 500">All <span style="font-family: var(--font-mono)">20</span></button>
+        <button aria-pressed="false" style="height: 32px; padding: 0 14px; border: 1px solid var(--line-strong); border-radius: 999px; background: none; font-size: 13px">Diseases <span style="font-family: var(--font-mono)">1</span></button>
+        <button aria-pressed="false" style="height: 32px; padding: 0 14px; border: 1px solid var(--line-strong); border-radius: 999px; background: none; font-size: 13px">Symptoms <span style="font-family: var(--font-mono)">19</span></button>
+        <button aria-pressed="false" style="height: 32px; padding: 0 14px; border: 1px solid var(--line-strong); border-radius: 999px; background: none; font-size: 13px">Codes <span style="font-family: var(--font-mono)">0</span></button>
+      </div>
+
+      <section aria-labelledby="sr-d" style="display: flex; flex-direction: column">
+        <h2 id="sr-d" style="margin: 0 0 6px; font-size: 11px; font-weight: 600; letter-spacing: .14em; color: var(--mute)">DISEASES <span style="font-family: var(--font-mono); letter-spacing: 0">1</span></h2>
+        <a href="#" style="display: flex; align-items: baseline; gap: 12px; padding: 12px 4px; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); color: var(--ink); text-decoration: none">
+          <span style="font-size: 15px; font-weight: 600">Dermatitis herpetiformis</span>
+          <span style="flex: 1 1 auto; font-size: 13px; color: var(--mute)">synonym: Gluten rash</span>
+          <span style="font-family: var(--font-mono); font-size: 12px; color: var(--accent-strong)">ARI:0001078</span>
+        </a>
+      </section>
+
+      <section aria-labelledby="sr-s" style="display: flex; flex-direction: column">
+        <h2 id="sr-s" style="margin: 0 0 6px; font-size: 11px; font-weight: 600; letter-spacing: .14em; color: var(--mute)">SYMPTOMS <span style="font-family: var(--font-mono); letter-spacing: 0">19</span></h2>
+        <div role="table" aria-label="Symptoms matching rash" style="display: flex; flex-direction: column; border-top: 1px solid var(--line)">
+          <div role="row" style="display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1.4fr); gap: 16px; padding: 8px 4px; border-bottom: 1px solid var(--line); font-size: 11px; font-weight: 600; letter-spacing: .1em; color: var(--mute)">
+            <span role="columnheader">SYMPTOM</span><span role="columnheader">LISTED BY (OPENS AT SYMPTOMS)</span>
+          </div>
+          <sc-for list="{{rows}}" as="r" hint-placeholder-count="12">
+            <div role="row" style="display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1.4fr); gap: 16px; padding: 10px 4px; border-bottom: 1px solid var(--line); align-items: baseline">
+              <span role="cell" style="font-size: 14px">{{r.s}}</span>
+              <span role="cell" style="display: flex; flex-wrap: wrap; gap: 2px 12px; font-size: 13px">
+                <sc-for list="{{r.ds}}" as="d" hint-placeholder-count="2"><a href="Main.dc.html">{{d}}</a></sc-for>
+                <sc-if value="{{r.hasMore}}" hint-placeholder-val="{{false}}"><a href="#" style="color: var(--mute)">{{r.more}}</a></sc-if>
+              </span>
+            </div>
+          </sc-for>
+        </div>
+      </section>
+    </div>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const r = (s, d, more) => ({ s, ds: d.split(', '), hasMore: !!more, more: more || '' });
+    return { rows: [
+      r('Rash', "Acute febrile mucocutaneous lymph node syndrome, Adult onset Still's disease", 'and 25 more'),
+      r('Butterfly-shaped rash', 'Systemic lupus erythematosus, Mixed collagen vascular disease', 'and 1 more'),
+      r('Butterfly-shaped rash face that covers the cheeks and bridge of the nose', 'Systemic lupus erythematosus, Mixed collagen vascular disease', 'and 1 more'),
+      r('A salmon/pink-colored rash on chest and thighs during fever', "Adult onset Still's disease"),
+      r('Burning rash', 'Dermatitis herpetiformis'),
+      r('Circular rash', 'Autoimmune progesterone dermatitis'),
+      r('Eczema-like rash', 'Autoimmune progesterone dermatitis'),
+      r('Flat or slightly raised, painless rash with a ragged edge', 'Rheumatic fever'),
+      r('Itchy rash', 'Dermatitis herpetiformis'),
+      r('Mouth rash', 'SLE glomerulonephritis syndrome'),
+      r('Nose rash', 'SLE glomerulonephritis syndrome'),
+      r('Painful rashes', 'Cutaneous lupus erythematosus'),
+      r("Photosensitive annular or polycyclic erythematous facial rash ('raccoon/owl eyes')", 'Neonatal lupus erythematosus'),
+      r('Purplish rash, typically on the lower legs and buttocks', 'Immunoglobulin A vasculitis'),
+      r('Rash on groin', 'Acute febrile mucocutaneous lymph node syndrome'),
+      r('Rash on torso', 'Acute febrile mucocutaneous lymph node syndrome'),
+      r('Rash with tender, purple or brownish-red spots', 'Hypersensitivity angiitis'),
+      r('Stinging rash', 'Dermatitis herpetiformis'),
+      r('Violet/dusky red rash', 'Dermatomyositis')
+    ] };
+  }
+}
+</script>
+</body>
+</html>
