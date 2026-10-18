@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>New disease</title>
+<script src="../support.js"></script>
+<link rel="stylesheet" href="ds/ari-catalog/tokens.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@200;300;400;500;600&display=swap">
+<style>
+body{margin:0}
+a{color:#155160}a:hover{color:#0f2840}
+button,input,textarea,select{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid #1f6b7a;outline-offset:2px}
+</style>
+</helmet>
+<div data-theme="light" style="height: 100vh; min-height: 640px; overflow: hidden; position: relative; background: var(--bg); color: var(--ink); font-family: var(--font-sans); font-size: 14px; line-height: 1.5">
+  <!-- The index behind, where New disease was opened from -->
+  <div aria-hidden="true" style="position: absolute; inset: 0; display: flex; flex-direction: column">
+    <div style="height: 56px; flex: none; display: flex; align-items: center; gap: 10px; padding: 0 16px 0 72px; background: var(--bar); color: #fff"><span style="font-family: var(--font-cond); font-weight: 600; font-size: 22px">AUTOIMMUNE REGISTRY</span></div>
+    <div style="flex: 1 1 auto; display: flex">
+      <div style="flex: 0 0 280px; background: var(--paper); border-right: 1px solid var(--line); display: flex; flex-direction: column; justify-content: flex-end; padding: 16px">
+        <span style="height: 36px; display: flex; align-items: center; justify-content: center; border: 1px solid var(--accent); border-radius: 8px; background: var(--bg); box-shadow: var(--focus); font-size: 13px">New disease…</span>
+      </div>
+      <div style="flex: 1 1 auto"></div>
+    </div>
+  </div>
+  <div aria-hidden="true" style="position: absolute; inset: 0; background: rgba(15,40,64,.4)"></div>
+
+  <div role="dialog" aria-modal="true" aria-labelledby="nd-title" style="position: absolute; top: 32px; bottom: 32px; left: 50%; transform: translateX(-50%); width: min(720px, calc(100% - 32px)); box-sizing: border-box; display: flex; flex-direction: column; border-radius: 14px; background: var(--bg); box-shadow: var(--shadow-3); overflow: hidden">
+    <div style="flex: none; display: flex; align-items: flex-start; gap: 12px; padding: 20px 24px 14px; border-bottom: 1px solid var(--line)">
+      <div style="flex: 1 1 auto">
+        <h2 id="nd-title" style="margin: 0; font-weight: 300; font-size: 24px; letter-spacing: -0.018em">New disease</h2>
+        <p style="margin: 4px 0 0; font-size: 13px; color: var(--mute)">The next ARI id is assigned when you create it. It goes to your changes, and reviewers see it when you submit.</p>
+      </div>
+      <button aria-label="Close" title="Close (Esc)" style="height: 40px; flex: none; display: flex; align-items: center; gap: 6px; padding: 0 8px; border: 0; border-radius: 8px; background: none; color: var(--mute)"><kbd style="padding: 0 5px; border: 1px solid var(--line-strong); border-radius: 4px; font-family: var(--font-mono); font-size: 11px">Esc</kbd><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+    </div>
+
+    <div style="flex: 1 1 auto; min-height: 0; overflow: auto; padding: 18px 24px 24px; display: flex; flex-direction: column; gap: 18px">
+      <div role="alert" style="display: flex; gap: 10px; align-items: flex-start; padding: 10px 14px; border-radius: 8px; background: var(--danger-bg); font-size: 13px">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: none; margin-top: 2px; color: var(--danger)"><circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16h.01"/></svg>
+        <span><strong style="font-weight: 600">One thing is missing.</strong> <a href="#nd-tissue">Target tissue</a> needs at least one tissue.</span>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 4px">
+        <label for="nd-name" style="font-size: 13px; font-weight: 600">Name <span style="font-weight: 400; color: var(--mute)">(required)</span></label>
+        <input id="nd-name" aria-describedby="nd-name-hint" required value="" placeholder="As it should read in the index" style="height: 38px; box-sizing: border-box; padding: 0 12px; border: 1px solid var(--line-strong); border-radius: 8px; font-size: 14px">
+        <span id="nd-name-hint" style="font-size: 12px; color: var(--mute)">Sentence case, as in “Type 1 diabetes mellitus”.</span>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 4px">
+        <label for="nd-def" style="font-size: 13px; font-weight: 600">Definition <span style="font-weight: 400; color: var(--mute)">(required)</span></label>
+        <textarea id="nd-def" required rows="3" placeholder="What the disease is, in two or three sentences" style="box-sizing: border-box; padding: 10px 12px; border: 1px solid var(--line-strong); border-radius: 8px; font-size: 14px; resize: vertical"></textarea>
+      </div>
+
+      <fieldset style="margin: 0; padding: 0; border: 0; display: flex; flex-direction: column; gap: 6px">
+        <legend style="padding: 0 0 4px; font-size: 13px; font-weight: 600">Where the definition came from <span style="font-weight: 400; color: var(--mute)">(required)</span></legend>
+        <div style="display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr) 40px; gap: 8px; align-items: end">
+          <label style="display: flex; flex-direction: column; gap: 2px; font-size: 12px; color: var(--mute)">URL or PMID<input placeholder="PMID: 12345678" style="height: 36px; box-sizing: border-box; padding: 0 10px; border: 1px solid var(--line-strong); border-radius: 6px; font-family: var(--font-mono); font-size: 13px; color: var(--ink)"></label>
+          <label style="display: flex; flex-direction: column; gap: 2px; font-size: 12px; color: var(--mute)">Label (optional)<input placeholder="Author, year" style="height: 36px; box-sizing: border-box; padding: 0 10px; border: 1px solid var(--line-strong); border-radius: 6px; font-size: 13px; color: var(--ink)"></label>
+          <button aria-label="Remove this source" style="width: 40px; height: 36px; display: grid; place-items: center; border: 0; border-radius: 6px; background: none; color: var(--mute)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+        </div>
+        <button style="align-self: flex-start; height: 32px; display: flex; align-items: center; gap: 6px; padding: 0 10px; border: 1px dashed var(--line-strong); border-radius: 6px; background: none; font-size: 13px; color: var(--accent-strong)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>Add a source</button>
+      </fieldset>
+
+      <fieldset id="nd-tissue" aria-describedby="nd-tissue-err" aria-invalid="true" style="margin: 0; padding: 12px 14px; border: 1px solid var(--danger); border-radius: 8px; display: flex; flex-direction: column; gap: 8px">
+        <legend style="padding: 0 6px; font-size: 13px; font-weight: 600">Target tissue <span style="font-weight: 400; color: var(--mute)">(required)</span></legend>
+        <span id="nd-tissue-err" style="display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--danger)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16h.01"/></svg>Pick at least one tissue.</span>
+        <div style="display: flex; flex-wrap: wrap; gap: 6px">
+          <sc-for list="{{tissues}}" as="t" hint-placeholder-count="23">
+            <label style="display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 10px; border: 1px solid var(--line-strong); border-radius: 999px; font-size: 13px"><input type="checkbox" style="margin: 0; accent-color: #1f6b7a">{{t}}</label>
+          </sc-for>
+        </div>
+      </fieldset>
+
+      <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px">
+        <label style="display: flex; flex-direction: column; gap: 4px; font-size: 13px; font-weight: 600">Parent disease <span style="font-weight: 400; font-size: 12px; color: var(--mute)">Places it under another disease in the index</span>
+          <select style="height: 38px; padding: 0 8px; border: 1px solid var(--line-strong); border-radius: 8px; background: var(--bg); font-size: 14px; font-weight: 400"><option>None</option></select></label>
+        <label style="display: flex; flex-direction: column; gap: 4px; font-size: 13px; font-weight: 600">Synonyms <span style="font-weight: 400; font-size: 12px; color: var(--mute)">Press Enter after each</span>
+          <input placeholder="Other names for it" style="height: 38px; box-sizing: border-box; padding: 0 12px; border: 1px solid var(--line-strong); border-radius: 8px; font-size: 14px; font-weight: 400"></label>
+        <label style="display: flex; flex-direction: column; gap: 4px; font-size: 13px; font-weight: 600">Disease category
+          <select style="height: 38px; padding: 0 8px; border: 1px solid var(--line-strong); border-radius: 8px; background: var(--bg); font-size: 14px; font-weight: 400"><option>Autoimmune</option></select></label>
+        <label style="display: flex; flex-direction: column; gap: 4px; font-size: 13px; font-weight: 600">Evidence quality
+          <select style="height: 38px; padding: 0 8px; border: 1px solid var(--line-strong); border-radius: 8px; background: var(--bg); font-size: 14px; font-weight: 400"><option>Not set</option></select></label>
+      </div>
+
+      <details style="border-top: 1px solid var(--line); padding-top: 10px">
+        <summary style="min-height: 36px; display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 13px; font-weight: 600; list-style: none"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg>Clinical subtypes, cross-references and prevalence <span style="font-weight: 400; color: var(--mute)">(optional)</span></summary>
+      </details>
+    </div>
+
+    <div style="flex: none; display: flex; align-items: center; justify-content: flex-end; gap: 8px; padding: 14px 24px; border-top: 1px solid var(--line)">
+      <button style="height: 40px; padding: 0 16px; border: 1px solid var(--line-strong); border-radius: 8px; background: var(--bg); font-size: 13px">Cancel</button>
+      <button style="height: 40px; display: flex; align-items: center; gap: 8px; padding: 0 18px; border: 0; border-radius: 8px; background: var(--btn-fill); color: #fff; font-size: 13px; font-weight: 500"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>Create disease</button>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() {
+    // The tissue list as stored in the ontology, shown as written (the old dialog set it in capitals).
+    return { tissues: ['All', 'Bladder', 'Blood', 'Digestive system', 'Eye', 'Glands', 'Heart', 'Immune System', 'Islet of Langerhans', 'Kidney', 'Liver', 'Lungs', 'Metabolic System', 'Musculoskeletal', 'Nervous System', 'Pancreas', 'Pancreatic beta cell', 'Parathyroid', 'Pituitary', 'Skin', 'Systemic', 'Thyroid gland', 'Vascular system'] };
+  }
+}
+</script>
+</body>
+</html>

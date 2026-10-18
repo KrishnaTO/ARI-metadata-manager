@@ -91,6 +91,49 @@ name bar from 123px to 94px, and the reading area from 478px to 507px. At
 1024px wide the search box goes from 4px, unusable, to 266px. Narrow the
 browser window to see it.
 
+**The remaining 25 issues** from the same testing (M1–M16, L1–L9) are fixed
+too. Nine need no screen of their own, because the redesign already removes
+them: M1 and M2 (the section list replaces the story spine), M3 (editing in
+place), M7 (the pathophysiology map on a fixed grid), M13 (all nine databases
+on the Overview), L1 (change log newest first), L2 (a legend under the index),
+L3 (symptoms in search, New disease under the index), L6 (the phone record keeps
+Copy link in its action row) and L7 (every page puts its content in a main
+landmark under one h1). The rest:
+
+- **`Main.dc.html`** — a disease with subtypes has a fold button whose
+  `aria-expanded` follows what is on screen, and the open disease carries
+  `aria-current` (M11). Clickable.
+- **`NewDisease.dc.html`** — every field has a label, the missing field is
+  named and linked, the close button is named, labels are in sentence case,
+  tissue names are shown as stored, and icons replace the fullwidth plus signs
+  (M4, L4).
+- **`Symptoms.dc.html`** — Match several symptoms: both lists scroll inside the
+  dialog, which never grows past the window, and chips keep sentence case (M5).
+- **`Settings.dc.html`** — Settings in dark mode with sign-in off. The sign-in
+  state comes first, controls that can't work are left out, every colour reads
+  at 4.5:1 or better, and export has an icon instead of an emoji (M10). The
+  symptom word cloud is retired: it repeated the Symptoms table and was
+  unreadable in dark mode (M6). Closing returns focus to the settings button,
+  as every dialog does (L5).
+- **`Offline.dc.html`** — when the server doesn't answer, search and the record
+  say so and offer Try again (M8).
+- **`SearchResults.dc.html`** — the results page has its own address, so Back,
+  Reload and Copy link work (M9).
+- **`PhoneStart.dc.html`** — on a phone, Search diseases opens the search field
+  and puts the cursor in it (M12).
+- **`Matrix.dc.html`** — the cross-reference matrix as rows and cells a screen
+  reader can follow, counts in a readable grey, gap counts taken from the ids
+  on file so they hold when suggestions fail to load, and a Dashboard link in
+  the header (M14, M16, L9).
+- **`MatrixPhone.dc.html`** — the matrix on a phone: one disease at a time, its
+  nine databases as a list, the header controls in one menu (M15). The disease
+  is Chronic Lyme disease, with its real ids and verdicts.
+- **`Reviewer.dc.html`** — the PR reviewer with a visible label on every filter,
+  a back link that says where it goes, and a table scroller that takes keyboard
+  focus (L8). The rows are from KrishnaTO/ARI PR #117; their name matches,
+  definition overlaps, support and hints were worked out with the app's own
+  matching against `data/2-databases`.
+
 Start at `editor-redesign/Main.dc.html`; links between the files work in the
 browser.
 

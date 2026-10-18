@@ -92,22 +92,23 @@ button{cursor:pointer}
         </label>
       </div>
       <ul style="list-style: none; margin: 0; padding: 8px; flex: 1 1 auto; min-height: 0; overflow: auto; display: flex; flex-direction: column; gap: 1px; font-size: 14px">
+        <!-- M11: a disease with subtypes has one fold button whose aria-expanded follows what is on screen; the open disease carries aria-current. -->
         <sc-for list="{{index}}" as="row" hint-placeholder-count="14">
-          <li style="display: flex">
-            <sc-if value="{{row.selected}}" hint-placeholder-val="{{false}}">
-              <a href="#" aria-current="page" style="flex: 1 1 auto; display: flex; align-items: center; gap: 8px; min-height: 34px; padding: 4px 10px 4px {{row.pad}}px; border-radius: 6px; background: var(--accent-050); color: var(--ink); font-weight: 600; text-decoration: none">
-                <span style="flex: 1 1 auto">{{row.name}}</span>
+          <li style="display: flex; align-items: center; padding-left: {{row.indent}}px">
+            <sc-if value="{{row.hasKids}}" hint-placeholder-val="{{false}}">
+              <button onClick="{{row.toggle}}" aria-expanded="{{row.open}}" aria-label="Subtypes of {{row.name}}" title="{{row.foldTitle}}" style="width: 24px; height: 34px; flex: none; display: grid; place-items: center; border: 0; border-radius: 6px; background: none; color: var(--mute)">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="transform: rotate({{row.rot}}deg)"><path d="m9 6 6 6-6 6"/></svg>
+              </button>
+            </sc-if>
+            <sc-if value="{{row.leaf}}" hint-placeholder-val="{{true}}">
+              <span aria-hidden="true" style="width: 24px; flex: none"></span>
+            </sc-if>
+            <a href="#" aria-current="{{row.current}}" style="flex: 1 1 auto; min-width: 0; display: flex; align-items: center; gap: 8px; min-height: 34px; padding: 4px 10px 4px 4px; border-radius: 6px; background: {{row.bg}}; color: var(--ink); font-weight: {{row.weight}}; text-decoration: none">
+              <span style="flex: 1 1 auto">{{row.name}}</span>
+              <sc-if value="{{row.hasMark}}" hint-placeholder-val="{{true}}">
                 <span role="img" aria-label="{{row.markLabel}}" title="{{row.markLabel}}" style="flex: none; width: 8px; height: 8px; border-radius: 999px; box-sizing: border-box; border: 1.5px solid var(--accent); background: {{row.markFill}}"></span>
-              </a>
-            </sc-if>
-            <sc-if value="{{row.plain}}" hint-placeholder-val="{{true}}">
-              <a href="#" style="flex: 1 1 auto; display: flex; align-items: center; gap: 8px; min-height: 34px; padding: 4px 10px 4px {{row.pad}}px; border-radius: 6px; color: var(--ink); text-decoration: none">
-                <span style="flex: 1 1 auto">{{row.name}}</span>
-                <sc-if value="{{row.hasMark}}" hint-placeholder-val="{{true}}">
-                  <span role="img" aria-label="{{row.markLabel}}" title="{{row.markLabel}}" style="flex: none; width: 8px; height: 8px; border-radius: 999px; box-sizing: border-box; border: 1.5px solid var(--accent); background: {{row.markFill}}"></span>
-                </sc-if>
-              </a>
-            </sc-if>
+              </sc-if>
+            </a>
           </li>
         </sc-for>
       </ul>
@@ -652,12 +653,29 @@ class Component extends DCLogic {
       ['Uveitis', 0, 'confirmed'], ['Autoimmune retinal vasculitis', 1, 'unconfirmed'], ['Birdshot chorioretinopathy', 1, 'confirmed'],
       ['Intermediate uveitis', 1, 'confirmed'], ['Sympathetic uveitis', 1, 'confirmed'],
       ['Vogt-Koyanagi-Harada disease', 1, 'confirmed'], ['Vitiligo', 0, 'confirmed']
-    ].map(([name, depth, st, sel]) => Object.assign({ name, pad: 10 + depth * 16, selected: !!sel, plain: !sel }, mark(st)));
+    ];
+    // Fold state lives in one place; every row's aria-expanded and visibility are read from it.
+    const folded = (this.state && this.state.folded) || {};
+    const fold = name => () => this.setState({ folded: Object.assign({}, folded, { [name]: !folded[name] }) });
+    const index = [];
+    const hiddenBelow = [];
+    idx.forEach(([name, depth, st, sel], i) => {
+      hiddenBelow.length = depth;
+      if (hiddenBelow.some(Boolean)) { hiddenBelow.push(true); return; }
+      const hasKids = i + 1 < idx.length && idx[i + 1][1] > depth;
+      const open = hasKids && !folded[name];
+      hiddenBelow.push(hasKids && !open);
+      index.push(Object.assign({
+        name, indent: depth * 16, hasKids, leaf: !hasKids, open: open ? 'true' : 'false', rot: open ? 90 : 0,
+        foldTitle: open ? 'Hide subtypes' : 'Show subtypes', toggle: fold(name),
+        current: sel ? 'page' : 'false', bg: sel ? 'var(--accent-050)' : 'transparent', weight: sel ? 600 : 400
+      }, mark(st)));
+    });
     return Object.assign(this.railVals(), {
       isOverview: cur === 'overview', isSection: cur !== 'overview', isPatho: cur === 'pathophysiology',
       navGroups: groups, sec,
       prev: { label: lab(prevKey), pick: pick(prevKey) }, next: { label: lab(nextKey), pick: pick(nextKey) },
-      index: idx,
+      index,
       synonyms: ['T1D', 'Type 1 diabetes', 'Insulin-dependent diabetes mellitus', 'IDDM', 'Juvenile-onset diabetes', 'Diabetes mellitus type 1', 'Juvenile diabetes', 'Insulin dependent diabetes', 'Type 1 diabetes mellitus'],
       xrefs: [['SNOMED','46635009'],['OMOP','201254'],['DOID','9744'],['MONDO','0005147'],['NCI','C2986'],['ICD-10','E10'],['ORPHANET','243377'],['UMLS','C0011854'],['MESH','D003922']].map(([db, id]) => ({ db, id })),
       recorded: ['symptoms','biomarkers','treatments','prevalence','environmental','etiology','genetic','pathophysiology','antibodies'].map(previewOf),

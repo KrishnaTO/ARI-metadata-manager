@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Cross-reference review on a phone</title>
+<script src="../support.js"></script>
+<link rel="stylesheet" href="ds/ari-catalog/tokens.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@200;300;400;500;600&display=swap">
+<style>
+body{margin:0}
+a{color:#155160}a:hover{color:#0f2840}
+button{font:inherit;color:inherit;cursor:pointer}
+:focus-visible{outline:2px solid #1f6b7a;outline-offset:2px}
+</style>
+</helmet>
+<!-- M15: below 640px the matrix shows one disease at a time, as a list of its nine databases. The header controls move into one menu. -->
+<div data-theme="light" style="width: 390px; height: 844px; box-sizing: border-box; overflow: hidden; display: flex; flex-direction: column; background: var(--bg); color: var(--ink); font-family: var(--font-sans); font-size: 15px; line-height: 1.5">
+  <header style="height: 56px; flex: none; display: flex; align-items: center; gap: 4px; padding: 0 6px; background: var(--bar); color: #fff">
+    <a href="PhoneStart.dc.html" aria-label="Back to the editor" title="Back to the editor" style="width: 44px; height: 44px; flex: none; display: grid; place-items: center; border-radius: 8px; color: #fff"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 6-6 6 6 6"/></svg></a>
+    <h1 style="margin: 0; flex: 1 1 auto; font-size: 17px; font-weight: 500">Cross-references</h1>
+    <button aria-haspopup="menu" aria-expanded="false" aria-label="Filter, help, settings and submit" title="Filter, help, settings and submit" style="width: 44px; height: 44px; flex: none; display: grid; place-items: center; border: 0; border-radius: 8px; background: none; color: #fff"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="12" cy="5" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="12" cy="19" r="1.8"/></svg></button>
+  </header>
+
+  <nav aria-label="Diseases that need work" style="flex: none; display: flex; align-items: center; gap: 4px; padding: 2px 6px 2px 16px; background: var(--paper); border-bottom: 1px solid var(--line)">
+    <span style="flex: 1 1 auto; font-size: 13px; color: var(--mute)">Needs work · <b style="font-family: var(--font-mono); font-weight: 500; color: var(--ink)">10</b> of <span style="font-family: var(--font-mono)">19</span></span>
+    <button aria-label="Previous disease: Autoimmune peripheral neuropathy associated with nodal/paranodal antibodies" title="Previous disease" style="width: 44px; height: 44px; display: grid; place-items: center; border: 0; border-radius: 8px; background: none"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 6-6 6 6 6"/></svg></button>
+    <button aria-label="Next disease: Female infertility due to antisperm antibodies" title="Next disease" style="width: 44px; height: 44px; display: grid; place-items: center; border: 0; border-radius: 8px; background: none"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg></button>
+  </nav>
+
+  <main style="flex: 1 1 auto; min-height: 0; overflow: auto">
+    <div style="padding: 18px 16px 14px; display: flex; flex-direction: column; gap: 8px; border-bottom: 1px solid var(--line)">
+      <div style="font-family: var(--font-mono); font-size: 12px; color: var(--accent-strong)">ARI:0001065</div>
+      <h2 style="margin: 0; font-weight: 300; font-size: 28px; line-height: 1.1; letter-spacing: -0.02em">Chronic Lyme disease</h2>
+      <div style="display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--mute)">
+        <span aria-hidden="true" style="flex: 0 0 96px; height: 6px; border-radius: 999px; background: var(--bone); overflow: hidden"><span style="display: block; width: 89%; height: 100%; background: var(--success)"></span></span>
+        <span><b style="font-family: var(--font-mono); font-weight: 500; color: var(--ink)">8</b> of 9 databases have a verdict</span>
+      </div>
+    </div>
+
+    <ul style="list-style: none; margin: 0; padding: 0">
+      <sc-for list="{{dbs}}" as="d" hint-placeholder-count="9">
+        <li style="border-bottom: 1px solid var(--line); background: {{d.rowBg}}">
+          <button onClick="{{d.toggle}}" aria-expanded="{{d.open}}" style="width: 100%; min-height: 60px; display: flex; align-items: center; gap: 12px; padding: 8px 12px 8px 16px; border: 0; background: none; text-align: left">
+            <span aria-hidden="true" style="width: 32px; height: 32px; flex: none; display: grid; place-items: center; border-radius: 8px; background: {{d.bg}}; border: {{d.border}}; color: {{d.color}}; font-size: 15px; font-weight: 600">{{d.glyph}}</span>
+            <span style="flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column">
+              <span style="font-size: 15px; font-weight: 600">{{d.name}}</span>
+              <span style="font-size: 13px; color: var(--mute)">{{d.say}}</span>
+            </span>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: none; color: var(--mute); transform: rotate({{d.rot}}deg)"><path d="m9 6 6 6-6 6"/></svg>
+          </button>
+          <sc-if value="{{d.isOpen}}" hint-placeholder-val="{{false}}">
+            <div style="padding: 0 16px 16px 60px; display: flex; flex-direction: column; gap: 12px">
+              <sc-for list="{{d.ids}}" as="x" hint-placeholder-count="2">
+                <div style="display: flex; flex-direction: column; gap: 8px; padding: 10px 12px; border-radius: 8px; background: var(--bg); border: 1px solid var(--line)">
+                  <div style="display: flex; align-items: baseline; gap: 10px">
+                    <a href="#" style="font-family: var(--font-mono); font-size: 14px">{{x.id}}</a>
+                    <span style="font-size: 13px; color: var(--mute)">{{x.state}}</span>
+                  </div>
+                  <sc-if value="{{x.needsVerdict}}" hint-placeholder-val="{{false}}">
+                    <div style="display: flex; gap: 8px">
+                      <button aria-label="Confirm {{d.name}} {{x.id}}" style="flex: 1 1 0; height: 44px; border: 0; border-radius: 8px; background: var(--btn-fill); color: #fff; font-size: 14px; font-weight: 500">Confirm</button>
+                      <button aria-label="{{d.name}} {{x.id}} is not the same disease" style="flex: 1 1 0; height: 44px; border: 1px solid var(--line-strong); border-radius: 8px; background: var(--bg); font-size: 14px">Not the same</button>
+                    </div>
+                  </sc-if>
+                </div>
+              </sc-for>
+              <sc-if value="{{d.noTerm}}" hint-placeholder-val="{{false}}">
+                <span style="font-size: 14px">Reviewed: {{d.name}} has no term for this disease.</span>
+              </sc-if>
+              <sc-if value="{{d.hasRuledOut}}" hint-placeholder-val="{{false}}">
+                <span style="font-size: 13px; color: var(--mute)">Ruled out: <span style="font-family: var(--font-mono)">{{d.ruledOut}}</span></span>
+              </sc-if>
+            </div>
+          </sc-if>
+        </li>
+      </sc-for>
+    </ul>
+  </main>
+
+  <div style="flex: none; padding: 10px 16px 14px; border-top: 1px solid var(--line); background: var(--bg)">
+    <button style="width: 100%; height: 48px; display: flex; align-items: center; gap: 10px; padding: 0 14px; border: 1px solid var(--line-strong); border-radius: 8px; background: var(--bg); text-align: left; font-size: 14px">
+      <span style="flex: 1 1 auto; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis"><span style="color: var(--mute)">Next:</span> Female infertility due to antisperm antibodies</span>
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: none"><path d="m9 6 6 6-6 6"/></svg>
+    </button>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    // Chronic Lyme disease as it stands in KrishnaTO/ARI main: ids on the record, and verdicts from mappings/ari.equivalencies.tsv.
+    const look = {
+      ok:     { glyph: '✓', bg: 'var(--success-bg)', border: '1px solid transparent', color: 'var(--ink)' },
+      onfile: { glyph: '•', bg: 'var(--warning-bg)', border: '1px solid transparent', color: 'var(--ink)' },
+      none:   { glyph: '–', bg: 'var(--paper)', border: '1px solid transparent', color: 'var(--mute)' }
+    };
+    const DB = [
+      ['SNOMED', 'none', 'No term in SNOMED', [], '1269516003, 23502006, 33937009'],
+      ['OMOP', 'onfile', '2 ids · 1 needs a verdict', [['19137845', 'Confirmed', false], ['37365579', 'On file, needs a verdict', true]], '440638, 4141757'],
+      ['DOID', 'none', 'No term in DOID', [], '11729'],
+      ['MONDO', 'ok', 'Confirmed · 0700280', [['0700280', 'Confirmed', false]], ''],
+      ['NCIt', 'ok', 'Confirmed · C119039', [['C119039', 'Confirmed', false]], ''],
+      ['ICD-10', 'none', 'No term in ICD-10', [], 'A69.2'],
+      ['Orphanet', 'none', 'No term in Orphanet', [], ''],
+      ['UMLS', 'ok', 'Confirmed · C3890422', [['C3890422', 'Confirmed', false]], ''],
+      ['MeSH', 'ok', 'Confirmed · D000077342', [['D000077342', 'Confirmed', false]], '']
+    ];
+    const openName = this.state && 'open' in this.state ? this.state.open : 'OMOP';
+    return {
+      dbs: DB.map(([name, st, say, ids, ruledOut]) => {
+        const isOpen = openName === name;
+        return Object.assign({}, look[st], {
+          name, say, isOpen, open: isOpen ? 'true' : 'false', rot: isOpen ? 90 : 0,
+          rowBg: isOpen ? 'var(--paper)' : 'transparent',
+          toggle: () => this.setState({ open: isOpen ? '' : name }),
+          ids: ids.map(([id, state, needsVerdict]) => ({ id, state, needsVerdict })), noTerm: st === 'none',
+          hasRuledOut: !!ruledOut, ruledOut
+        });
+      })
+    };
+  }
+}
+</script>
+</body>
+</html>

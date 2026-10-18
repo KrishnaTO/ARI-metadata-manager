@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Cross-reference review</title>
+<script src="../support.js"></script>
+<link rel="stylesheet" href="ds/ari-catalog/tokens.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@200;300;400;500;600&display=swap">
+<style>
+body{margin:0}
+a{color:#155160}a:hover{color:#0f2840}
+button,input{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid #1f6b7a;outline-offset:2px}
+</style>
+</helmet>
+<div data-theme="light" style="height: 100vh; min-height: 640px; overflow: hidden; display: flex; flex-direction: column; background: var(--bg); color: var(--ink); font-family: var(--font-sans); font-size: 14px; line-height: 1.5">
+  <header style="height: 56px; flex: none; display: flex; align-items: center; gap: 14px; padding: 0 16px; background: var(--bar); color: #fff">
+    <a href="Main.dc.html" style="flex: none; height: 40px; display: flex; align-items: center; gap: 6px; padding: 0 10px 0 6px; border-radius: 8px; color: #fff; text-decoration: none; font-size: 13px"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 6-6 6 6 6"/></svg>Editor</a>
+    <h1 style="margin: 0; flex: none; font-size: 17px; font-weight: 500">Cross-reference review</h1>
+    <nav aria-label="Review pages" style="display: flex; gap: 2px; font-size: 13px">
+      <a href="Reviewer.dc.html" style="padding: 8px 10px; border-radius: 8px; color: rgba(255,255,255,.85); text-decoration: none">PR reviewer</a>
+      <a href="#" style="padding: 8px 10px; border-radius: 8px; color: rgba(255,255,255,.85); text-decoration: none">Synonyms</a>
+      <a href="#" style="padding: 8px 10px; border-radius: 8px; color: rgba(255,255,255,.85); text-decoration: none">Dashboard</a>
+    </nav>
+    <span style="flex: 1 1 auto"></span>
+    <div title="Diseases where every database has a verdict" style="display: flex; align-items: center; gap: 10px; font-size: 13px">
+      <span><b style="font-family: var(--font-mono); font-weight: 500">208</b> of <span style="font-family: var(--font-mono)">227</span> fully reviewed</span>
+      <span aria-hidden="true" style="width: 120px; height: 6px; border-radius: 999px; background: rgba(255,255,255,.18); overflow: hidden"><span style="display: block; width: 92%; height: 100%; background: var(--sky)"></span></span>
+    </div>
+    <button aria-label="How this works" style="width: 40px; height: 40px; display: grid; place-items: center; border: 0; border-radius: 8px; background: none; color: rgba(255,255,255,.8)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.6 9.2a2.5 2.5 0 1 1 3.3 2.4c-.6.2-.9.7-.9 1.3v.6"/><path d="M12 17h.01"/></svg></button>
+    <button style="height: 36px; padding: 0 14px; border: 1px solid rgba(255,255,255,.28); border-radius: 8px; background: none; color: #fff; font-size: 13px; font-weight: 500">Submit for review</button>
+  </header>
+
+  <main style="flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column">
+  <!-- When predictions fail, say so, and keep the gap counts honest: they come from the ids on file. -->
+  <div role="status" style="flex: none; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; padding: 10px 24px; background: var(--warning-bg); border-bottom: 1px solid var(--line); font-size: 13px">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: none; color: var(--warning)"><path d="M12 3 2 20h20L12 3z"/><path d="M12 10v4M12 17h.01"/></svg>
+    <span style="flex: 1 1 520px"><strong style="font-weight: 600">Suggested ids couldn't load.</strong> The counts and verdicts below come from the ids on file, so they are still right. Only the suggestions for empty cells are missing.</span>
+    <button style="height: 32px; padding: 0 12px; border: 1px solid var(--line-strong); border-radius: 8px; background: var(--bg); font-size: 13px">Try again</button>
+  </div>
+
+  <div style="flex: none; display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; padding: 14px 24px">
+    <label for="mx-filter" style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0)">Filter diseases or ids</label>
+    <input id="mx-filter" placeholder="Filter diseases or ids" style="flex: 0 1 320px; height: 36px; box-sizing: border-box; padding: 0 12px; border: 1px solid var(--line-strong); border-radius: 8px; font-size: 14px">
+    <div role="group" aria-label="Show" style="display: flex; padding: 3px; border-radius: 999px; background: var(--bone)">
+      <button aria-pressed="false" style="height: 30px; padding: 0 14px; border: 0; border-radius: 999px; background: none; font-size: 13px; color: var(--mute)">All <span style="font-family: var(--font-mono)">227</span></button>
+      <button aria-pressed="true" style="height: 30px; padding: 0 14px; border: 0; border-radius: 999px; background: var(--bg); box-shadow: var(--shadow-1); font-size: 13px; font-weight: 500">Needs work <span style="font-family: var(--font-mono)">19</span></button>
+    </div>
+    <span style="font-size: 13px; color: var(--mute)">13 of the 19 are new and have no ids in any database yet.</span>
+  </div>
+
+  <div role="region" aria-label="Cross-reference matrix" tabindex="0" style="flex: 1 1 auto; min-height: 0; overflow: auto; padding: 0 24px 16px">
+    <div role="grid" aria-label="Cross-references by disease and database" aria-rowcount="20" style="min-width: 1100px">
+      <div role="row" style="position: sticky; top: 0; z-index: 1; display: grid; grid-template-columns: minmax(300px, 1.7fr) repeat(9, minmax(76px, 1fr)); background: var(--bg); border-bottom: 1px solid var(--ink)">
+        <span role="columnheader" style="display: flex; justify-content: space-between; align-items: center; padding: 10px 8px; font-size: 11px; font-weight: 600; letter-spacing: .1em; color: var(--mute)"><span>DISEASE</span><span title="Databases with a verdict">DONE</span></span>
+        <sc-for list="{{dbs}}" as="d" hint-placeholder-count="9">
+          <span role="columnheader" style="padding: 8px 4px; display: flex; flex-direction: column; align-items: center; gap: 1px; text-align: center">
+            <span style="font-size: 11px; font-weight: 600; letter-spacing: .08em">{{d.name}}</span>
+            <span style="font-size: 11px; color: var(--mute)">{{d.missing}} to do</span>
+          </span>
+        </sc-for>
+      </div>
+      <sc-for list="{{rows}}" as="r" hint-placeholder-count="14">
+        <div role="row" style="display: grid; grid-template-columns: minmax(300px, 1.7fr) repeat(9, minmax(76px, 1fr)); border-bottom: 1px solid var(--line); align-items: stretch">
+          <span role="rowheader" style="display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 4px 8px">
+            <span style="flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column">
+              <span style="font-size: 14px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis" title="{{r.name}}">{{r.name}}</span>
+              <span style="font-family: var(--font-mono); font-size: 11px; color: var(--mute)">{{r.id}}</span>
+            </span>
+            <span style="flex: none; font-family: var(--font-mono); font-size: 12px; color: var(--mute)">{{r.judged}}</span>
+          </span>
+          <sc-for list="{{r.cells}}" as="c" hint-placeholder-count="9">
+            <span role="gridcell" aria-label="{{c.label}}" title="{{c.label}}" style="display: flex; align-items: center; justify-content: center; margin: 3px; border-radius: 6px; background: {{c.bg}}; border: {{c.border}}; color: {{c.color}}; font-size: 15px; font-weight: 600">{{c.glyph}}<sup style="font-size: 10px; font-weight: 500">{{c.sup}}</sup></span>
+          </sc-for>
+        </div>
+      </sc-for>
+    </div>
+  </div>
+
+  <div style="flex: none; display: flex; flex-wrap: wrap; gap: 6px 20px; padding: 10px 24px; border-top: 1px solid var(--line); background: var(--paper); font-size: 12px">
+    <span><b style="color: var(--success)">✓</b> Confirmed</span>
+    <span><b>•</b> On file, needs a verdict</span>
+    <span><b style="color: var(--mute)">–</b> No term in that database</span>
+    <span><span style="display: inline-block; width: 12px; height: 12px; vertical-align: -2px; border: 1px dashed var(--line-strong); border-radius: 3px"></span> No id yet</span>
+    <span>A small number after a mark is how many ids the cell holds.</span>
+  </div>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const DB = [['SNOMED', 13], ['OMOP', 14], ['DOID', 14], ['MONDO', 13], ['NCIt', 13], ['ICD-10', 15], ['Orphanet', 13], ['UMLS', 14], ['MeSH', 14]];
+    const look = {
+      ok:     { glyph: '✓', bg: 'var(--success-bg)', border: '1px solid transparent', color: 'var(--ink)', say: 'confirmed' },
+      onfile: { glyph: '•', bg: 'var(--warning-bg)', border: '1px solid transparent', color: 'var(--ink)', say: 'on file, needs a verdict' },
+      none:   { glyph: '–', bg: 'var(--paper)', border: '1px solid transparent', color: 'var(--mute)', say: 'no term in this database' },
+      empty:  { glyph: '', bg: 'transparent', border: '1px dashed var(--line-strong)', color: 'var(--mute)', say: 'no id yet' }
+    };
+    const row = (name, id, states, sups) => {
+      const cells = states.split(' ').map((s, i) => {
+        const k = { o: 'ok', f: 'onfile', n: 'none', e: 'empty' }[s];
+        const sup = (sups && sups[i]) || '';
+        return Object.assign({}, look[k], { sup, label: `${DB[i][0]}: ${look[k].say}${sup ? ', ' + sup + ' ids' : ''}` });
+      });
+      const judged = cells.filter(c => c.glyph === '✓' || c.glyph === '–').length;
+      return { name, id, cells, judged: `${judged} of 9` };
+    };
+    const E = 'e e e e e e e e e';
+    return {
+      dbs: DB.map(([name, missing]) => ({ name, missing })),
+      rows: [
+        row('Anti-AMPAR encephalitis', 'ARI:0001217', E),
+        row('Anti-GABA B encephalitis', 'ARI:0001218', E),
+        row('Autoimmune GFAP astrocytopathy', 'ARI:0001222', E),
+        row('Autoimmune aortitis (isolated, non-vasculitic)', 'ARI:0001219', E),
+        row('Autoimmune enteropathy', 'ARI:0001220', E),
+        row('Autoimmune gastrointestinal dysmotility syndrome (Idiopathic esophageal achalasia with autoimmune features or Autoimmune achalasia)', 'ARI:0001221', E),
+        row('Autoimmune hemophilia B (anti-factor IX antibody)', 'ARI:0001223', E),
+        row('Autoimmune nodopathies (anti-NF155, anti-CNTN1, anti-Caspr1, etc.)', 'ARI:0001224', E),
+        row('Autoimmune peripheral neuropathy associated with nodal/paranodal antibodies', 'ARI:0001225', E),
+        row('Chronic Lyme disease', 'ARI:0001065', 'n f n o o n n o o', [0, 2]),
+        row('Female infertility due to antisperm antibodies', 'ARI:0001094', 'o o n n n n n f n'),
+        row('Hemophilia B Leyden', 'ARI:0001098', 'o o n o n n o o f'),
+        row('Idiopathic membranous glomerulonephritis', 'ARI:0001102', 'o o n o o f o o o'),
+        row('IgA nephropathy', 'ARI:0001104', 'o o o o o e o o o'),
+        row('Immune thrombocytopenia', 'ARI:0001107', 'o o e o o o o o o', [0, 0, 0, 0, 0, 0, 0, 2]),
+        row('Immune-mediated thrombotic thrombocytopenic purpura (iTTP)', 'ARI:0001226', E),
+        row('Infertility associated with Antisperm Antibodies', 'ARI:0001227', E),
+        row('Klein Levin Syndrome', 'ARI:0001228', E),
+        row('STAT3 gain-of-function disease', 'ARI:0001229', E)
+      ]
+    };
+  }
+}
+</script>
+</body>
+</html>

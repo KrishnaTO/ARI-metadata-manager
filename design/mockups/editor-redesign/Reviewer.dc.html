@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>PR reviewer</title>
+<script src="../support.js"></script>
+<link rel="stylesheet" href="ds/ari-catalog/tokens.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@200;300;400;500;600&display=swap">
+<style>
+body{margin:0}
+a{color:#155160}a:hover{color:#0f2840}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid #1f6b7a;outline-offset:2px}
+.rv-row{display:grid;grid-template-columns:64px 60px 230px 240px 110px 260px 140px 170px 110px 90px 130px 236px;border-bottom:1px solid var(--line)}
+.rv-row>span{padding:8px 10px;min-width:0;overflow-wrap:anywhere}
+.rv-head{border-bottom:1px solid var(--line-strong)}
+.rv-head>span{font-size:11px;font-weight:600;letter-spacing:.1em;color:var(--mute);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rv-tag{display:inline-block;padding:1px 8px;border-radius:999px;font-size:12px;font-weight:500;white-space:nowrap}
+.rv-small{font-size:12px;color:var(--mute)}
+.rv-field{display:flex;flex-direction:column;gap:3px;font-size:12px;font-weight:600;color:var(--mute)}
+.rv-field select,.rv-field input{height:36px;box-sizing:border-box;padding:0 10px;border:1px solid var(--line-strong);border-radius:8px;background:var(--bg);font-size:14px;font-weight:400;color:var(--ink)}
+.rv-btn{height:36px;display:inline-flex;align-items:center;gap:6px;padding:0 12px;border:1px solid var(--line-strong);border-radius:8px;background:var(--bg);font-size:13px}
+</style>
+</helmet>
+<!-- L8: every filter has a visible label, the back link says where it goes, and the table's scroller takes keyboard focus. -->
+<div data-theme="light" style="height: 100vh; min-height: 640px; overflow: hidden; display: flex; flex-direction: column; background: var(--bg); color: var(--ink); font-family: var(--font-sans); font-size: 14px; line-height: 1.45">
+  <header style="height: 56px; flex: none; display: flex; align-items: center; gap: 14px; padding: 0 16px; background: var(--bar); color: #fff">
+    <a href="Matrix.dc.html" style="flex: none; height: 40px; display: flex; align-items: center; gap: 6px; padding: 0 10px 0 6px; border-radius: 8px; color: #fff; text-decoration: none; font-size: 13px"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 6-6 6 6 6"/></svg>Cross-references</a>
+    <h1 style="margin: 0; font-size: 17px; font-weight: 500">PR reviewer</h1>
+  </header>
+
+  <main style="flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column">
+    <div style="flex: none; display: flex; flex-direction: column; gap: 12px; padding: 16px 24px 14px; background: var(--paper); border-bottom: 1px solid var(--line)">
+      <div style="display: flex; flex-wrap: wrap; align-items: flex-end; gap: 10px 12px">
+        <label class="rv-field" style="flex: 0 1 620px; min-width: 0">Pull request
+          <select><option>#117 [ARI:0001007, ARI:0001010, ARI:0001013, ARI:0001014, ARI:0001015, ARI:0001016, +38 more] - mappings review</option></select>
+        </label>
+        <button class="rv-btn"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 4v7h-7"/></svg>Reload</button>
+        <span class="rv-small" style="padding-bottom: 9px">139 rows added to <span style="font-family: var(--font-mono)">mappings/ari.equivalencies.tsv</span> across 24 diseases</span>
+      </div>
+      <div role="search" aria-label="Filter the rows" style="display: flex; flex-wrap: wrap; align-items: flex-end; gap: 10px 12px">
+        <label class="rv-field" style="flex: 0 1 280px">Search
+          <input type="search" placeholder="Disease, id, label or line">
+        </label>
+        <label class="rv-field">Database
+          <select><option>All databases</option><option>DOID</option><option>ICD-10</option><option>MeSH</option><option>NCIt</option></select>
+        </label>
+        <label class="rv-field">Judgment
+          <select><option>All judgments</option><option>Confirmed</option><option>Rejected</option><option>Predicted</option></select>
+        </label>
+        <label class="rv-field">Name match
+          <select><option>All name matches</option></select>
+        </label>
+        <label class="rv-field">Marked
+          <select><option>Marked or not</option><option>Marked for review</option><option>Not marked</option></select>
+        </label>
+        <span style="flex: 1 1 auto"></span>
+        <button class="rv-btn">Collapse all</button>
+        <button class="rv-btn" title="Post your unposted notes to the PR as one GitHub review, each on its row's line">Post my notes to the PR</button>
+        <button class="rv-btn"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg>Export CSV</button>
+      </div>
+    </div>
+
+    <div role="region" aria-label="Rows in pull request 117" tabindex="0" style="flex: 1 1 auto; min-height: 0; overflow: auto; margin: 12px 24px 16px; border: 1px solid var(--line); border-radius: 8px">
+      <!-- A table drawn with grid cells and ARIA table roles: the template's repeat tags can't sit inside a real table. -->
+      <div role="table" aria-label="Rows in pull request 117, grouped by disease" class="rv-table" style="width: 1840px">
+        <div role="rowgroup" style="position: sticky; top: 0; z-index: 1; background: var(--bg)">
+          <div role="row" class="rv-row rv-head"><span role="columnheader">LINE</span><span role="columnheader">MARK</span><span role="columnheader">ARI TERM</span><span role="columnheader">TARGET</span><span role="columnheader">JUDGMENT</span><span role="columnheader">NAME / SYNONYM MATCH</span><span role="columnheader">DEFINITION</span><span role="columnheader">SUPPORT</span><span role="columnheader">FLAGS</span><span role="columnheader">MAIN</span><span role="columnheader">HINT</span><span role="columnheader">NOTE</span></div>
+        </div>
+        <sc-for list="{{groups}}" as="g" hint-placeholder-count="6">
+          <div role="rowgroup">
+            <div role="row" style="display: flex; background: var(--paper); border-bottom: 1px solid var(--line)">
+              <span role="rowheader" aria-colspan="12" style="flex: 1 1 auto">
+                <button aria-expanded="{{g.open}}" style="width: 100%; min-height: 38px; display: flex; align-items: center; gap: 10px; padding: 6px 10px; border: 0; background: none; text-align: left; font-size: 14px">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: none; color: var(--mute); transform: rotate({{g.rot}}deg)"><path d="m9 6 6 6-6 6"/></svg>
+                  <span style="font-weight: 600">{{g.name}}</span>
+                  <span style="font-family: var(--font-mono); font-size: 12px; color: var(--mute)">{{g.id}}</span>
+                  <span class="rv-small">{{g.count}}</span>
+                  <sc-for list="{{g.tags}}" as="t" hint-placeholder-count="2">
+                    <span class="rv-tag" style="background: {{t.bg}}; font-weight: 400">{{t.label}}</span>
+                  </sc-for>
+                </button>
+              </span>
+            </div>
+            <sc-for list="{{g.rows}}" as="r" hint-placeholder-count="4">
+              <div role="row" class="rv-row" style="background: {{r.rowBg}}; box-shadow: {{r.edge}}">
+                <span role="cell" class="rv-small"><a href="#" title="Open line {{r.line}} of mappings/ari.equivalencies.tsv in the pull request">{{r.line}}</a></span>
+                <span role="cell"><input type="checkbox" checked="{{r.marked}}" aria-label="Mark line {{r.line}} for review" style="width: 16px; height: 16px; margin: 2px 0 0; accent-color: #b5841a"></span>
+                <span role="cell"><span style="font-weight: 600">{{g.name}}</span><span class="rv-small" style="display: block; font-family: var(--font-mono)">{{g.id}}</span></span>
+                <span role="cell"><a href="#">{{r.db}} {{r.tid}}</a><span style="display: block">{{r.tlabel}}</span><a href="#" class="rv-small">Search the web for both names</a></span>
+                <span role="cell"><span class="rv-tag" style="background: {{r.jbg}}">{{r.judgment}}</span></span>
+                <span role="cell"><span style="display: block">{{r.match}}</span><span class="rv-small" style="display: block">“{{r.ma}}” ↔ “{{r.mt}}”</span></span>
+                <span role="cell">
+                  <sc-if value="{{r.hasDef}}" hint-placeholder-val="{{true}}">
+                    <span style="display: inline-flex; align-items: center; gap: 6px"><span aria-hidden="true" style="width: 50px; height: 6px; border-radius: 3px; background: var(--line)"><span style="display: block; width: {{r.defW}}px; height: 6px; border-radius: 3px; background: var(--accent)"></span></span>{{r.def}}</span>
+                  </sc-if>
+                  <sc-if value="{{r.noDef}}" hint-placeholder-val="{{false}}"><span class="rv-small">no target definition</span></sc-if>
+                </span>
+                <span role="cell">
+                  <sc-if value="{{r.hasSup}}" hint-placeholder-val="{{false}}"><span class="rv-tag" style="background: var(--success-bg)">{{r.sup}}</span></sc-if>
+                  <sc-if value="{{r.noSup}}" hint-placeholder-val="{{true}}"><span class="rv-small">none</span></sc-if>
+                </span>
+                <span role="cell"></span>
+                <span role="cell" class="rv-small">not yet</span>
+                <span role="cell"><span class="rv-tag" style="background: {{r.hbg}}">{{r.hint}}</span><span class="rv-small" style="display: block">score {{r.score}}</span></span>
+                <span role="cell"><textarea rows="2" aria-label="Note on line {{r.line}}" placeholder="Add a note" style="width: 100%; box-sizing: border-box; padding: 4px 6px; border: 1px solid var(--line-strong); border-radius: 6px; background: var(--bg); font-size: 12px; resize: vertical"></textarea></span>
+              </div>
+            </sc-for>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() {
+    // Rows from KrishnaTO/ARI PR #117 (mappings/ari.equivalencies.tsv at its merge). Name match, definition
+    // overlap, support and hint were computed with the app's own matching against data/2-databases;
+    // ICD-10 names are the FY2027 code titles.
+    const HINT = { 'Supported': 'var(--success-bg)', 'Review': 'var(--warning-bg)', 'Check rejection': 'var(--danger-bg)', 'Weak evidence': 'var(--danger-bg)' };
+    const row = (line, db, tid, tlabel, judgment, match, ma, mt, def, sup, hint, score, marked) => ({
+      line: String(line), db, tid, tlabel, judgment, jbg: judgment === 'confirmed' ? 'var(--success-bg)' : 'var(--danger-bg)',
+      match, ma, mt, hasDef: def != null, noDef: def == null, def: def == null ? '' : `${def}%`, defW: def == null ? 0 : Math.round(def / 2),
+      hasSup: !!sup, noSup: !sup, sup: sup || '', hint, hbg: HINT[hint], score: String(score), marked: !!marked,
+      rowBg: marked ? 'var(--warning-bg)' : 'transparent', edge: marked ? 'inset 3px 0 0 var(--warning)' : 'none'
+    });
+    const tags = rows => Object.entries(rows.reduce((c, r) => (c[r.hint] = (c[r.hint] || 0) + 1, c), {}))
+      .map(([h, n]) => ({ label: `${h} ${n}`, bg: HINT[h] }));
+    const group = (name, id, rows, total) => ({ name, id, rows, open: rows.length ? 'true' : 'false', rot: rows.length ? 90 : 0,
+      count: `${total || rows.length} ${(total || rows.length) === 1 ? 'row' : 'rows'}`, tags: tags(rows) });
+    const it = [
+      row(419, 'ICD-10', 'D69.3', 'Immune thrombocytopenic purpura', 'confirmed', 'Partial word overlap (50%)', 'Autoimmune thrombocytopenic purpura', 'Immune thrombocytopenic purpura', null, '', 'Review', 1),
+      row(2349, 'DOID', '1587', 'thrombocytopenia due to platelet alloimmunization', 'rejected', 'ARI label = target synonym', 'Immune thrombocytopenia', 'Immune thrombocytopenia', null, 'SNOMED 2897005', 'Check rejection', 5, true),
+      row(2350, 'NCIt', 'C3446', 'Primary Immune Thrombocytopenia', 'confirmed', 'ARI label = target synonym', 'Immune thrombocytopenia', 'Immune Thrombocytopenia', 34, '', 'Supported', 3),
+      row(2351, 'MeSH', 'D016553', 'Purpura, Thrombocytopenic, Idiopathic', 'confirmed', 'ARI label = target synonym', 'Immune thrombocytopenia', 'Immune Thrombocytopenia', 19, '', 'Supported', 3)
+    ];
+    const iga = [
+      row(2346, 'NCIt', 'C34963', 'Henoch-Schönlein Purpura', 'confirmed', 'ARI synonym = target label', 'Henoch-Schonlein purpura', 'Henoch-Schönlein Purpura', 47, 'UMLS C0034152', 'Supported', 5),
+      row(2347, 'MeSH', 'D011695', 'IgA Vasculitis', 'confirmed', 'ARI synonym = target label', 'IgA vasculitis', 'IgA Vasculitis', 26, '', 'Review', 2),
+      row(2348, 'ICD-10', 'D69.0', 'Allergic purpura', 'confirmed', 'Weak word overlap (33%)', 'Anaphylactoid purpura', 'Allergic purpura', null, '', 'Weak evidence', 0)
+    ];
+    return { groups: [
+      group('Immune thrombocytopenia', 'ARI:0001107', it),
+      group('Immunoglobulin A vasculitis', 'ARI:0001108', iga),
+      group('Immunoglobulin G4 related disease', 'ARI:0001109', [], 3),
+      group('Immunoglobulin G4 related ophthalmic disease', 'ARI:0001110', [], 5),
+      group('Inclusion body myositis', 'ARI:0001111', [], 1),
+      group('Inflammatory Bowel Disease', 'ARI:0001112', [], 3)
+    ] };
+  }
+}
+</script>
+</body>
+</html>
