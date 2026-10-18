@@ -76,6 +76,17 @@ fixes for the six high-severity issues found in testing the current editor:
   Autoimmune retinal vasculitis's: 25 items in 11 sections.
 - **`Submit.dc.html`** — the tray closes with Esc (H6).
 
+**Small laptops.** The record screens respond to the window. Under 1400px
+wide (a 1366×768 or 1280×800 laptop), the disease index hides and opens over
+the record from the menu button, closing on a click outside it. The top bar
+also keeps icons only for Cross-references and Your changes, and drops
+“Metadata manager” from the wordmark. Under 760px tall, the disease-name bar
+slims down so the record keeps most of the height. On a 1366×768 laptop
+(1366×657 inside the browser) the search box goes from 310px to 455px, the
+name bar from 123px to 94px, and the reading area from 478px to 507px. At
+1024px wide the search box goes from 4px, unusable, to 266px. Narrow the
+browser window to see it.
+
 Start at `editor-redesign/Main.dc.html`; links between the files work in the
 browser.
 

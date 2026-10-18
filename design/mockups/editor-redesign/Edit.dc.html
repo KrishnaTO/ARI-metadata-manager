@@ -17,17 +17,38 @@ a{color:#155160}a:hover{color:#0f2840}
 button,input,textarea,select{font:inherit;color:inherit}
 button{cursor:pointer}
 :focus-visible{outline:2px solid #1f6b7a;outline-offset:2px}
+/* Under 1400px wide the disease index becomes an overlay opened from the menu button, and the bar keeps icons only. */
+.rail{display:flex}
+.scrim{display:none}
+.namebar{padding:22px 48px 18px}
+.rec-title{font-size:44px}
+.secnav{padding:24px 12px 32px 36px}
+.reading{padding:24px 48px 64px 24px}
+@media (min-width:1400px){.rail.toggled{display:none}}
+@media (max-width:1399px){
+.rail{display:none;position:absolute;top:0;left:0;bottom:0;z-index:20;box-shadow:var(--shadow-3)}
+.rail.toggled{display:flex}
+.scrim.toggled{display:block}
+.lbl,.wm-sub{display:none}
+.namebar{padding:18px 32px 14px}
+.secnav{padding:20px 8px 32px 20px}
+.reading{padding:20px 32px 48px 16px}
+}
+/* Short screens: a slimmer disease-name bar leaves more of the height to the record. */
+@media (max-height:760px){.namebar{padding-top:12px;padding-bottom:10px}.rec-title{font-size:34px}}
+.name-input{height:56px;font-size:34px}
+@media (max-height:760px){.name-input{height:44px;font-size:26px}}
 </style>
 </helmet>
 <div data-theme="light" style="height: 100vh; min-height: 640px; overflow: hidden; display: flex; flex-direction: column; background: var(--bg); color: var(--ink); font-family: var(--font-sans); font-size: 14px; line-height: 1.5; position: relative">
 
   <header style="height: 56px; flex: none; display: flex; align-items: center; gap: 12px; padding: 0 16px; background: var(--bar); color: #fff">
-    <button aria-label="Hide the disease index" aria-expanded="true" style="width: 40px; height: 40px; flex: none; display: grid; place-items: center; border: 0; border-radius: 8px; background: rgba(255,255,255,.08); color: #fff">
+    <button onClick="{{toggleRail}}" aria-label="{{railLabel}}" title="{{railLabel}}" aria-expanded="{{railShown}}" aria-controls="disease-index" style="width: 40px; height: 40px; flex: none; display: grid; place-items: center; border: 0; border-radius: 8px; background: rgba(255,255,255,.08); color: #fff">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
     </button>
     <a href="Main.dc.html" style="flex: none; display: flex; align-items: baseline; gap: 10px; color: #fff; text-decoration: none">
       <span style="font-family: var(--font-cond); font-weight: 600; font-size: 22px; letter-spacing: .01em">AUTOIMMUNE REGISTRY</span>
-      <span style="font-size: 10px; font-weight: 600; letter-spacing: .14em; color: var(--sky)">METADATA MANAGER</span>
+      <span class="wm-sub" style="font-size: 10px; font-weight: 600; letter-spacing: .14em; color: var(--sky)">METADATA MANAGER</span>
     </a>
     <div style="flex: 1 1 360px; max-width: 620px; min-width: 0; margin-left: 12px; height: 38px; display: flex; align-items: center; gap: 10px; padding: 0 10px 0 12px; border-radius: 8px; background: rgba(255,255,255,.10); box-shadow: inset 0 0 0 1px rgba(255,255,255,.14)">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true" style="flex: none; opacity: .75"><circle cx="11" cy="11" r="7"/><path d="M16.5 16.5 21 21"/></svg>
@@ -35,9 +56,13 @@ button{cursor:pointer}
       <kbd style="flex: none; padding: 1px 7px; border-radius: 4px; border: 1px solid rgba(255,255,255,.3); font-family: var(--font-mono); font-size: 11px; color: rgba(255,255,255,.75)">/</kbd>
     </div>
     <span style="flex: 1 1 0"></span>
-    <a href="#" style="flex: none; color: #fff; text-decoration: none; font-size: 13px; padding: 8px 6px">Cross-references</a>
-    <a href="Submit.dc.html" style="flex: none; height: 36px; display: flex; align-items: center; gap: 8px; padding: 0 12px; border: 1px solid rgba(255,255,255,.28); border-radius: 8px; color: #fff; font-size: 13px; text-decoration: none">
-      Your changes
+    <a href="#" aria-label="Cross-references" title="Cross-references" style="flex: none; height: 40px; display: flex; align-items: center; gap: 8px; padding: 0 10px; border-radius: 8px; color: #fff; text-decoration: none; font-size: 13px">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M9 4v16"/></svg>
+      <span class="lbl">Cross-references</span>
+    </a>
+    <a href="Submit.dc.html" aria-label="Your changes, 3" title="Your changes" style="flex: none; height: 36px; display: flex; align-items: center; gap: 8px; padding: 0 12px; border: 1px solid rgba(255,255,255,.28); border-radius: 8px; color: #fff; font-size: 13px; text-decoration: none">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 13h4l2 3h4l2-3h4"/><path d="M5.5 5h13L20 13v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-5z"/></svg>
+      <span class="lbl">Your changes</span>
       <span style="min-width: 20px; height: 20px; padding: 0 6px; box-sizing: border-box; display: grid; place-items: center; border-radius: 999px; background: var(--sky); color: var(--ink); font-family: var(--font-mono); font-size: 11px; font-weight: 500">3</span>
     </a>
     <button aria-label="How this works" style="width: 40px; height: 40px; flex: none; display: grid; place-items: center; border: 0; border-radius: 8px; background: none; color: rgba(255,255,255,.8)">
@@ -51,8 +76,9 @@ button{cursor:pointer}
     </button>
   </header>
 
-  <div style="flex: 1 1 auto; display: flex; align-items: stretch; min-height: 0">
-    <nav aria-label="Disease index" style="flex: 0 0 280px; box-sizing: border-box; display: flex; flex-direction: column; background: var(--paper); border-right: 1px solid var(--line)">
+  <div style="flex: 1 1 auto; display: flex; align-items: stretch; min-height: 0; position: relative">
+    <button class="scrim {{railCls}}" onClick="{{closeRail}}" tabindex="-1" aria-label="Close the disease index" style="position: absolute; inset: 0; z-index: 15; border: 0; padding: 0; background: rgba(15,40,64,.4)"></button>
+    <nav id="disease-index" class="rail {{railCls}}" aria-label="Disease index" style="flex: 0 0 280px; width: 280px; box-sizing: border-box; flex-direction: column; background: var(--paper); border-right: 1px solid var(--line)">
       <div style="padding: 16px 16px 12px; display: flex; flex-direction: column; gap: 10px; border-bottom: 1px solid var(--line)">
         <div style="display: flex; padding: 3px; border-radius: 999px; background: var(--bone)">
           <button aria-pressed="true" style="flex: 1 1 0; height: 30px; border: 0; border-radius: 999px; background: var(--bg); box-shadow: var(--shadow-1); font-size: 13px; font-weight: 500">A–Z</button>
@@ -74,7 +100,7 @@ button{cursor:pointer}
 
     <main style="flex: 1 1 auto; min-width: 0; min-height: 0; display: flex; flex-direction: column; box-shadow: inset 4px 0 0 var(--warning)">
       <!-- Disease-name bar: stays put while the record scrolls -->
-      <div style="flex: none; position: relative; z-index: 1; padding: 20px 48px 18px; border-bottom: 2px solid var(--warning); display: flex; flex-wrap: wrap; align-items: flex-end; gap: 16px 24px; background: var(--bg)">
+      <div class="namebar" style="flex: none; position: relative; z-index: 1; border-bottom: 2px solid var(--warning); display: flex; flex-wrap: wrap; align-items: flex-end; gap: 16px 24px; background: var(--bg)">
         <div style="flex: 1 1 420px; min-width: 0">
           <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; font-size: 12px; color: var(--mute)">
             <span style="display: inline-flex; align-items: center; gap: 6px; padding: 2px 9px; border-radius: 999px; background: var(--warning-bg); color: var(--ink); font-weight: 600"><span aria-hidden="true" style="width: 6px; height: 6px; border-radius: 999px; background: var(--warning)"></span>Editing</span>
@@ -82,13 +108,13 @@ button{cursor:pointer}
             <span>The id cannot change. Saved changes go to your working copy; reviewers see them only after you submit.</span>
           </div>
           <label for="f-name" style="display: block; margin: 12px 0 4px; font-size: 11px; font-weight: 600; letter-spacing: .1em; color: var(--mute)">DISEASE NAME</label>
-          <input id="f-name" value="Type 1 diabetes mellitus" style="width: 100%; max-width: 640px; box-sizing: border-box; height: 56px; padding: 0 12px; border: 1px solid var(--line-strong); border-radius: 8px; background: var(--bg); font-weight: 200; font-size: 34px; letter-spacing: -0.02em">
+          <input id="f-name" class="name-input" value="Type 1 diabetes mellitus" style="width: 100%; max-width: 640px; box-sizing: border-box; padding: 0 12px; border: 1px solid var(--line-strong); border-radius: 8px; background: var(--bg); font-weight: 200; letter-spacing: -0.02em">
         </div>
         <a href="Main.dc.html" style="flex: none; height: 38px; display: flex; align-items: center; padding: 0 16px; border: 1px solid var(--line-strong); border-radius: 8px; color: var(--ink); font-size: 13px; text-decoration: none">Stop editing</a>
       </div>
 
       <div style="flex: 1 1 auto; min-height: 0; overflow: auto; display: flex; align-items: flex-start">
-        <nav aria-label="Sections of this record" style="flex: 0 0 216px; box-sizing: border-box; position: sticky; top: 0; padding: 24px 12px 32px 36px; display: flex; flex-direction: column; gap: 14px">
+        <nav class="secnav" aria-label="Sections of this record" style="flex: 0 0 216px; box-sizing: border-box; position: sticky; top: 0; display: flex; flex-direction: column; gap: 14px">
           <sc-for list="{{navGroups}}" as="g" hint-placeholder-count="5">
             <div style="display: flex; flex-direction: column; gap: 1px">
               <sc-if value="{{g.hasTitle}}" hint-placeholder-val="{{true}}">
@@ -114,7 +140,7 @@ button{cursor:pointer}
           </sc-for>
         </nav>
 
-        <div style="flex: 999 1 460px; min-width: 0; max-width: 880px; box-sizing: border-box; padding: 24px 48px 48px 24px">
+        <div class="reading" style="flex: 999 1 460px; min-width: 0; max-width: 880px; box-sizing: border-box">
 
           <!-- Overview fields, edited where they are read -->
           <sc-if value="{{isOverview}}" hint-placeholder-val="{{true}}">
@@ -255,6 +281,25 @@ button{cursor:pointer}
 </x-dc>
 <script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
 class Component extends DCLogic {
+  componentDidMount() {
+    this._mq = window.matchMedia('(min-width: 1400px)');
+    this._onMq = () => this.forceUpdate();
+    this._mq.addEventListener('change', this._onMq);
+  }
+  componentWillUnmount() {
+    if (this._mq) this._mq.removeEventListener('change', this._onMq);
+  }
+  railVals() {
+    const toggled = !!(this.state && this.state.railToggled);
+    const shown = window.matchMedia('(min-width: 1400px)').matches ? !toggled : toggled;
+    return {
+      railCls: toggled ? 'toggled' : '',
+      railShown: shown ? 'true' : 'false',
+      railLabel: shown ? 'Hide the disease index' : 'Show the disease index',
+      toggleRail: () => this.setState({ railToggled: !toggled }),
+      closeRail: () => this.setState({ railToggled: false })
+    };
+  }
   renderVals() {
     const cur = (this.state && this.state.s) || 'overview';
     const pick = k => () => this.setState({ s: k });
@@ -278,7 +323,7 @@ class Component extends DCLogic {
       ['Diabetic ketoacidosis (DKA)', 'Variable (25–40%)', 'Metabolic decompensation with ketone production']
     ].map(([a, b, c, e]) => ({ a, b, c, editing: !!e, view: !e }));
     const synonyms = ['T1D', 'Type 1 diabetes', 'Insulin-dependent diabetes mellitus', 'IDDM', 'Juvenile-onset diabetes', 'Diabetes mellitus type 1', 'Juvenile diabetes', 'Insulin dependent diabetes'].map(v => ({ v }));
-    return { isOverview: cur === 'overview', isSymptoms: cur === 'symptoms', navGroups, rows, synonyms };
+    return Object.assign(this.railVals(), { isOverview: cur === 'overview', isSymptoms: cur === 'symptoms', navGroups, rows, synonyms });
   }
 }
 </script>

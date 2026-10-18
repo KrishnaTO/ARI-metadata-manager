@@ -17,6 +17,8 @@ a{color:#155160}a:hover{color:#0f2840}
 button,input{font:inherit;color:inherit}
 button{cursor:pointer}
 :focus-visible{outline:2px solid #1f6b7a;outline-offset:2px}
+/* Under 1400px wide the bar keeps icons only. */
+@media (max-width:1399px){.lbl,.wm-sub{display:none}}
 </style>
 </helmet>
 <div data-theme="light" style="min-height: 640px; display: flex; flex-direction: column; background: var(--paper); color: var(--ink); font-family: var(--font-sans); font-size: 14px; line-height: 1.5">
@@ -27,7 +29,7 @@ button{cursor:pointer}
     </button>
     <a href="Main.dc.html" style="flex: none; display: flex; align-items: baseline; gap: 10px; color: #fff; text-decoration: none">
       <span style="font-family: var(--font-cond); font-weight: 600; font-size: 22px; letter-spacing: .01em">AUTOIMMUNE REGISTRY</span>
-      <span style="font-size: 10px; font-weight: 600; letter-spacing: .14em; color: var(--sky)">METADATA MANAGER</span>
+      <span class="wm-sub" style="font-size: 10px; font-weight: 600; letter-spacing: .14em; color: var(--sky)">METADATA MANAGER</span>
     </a>
 
     <div style="flex: 1 1 360px; max-width: 620px; min-width: 0; margin-left: 12px; position: relative">
@@ -69,7 +71,10 @@ button{cursor:pointer}
       </div>
     </div>
     <span style="flex: 1 1 0"></span>
-    <a href="#" style="flex: none; color: #fff; text-decoration: none; font-size: 13px; padding: 8px 6px">Cross-references</a>
+    <a href="#" aria-label="Cross-references" title="Cross-references" style="flex: none; height: 40px; display: flex; align-items: center; gap: 8px; padding: 0 10px; border-radius: 8px; color: #fff; text-decoration: none; font-size: 13px">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M9 4v16"/></svg>
+      <span class="lbl">Cross-references</span>
+    </a>
   </header>
   <div aria-hidden="true" style="flex: 1 1 auto"></div>
 </div>
