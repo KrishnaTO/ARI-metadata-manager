@@ -89,7 +89,7 @@ app/                       Backend (FastAPI)
   id_provenance.py         Who added each cross-reference id
   xref_removals.py         Removed ids, pending as negative judgments
   merge_service.py         Three-way merge; grafting diseases between ontologies
-  owl_splice.py            Keeps a commit in the source file's order
+  owl_format.py            Writes a publish in the data repo's canonical OWL layout (ROBOT)
   diff_service.py          Change list, PR title and summary
   sssom_service.py         SSSOM + equivalencies files
   predict_service.py       Lexical indexes and cross-reference prediction

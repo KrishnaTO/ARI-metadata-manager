@@ -40,7 +40,7 @@ Note the Client ID + secret.
 
 ## 4. Install + deploy
 ```bash
-sudo apt update && sudo apt install -y nginx git python3-venv
+sudo apt update && sudo apt install -y nginx git python3-venv openjdk-17-jre-headless
 sudo useradd --system --create-home --home-dir /opt/ari ariapp
 
 # Install the Cloudflare Origin Certificate (paste the cert + key you saved in step 1.5)
@@ -66,6 +66,10 @@ cd /opt/ari/ari && sudo -u ariapp git checkout main
 # python env (may need swapfile for owlready2 build — see Troubleshooting)
 sudo -u ariapp python3 -m venv /opt/ari/venv
 sudo -u ariapp /opt/ari/venv/bin/pip install --no-cache-dir -r /opt/ari/ari-metadata-manager/requirements.txt
+
+# ROBOT, which writes every publish in the data repo's canonical OWL layout
+# (app/owl_format.py). Same release as KrishnaTO/ARI tools/robot.version; rerun after a bump.
+sudo /opt/ari/ari-metadata-manager/deploy/install-robot.sh     # -> /opt/ari/robot/robot.jar
 
 # config (secrets server-side only)
 cd /opt/ari/ari-metadata-manager
@@ -126,7 +130,9 @@ There are three independent refresh paths:
    `KrishnaTO/ARI:GITHUB_BASE_BRANCH`, writes it to the local runtime ontology
    file atomically when the bytes changed. When that ontology `owl:imports` the
    UBERON slice, it also fetches `ari_uberon.owl` from the same folder and branch
-   into the runtime ontology's folder, before the ontology itself. No restart: the app reloads the shared
+   into the runtime ontology's folder, before the ontology itself, and always
+   fetches `catalog-v001.xml`, which ROBOT resolves the imports through when a
+   publish is formatted. No restart: the app reloads the shared
    base ontology on the next request once the file's mtime changes. The runtime
    file is gitignored in the app repo, so `update.sh`'s reset never touches it.
 

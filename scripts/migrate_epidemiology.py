@@ -13,8 +13,8 @@ disease's change log. The flat values and the twelve property declarations are
 then removed, and the new class and properties are declared. A year or source
 with no rate beside it stops the script, since there is no figure to put it on.
 
-The file is rewritten in its own subject order (``app.owl_splice``), so the
-diff is the moved values and the new figures at the end.
+The file is rewritten in the data repo's canonical layout (``app.owl_format``),
+so the diff is the moved values and the new figures.
 
 Usage:
     python scripts/migrate_epidemiology.py <ari_t1d.owl> [--editor NAME]
@@ -30,7 +30,7 @@ from pathlib import Path
 from owlready2 import AnnotationProperty, DataProperty, ObjectProperty, Thing, World, destroy_entity, label
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from app import owl_splice  # noqa: E402
+from app import owl_format  # noqa: E402
 
 # (measure, region, rate property, year property, source property)
 FLAT = [
@@ -67,8 +67,6 @@ def _declare(onto):
 
 def migrate(path: Path, editor: str) -> int:
     """Rewrite ``path`` in place; returns the number of figures created."""
-    # A Windows checkout has CRLF line ends; owlready2 writes LF, and so does this.
-    original = path.read_bytes().replace(b"\r\n", b"\n")
     world = World()
     # Loaded through a file object, as the app does: owlready2's file:// handling
     # breaks on Windows paths, and the real base IRI is read from the file.
@@ -123,7 +121,7 @@ def migrate(path: Path, editor: str) -> int:
     tmp = path.with_name(path.name + ".migrate.tmp")
     try:
         onto.save(file=str(tmp), format="rdfxml")
-        path.write_bytes(owl_splice.splice(original, tmp.read_bytes()))
+        path.write_bytes(owl_format.format_owl(tmp.read_bytes()))
     finally:
         tmp.unlink(missing_ok=True)
     return created
