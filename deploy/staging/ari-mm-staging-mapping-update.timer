@@ -1,0 +1,11 @@
+# /etc/systemd/system/ari-mm-staging-mapping-update.timer  ->  enable with: systemctl enable --now ari-mm-staging-mapping-update.timer
+[Unit]
+Description=Staging copy mapping refresh timer (every 10 minutes)
+
+[Timer]
+OnBootSec=5min
+OnUnitActiveSec=10min
+Unit=ari-mm-staging-mapping-update.service
+
+[Install]
+WantedBy=timers.target

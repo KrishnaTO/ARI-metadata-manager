@@ -6,7 +6,7 @@
 # ontology's folder, and fails to load without it.
 set -euo pipefail
 
-APP_DIR=/opt/ari/ari-metadata-manager
+APP_DIR="$(cd "$(dirname "$0")/.." && pwd)"  # this checkout: the live app or the staging copy
 ENV_FILE="$APP_DIR/.env"
 
 if [ -f "$ENV_FILE" ]; then
@@ -33,7 +33,7 @@ cleanup() { rm -f "$TMP" "$SLICE_TMP"; }
 trap cleanup EXIT
 
 fetch() {  # fetch <repo path> <output file>
-"/opt/ari/venv/bin/python" - "$OWNER" "$REPO" "$BRANCH" "$1" "$TOKEN" "$2" <<'PY'
+"$(dirname "$APP_DIR")/venv/bin/python" - "$OWNER" "$REPO" "$BRANCH" "$1" "$TOKEN" "$2" <<'PY'
 import sys
 import urllib.parse
 import urllib.request

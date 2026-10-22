@@ -1,0 +1,10 @@
+# /etc/systemd/system/ari-mm-staging-ontology-update.timer  ->  enable with: systemctl enable --now ari-mm-staging-ontology-update.timer
+[Unit]
+Description=Periodically refresh the staging copy's ontology from the staging data repo
+
+[Timer]
+OnBootSec=3min
+OnUnitActiveSec=10min
+
+[Install]
+WantedBy=timers.target
