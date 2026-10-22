@@ -2,13 +2,19 @@
 # Pull the latest ARI Metadata Manager app code and restart the app when code
 # changes. Ontology data is refreshed separately by update-ontology.sh.
 set -euo pipefail
-REPO=/opt/ari/ari-metadata-manager
+# The checkout this script lives in, so the staging copy (STAGING.md) updates
+# itself and never the live app.
+REPO="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$REPO"
 # sed exits 0 when the key is absent (unlike grep, whose exit 1 under
 # `set -euo pipefail` would kill the script before the fetch ever runs);
 # `|| true` also covers a missing .env file.
 BRANCH="$(sed -n 's/^APP_REPO_BRANCH=//p' .env 2>/dev/null || true)"
 BRANCH="${BRANCH:-main}"
+PORT="$(sed -n 's/^PORT=//p' .env 2>/dev/null || true)"
+PORT="${PORT:-8001}"
+SERVICE="$(sed -n 's/^APP_SERVICE=//p' .env 2>/dev/null || true)"
+SERVICE="${SERVICE:-ari-mm}"
 git fetch --quiet origin "$BRANCH"
 
 # A stash entry's content: the tree it recorded, plus its untracked files' tree
@@ -56,7 +62,7 @@ git reset --hard --quiet "origin/$BRANCH"
 # kept serving the old code (and, before base() reloaded by mtime, the old
 # ontology) until someone restarted it by hand.
 head="$(git rev-parse --short HEAD)"
-health="$(curl -fsS --max-time 5 http://127.0.0.1:8001/healthz 2>/dev/null || true)"
+health="$(curl -fsS --max-time 5 "http://127.0.0.1:$PORT/healthz" 2>/dev/null || true)"
 running="$(printf '%s' "$health" | sed -n 's/.*"version":[[:space:]]*"[^"(]*(\([0-9a-f]*\),.*/\1/p')"
 if [ "$running" = "$head" ]; then
   echo "Already running $head; no restart."
@@ -80,5 +86,5 @@ if [ "${ARI_FORCE_RESTART:-0}" != "1" ]; then
   fi
 fi
 
-sudo systemctl restart ari-mm
+sudo systemctl restart "$SERVICE"
 echo "Updated to origin/$BRANCH @ $head (was ${running:-not running}); restarted."
