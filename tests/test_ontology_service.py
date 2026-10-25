@@ -131,6 +131,40 @@ def test_update_disease_keeps_free_text_multi_fields_verbatim(service):
     assert detail["synonyms"] == ["Type 1: juvenile onset"]
 
 
+def test_update_disease_logs_and_writes_only_fields_that_changed(service):
+    # The editor form sends every field on each save (collectDiseaseFields). A
+    # one-synonym save on staging logged "Edited:" with all 13 fields and wrote
+    # an ARI_IsGrouping "false" the record never had.
+    iri = service.get_diseases_list()[0]["iri"]
+    d = service.get_disease_detail(iri)
+    first = lambda vals: str(vals[0]) if vals else ""  # noqa: E731
+    form = {
+        "name": d["name"], "definition": d["definition"],
+        "synonyms": d["synonyms"] + ["Staging test synonym"],
+        "clinical_subtypes": d["clinical_subtypes"], "def_source": d["def_source"],
+        "disease_category": first(d["disease_category"]),
+        "evidence_quality": first(d["evidence_quality"]),
+        "prevalence_desc": first(d["prevalence_desc"]),
+        "obsolete": "true" if d["obsolete"] else "false",
+        "is_grouping": "true" if d["is_grouping"] else "false",
+    }
+    e = service._entity(iri)
+    grouping_before = service._get_annotation(e, service.base + "ARI_IsGrouping")
+
+    detail = service.update_disease(iri, form, editor="tester")
+
+    assert detail["changelog"][-1].endswith("| tester | Edited: synonyms")
+    assert service._get_annotation(e, service.base + "ARI_IsGrouping") == grouping_before
+
+
+def test_update_disease_with_nothing_changed_logs_nothing(service):
+    iri = service.get_diseases_list()[0]["iri"]
+    d = service.get_disease_detail(iri)
+    detail = service.update_disease(iri, {"synonyms": list(reversed(d["synonyms"])),
+                                          "obsolete": "false"}, editor="tester")
+    assert detail["changelog"] == d["changelog"]
+
+
 def _t1d(svc):
     return next(d for d in svc.get_diseases_list() if d["name"] == "Type 1 diabetes mellitus")["iri"]
 

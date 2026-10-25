@@ -1,5 +1,9 @@
 # Changelog
 
+## claude/changelog-changed-fields
+
+- **A save logs and writes only the fields that changed.** The editor form sends all 13 of its fields on every save, and `update_disease` wrote and logged each one it received. A one-synonym save on staging (KrishnaTO/ARI-staging#1) logged `Edited: age_range, clinical_subtypes, def_source, definition, demographic_bias, disease_category, evidence_quality, is_grouping, name, obsolete, prevalence_desc, prevalence_value, synonyms` and wrote an `<ARI_IsGrouping>false</ARI_IsGrouping>` the record never had. Each submitted field is now compared with what is stored first, and an unchanged one is skipped. Order does not count as a change. For the `obsolete` and `is_grouping` flags, a stored `false` and no value at all are the same. A save that changes nothing adds no changelog entry, and that includes adding a cross-reference id that is already on file.
+
 ## claude/testing-live-site
 
 - **A staging copy at `staging.aurint.ca`** for testing major changes before they go live, starting with the ROBOT cutover (this repo's `canonical-owl-format` with KrishnaTO/ARI#154). [STAGING.md](STAGING.md) sets it up on the live box: its own checkout under `/opt/ari-staging`, port 8002, unit `ari-mm-staging` and timers. It reads from and publishes to a throwaway public copy of the data repo, `KrishnaTO/ARI-staging`, never `KrishnaTO/ARI`.
