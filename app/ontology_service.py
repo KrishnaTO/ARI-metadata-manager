@@ -10,13 +10,15 @@ from pathlib import Path
 from owlready2 import World, comment, destroy_entity, label, onto_path
 
 from . import atomic_store, config, xref_registry
-from .concepts import ARIS_BASE, concept_index
+from .concepts import SYMPTOMS_ONTOLOGY, concept_index
 from .errors import Invalid, NotFound
 from .feedback_service import FeedbackStore
 from .id_allocator import IdAllocator
 from .schema import CATEGORIES, SEEALSO_IRI
 
 log = logging.getLogger(__name__)
+
+CORE_ONTOLOGY = "http://www.aurint.org/ontologies/ari_core"
 
 
 def _pick_entries(entries, chosen):
@@ -112,7 +114,12 @@ class OntologyService:
         placeholder = self.world.get_ontology("http://ari.local/ontology")
         with open(self.path, "rb") as f:
             self.onto = placeholder.load(fileobj=f)
-        self._symptom_concepts = concept_index(self.world, ARIS_BASE)
+        if not any(o.base_iri.rstrip("#/") == CORE_ONTOLOGY for o in self.onto.imported_ontologies):
+            raise RuntimeError(
+                f"{self.path} does not import ari_core.owl, so it is a pre-split ontology "
+                "(a single ari_t1d.owl). Archive this working copy, and see the cutover notes "
+                "in DEPLOY.md.")
+        self._symptom_concepts = concept_index(self.world, SYMPTOMS_ONTOLOGY)
 
     @property
     def base(self) -> str:
@@ -1087,7 +1094,8 @@ class OntologyService:
         This looked the property up and returned silently when it was absent, so
         on any ontology where ``ARI_ChangeLog`` had not been declared every edit
         was recorded nowhere while the caller still reported success. It is
-        declared on demand, the same way every other annotation writer here does.
+        declared in ari_core.owl, and a missing declaration raises, as it does
+        for every other annotation writer here.
         """
         ts = datetime.now(timezone.utc).isoformat(timespec="seconds")
         clog = self._annotation_property("ARI_ChangeLog")

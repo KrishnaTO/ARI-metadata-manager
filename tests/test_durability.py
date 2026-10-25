@@ -182,6 +182,23 @@ def test_the_base_reloads_when_a_module_changes(user_dir, monkeypatch):
     assert workspace.base() is not first
 
 
+def test_a_curators_world_reloads_when_a_module_changes(user_dir):
+    """Only BASE reloaded, so a signed-in curator kept the old symptoms lookup
+    and the old anatomy until a restart. The reload reads the working copy on
+    disk, which every edit has already been saved to."""
+    svc = workspace.user_service("ada", create=True)
+    iri = svc.get_diseases_list()[0]["iri"]
+    svc.update_disease(iri, {"disease_category": "EDITED-BEFORE-RELOAD"}, editor="ada")
+    assert workspace.user_service("ada") is svc                      # unchanged: no reload
+    anatomy = Path(config.ONTOLOGY_FILE).parent / "ari_anatomy.owl"
+    newest = max(f.stat().st_mtime_ns for f in anatomy.parent.glob("*.owl"))
+    os.utime(anatomy, ns=(newest + 10**9, newest + 10**9))
+    after = workspace.user_service("ada")
+    assert after is not svc
+    assert after.get_disease_detail(iri)["disease_category"] == ["EDITED-BEFORE-RELOAD"]
+    assert workspace.user_service("ada") is after                    # and only once
+
+
 def test_in_memory_worlds_are_bounded(user_dir, monkeypatch):
     monkeypatch.setattr(config, "MAX_LOADED_WORLDS", 2)
     for login in ("a", "b", "c"):

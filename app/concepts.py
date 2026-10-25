@@ -6,21 +6,28 @@ A Symptom's ``sharedConcept`` is the class whose ``rdfs:label`` or
 """
 from owlready2 import World, label
 
-ARIS_BASE = "http://www.aurint.org/ontologies/ari-symptoms#"
+SYMPTOMS_ONTOLOGY = "http://www.aurint.org/ontologies/ari_symptoms"
 ALT_LABEL = "http://www.w3.org/2004/02/skos/core#altLabel"
 
 
-def concept_index(world: World, namespace: str) -> dict[str, str]:
-    """``{stripped rdfs:label or skos:altLabel: class IRI}`` for the classes
-    under ``namespace``. One string naming two classes is an error: the link
-    it would make is ambiguous."""
+def loaded_ontology(world: World, iri: str):
+    """The ontology ``iri`` names in ``world``. Raises when it is not loaded."""
+    for onto in world.ontologies.values():
+        if onto.base_iri.rstrip("#/") == iri:
+            return onto
+    raise RuntimeError(f"{iri} is not loaded")
+
+
+def concept_index(world: World, ontology_iri: str) -> dict[str, str]:
+    """``{stripped rdfs:label or skos:altLabel: class IRI}`` for the classes the
+    ontology ``ontology_iri`` declares, the same module the data repo's
+    validator reads. One string naming two classes is an error: the link it
+    would make is ambiguous."""
     alt_label = world[ALT_LABEL]
     if alt_label is None:
         raise RuntimeError("skos:altLabel is not declared in ari_core.owl")
     index: dict[str, str] = {}
-    for cls in world.classes():
-        if not cls.iri.startswith(namespace):
-            continue
+    for cls in loaded_ontology(world, ontology_iri).classes():
         for text in [*label[cls], *alt_label[cls]]:
             text = str(text).strip()
             if index.setdefault(text, cls.iri) != cls.iri:

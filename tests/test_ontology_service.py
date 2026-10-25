@@ -210,8 +210,13 @@ def test_epidemiology_figure_refuses_bad_values(service, bad):
 
 
 def test_migration_moves_flat_rates_to_figures(tmp_path):
-    from owlready2 import AnnotationProperty, DataProperty, Thing, World
+    from pathlib import Path
 
+    from owlready2 import AnnotationProperty, DataProperty, Thing, World, onto_path
+
+    from app import config
+    from app.concepts import SYMPTOMS_ONTOLOGY
+    from app.ontology_service import CORE_ONTOLOGY
     from scripts.migrate_epidemiology import migrate
     world = World()
     onto = world.get_ontology("http://example.org/ari#")
@@ -222,11 +227,13 @@ def test_migration_moves_flat_rates_to_figures(tmp_path):
         class incidenceWorldPer100k(DataProperty): range = [float]
         class incidenceWorldYear(DataProperty): range = [int]
         class incidenceWorldSource(DataProperty): range = [str]
-    # The service refuses to load an ontology that does not declare skos:altLabel
-    # (ari_core.owl does), so this one declares it too.
-    from owlready2.base import owl_annotation_property, rdf_type
-    onto._add_obj_triple_spo(world._abbreviate("http://www.w3.org/2004/02/skos/core#altLabel"),
-                             rdf_type, owl_annotation_property)
+    # The service refuses an ontology that does not import the core and symptoms
+    # modules, so this one imports them, found beside the fixture ontology.
+    onto.imported_ontologies.extend([world.get_ontology(CORE_ONTOLOGY),
+                                     world.get_ontology(SYMPTOMS_ONTOLOGY)])
+    modules = str(Path(config.ONTOLOGY_FILE).parent)
+    if modules not in onto_path:
+        onto_path.append(modules)
     d = AutoimmuneDisease("ARI_0000001")
     prevalencePer100k[d] = [12.5]
     incidenceWorldPer100k[d] = [1.1]
@@ -360,19 +367,56 @@ def test_saving_a_symptom_with_its_name_unchanged_keeps_its_no_concept_decision(
     assert svc._get_objects(svc._entity(item), svc.base + "sharedConcept") == []
 
 
-def test_a_string_naming_two_concepts_is_refused():
-    from owlready2 import AnnotationProperty, Thing, World
-    from app.concepts import ARIS_BASE, concept_index
+def _concept_world():
+    """A World with skos:altLabel, the symptoms module and a second ontology,
+    each with a namespace for ARIS-named classes."""
+    from owlready2 import AnnotationProperty, World
+
+    from app.concepts import SYMPTOMS_ONTOLOGY
     world = World()
-    skos = world.get_ontology("http://www.w3.org/2004/02/skos/core#")
-    onto = world.get_ontology(ARIS_BASE)
-    with skos:
+    with world.get_ontology("http://www.w3.org/2004/02/skos/core#"):
         type("altLabel", (AnnotationProperty,), {})
-    with onto:
+    symptoms = world.get_ontology(SYMPTOMS_ONTOLOGY).get_namespace(ARIS)
+    other = world.get_ontology("http://www.aurint.org/ontologies/ari-disease").get_namespace(ARIS)
+    return world, symptoms, other
+
+
+def test_a_string_naming_two_concepts_is_refused():
+    from owlready2 import Thing
+
+    from app.concepts import SYMPTOMS_ONTOLOGY, concept_index
+    world, symptoms, _ = _concept_world()
+    with symptoms:
         type("ARIS_1", (Thing,), {}).label = ["Fatigue"]
         type("ARIS_2", (Thing,), {}).label = ["Fatigue"]
     with pytest.raises(ValueError, match="Fatigue"):
-        concept_index(world, ARIS_BASE)
+        concept_index(world, SYMPTOMS_ONTOLOGY)
+
+
+def test_only_the_symptoms_module_is_indexed():
+    """The validator reads ari_symptoms.owl alone, so an ARIS-named class that
+    another module declares is not a concept to link."""
+    from owlready2 import Thing
+
+    from app.concepts import SYMPTOMS_ONTOLOGY, concept_index
+    world, symptoms, other = _concept_world()
+    with symptoms:
+        type("ARIS_1", (Thing,), {}).label = ["Fatigue"]
+    with other:
+        type("ARIS_2", (Thing,), {}).label = ["Polyuria"]
+    assert concept_index(world, SYMPTOMS_ONTOLOGY) == {"Fatigue": ARIS + "ARIS_1"}
+
+
+def test_a_pre_split_ontology_is_refused_with_the_cutover_steps(tmp_path):
+    """A working copy made before the split imports nothing, and failed on a
+    missing skos:altLabel declaration that said nothing about why."""
+    from owlready2 import World
+    path = tmp_path / "user-data" / "ada.owl"
+    path.parent.mkdir()
+    World().get_ontology("http://www.aurint.org/ontologies/ari-disease").save(
+        file=str(path), format="rdfxml")
+    with pytest.raises(RuntimeError, match="pre-split ontology.*DEPLOY.md"):
+        OntologyService(str(path))
 
 
 def test_tissues_are_read_from_the_anatomy_module(ro_service):

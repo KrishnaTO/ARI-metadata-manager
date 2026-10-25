@@ -211,17 +211,28 @@ def _adopt_working_copy(login) -> OntologyService:
         USER_SVC.pop(oldest, None)
         log.info("Evicted %s's in-memory ontology (cap %d); the working copy on "
                  "disk is untouched", oldest, config.MAX_LOADED_WORLDS)
-    USER_SVC[login] = OntologyService(str(config.USER_DIR / f"{login}.owl"))
+    modules = _base_key()[1]
+    svc = OntologyService(str(config.USER_DIR / f"{login}.owl"))
+    svc.modules_key = modules        # the module files this World imported
+    USER_SVC[login] = svc
     USER_SVC.move_to_end(login)
-    return USER_SVC[login]
+    return svc
 
 
 def user_service(login, create=False):
     if not login:
         return base()
     if login in USER_SVC:
-        USER_SVC.move_to_end(login)               # most recently used, for the LRU bound
-        return USER_SVC[login]
+        if USER_SVC[login].modules_key == _base_key()[1]:
+            USER_SVC.move_to_end(login)           # most recently used, for the LRU bound
+            return USER_SVC[login]
+        # A module beside the base changed (a Protege edit to ari_symptoms.owl
+        # or ari_anatomy.owl merged to main): the loaded World still holds the
+        # old one. Every edit is saved before its call returns, so the working
+        # copy on disk is the whole of this curator's work; load it again.
+        USER_SVC.pop(login)
+        log.info("Reloading @%s's working copy: an ontology module changed", login)
+        return _adopt_working_copy(login)
     f = config.USER_DIR / f"{login}.owl"
     if f.exists():
         # A working copy on disk is this curator's work whether or not the
