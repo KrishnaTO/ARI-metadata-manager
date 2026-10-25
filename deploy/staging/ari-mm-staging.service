@@ -1,0 +1,21 @@
+# /etc/systemd/system/ari-mm-staging.service  (STAGING.md)
+# The staging copy at staging.aurint.ca. It shares the box with the live app, so
+# MemoryMax caps it, ROBOT's JVM included (a child in the same cgroup): when the
+# box runs short, the kernel kills staging, never ari-mm.
+[Unit]
+Description=ARI Disease Metadata Manager, staging copy (FastAPI)
+After=network.target
+
+[Service]
+Type=simple
+User=ariapp
+WorkingDirectory=/opt/ari-staging/ari-metadata-manager
+EnvironmentFile=/opt/ari-staging/ari-metadata-manager/.env
+ExecStart=/opt/ari-staging/venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8002 --proxy-headers
+Restart=on-failure
+NoNewPrivileges=true
+PrivateTmp=true
+MemoryMax=900M
+
+[Install]
+WantedBy=multi-user.target

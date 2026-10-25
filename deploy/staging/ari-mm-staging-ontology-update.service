@@ -1,0 +1,10 @@
+# /etc/systemd/system/ari-mm-staging-ontology-update.service
+[Unit]
+Description=Fetch the staging data repo's ontology into the staging copy's runtime file
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=ariapp
+ExecStart=/opt/ari-staging/ari-metadata-manager/deploy/update-ontology.sh
