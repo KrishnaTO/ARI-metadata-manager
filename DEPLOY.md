@@ -94,8 +94,11 @@ GITHUB_BASE_BRANCH=main
 GITHUB_ONTOLOGY_PATH=ontologies/ari_disease.owl
 ```
 
-If the ARI repo is private or unauthenticated API limits are a concern, set a
-server-side token for unattended ontology refreshes:
+Set a server-side token for the unattended refreshes. It is **required** now that
+the ontology refresh fetches the whole `ontologies/` folder: one run costs 1
+listing plus 8 file requests, so with `update-mappings.sh` the timers need over
+60 GitHub requests an hour, the anonymous limit, and without a token the
+refreshes start failing with 403 and the server goes stale.
 ```env
 GITHUB_SERVICE_TOKEN=github_pat_or_fine_grained_token
 ```

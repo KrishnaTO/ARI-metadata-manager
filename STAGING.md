@@ -116,6 +116,7 @@ GITHUB_CLIENT_SECRET=<from step 2>
 GITHUB_OWNER=KrishnaTO
 GITHUB_REPO=ARI-staging
 GITHUB_BASE_BRANCH=ontology-formatter
+GITHUB_SERVICE_TOKEN=<read-only token for the data copy; required, see DEPLOY.md step 4>
 APP_BASE_URL=https://staging.aurint.ca
 APP_REPO_BRANCH=canonical-owl-format
 APP_SERVICE=ari-mm-staging

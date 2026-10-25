@@ -140,7 +140,7 @@ on the server. Keep `.env` at mode 600.
 | `GITHUB_ONTOLOGY_PATH` | `ontologies/ari_disease.owl` | The disease file's path in the data repo. Its folder holds the modules it imports, and the refresh fetches them all. |
 | `GITHUB_SSSOM_PATH`, `GITHUB_EQUIV_PATH` | `mappings/ari.sssom.tsv`, `mappings/ari.equivalencies.tsv` | Mapping files, both in the data repo and under this repo's root. |
 | `GITHUB_SYNONYM_REVIEW_PATH` | `data/4-reports/9_Synonym_Review.tsv` | Report 9 in the data repo. |
-| `GITHUB_SERVICE_TOKEN` | — | Optional token for the unattended refresh scripts. |
+| `GITHUB_SERVICE_TOKEN` | — | Token for the unattended refresh scripts. **Required on a server**: the ontology refresh fetches every module (1 listing + 8 files a run), which with the mapping refresh exceeds the 60 requests an hour GitHub allows without one. |
 | `APP_BASE_URL` | `http://localhost:8001` | Public URL including any subpath; must match the OAuth callback. Cookies are `Secure` when it starts with `https`. |
 | `OAUTH_CALLBACK_PATH` | `/auth/github/callback` | |
 | `SESSION_SECRET` | — | Signs the session cookie. **Required when sign-in is configured**; the app won't start without it. Write it bare, without quotes. |
