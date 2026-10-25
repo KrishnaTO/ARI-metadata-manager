@@ -122,6 +122,18 @@ ALLOWED_LOGINS = [s.strip() for s in os.environ.get("ALLOWED_LOGINS", "").split(
 REDIRECT_URI = APP_BASE_URL + OAUTH_CALLBACK_PATH
 GH_ENABLED = bool(GH_CLIENT_ID and GH_CLIENT_SECRET and GH_OWNER and GH_REPO)
 
+# ----------------------------------------------------------------- OWL layout
+# The ROBOT jar that writes the data repo's canonical OWL layout (KrishnaTO/ARI
+# tools/format-owl.sh, release pinned in its tools/robot.version). Every publish
+# goes through it, so the commit diffs only on content. deploy/install-robot.sh
+# installs this release; it runs on the `java` on PATH (11 or newer).
+ROBOT_JAR = os.environ.get("ROBOT_JAR", "/opt/ari/robot/robot.jar")
+if GH_ENABLED and not Path(ROBOT_JAR).is_file():
+    raise RuntimeError(
+        f"ROBOT_JAR {ROBOT_JAR} does not exist, and publishing needs it to write the "
+        "ontology in the data repo's layout. Run deploy/install-robot.sh, or set ROBOT_JAR."
+    )
+
 # ----------------------------------------------------------------- sessions
 # Tokens are kept SERVER-SIDE (the signed session cookie holds only an opaque id),
 # so the GitHub access token never reaches the browser.

@@ -20,6 +20,16 @@ jobs:
           python-version: "3.12"
       - run: python -m pip install --upgrade pip
       - run: pip install -r requirements-dev.txt
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - name: ROBOT
+        # Publishing formats the ontology with it (app/owl_format.py), and the
+        # publish tests run that for real.
+        run: |
+          bash deploy/install-robot.sh "$RUNNER_TEMP/robot"
+          echo "ROBOT_JAR=$RUNNER_TEMP/robot/robot.jar" >> "$GITHUB_ENV"
       - name: Tests
         run: pytest -q
       - name: Validate the published mapping set

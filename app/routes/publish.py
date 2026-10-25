@@ -18,7 +18,7 @@ from .. import (
     config,
     diff_service,
     merge_service,
-    owl_splice,
+    owl_format,
     sessions,
     sssom_service,
     stores,
@@ -304,11 +304,10 @@ async def publish(request: Request, payload: dict = Body(default={})):
         # The commit is the source branch with this curator's diseases written
         # over it — the same shape `sssom_service.build` already uses for the
         # mapping files, which is why not one mapping row was lost.
-        original = baseline.path.read_bytes()
         merge_service.graft_diseases(svc, baseline, scope)
         baseline._save()
-        # In the branch's own order, so the diff is the curator's change alone.
-        content = owl_splice.splice(original, baseline.path.read_bytes())
+        # In the data repo's canonical layout, so the diff is the curator's change alone.
+        content = await asyncio.to_thread(owl_format.format_owl, baseline.path.read_bytes())
     except Exception:
         # The graft can refuse (see merge_service), and that lands between the
         # changelog entries going in and anything being committed.

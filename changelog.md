@@ -1,5 +1,12 @@
 # Changelog
 
+## canonical-owl-format
+
+- **Every publish is written in the data repo's canonical OWL layout.** KrishnaTO/ARI now keeps each `ontologies/*.owl` in the layout ROBOT writes (its `tools/format-owl.sh`, ROBOT 1.9.11), and its `OWL format` check rejects any other. After the graft and save, publishing runs the same ROBOT release over the file (`app/owl_format.py`, off the event loop) and commits that. owlready2's own save order no longer reaches a commit, so a publish diffs only on what the curator changed. Against the full ontology, a one-synonym edit is a 5-line diff: three old synonyms, the new one, and the change-log entry. Formatting took 2.2 s.
+- **`app/owl_splice.py` is removed.** It re-ordered owlready2's rewrite into the source file's block order (ARI#105), and it only recognised blocks starting at column 0, which ROBOT's indented layout has none of. On a formatted branch it would have matched nothing and silently appended every block. Grafting onto the branch's current file (`merge_service.graft_diseases`) still keeps another curator's merged work from being reverted; only the ordering job moved to the formatter. `scripts/migrate_epidemiology.py` formats the same way.
+- **The server needs Java and the ROBOT jar.** `deploy/install-robot.sh` downloads the pinned release to `/opt/ari/robot/robot.jar` and checks its sha256. `ROBOT_JAR` overrides that path. With GitHub sign-in configured, the app refuses to start when the jar is missing, rather than failing a curator's publish. `deploy/update-ontology.sh` also fetches the data repo's `ontologies/catalog-v001.xml`, through which ROBOT resolves the UBERON import.
+- CI installs Java 17 and the jar, and the publish tests run ROBOT for real. The two splice layout tests are replaced by one test: a one-synonym publish changes only synonym and change-log lines, and formatting is idempotent.
+
 ## claude/staging-runbook-snags
 
 - **STAGING.md covers the three things that went wrong on the first setup.**

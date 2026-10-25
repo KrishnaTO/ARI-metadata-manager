@@ -3,7 +3,9 @@
 # the local runtime ontology when it has changed. The app reloads it by mtime.
 # An ontology that owl:imports the UBERON slice (ari_uberon.owl, beside it in
 # the data repo) gets the slice too: the app resolves the import from the
-# ontology's folder, and fails to load without it.
+# ontology's folder, and fails to load without it. The data repo's
+# catalog-v001.xml comes too: publishing formats the file with ROBOT
+# (app/owl_format.py), which resolves the imports through it.
 set -euo pipefail
 
 APP_DIR="$(cd "$(dirname "$0")/.." && pwd)"  # this checkout: the live app or the staging copy
@@ -26,10 +28,13 @@ TOKEN="${GITHUB_SERVICE_TOKEN:-}"
 SLICE_IRI="http://www.aurint.org/ontologies/ari_uberon"
 SLICE_REMOTE_PATH="$(dirname "$REMOTE_PATH")/ari_uberon.owl"
 SLICE_LOCAL_PATH="$(dirname "$LOCAL_PATH")/ari_uberon.owl"
+CATALOG_REMOTE_PATH="$(dirname "$REMOTE_PATH")/catalog-v001.xml"
+CATALOG_LOCAL_PATH="$(dirname "$LOCAL_PATH")/catalog-v001.xml"
 
 TMP="$(mktemp)"
 SLICE_TMP="$(mktemp)"
-cleanup() { rm -f "$TMP" "$SLICE_TMP"; }
+CATALOG_TMP="$(mktemp)"
+cleanup() { rm -f "$TMP" "$SLICE_TMP" "$CATALOG_TMP"; }
 trap cleanup EXIT
 
 fetch() {  # fetch <repo path> <output file>
@@ -71,6 +76,8 @@ install_if_changed() {  # install_if_changed <fetched file> <local path> <remote
 
 fetch "$REMOTE_PATH" "$TMP"
 mkdir -p "$(dirname "$LOCAL_PATH")"
+fetch "$CATALOG_REMOTE_PATH" "$CATALOG_TMP"
+install_if_changed "$CATALOG_TMP" "$CATALOG_LOCAL_PATH" "$CATALOG_REMOTE_PATH"
 
 # The slice goes in first, so the ontology that imports it never loads without it.
 if grep -qF "rdf:resource=\"$SLICE_IRI\"" "$TMP"; then
