@@ -6,6 +6,13 @@
 - **`app/owl_splice.py` is removed.** It re-ordered owlready2's rewrite into the source file's block order (ARI#105), and it only recognised blocks starting at column 0, which ROBOT's indented layout has none of. On a formatted branch it would have matched nothing and silently appended every block. Grafting onto the branch's current file (`merge_service.graft_diseases`) still keeps another curator's merged work from being reverted; only the ordering job moved to the formatter. `scripts/migrate_epidemiology.py` formats the same way.
 - **The server needs Java and the ROBOT jar.** `deploy/install-robot.sh` downloads the pinned release to `/opt/ari/robot/robot.jar` and checks its sha256. `ROBOT_JAR` overrides that path. With GitHub sign-in configured, the app refuses to start when the jar is missing, rather than failing a curator's publish. `deploy/update-ontology.sh` also fetches the data repo's `ontologies/catalog-v001.xml`, through which ROBOT resolves the UBERON import.
 - CI installs Java 17 and the jar, and the publish tests run ROBOT for real. The two splice layout tests are replaced by one test: a one-synonym publish changes only synonym and change-log lines, and formatting is idempotent.
+## claude/testing-live-site
+
+- **A staging copy at `staging.aurint.ca`** for testing major changes before they go live, starting with the ROBOT cutover (this repo's `canonical-owl-format` with KrishnaTO/ARI#154). [STAGING.md](STAGING.md) sets it up on the live box: its own checkout under `/opt/ari-staging`, port 8002, unit `ari-mm-staging` and timers. It reads from and publishes to a throwaway public copy of the data repo, `KrishnaTO/ARI-staging`, never `KrishnaTO/ARI`.
+- **Its own subdomain** because both copies name their cookie `session`. On one host, signing in to staging would have signed you out of the live site.
+- **Capped at 900 MB** (`MemoryMax`, ROBOT's JVM included, with `JAVA_TOOL_OPTIONS=-Xmx384m`), so when the 1.9 GB box runs short of memory the kernel kills staging, not the live app.
+- **The deploy scripts act on the checkout they live in.** `update.sh`, `update-ontology.sh` and `update-mappings.sh` hardcoded `/opt/ari/ari-metadata-manager`, `/opt/ari/venv`, port 8001 and `ari-mm`, so a second copy's timers would have updated and restarted the live app. They now take the folder from their own location, the venv from beside it, and the port and unit from `.env` (`PORT`, new `APP_SERVICE`). The live site's values are the defaults, so it behaves as before.
+- **`deploy/staging/`** holds the staging units and its nginx site, a separate `server` block with its own rate-limit zones and `X-Robots-Tag: noindex`. The live nginx file is unchanged.
 
 ## claude/editor-redesign-mockups
 

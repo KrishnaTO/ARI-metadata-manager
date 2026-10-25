@@ -1,0 +1,8 @@
+# /etc/systemd/system/ari-mm-staging-update.timer  ->  enable with: systemctl enable --now ari-mm-staging-update.timer
+[Unit]
+Description=Periodically refresh the staging copy's app code
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=10min
+[Install]
+WantedBy=timers.target

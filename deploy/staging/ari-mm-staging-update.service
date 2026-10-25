@@ -1,0 +1,7 @@
+# /etc/systemd/system/ari-mm-staging-update.service
+[Unit]
+Description=Pull the staging copy's app branch and restart it
+[Service]
+Type=oneshot
+User=ariapp
+ExecStart=/opt/ari-staging/ari-metadata-manager/deploy/update.sh

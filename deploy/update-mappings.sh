@@ -9,7 +9,7 @@
 # applies while curators have work in progress.
 set -euo pipefail
 
-APP_DIR=/opt/ari/ari-metadata-manager
+APP_DIR="$(cd "$(dirname "$0")/.." && pwd)"  # this checkout: the live app or the staging copy
 ENV_FILE="$APP_DIR/.env"
 
 if [ -f "$ENV_FILE" ]; then

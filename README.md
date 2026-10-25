@@ -73,6 +73,7 @@ ruff.toml                  Lint config
 instructions.md            The original product brief
 changelog.md               Changes, per branch
 DEPLOY.md · OPERATIONS.md  Server set-up · one-off server tasks
+STAGING.md                 The staging copy at staging.aurint.ca
 
 app/                       Backend (FastAPI)
   main.py                  Assembly: middleware, CSP, cache policy, /healthz, error handlers, routers
@@ -119,6 +120,7 @@ data/2-databases/          Reference indexes for prediction (see its README)
 mappings/                  Snapshot of the mapping files for the tooling and CI: SSSOM, equivalencies, predicted
 tests/                     pytest suite, review-model.test.js, fixture ontology
 deploy/                    systemd units, update scripts, nginx config
+  staging/                 The staging copy's units and nginx site
 design/mockups/            Design exploration for the review page and the editor (not wired up)
 docs/                      Architecture, API, efficiency review, design specs
 ```
@@ -148,8 +150,9 @@ on the server. Keep `.env` at mode 600.
 | `MAX_LOADED_WORLDS` | `8` | Working copies held in memory at once (least recently used are evicted). |
 | `MAPPING_LICENSE` | CC0 1.0 URL | Licence written into the mapping files and shown before publishing. |
 | `ARI_ONTOLOGY_FILE` | `ontologies/ari_t1d.owl` | Runtime ontology path. `run.py --file` sets it. |
-| `PORT` | `8001` | `run.py`'s default port. |
+| `PORT` | `8001` | `run.py`'s default port, and the port `deploy/update.sh` reads `/healthz` on. |
 | `APP_REPO_BRANCH` | `main` | Branch of this repo that `deploy/update.sh` tracks. |
+| `APP_SERVICE` | `ari-mm` | systemd unit `deploy/update.sh` restarts. |
 | `ARI_MAPPING_FILES` | the four mapping files | `remote:local` pairs fetched by `deploy/update-mappings.sh`. |
 
 ## Server-side state
@@ -213,6 +216,13 @@ Three timers keep it current every ten minutes:
 
 [OPERATIONS.md](OPERATIONS.md) lists the server-side tasks a pull request
 cannot do: secrets, allow-lists, OAuth scope, nginx, backups and logs.
+
+[STAGING.md](STAGING.md) sets up a second copy on the same box at
+`https://staging.aurint.ca`. It runs any branch of this repo against a throwaway
+copy of the data repo, `KrishnaTO/ARI-staging`, so a major change can be
+published end to end without touching the live site or `KrishnaTO/ARI`. The
+deploy scripts act on the checkout they live in, which is what lets both copies
+run side by side.
 
 ## Versioning
 
