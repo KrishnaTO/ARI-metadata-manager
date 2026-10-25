@@ -1,5 +1,0 @@
-Symptom ID	Symptom	Mapping	SYMP ID	SYMP Label	HPO ID	HPO Label	HPO Mapping	Parent Symptom	Merged Into
-ARIS:0000390	Polyuria	exact	SYMP:0000710	polyuria	HP:0000103	Polyuria	exact		
-ARIS:0000034	Bloating	broader	SYMP:0000188	abdominal discomfort	HP:0003270	Abdominal distention	exact		
-	Abdominal bloating	merged							Bloating
-	Absence of orthostatic hypotension	not a symptom							

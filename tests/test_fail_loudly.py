@@ -49,21 +49,17 @@ def test_a_good_save_reports_nothing_rejected(service):
 
 
 # ------------------------------------------------------- the changelog no-op
-def test_the_changelog_is_written_even_when_the_property_is_undeclared(service):
+def test_an_undeclared_changelog_property_fails_the_edit(service):
     """It used to look the property up and return silently when absent, so on
     any ontology without ARI_ChangeLog every edit was recorded nowhere while
-    the caller still reported success."""
-    prop = service.world[service.base + "ARI_ChangeLog"]
-    if prop is not None:
-        from owlready2 import destroy_entity
-        destroy_entity(prop)
+    the caller still reported success. The app never creates a property either:
+    ari_core.owl declares it, and an ontology without it is refused."""
+    from owlready2 import destroy_entity
+    destroy_entity(service.world[service.base + "ARI_ChangeLog"])
 
     iri = service.get_diseases_list()[0]["iri"]
-    before = len(service.get_disease_detail(iri)["changelog"])
-    detail = service.update_disease(iri, {"disease_category": "ZZZ-Test"}, editor="ada")
-
-    assert len(detail["changelog"]) == before + 1
-    assert "ada" in detail["changelog"][-1]
+    with pytest.raises(RuntimeError, match="ARI_ChangeLog is not declared in ari_core.owl"):
+        service.update_disease(iri, {"disease_category": "ZZZ-Test"}, editor="ada")
 
 
 # ------------------------------------------------------- exception handlers

@@ -222,6 +222,11 @@ def test_migration_moves_flat_rates_to_figures(tmp_path):
         class incidenceWorldPer100k(DataProperty): range = [float]
         class incidenceWorldYear(DataProperty): range = [int]
         class incidenceWorldSource(DataProperty): range = [str]
+    # The service refuses to load an ontology that does not declare skos:altLabel
+    # (ari_core.owl does), so this one declares it too.
+    from owlready2.base import owl_annotation_property, rdf_type
+    onto._add_obj_triple_spo(world._abbreviate("http://www.w3.org/2004/02/skos/core#altLabel"),
+                             rdf_type, owl_annotation_property)
     d = AutoimmuneDisease("ARI_0000001")
     prevalencePer100k[d] = [12.5]
     incidenceWorldPer100k[d] = [1.1]
@@ -291,38 +296,66 @@ def test_get_disease_detail_unknown_iri_raises(ro_service):
         ro_service.get_disease_detail("https://example.org/nope")
 
 
-def test_a_symptom_links_the_shared_symptom_its_label_maps_to(service):
-    # tests/fixtures/mappings/symptom_mapping.tsv: Polyuria is exact, Bloating
-    # broader, Abdominal bloating merged into Bloating, the last not a symptom.
-    iri = service.get_diseases_list()[0]["iri"]
-    aris = "http://www.aurint.org/ontologies/ari-symptoms#"
+ARIS = "http://www.aurint.org/ontologies/ari-symptoms#"
 
+
+def test_a_symptom_links_the_shared_symptom_its_label_names(service):
+    # tests/fixtures/ontologies/ari_symptoms.owl: Polyuria is ARIS_0000390;
+    # Bloating is ARIS_0000034, with altLabel "Abdominal bloating".
+    iri = service.get_diseases_list()[0]["iri"]
     service.add_item(iri, "symptoms", {"name": " Polyuria "}, editor="t")
     item = next(s["iri"] for s in service.get_disease_detail(iri)["symptoms"] if s["name"] == " Polyuria ")
 
     def links(svc):
-        """The item's symptomConcept lines as saved: resources, not literals."""
+        """The item's sharedConcept lines as saved: resources, not literals."""
         text = svc.path.read_text(encoding="utf-8")
         block = text[text.index(f'rdf:about="#{item.rsplit("#", 1)[1]}"'):]
         return [line.strip() for line in block[:block.index("\n</")].splitlines()
-                if "symptomConcept" in line]
+                if "sharedConcept" in line]
 
-    assert links(service) == [f'<symptomConcept rdf:resource="{aris}ARIS_0000390"/>']
-    # Each step on a fresh load, where owlready2 reads the link back as a string.
+    assert links(service) == [f'<sharedConcept rdf:resource="{ARIS}ARIS_0000390"/>']
+    # Each step on a fresh load, where owlready2 reads the link back from the file.
     for name, want in [("Abdominal bloating", "ARIS_0000034"),
                        ("Absence of orthostatic hypotension", None),
                        ("Bloating", "ARIS_0000034"),
-                       ("Polyuria", "ARIS_0000390"),
-                       ("Testitis", None)]:
+                       ("polyuria", None),
+                       ("Polyuria", "ARIS_0000390")]:
         svc = OntologyService(str(service.path))
         svc.update_item(item, "symptoms", {"name": name}, disease_iri=iri, editor="t")
-        assert links(svc) == ([f'<symptomConcept rdf:resource="{aris}{want}"/>'] if want else []), name
-
+        assert links(svc) == ([f'<sharedConcept rdf:resource="{ARIS}{want}"/>'] if want else []), name
     # Edits that leave the label alone leave the link alone.
     svc = OntologyService(str(service.path))
-    svc.update_item(item, "symptoms", {"name": "Bloating"}, disease_iri=iri, editor="t")
     svc.update_item(item, "symptoms", {"likelihood": "Rare"}, disease_iri=iri, editor="t")
-    assert links(svc) == [f'<symptomConcept rdf:resource="{aris}ARIS_0000034"/>']
-    # The ARIS class now loads from the symptoms module, so the link reads back as that class.
-    linked = svc._get_objects(svc._entity(item), svc.base + "symptomConcept")
-    assert [c.iri for c in linked] == [aris + "ARIS_0000034"]
+    assert links(svc) == [f'<sharedConcept rdf:resource="{ARIS}ARIS_0000390"/>']
+
+
+def test_renaming_a_symptom_drops_its_no_concept_decision(service):
+    iri = service.get_diseases_list()[0]["iri"]
+    service.add_item(iri, "symptoms", {"name": "Rare:"}, editor="t")
+    item = next(s["iri"] for s in service.get_disease_detail(iri)["symptoms"] if s["name"] == "Rare:")
+    no_concept = service.world[service.base + "ARI_NoConcept"]
+    no_concept[service._entity(item)] = ["not a symptom"]
+    service._save()
+    svc = OntologyService(str(service.path))
+    svc.update_item(item, "symptoms", {"likelihood": "Rare"}, disease_iri=iri, editor="t")
+    assert svc._get_annotation(svc._entity(item), svc.base + "ARI_NoConcept") == ["not a symptom"]
+    svc.update_item(item, "symptoms", {"name": "Polyuria"}, disease_iri=iri, editor="t")
+    svc = OntologyService(str(service.path))
+    assert svc._get_annotation(svc._entity(item), svc.base + "ARI_NoConcept") == []
+    linked = svc._get_objects(svc._entity(item), svc.base + "sharedConcept")
+    assert [c.iri for c in linked] == [ARIS + "ARIS_0000390"]     # the class loads from the symptoms module
+
+
+def test_a_string_naming_two_concepts_is_refused():
+    from owlready2 import AnnotationProperty, Thing, World
+    from app.concepts import ARIS_BASE, concept_index
+    world = World()
+    skos = world.get_ontology("http://www.w3.org/2004/02/skos/core#")
+    onto = world.get_ontology(ARIS_BASE)
+    with skos:
+        type("altLabel", (AnnotationProperty,), {})
+    with onto:
+        type("ARIS_1", (Thing,), {}).label = ["Fatigue"]
+        type("ARIS_2", (Thing,), {}).label = ["Fatigue"]
+    with pytest.raises(ValueError, match="Fatigue"):
+        concept_index(world, ARIS_BASE)

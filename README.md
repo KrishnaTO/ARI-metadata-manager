@@ -24,7 +24,7 @@ runtime ontology is not tracked here).
 ```bash
 pip install -r requirements.txt
 mkdir -p ontologies && cp ../ARI/ontologies/ari_t1d.owl ../ARI/ontologies/ari_uberon.owl ontologies/
-mkdir -p ari-mappings && cp ../ARI/mappings/ari.synonym_blocklist.tsv ../ARI/notebook/symptom-mapping/symptom_mapping.tsv ari-mappings/
+mkdir -p ari-mappings && cp ../ARI/mappings/ari.synonym_blocklist.tsv ari-mappings/
 python run.py
 ```
 

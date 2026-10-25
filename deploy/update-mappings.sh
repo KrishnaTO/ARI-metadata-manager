@@ -26,9 +26,7 @@ TOKEN="${GITHUB_SERVICE_TOKEN:-}"
 
 # Default mapping files if not configured: the mapping files the app reads from the
 # ARI repo. The synonym blocklist is the predictor's: without it, prediction refuses
-# to run rather than bring back the synonym matches it exists to stop. The symptom
-# mapping links each Symptom to its shared symptom class (symptomConcept): without
-# it, adding or renaming a symptom is refused.
+# to run rather than bring back the synonym matches it exists to stop.
 #
 # They are written to ari-mappings/ (gitignored), which is where the app reads
 # them (app/config.py MAPPINGS_RUNTIME_DIR). Writing them over the tracked copies
@@ -36,8 +34,7 @@ TOKEN="${GITHUB_SERVICE_TOKEN:-}"
 # script then saw them "change" and restart the app every ten minutes.
 DEFAULT_MAPPINGS="mappings/ari.equivalencies.tsv:$APP_DIR/ari-mappings/ari.equivalencies.tsv
 mappings/ari.sssom.tsv:$APP_DIR/ari-mappings/ari.sssom.tsv
-mappings/ari.synonym_blocklist.tsv:$APP_DIR/ari-mappings/ari.synonym_blocklist.tsv
-notebook/symptom-mapping/symptom_mapping.tsv:$APP_DIR/ari-mappings/symptom_mapping.tsv"
+mappings/ari.synonym_blocklist.tsv:$APP_DIR/ari-mappings/ari.synonym_blocklist.tsv"
 
 MAPPING_CONFIG="${ARI_MAPPING_FILES:-$DEFAULT_MAPPINGS}"
 

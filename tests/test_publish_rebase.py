@@ -6,7 +6,10 @@ synonyms, 57 clinical subtypes and ~100 review records over two weeks. These
 tests pin the shape of the fix: the source branch is the base of the commit, and
 only the diseases in the curator's touched set are written over it.
 """
+import types
+
 import pytest
+from owlready2 import AnnotationProperty
 
 from app import merge_service
 
@@ -87,7 +90,9 @@ def test_a_property_the_branch_has_never_seen_is_declared(pair):
     mine = _iris(working, 1)[0]
     # apply_enrichment writes ARI_EnrichmentSource; a branch predating it has no
     # such property, and using one that is never declared fails schema checks.
-    working._ensure_annotation_property("ARI_BrandNew")[working._entity(mine)] = ["hello"]
+    with working.onto:
+        types.new_class("ARI_BrandNew", (AnnotationProperty,))
+    working._annotation_property("ARI_BrandNew")[working._entity(mine)] = ["hello"]
     working._save()
 
     merge_service.graft_diseases(working, branch, {mine})

@@ -3,14 +3,14 @@ import logging
 import os
 import re
 import shutil
-import types
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 
-from owlready2 import AnnotationProperty, World, comment, destroy_entity, label, onto_path
+from owlready2 import World, comment, destroy_entity, label, onto_path
 
-from . import atomic_store, config, symptom_mapping, xref_registry
+from . import atomic_store, config, xref_registry
+from .concepts import ARIS_BASE, concept_index
 from .errors import Invalid, NotFound
 from .feedback_service import FeedbackStore
 from .id_allocator import IdAllocator
@@ -111,6 +111,7 @@ class OntologyService:
         placeholder = self.world.get_ontology("http://ari.local/ontology")
         with open(self.path, "rb") as f:
             self.onto = placeholder.load(fileobj=f)
+        self._symptom_concepts = concept_index(self.world, ARIS_BASE)
 
     @property
     def base(self) -> str:
@@ -138,12 +139,12 @@ class OntologyService:
         vals = prop[e] if hasattr(e, 'storid') else []
         return [str(v) for v in vals]
 
-    def _ensure_annotation_property(self, suffix: str):
+    def _annotation_property(self, suffix: str):
+        """A property ari_core.owl declares. The app never creates one."""
         prop = self.world[self.base + suffix]
-        if prop is not None:
-            return prop
-        with self.onto:
-            return types.new_class(suffix, (AnnotationProperty,))
+        if prop is None:
+            raise RuntimeError(f"{suffix} is not declared in ari_core.owl")
+        return prop
 
     def _get_data(self, e, prop_name: str) -> list:
         prop = self.world[prop_name]
@@ -872,9 +873,9 @@ class OntologyService:
             elif kind == "comment":
                 prop, new = comment, [str(raw)] if str(raw).strip() else []
             elif kind == "multi_ann":
-                prop, new = self._ensure_annotation_property(suffix), _multi_values(key, raw)
+                prop, new = self._annotation_property(suffix), _multi_values(key, raw)
             elif kind == "ann":
-                prop = self._ensure_annotation_property(suffix)
+                prop = self._annotation_property(suffix)
                 new = [str(raw)] if str(raw).strip() != "" else []
             elif kind == "data":
                 prop = self.world[base + suffix]
@@ -983,14 +984,14 @@ class OntologyService:
             new_d = dis_cls(local, namespace=disease_ns)
 
         label[new_d] = [lbl]
-        self._ensure_annotation_property("ARI_ID")[new_d] = [ari_id]
+        self._annotation_property("ARI_ID")[new_d] = [ari_id]
 
         defn = str(data.get("definition", "")).strip()
         if defn:
             comment[new_d] = [defn]
 
         def _ann(suffix, val):
-            prop = self._ensure_annotation_property(suffix)
+            prop = self._annotation_property(suffix)
             v = str(val).strip() if val else ""
             if v:
                 prop[new_d] = [v]
@@ -1021,7 +1022,7 @@ class OntologyService:
                 par_prop[new_d] = [parent]
 
         def _multi(suffix, val, key=None):
-            prop = self._ensure_annotation_property(suffix)
+            prop = self._annotation_property(suffix)
             prop[new_d] = _multi_values(key, val)
 
         _multi("ARI_Synonym", data.get("synonyms", ""))
@@ -1038,7 +1039,7 @@ class OntologyService:
             elif kind == "multi_ann":
                 _multi(suffix, raw, key)
             elif kind == "ann":
-                prop = self._ensure_annotation_property(suffix)
+                prop = self._annotation_property(suffix)
                 prop[new_d] = [str(raw)] if str(raw).strip() else []
             elif kind == "data":
                 prop = self.world[base + suffix]
@@ -1090,7 +1091,7 @@ class OntologyService:
         declared on demand, the same way every other annotation writer here does.
         """
         ts = datetime.now(timezone.utc).isoformat(timespec="seconds")
-        clog = self._ensure_annotation_property("ARI_ChangeLog")
+        clog = self._annotation_property("ARI_ChangeLog")
         clog[disease_e] = list(clog[disease_e]) + [f"{ts} | {editor} | {msg}"]
 
     def log_xref_review(self, confirmed=None, flagged=None, editor: str = "curator",
@@ -1167,7 +1168,7 @@ class OntologyService:
                          if i and i not in current]
                 if not fresh:
                     continue
-                self._ensure_annotation_property(suffix)[e] = current + fresh
+                self._annotation_property(suffix)[e] = current + fresh
                 notes.append(f"{db.upper()} {', '.join(fresh)}")
                 added += len(fresh)
             if notes:
@@ -1214,7 +1215,7 @@ class OntologyService:
                     gone = [i for i in current if i not in kept]
                     if not gone:
                         continue
-                    self._ensure_annotation_property(suffix)[e] = kept
+                    self._annotation_property(suffix)[e] = kept
                     notes.append(f"{key.upper()} {', '.join(gone)}")
                     removed += len(gone)
             if notes:
@@ -1311,18 +1312,18 @@ class OntologyService:
             applied_to += 1
             lineage = []
             if new_syn:
-                prop = self._ensure_annotation_property("ARI_Synonym")
+                prop = self._annotation_property("ARI_Synonym")
                 prop[e] = self._get_annotation(e, base + "ARI_Synonym") + [x["value"] for x in new_syn]
                 syn_total += len(new_syn)
                 lineage += [f"ARI_Synonym | {x['value']} | from {x['source']} | {stamp} | {editor}"
                             for x in new_syn]
             if new_sub:
-                prop = self._ensure_annotation_property("ARI_ClinicalSubtype")
+                prop = self._annotation_property("ARI_ClinicalSubtype")
                 prop[e] = self._get_annotation(e, base + "ARI_ClinicalSubtype") + [x["value"] for x in new_sub]
                 sub_total += len(new_sub)
                 lineage += [f"ARI_ClinicalSubtype | {x['value']} | from {x['source']} | {stamp} | {editor}"
                             for x in new_sub]
-            prop = self._ensure_annotation_property("ARI_EnrichmentSource")
+            prop = self._annotation_property("ARI_EnrichmentSource")
             prop[e] = self._get_annotation(e, base + "ARI_EnrichmentSource") + lineage
             note = []
             if new_syn:
@@ -1415,26 +1416,28 @@ class OntologyService:
         label[e] = [" · ".join(parts)]
 
     def _symptom_concept(self, category: str, values: dict) -> str | None:
-        """The ARIS class a Symptom's new label names, looked up before anything
-        is written so a missing mapping table refuses the edit whole."""
+        """The ARIS class IRI a Symptom's new label names, or None."""
         if category != "symptoms" or "name" not in values:
             return None
-        return symptom_mapping.concept_for(str(values["name"] or ""))
+        return self._symptom_concepts.get(str(values["name"] or "").strip())
 
     def _set_symptom_concept(self, e, concept: str | None):
-        """Link a Symptom to the shared ARIS class its label maps to (ARI#152),
-        or to none. Its label is the key, so adding or renaming one is what
-        leaves the link missing or stale.
+        """Link a Symptom to the shared ARIS class its label names (ARI#152), or
+        to none, and drop any ARI_NoConcept decision: the label changed, so that
+        decision was about a different string. Its label is the key, so adding
+        or renaming one is what leaves the link missing or stale.
 
-        Written as triples: the value is an IRI, and owlready2 has no entity for
-        an ARIS class, so it reads one back as a plain string and on assignment
-        would store a literal and fail to delete the old resource."""
-        prop = self._ensure_annotation_property("symptomConcept")
+        Written as triples: the value is an IRI, and owlready2's property setter
+        stores a string literal for one and cannot delete the old resource."""
+        prop = self._annotation_property("sharedConcept")
+        no_concept = self._annotation_property("ARI_NoConcept")
         self.onto._del_obj_triple_spo(e.storid, prop.storid, None)
         self.onto._del_data_triple_spod(e.storid, prop.storid, None, None)
+        self.onto._del_data_triple_spod(e.storid, no_concept.storid, None, None)
         if concept:
             self.onto._add_obj_triple_spo(e.storid, prop.storid, self.world._abbreviate(concept))
         e.__dict__.pop(prop.python_name, None)     # owlready2's cached values
+        e.__dict__.pop(no_concept.python_name, None)
 
     def add_item(self, disease_iri: str, category: str, values: dict, editor: str = "user") -> dict:
         if category not in CATEGORIES:

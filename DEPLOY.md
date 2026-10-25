@@ -147,17 +147,14 @@ different runtime location.
 3. **Mapping-data refresh**: `ari-mm-mapping-update.timer` runs
    `deploy/update-mappings.sh`, which fetches the mapping TSV files from
    `KrishnaTO/ARI:GITHUB_BASE_BRANCH` (by default `mappings/ari.equivalencies.tsv`,
-   `mappings/ari.sssom.tsv`, `mappings/ari.synonym_blocklist.tsv` and
-   `notebook/symptom-mapping/symptom_mapping.tsv`), writes them to the local runtime mapping
+   `mappings/ari.sssom.tsv` and `mappings/ari.synonym_blocklist.tsv`), writes them to the local runtime mapping
    directory, replacing each one atomically when its bytes change. It never
    restarts the app: the app reads these files from disk on every request that
    needs them.
 
 Cross-reference prediction refuses to run until `ari.synonym_blocklist.tsv` has
 been fetched: predicting without it would quietly bring back the synonym matches
-it blocks. Adding or renaming a symptom is refused until `symptom_mapping.tsv`
-has been fetched: it decides which shared symptom class the symptom links to
-(`symptomConcept`). On a new server, run the script once by hand (below) before
+it blocks. On a new server, run the script once by hand (below) before
 opening the editor.
 
 The local runtime mappings default to a gitignored directory, which is where the
@@ -166,7 +163,6 @@ app reads them for signed-out visitors:
 /opt/ari/ari-metadata-manager/ari-mappings/ari.equivalencies.tsv
 /opt/ari/ari-metadata-manager/ari-mappings/ari.sssom.tsv
 /opt/ari/ari-metadata-manager/ari-mappings/ari.synonym_blocklist.tsv
-/opt/ari/ari-metadata-manager/ari-mappings/symptom_mapping.tsv
 ```
 They are deliberately **not** the tracked files of the same name under
 `mappings/` (this repo's snapshot for the tooling and CI). Fetching over those
