@@ -156,7 +156,7 @@ if __name__ == "__main__":
 
     sssom_path = os.environ.get("GITHUB_SSSOM_PATH", "mappings/ari.sssom.tsv")
     equiv_path = os.environ.get("GITHUB_EQUIV_PATH", "mappings/ari.equivalencies.tsv")
-    onto_path = os.environ.get("GITHUB_ONTOLOGY_PATH", "ontologies/ari_t1d.owl")
+    onto_path = os.environ.get("GITHUB_ONTOLOGY_PATH", "ontologies/ari_disease.owl")
 
     tmp_onto = None
     try:

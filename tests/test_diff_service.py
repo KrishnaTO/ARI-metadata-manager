@@ -39,7 +39,7 @@ def edited(tmp_path_factory, base_owl):
 
     onto_dir = tmp_path_factory.mktemp("diff") / "ontologies"
     onto_dir.mkdir(parents=True)
-    dest = onto_dir / "ari_t1d.owl"
+    dest = onto_dir / "ari_disease.owl"
     shutil.copy2(base_owl, dest)
     current = OntologyService(str(dest))
 

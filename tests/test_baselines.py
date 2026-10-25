@@ -6,7 +6,6 @@ or four times.
 """
 import asyncio
 import os
-import shutil
 from collections import OrderedDict
 
 import pytest
@@ -66,9 +65,8 @@ def test_a_value_that_is_not_a_commit_sha_is_refused(downloads):
 
 
 def test_the_publish_dialog_and_the_publish_share_one_download(downloads, tmp_path, monkeypatch,
-                                                               base_owl):
-    base = tmp_path / "base.owl"
-    shutil.copy2(base_owl, base)
+                                                               install_ontology):
+    base = install_ontology(tmp_path / "base.owl")
     monkeypatch.setattr(config, "ONTOLOGY_FILE", str(base))
     monkeypatch.setattr(workspace, "BASE", OntologyService(str(base)))
     monkeypatch.setattr(workspace, "USER_SVC", OrderedDict())

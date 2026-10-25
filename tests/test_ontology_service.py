@@ -323,4 +323,6 @@ def test_a_symptom_links_the_shared_symptom_its_label_maps_to(service):
     svc.update_item(item, "symptoms", {"name": "Bloating"}, disease_iri=iri, editor="t")
     svc.update_item(item, "symptoms", {"likelihood": "Rare"}, disease_iri=iri, editor="t")
     assert links(svc) == [f'<symptomConcept rdf:resource="{aris}ARIS_0000034"/>']
-    assert svc._get_annotation(svc._entity(item), svc.base + "symptomConcept") == [aris + "ARIS_0000034"]
+    # The ARIS class now loads from the symptoms module, so the link reads back as that class.
+    linked = svc._get_objects(svc._entity(item), svc.base + "symptomConcept")
+    assert [c.iri for c in linked] == [aris + "ARIS_0000034"]

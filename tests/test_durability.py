@@ -102,9 +102,8 @@ def test_release_manifest_refuses_to_read_corrupt_json_as_empty(make_service):
 
 # ----------------------------------------------------- #103 working copies
 @pytest.fixture
-def user_dir(tmp_path, monkeypatch, base_owl):
-    onto = tmp_path / "ari.owl"
-    shutil.copy2(base_owl, onto)
+def user_dir(tmp_path, monkeypatch, install_ontology):
+    onto = install_ontology(tmp_path / "ari.owl")
     udir = tmp_path / ".user-data"
     udir.mkdir()
     monkeypatch.setattr(config, "ONTOLOGY_FILE", str(onto))

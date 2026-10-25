@@ -30,7 +30,7 @@ Commit them there. The app reads the blocklist that deploy/update-mappings.sh
 fetches from the data repo.
 
 Usage:
-    python scripts/report_synonyms.py --data-repo ../ARI [--ontology ontologies/ari_t1d.owl]
+    python scripts/report_synonyms.py --data-repo ../ARI [--ontology ontologies/ari_disease.owl]
 """
 from __future__ import annotations
 
@@ -139,7 +139,7 @@ def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--data-repo", required=True, type=Path,
                     help="a checkout of the data repo (KrishnaTO/ARI); writes into its mappings/")
-    ap.add_argument("--ontology", default=str(ROOT / "ontologies" / "ari_t1d.owl"))
+    ap.add_argument("--ontology", default=str(ROOT / "ontologies" / "ari_disease.owl"))
     args = ap.parse_args(argv)
     out_dir = args.data_repo / "mappings"
     if not out_dir.is_dir():

@@ -152,10 +152,9 @@ EQUIV_SOURCE_ID = 1        # source_id
 
 
 @pytest.fixture
-def signed_in(tmp_path, monkeypatch, base_owl, make_service, ledger):
+def signed_in(tmp_path, monkeypatch, install_ontology, make_service, ledger):
     """Signed in as ada with a private working copy; GitHub serves the fixture
     ontology as the source branch, no mapping files yet, and captures the commit."""
-    import shutil
     from collections import OrderedDict
 
     from fastapi.testclient import TestClient
@@ -165,8 +164,7 @@ def signed_in(tmp_path, monkeypatch, base_owl, make_service, ledger):
     from app import github_service as gh
     from app.ontology_service import OntologyService
 
-    base = tmp_path / "base.owl"
-    shutil.copy2(base_owl, base)
+    base = install_ontology(tmp_path / "base.owl")
     monkeypatch.setattr(config, "USER_DIR", tmp_path / "user")
     monkeypatch.setattr(config, "ONTOLOGY_FILE", str(base))
     monkeypatch.setattr(workspace, "BASE", OntologyService(str(base)))
