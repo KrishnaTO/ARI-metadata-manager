@@ -1,5 +1,13 @@
 # Changelog
 
+## claude/staging-runbook-snags
+
+- **STAGING.md covers the three things that went wrong on the first setup.**
+  - **Step 5 checks that pip finished.** A `Killed` install left the venv without `uvicorn`, and that only surfaced at step 8. The step now says how to add swap and rerun.
+  - **Step 5 warns about `APP_BASE_URL`.** The example ships with the live value, and staging's has no `/ari-editor`.
+  - **Step 5 warns about `OAUTH_CALLBACK_PATH`.** It must stay a bare path: a full URL doubled the redirect, and GitHub refused the sign-in. The step's check now prints both values.
+- **"Testing another branch" passes `ARI_FORCE_RESTART` through `env`.** sudo can refuse a bare `VAR=value` after `sudo -u ariapp`. The section also says what a password prompt there means.
+
 ## claude/testing-live-site
 
 - **A staging copy at `staging.aurint.ca`** for testing major changes before they go live, starting with the ROBOT cutover (this repo's `canonical-owl-format` with KrishnaTO/ARI#154). [STAGING.md](STAGING.md) sets it up on the live box: its own checkout under `/opt/ari-staging`, port 8002, unit `ari-mm-staging` and timers. It reads from and publishes to a throwaway public copy of the data repo, `KrishnaTO/ARI-staging`, never `KrishnaTO/ARI`.
