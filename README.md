@@ -154,7 +154,7 @@ on the server. Keep `.env` at mode 600.
 | `PORT` | `8001` | `run.py`'s default port, and the port `deploy/update.sh` reads `/healthz` on. |
 | `APP_REPO_BRANCH` | `main` | Branch of this repo that `deploy/update.sh` tracks. |
 | `APP_SERVICE` | `ari-mm` | systemd unit `deploy/update.sh` restarts. |
-| `ARI_MAPPING_FILES` | the four mapping files | `remote:local` pairs fetched by `deploy/update-mappings.sh`. |
+| `ARI_MAPPING_FILES` | the three mapping files | `remote:local` pairs fetched by `deploy/update-mappings.sh`. |
 
 ## Server-side state
 

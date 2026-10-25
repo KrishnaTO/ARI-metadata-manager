@@ -184,6 +184,19 @@ comes from `ari_symptoms.owl`). A server `.env` whose `ARI_MAPPING_FILES` lists
 that file must drop the entry at the cutover, or this script warns about a failed
 fetch on every run.
 
+### Cutover to the ontology modules
+
+The app cannot read state made from the old single `ari_t1d.owl`. A working copy
+that does not import `ari_core.owl` is refused as a pre-split ontology. At the
+cutover, with the timers stopped and no curator holding unpublished work:
+
+- set `GITHUB_ONTOLOGY_PATH=ontologies/ari_disease.owl` in `.env`, and remove any
+  `ARI_ONTOLOGY_FILE` that names `ari_t1d.owl`;
+- move every working copy `.user-data/<login>.owl` into `.user-data/archive/`,
+  the folder the idle sweep archives into, and delete `.user-data/ancestor/`;
+- clear `.user-data/baselines/`, whose cached files are the old single file;
+- drop `symptom_mapping.tsv` from `ARI_MAPPING_FILES` (above).
+
 ## 6. Nginx
 ```bash
 cd /opt/ari/ari-metadata-manager/deploy
