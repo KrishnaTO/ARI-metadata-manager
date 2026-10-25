@@ -169,6 +169,19 @@ def test_anonymous_reads_follow_the_ontology_file(user_dir):
     assert after is workspace.BASE
 
 
+def test_the_base_reloads_when_a_module_changes(user_dir, monkeypatch):
+    """A Protege edit to a concept module merged to main reaches the server as a
+    changed ari_anatomy.owl, with the disease file untouched."""
+    monkeypatch.setattr(workspace, "BASE", workspace.BASE)           # restored afterwards
+    monkeypatch.setattr(workspace, "_BASE_KEY", workspace._BASE_KEY)
+    first = workspace.base()
+    assert workspace.base() is first                                 # unchanged: no reload
+    anatomy = Path(config.ONTOLOGY_FILE).parent / "ari_anatomy.owl"
+    newest = max(f.stat().st_mtime_ns for f in anatomy.parent.glob("*.owl"))
+    os.utime(anatomy, ns=(newest + 10**9, newest + 10**9))           # the copies keep their mtimes
+    assert workspace.base() is not first
+
+
 def test_in_memory_worlds_are_bounded(user_dir, monkeypatch):
     monkeypatch.setattr(config, "MAX_LOADED_WORLDS", 2)
     for login in ("a", "b", "c"):

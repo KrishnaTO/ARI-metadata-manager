@@ -373,3 +373,24 @@ def test_a_string_naming_two_concepts_is_refused():
         type("ARIS_2", (Thing,), {}).label = ["Fatigue"]
     with pytest.raises(ValueError, match="Fatigue"):
         concept_index(world, ARIS_BASE)
+
+
+def test_tissues_are_read_from_the_anatomy_module(ro_service):
+    names = {t["local_name"] for t in ro_service.get_tissues()}
+    assert len(names) == 23 and {"Tissue_Pancreas", "Tissue_Systemic"} <= names
+
+
+def test_tissue_hierarchy_holds_every_tissue_class(ro_service):
+    seen = set()
+
+    def walk(n):
+        seen.add(n["local_name"])
+        for c in n["children"]:
+            walk(c)
+
+    walk(ro_service.get_tissue_hierarchy()[0])
+    assert len(seen) == 26 and {"Pancreas", "IsletOfLangerhans", "BetaCell"} <= seen
+
+
+def test_search_finds_a_tissue(ro_service):
+    assert any(r["local_name"] == "Tissue_Pancreas" for r in ro_service.search("pancreas"))

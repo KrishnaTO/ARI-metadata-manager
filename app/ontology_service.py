@@ -326,8 +326,8 @@ class OntologyService:
             branch = seen | {cls.iri}
             children = []
             for sub in sorted(cls.subclasses(), key=lambda c: c.name if hasattr(c, 'name') else ""):
-                if (hasattr(sub, 'namespace') and sub.namespace == self.onto
-                        and sub.iri not in branch):   # guard against subclass cycles
+                # ARI classes, whichever module declares them; guard against subclass cycles
+                if sub.iri.startswith(base) and sub.iri not in branch:
                     children.append(walk(sub, branch))
             ari_id = self._get_annotation(cls, base + "ARI_ID")
             return {
@@ -708,18 +708,16 @@ class OntologyService:
 
         _collect(root)
         results, seen = [], set()
-        for ind in self.onto.individuals():
-            if ind.iri in seen:
-                continue
-            for cls in getattr(ind, "is_a", []):
-                if hasattr(cls, "iri") and cls in tissue_classes:
-                    seen.add(ind.iri)
-                    results.append({
-                        "iri": ind.iri,
-                        "name": self._get_label(ind),
-                        "local_name": ind.name if hasattr(ind, "name") else "",
-                    })
-                    break
+        for cls in tissue_classes:
+            for ind in cls.instances(world=self.world):
+                if ind.iri in seen:
+                    continue
+                seen.add(ind.iri)
+                results.append({
+                    "iri": ind.iri,
+                    "name": self._get_label(ind),
+                    "local_name": ind.name if hasattr(ind, "name") else "",
+                })
         return sorted(results, key=lambda x: x["name"])
 
     def search(self, query: str) -> list:
@@ -766,7 +764,7 @@ class OntologyService:
                 add(d, True, f"tissue: {tis}")
 
         # Other individuals: match on label / local name.
-        for ind in self.onto.individuals():
+        for ind in self.world.individuals():
             if ind.iri in disease_iris:
                 continue
             if matches(self._get_label(ind)) or (hasattr(ind, "name") and matches(ind.name)):

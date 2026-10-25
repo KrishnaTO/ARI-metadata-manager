@@ -24,11 +24,21 @@ from .ontology_service import OntologyService
 log = logging.getLogger(__name__)
 
 BASE = OntologyService(config.ONTOLOGY_FILE)   # shared, source-branch baseline
-_BASE_KEY = (config.ONTOLOGY_FILE, os.stat(config.ONTOLOGY_FILE).st_mtime_ns)
+
+
+def _base_key() -> tuple[str, int]:
+    """The disease file's path and the newest mtime of any module beside it: the
+    disease file imports the concept modules, so a change to one is a change to
+    the ontology."""
+    newest = max(f.stat().st_mtime_ns for f in Path(config.ONTOLOGY_FILE).parent.glob("*.owl"))
+    return (config.ONTOLOGY_FILE, newest)
+
+
+_BASE_KEY = _base_key()
 
 
 def base() -> OntologyService:
-    """The shared ontology, reloaded whenever its file on disk changes.
+    """The shared ontology, reloaded whenever its files on disk change.
 
     BASE used to be read once at import. deploy/update-ontology.sh replaces the
     file every ten minutes, but only a restart picked it up, and update.sh lost
@@ -39,7 +49,7 @@ def base() -> OntologyService:
     mtime makes the file on disk the only thing that decides what BASE holds
     (the path too, because a copied file keeps its mtime)."""
     global BASE, _BASE_KEY
-    key = (config.ONTOLOGY_FILE, os.stat(config.ONTOLOGY_FILE).st_mtime_ns)
+    key = _base_key()
     if key != _BASE_KEY:
         BASE = OntologyService(config.ONTOLOGY_FILE)
         _BASE_KEY = key
