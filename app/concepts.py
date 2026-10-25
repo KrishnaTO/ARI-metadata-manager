@@ -15,7 +15,8 @@ def concept_index(world: World, namespace: str) -> dict[str, str]:
     under ``namespace``. One string naming two classes is an error: the link
     it would make is ambiguous."""
     alt_label = world[ALT_LABEL]
-    assert alt_label is not None, f"{ALT_LABEL} is not declared in ari_core.owl"
+    if alt_label is None:
+        raise RuntimeError("skos:altLabel is not declared in ari_core.owl")
     index: dict[str, str] = {}
     for cls in world.classes():
         if not cls.iri.startswith(namespace):

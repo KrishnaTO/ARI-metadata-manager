@@ -1470,8 +1470,11 @@ class OntologyService:
         e = self._entity(item_iri)
         self._check_item_values(category, changes, adding=False)
         concept = self._symptom_concept(category, changes)
+        old_label = self._get_label(e).strip()
         applied = self._apply_item_fields(e, category, changes)
-        if category == "symptoms" and "name" in changes:
+        # The editor sends every field on every save, so "name" is always in
+        # changes: relink only when the label itself changed.
+        if category == "symptoms" and "name" in changes and self._get_label(e).strip() != old_label:
             self._set_symptom_concept(e, concept)
         if disease_iri and applied:
             de = self._entity(disease_iri)

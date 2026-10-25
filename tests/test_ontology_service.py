@@ -346,6 +346,20 @@ def test_renaming_a_symptom_drops_its_no_concept_decision(service):
     assert [c.iri for c in linked] == [ARIS + "ARIS_0000390"]     # the class loads from the symptoms module
 
 
+def test_saving_a_symptom_with_its_name_unchanged_keeps_its_no_concept_decision(service):
+    # The editor PUTs every form field on every save, so "name" is always present.
+    iri = service.get_diseases_list()[0]["iri"]
+    service.add_item(iri, "symptoms", {"name": "Rare:"}, editor="t")
+    item = next(s["iri"] for s in service.get_disease_detail(iri)["symptoms"] if s["name"] == "Rare:")
+    service.world[service.base + "ARI_NoConcept"][service._entity(item)] = ["not a symptom"]
+    service._save()
+    svc = OntologyService(str(service.path))
+    svc.update_item(item, "symptoms", {"name": "Rare:", "likelihood": "Rare"}, disease_iri=iri, editor="t")
+    svc = OntologyService(str(service.path))
+    assert svc._get_annotation(svc._entity(item), svc.base + "ARI_NoConcept") == ["not a symptom"]
+    assert svc._get_objects(svc._entity(item), svc.base + "sharedConcept") == []
+
+
 def test_a_string_naming_two_concepts_is_refused():
     from owlready2 import AnnotationProperty, Thing, World
     from app.concepts import ARIS_BASE, concept_index
