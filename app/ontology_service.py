@@ -91,14 +91,15 @@ class OntologyService:
         # Shared with every other working copy: ARI numbers are the registry's
         # public identifier and must never be minted twice. Same grandparent
         # convention as the feedback store, so `.user-data/<login>.owl` and the
-        # base `ontologies/ari_t1d.owl` resolve to the one `provenance/` dir.
+        # base `ontologies/ari_disease.owl` resolve to the one `provenance/` dir.
         self.ids = IdAllocator(self.path.parent.parent / "provenance")
         self._predict_cache = None      # (ontology mtime, index dir) -> predicted cells
         self._load()
 
     def _load(self):
-        # The ontology owl:imports its UBERON slice (ari_uberon.owl) by an IRI
-        # that does not resolve on the web, so owlready2 must find it on
+        # The disease ontology owl:imports its concept modules (core, symptoms,
+        # anatomy, biomarkers, and through them the SYMP and UBERON slices) by
+        # IRIs that do not resolve on the web, so owlready2 must find them on
         # onto_path. That is the base ontology's folder, not this file's: working
         # copies live in .user-data/ and baselines in temp files. onto_path is
         # process-global; owlready2 has no per-World search path.

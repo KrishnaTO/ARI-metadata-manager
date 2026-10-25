@@ -23,21 +23,22 @@ runtime ontology is not tracked here).
 
 ```bash
 pip install -r requirements.txt
-mkdir -p ontologies && cp ../ARI/ontologies/ari_t1d.owl ../ARI/ontologies/ari_uberon.owl ontologies/
+mkdir -p ontologies && cp ../ARI/ontologies/*.owl ../ARI/ontologies/catalog-v001.xml ontologies/
 mkdir -p ari-mappings && cp ../ARI/mappings/ari.synonym_blocklist.tsv ari-mappings/
 python run.py
 ```
 
-`ari_t1d.owl` `owl:imports` the UBERON slice `ari_uberon.owl` by an IRI that does
-not resolve on the web. The app finds it in the base ontology's folder, so keep
-the two files together. Until KrishnaTO/ARI#151 merges, ARI `main` has no slice:
-copy `ari_t1d.owl` alone.
+The ontology is a set of modules. `ari_disease.owl` `owl:imports` `ari_core.owl`,
+`ari_symptoms.owl`, `ari_anatomy.owl` and `ari_biomarkers.owl`, and through them
+the SYMP and UBERON slices (`ari_symp.owl`, `ari_uberon.owl`), by IRIs that do
+not resolve on the web. The app finds them in the base ontology's folder, so keep
+the files together. `catalog-v001.xml` maps each IRI to its file for ROBOT.
 
 `run.py` serves <http://127.0.0.1:8001> and opens the browser. Options:
 `--port 8002`, `--file path/to/ontology.owl`, `--no-browser`.
 
 Without a `.env` the app runs with GitHub sign-in switched off. You can browse,
-and edits go straight into `ontologies/ari_t1d.owl`. To sign in locally, create a
+and edits go straight into `ontologies/ari_disease.owl`. To sign in locally, create a
 GitHub OAuth App with the callback `http://localhost:8001/auth/github/callback`,
 copy `.env.example` to `.env`, and fill in the GitHub settings,
 `APP_BASE_URL=http://localhost:8001` and a `SESSION_SECRET`.
@@ -136,7 +137,7 @@ on the server. Keep `.env` at mode 600.
 | `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET` | — | OAuth App credentials. Sign-in is on only when these and the owner/repo are set. |
 | `GITHUB_OWNER`, `GITHUB_REPO` | — | The data repo the app reads from and opens PRs on (`KrishnaTO` / `ARI`). |
 | `GITHUB_BASE_BRANCH` | `main` | Default source branch and PR target. |
-| `GITHUB_ONTOLOGY_PATH` | `ontologies/ari_t1d.owl` | The ontology's path in the data repo. |
+| `GITHUB_ONTOLOGY_PATH` | `ontologies/ari_disease.owl` | The disease file's path in the data repo. Its folder holds the modules it imports, and the refresh fetches them all. |
 | `GITHUB_SSSOM_PATH`, `GITHUB_EQUIV_PATH` | `mappings/ari.sssom.tsv`, `mappings/ari.equivalencies.tsv` | Mapping files, both in the data repo and under this repo's root. |
 | `GITHUB_SYNONYM_REVIEW_PATH` | `data/4-reports/9_Synonym_Review.tsv` | Report 9 in the data repo. |
 | `GITHUB_SERVICE_TOKEN` | — | Optional token for the unattended refresh scripts. |
@@ -149,7 +150,7 @@ on the server. Keep `.env` at mode 600.
 | `USER_DATA_TTL_DAYS` | `14` | Idle working copies are removed after this many days, or archived if they hold unpublished work. `0` disables. |
 | `MAX_LOADED_WORLDS` | `8` | Working copies held in memory at once (least recently used are evicted). |
 | `MAPPING_LICENSE` | CC0 1.0 URL | Licence written into the mapping files and shown before publishing. |
-| `ARI_ONTOLOGY_FILE` | `ontologies/ari_t1d.owl` | Runtime ontology path. `run.py --file` sets it. |
+| `ARI_ONTOLOGY_FILE` | `ontologies/ari_disease.owl` | Runtime ontology path. `run.py --file` sets it. |
 | `PORT` | `8001` | `run.py`'s default port, and the port `deploy/update.sh` reads `/healthz` on. |
 | `APP_REPO_BRANCH` | `main` | Branch of this repo that `deploy/update.sh` tracks. |
 | `APP_SERVICE` | `ari-mm` | systemd unit `deploy/update.sh` restarts. |
@@ -162,8 +163,8 @@ else, so back it up ([OPERATIONS.md §6](OPERATIONS.md)).
 
 | Path | Holds | Recoverable? |
 | --- | --- | --- |
-| `ontologies/ari_t1d.owl` | The shared base ontology | Yes, refetched from the data repo |
-| `ontologies/ari_uberon.owl` | The UBERON slice the base ontology imports | Yes, refetched with it |
+| `ontologies/ari_disease.owl` | The shared base ontology | Yes, refetched from the data repo |
+| `ontologies/ari_{core,symptoms,anatomy,biomarkers,symp,uberon}.owl`, `catalog-v001.xml` | The modules the base ontology imports, and the catalog that resolves them | Yes, refetched with it |
 | `.user-data/` | Working copies, ancestors, touched sets, branch choices, review sessions, publish replay log, archived idle copies | No: unpublished work |
 | `.sessions.json` | Sessions, including live GitHub tokens (mode 0600) | Lost only signs people out. **Don't back it up unencrypted.** |
 | `provenance/` | Who added each id, pending removals, the ARI number counter | Partly, with `scripts/backfill_id_authors.py` |
@@ -177,7 +178,7 @@ else, so back it up ([OPERATIONS.md §6](OPERATIONS.md)).
 
 ```bash
 pip install -r requirements-dev.txt
-pytest -q                              # backend suite, against tests/fixtures/ontologies/ari_t1d.owl
+pytest -q                              # backend suite, against tests/fixtures/ontologies/ari_disease.owl
 node --test tests/review-model.test.js # review-page policy
 ruff check .                           # lint
 python scripts/validate_mappings.py    # the published mapping set is valid SSSOM

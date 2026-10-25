@@ -45,9 +45,11 @@ def base() -> OntologyService:
     restarts it had deferred while curators had work in memory. Signed-in
     curators never noticed (they read a working copy synced from GitHub), while
     anonymous readers saw an ontology weeks out of date: retired ICD-9 ids,
-    diseases with none of their current mappings. Keying on the file's path and
-    mtime makes the file on disk the only thing that decides what BASE holds
-    (the path too, because a copied file keeps its mtime)."""
+    diseases with none of their current mappings. Keying on the disease file's
+    path and the newest mtime of the folder's ``*.owl`` files (it imports its
+    siblings, so a change to a module is a change to the ontology) makes the
+    files on disk the only thing that decides what BASE holds (the path too,
+    because a copied file keeps its mtime)."""
     global BASE, _BASE_KEY
     key = _base_key()
     if key != _BASE_KEY:

@@ -91,7 +91,7 @@ The app reads ontology data from and writes PRs to the ARI repo configured in `.
 GITHUB_OWNER=KrishnaTO
 GITHUB_REPO=ARI
 GITHUB_BASE_BRANCH=main
-GITHUB_ONTOLOGY_PATH=ontologies/ari_t1d.owl
+GITHUB_ONTOLOGY_PATH=ontologies/ari_disease.owl
 ```
 
 If the ARI repo is private or unauthenticated API limits are a concern, set a
@@ -127,18 +127,19 @@ There are three independent refresh paths:
    `ARI_FORCE_RESTART=1` to restart immediately.
 2. **Ontology-data refresh**: `ari-mm-ontology-update.timer` runs
    `deploy/update-ontology.sh`, which fetches `GITHUB_ONTOLOGY_PATH` from
-   `KrishnaTO/ARI:GITHUB_BASE_BRANCH`, writes it to the local runtime ontology
-   file atomically when the bytes changed. When that ontology `owl:imports` the
-   UBERON slice, it also fetches `ari_uberon.owl` from the same folder and branch
-   into the runtime ontology's folder, before the ontology itself, and always
-   fetches `catalog-v001.xml`, which ROBOT resolves the imports through when a
-   publish is formatted. No restart: the app reloads the shared
-   base ontology on the next request once the file's mtime changes. The runtime
-   file is gitignored in the app repo, so `update.sh`'s reset never touches it.
+   `KrishnaTO/ARI:GITHUB_BASE_BRANCH`, together with every other `.owl` and
+   `.xml` file in that file's folder (the concept modules it imports and
+   `catalog-v001.xml`, which ROBOT resolves the imports through when a publish is
+   formatted). It lists the folder through the contents API and writes each
+   changed file atomically into the runtime ontology's folder, the disease file
+   last so an import is never missing when it reloads. No restart: the app
+   reloads the shared base ontology on the next request once any `.owl` file in
+   the folder changes. The runtime files are gitignored in the app repo, so
+   `update.sh`'s reset never touches them.
 
 The local runtime ontology defaults to:
 ```bash
-/opt/ari/ari-metadata-manager/ontologies/ari_t1d.owl
+/opt/ari/ari-metadata-manager/ontologies/ari_disease.owl
 ```
 
 Override it with `ARI_ONTOLOGY_FILE` in `.env` only if you intentionally want a
@@ -173,6 +174,12 @@ To customize which mapping files are fetched, set `ARI_MAPPING_FILES` in `.env`.
 The format is a newline-separated list of `remote_path:local_path` pairs. Keep
 the local paths under `ari-mappings/`, where the app looks. Leave it unset to use
 the built-in defaults.
+
+The data repo's ontology-modules split deletes
+`notebook/symptom-mapping/symptom_mapping.tsv` (a symptom's shared class now
+comes from `ari_symptoms.owl`). A server `.env` whose `ARI_MAPPING_FILES` lists
+that file must drop the entry at the cutover, or this script warns about a failed
+fetch on every run.
 
 ## 6. Nginx
 ```bash
@@ -324,7 +331,7 @@ grep -E '^(GITHUB_OWNER|GITHUB_REPO|GITHUB_BASE_BRANCH|GITHUB_ONTOLOGY_PATH)=' /
 
 Check the local runtime ontology file timestamp:
 ```bash
-ls -l /opt/ari/ari-metadata-manager/ontologies/ari_t1d.owl
+ls -l /opt/ari/ari-metadata-manager/ontologies/ari_disease.owl
 ```
 
 ### Cloudflare "SSL is not working on this site"

@@ -17,7 +17,7 @@ The file is rewritten in the data repo's canonical layout (``app.owl_format``),
 so the diff is the moved values and the new figures.
 
 Usage:
-    python scripts/migrate_epidemiology.py <ari_t1d.owl> [--editor NAME]
+    python scripts/migrate_epidemiology.py <ari_disease.owl> [--editor NAME]
 
 Dependencies: owlready2
 """

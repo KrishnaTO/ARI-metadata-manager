@@ -261,7 +261,7 @@ def test_lineage_distinguishes_two_agreeing_sources():
 # ICD-10 is a statistical classification: a code is a bucket holding a disease
 # together with its subtypes and neighbours. Resolving one to whatever ontology
 # term happens to cross-reference it imports a *different* concept's names -- in
-# ari_t1d.owl, E10 sits on both "Type 1 diabetes mellitus" and "Latent autoimmune
+# ari_disease.owl, E10 sits on both "Type 1 diabetes mellitus" and "Latent autoimmune
 # diabetes in adults", so LADA was being handed the parent disease's synonyms.
 RUBRIC = _index(
     ("MONDO:0005147", "type 1 diabetes mellitus", ["type 1 diabetes", "immune mediated diabetes"],
