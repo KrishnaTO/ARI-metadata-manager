@@ -86,6 +86,24 @@ sudo -u ariapp git clone https://github.com/KrishnaTO/ARI-metadata-manager.git /
 cd /opt/ari-staging/ari-metadata-manager && sudo -u ariapp git checkout canonical-owl-format
 sudo -u ariapp python3 -m venv /opt/ari-staging/venv
 sudo -u ariapp /opt/ari-staging/venv/bin/pip install --no-cache-dir -r requirements.txt
+```
+
+**Check that pip finished** before going on:
+
+```bash
+ls -l /opt/ari-staging/venv/bin/uvicorn
+```
+
+The install builds owlready2 while the live app is running. If memory runs
+out, pip stops at `Killed`, and the venv is left without its packages. Step 7
+still works, because its scripts need only Python, so the gap shows up only at
+step 8 as `Failed to locate executable /opt/ari-staging/venv/bin/uvicorn`. If
+`uvicorn` is missing, check `free -m`; with no swap, add it (DEPLOY.md,
+*owlready2 pip build is OOM-killed*) and run the install again.
+
+Then the `.env`:
+
+```bash
 sudo -u ariapp cp .env.example .env && sudo chmod 600 .env
 sudo -u ariapp nano .env
 ```
@@ -112,7 +130,27 @@ JAVA_TOOL_OPTIONS=-Xmx384m
 `MemoryMax` for the app itself. If a publish fails with `OutOfMemoryError`,
 raise it and `MemoryMax` together, and watch `free -m` while you do.
 
-**Check:** `sudo -u ariapp git -C /opt/ari-staging/ari-metadata-manager log -1 --oneline` is the branch you meant to test.
+Two values that are easy to get wrong, because the example ships with the live
+site's:
+- **`APP_BASE_URL` has no `/ari-editor`.** Staging is served at the root of its
+  subdomain, and its nginx site strips no prefix.
+- **`OAUTH_CALLBACK_PATH` stays `/auth/github/callback`**, a bare path. The app
+  appends it to `APP_BASE_URL` for the OAuth redirect and serves its callback
+  page at it, so a full URL here sends GitHub
+  `https://staging.aurint.cahttps://staging.aurint.ca/auth/github/callback`,
+  which it refuses as "not associated with this application".
+
+**Check:** the branch is the one you meant to test, and the sign-in URLs are
+right:
+
+```bash
+sudo -u ariapp git -C /opt/ari-staging/ari-metadata-manager log -1 --oneline
+sudo grep -E '^(APP_BASE_URL|OAUTH_CALLBACK_PATH)=' /opt/ari-staging/ari-metadata-manager/.env
+```
+
+The second prints exactly `APP_BASE_URL=https://staging.aurint.ca` and
+`OAUTH_CALLBACK_PATH=/auth/github/callback`, matching the staging OAuth app's
+callback URL from step 2.
 
 ## 6. Java and ROBOT
 
@@ -195,13 +233,16 @@ Edit `APP_REPO_BRANCH` (this repo) and `GITHUB_BASE_BRANCH` (the data copy) in
 (below), then:
 
 ```bash
-sudo -u ariapp ARI_FORCE_RESTART=1 /opt/ari-staging/ari-metadata-manager/deploy/update.sh
+sudo -u ariapp env ARI_FORCE_RESTART=1 /opt/ari-staging/ari-metadata-manager/deploy/update.sh
 sudo -u ariapp /opt/ari-staging/ari-metadata-manager/deploy/update-mappings.sh
 ```
 
 `update.sh` checks out the new branch, refreshes the ontology and restarts
 staging. Without `ARI_FORCE_RESTART=1` it waits while staging has a working copy
-in memory, as the live site does.
+in memory, as the live site does. The variable goes through `env` because sudo
+can refuse a bare `VAR=value` after `sudo -u ariapp`. The restart itself runs
+as `ariapp` through the sudoers rule from step 8; a password prompt here means
+that rule is missing or `APP_SERVICE` in `.env` is not exactly `ari-mm-staging`.
 
 ## Re-syncing the data copy
 

@@ -1,5 +1,12 @@
 # Changelog
 
+## claude/staging-runbook-snags
+
+- **STAGING.md covers the three things that went wrong on the first setup.**
+  - **Step 5 checks that pip finished.** A `Killed` install left the venv without `uvicorn`, and that only surfaced at step 8. The step now says how to add swap and rerun.
+  - **Step 5 warns about `APP_BASE_URL`.** The example ships with the live value, and staging's has no `/ari-editor`.
+  - **Step 5 warns about `OAUTH_CALLBACK_PATH`.** It must stay a bare path: a full URL doubled the redirect, and GitHub refused the sign-in. The step's check now prints both values.
+- **"Testing another branch" passes `ARI_FORCE_RESTART` through `env`.** sudo can refuse a bare `VAR=value` after `sudo -u ariapp`. The section also says what a password prompt there means.
 ## claude/changelog-changed-fields
 
 - **A save logs and writes only the fields that changed.** The editor form sends all 13 of its fields on every save, and `update_disease` wrote and logged each one it received. A one-synonym save on staging (KrishnaTO/ARI-staging#1) logged `Edited: age_range, clinical_subtypes, def_source, definition, demographic_bias, disease_category, evidence_quality, is_grouping, name, obsolete, prevalence_desc, prevalence_value, synonyms` and wrote an `<ARI_IsGrouping>false</ARI_IsGrouping>` the record never had. Each submitted field is now compared with what is stored first, and an unchanged one is skipped. Order does not count as a change. For the `obsolete` and `is_grouping` flags, a stored `false` and no value at all are the same. A save that changes nothing adds no changelog entry, and that includes adding a cross-reference id that is already on file.
