@@ -88,23 +88,6 @@ def _item_iris(svc, iri) -> set:
     return out
 
 
-def _ensure_property(dst, p_iri, sources):
-    """Declare ``p_iri`` in ``dst`` if it has never seen it.
-
-    A curator's session can be the first to use an annotation property —
-    ``ARI_EnrichmentSource`` was introduced exactly that way — and a property
-    used but never declared makes the published file fail its own schema check.
-    """
-    if not p_iri.startswith(dst.base) or dst.world._abbreviate(p_iri, False) is not None:
-        return                             # rdf/rdfs/owl need no declaration; or already known
-    src = next(s for s in sources if s.world._abbreviate(p_iri, False) is not None)
-    s_src = src.world._abbreviate(p_iri, False)
-    s_dst = dst.world._abbreviate(p_iri)
-    for p, o in list(src.world._get_obj_triples_s_po(s_src)):
-        dst.onto._add_obj_triple_spo(s_dst, dst.world._abbreviate(src.world._unabbreviate(p)),
-                                     dst.world._abbreviate(src.world._unabbreviate(o)))
-
-
 def _pairs(svc, iri) -> list:
     """Everything ``svc`` says about ``iri`` as ``(predicate, value)``, in stored order.
 
@@ -164,11 +147,13 @@ def _write(dst, iri, props, sources):
                    key=lambda pair: (pair != NAMED_INDIVIDUAL, rank.get(pair, len(rank)), repr(pair)))
 
     dw = dst.world
+    for p_iri, _ in pairs:
+        if p_iri.startswith(dst.base) and dw._abbreviate(p_iri, False) is None:
+            raise ValueError(f"{p_iri} is not declared in ari_core.owl")
     s = dw._abbreviate(iri)
     dst.onto._del_obj_triple_spo(s, None, None)
     dst.onto._del_data_triple_spod(s, None, None, None)
     for p_iri, v in pairs:
-        _ensure_property(dst, p_iri, sources)
         p = dw._abbreviate(p_iri)
         if v[0] == "o":
             dst.onto._add_obj_triple_spo(s, p, dw._abbreviate(v[1]))
