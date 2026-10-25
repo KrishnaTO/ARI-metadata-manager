@@ -67,6 +67,21 @@ def _multi_values(key, raw):
     return [s for s in items if s]
 
 
+# Flags stored as "true"/"false" annotations. Absent reads as false, so a stored
+# "false" and no value at all are the same flag.
+_FLAG_FIELDS = ("obsolete", "is_grouping")
+
+
+def _same_values(key, old, new) -> bool:
+    """Whether ``new`` stores what ``old`` already holds. Order is ignored: it
+    carries no meaning in the ontology."""
+    if key in _FLAG_FIELDS:
+        def is_true(vals):
+            return bool(vals) and str(vals[0]).lower() == "true"
+        return is_true(old) == is_true(new)
+    return sorted(map(str, old)) == sorted(map(str, new))
+
+
 class OntologyService:
     def __init__(self, path: str):
         self.path = Path(path)
@@ -853,15 +868,14 @@ class OntologyService:
             kind, suffix, caster = spec
 
             if kind == "label":
-                label[e] = [str(raw)] if str(raw).strip() else []
+                prop, new = label, [str(raw)] if str(raw).strip() else []
             elif kind == "comment":
-                comment[e] = [str(raw)] if str(raw).strip() else []
+                prop, new = comment, [str(raw)] if str(raw).strip() else []
             elif kind == "multi_ann":
-                prop = self._ensure_annotation_property(suffix)
-                prop[e] = _multi_values(key, raw)
+                prop, new = self._ensure_annotation_property(suffix), _multi_values(key, raw)
             elif kind == "ann":
                 prop = self._ensure_annotation_property(suffix)
-                prop[e] = [str(raw)] if str(raw).strip() != "" else []
+                new = [str(raw)] if str(raw).strip() != "" else []
             elif kind == "data":
                 prop = self.world[base + suffix]
                 if prop is None:
@@ -869,10 +883,10 @@ class OntologyService:
                                      "reason": f"the ontology declares no {suffix} property"})
                     continue
                 if str(raw).strip() == "":
-                    prop[e] = []
+                    new = []
                 else:
                     try:
-                        prop[e] = [caster(raw)]
+                        new = [caster(raw)]
                     except (ValueError, TypeError):
                         wanted = "a number" if caster in (int, float) else caster.__name__
                         rejected.append({"field": key, "value": str(raw),
@@ -884,7 +898,14 @@ class OntologyService:
                     rejected.append({"field": key, "value": str(raw),
                                      "reason": f"the ontology declares no {suffix} property"})
                     continue
-                prop[e] = str(raw).split()
+                new = str(raw).split()
+            # The editor form sends every field on each save, so most arrive
+            # unchanged. Writing and logging them all put every field in each
+            # "Edited:" entry and stored an ARI_IsGrouping "false" on records
+            # that never had one.
+            if _same_values(key, prop[e], new):
+                continue
+            prop[e] = new
             changed.append(key)
 
         if changed:
