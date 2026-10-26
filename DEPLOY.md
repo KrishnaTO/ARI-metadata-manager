@@ -209,16 +209,29 @@ Then, in order:
    any `ARI_ONTOLOGY_FILE` that names `ari_t1d.owl`, and drop
    `symptom_mapping.tsv` from `ARI_MAPPING_FILES` if it is set (above).
 4. **Merge the data PR, then the app PR.**
-5. **Move the pre-split state aside.** This is a move, not a delete. The working
-   copies, their `.json` sidecars, `ancestor/` and `baselines/` all go into one
-   dated folder, and the app recreates `ancestor/` and `baselines/` when it needs
-   them. `.sessions.json` is at the checkout root, so sign-ins survive.
+5. **Move the pre-split state aside.** This is a move, not a delete. Only what
+   was made from the old single file goes into one dated folder:
+   - each working copy `<login>.owl`;
+   - that login's `<login>.branch.json`, `<login>.refsession.json` and
+     `<login>.touched.json`, if present (the idle sweep clears these with the copy);
+   - `ancestor/` and `baselines/`, which the app recreates when it needs them.
+
+   Everything else stays:
+   - `<login>.publishes.json` is the replay guard for recent publishes and does
+     not depend on the ontology.
+   - A `<login>.refsession.json` with no working copy beside it is that curator's
+     open cross-reference review, keyed by ARI id. It may hold unpublished verdicts.
+   - `archive/` holds earlier archives.
+   - `.sessions.json` is at the checkout root, so sign-ins survive.
    ```bash
    cd /opt/ari/ari-metadata-manager/.user-data
-   sudo -u ariapp mkdir -p archive/pre-split-$(date +%F)
-   sudo -u ariapp mv *.owl *.json ancestor baselines archive/pre-split-$(date +%F)/
+   D=archive/pre-split-$(date +%F)
+   sudo -u ariapp mkdir -p "$D"
+   for f in *.owl; do l=${f%.owl}; for x in "$l.owl" "$l.branch.json" "$l.refsession.json" "$l.touched.json"; do [ -e "$x" ] && sudo -u ariapp mv "$x" "$D/"; done; done
+   sudo -u ariapp mv ancestor baselines "$D/"
    ```
-   `mv` reports "cannot stat" for a pattern that matches nothing; that is harmless.
+   Check with `ls -la . "$D"`: no `.owl`, `ancestor/` or `baselines/` is left in
+   `.user-data/`, and every `*.publishes.json` is still there.
 6. **Deploy and refresh:**
    `sudo -u ariapp env ARI_FORCE_RESTART=1 /opt/ari/ari-metadata-manager/deploy/update.sh`,
    then `sudo -u ariapp /opt/ari/ari-metadata-manager/deploy/update-mappings.sh`.
