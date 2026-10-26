@@ -187,15 +187,59 @@ fetch on every run.
 ### Cutover to the ontology modules
 
 The app cannot read state made from the old single `ari_t1d.owl`. A working copy
-that does not import `ari_core.owl` is refused as a pre-split ontology. At the
-cutover, with the timers stopped and no curator holding unpublished work:
+that does not import `ari_core.owl` is refused as a pre-split ontology. Rehearsed
+on staging 2026-10-26 (STAGING.md, "Testing another branch"); on staging the
+paths are `/opt/ari-staging/...` and the units `ari-mm-staging*`.
 
-- set `GITHUB_ONTOLOGY_PATH=ontologies/ari_disease.owl` in `.env`, and remove any
-  `ARI_ONTOLOGY_FILE` that names `ari_t1d.owl`;
-- move every working copy `.user-data/<login>.owl` into `.user-data/archive/`,
-  the folder the idle sweep archives into, and delete `.user-data/ancestor/`;
-- clear `.user-data/baselines/`, whose cached files are the old single file;
-- drop `symptom_mapping.tsv` from `ARI_MAPPING_FILES` (above).
+Before you start:
+- No curator holds unpublished work. Open `edit/*` pull requests are merged or
+  closed, and curators have published or discarded their drafts.
+- `GITHUB_SERVICE_TOKEN` is set (step 4 above). Check it without printing it:
+  `sudo grep -qE '^GITHUB_SERVICE_TOKEN=.+' /opt/ari/ari-metadata-manager/.env && echo set`.
+
+Then, in order:
+
+1. **Stop the app and its timers**, so nothing refreshes or saves a working copy
+   halfway through:
+   `sudo systemctl stop ari-mm-update.timer ari-mm-ontology-update.timer ari-mm-mapping-update.timer ari-mm`
+2. **Back up `.env` outside the checkout.** `update.sh` stashes any untracked file
+   it finds in the checkout, so a backup kept beside `.env` ends up in a git stash:
+   `sudo install -m 600 -o ariapp -g ariapp /opt/ari/ari-metadata-manager/.env /opt/ari/env.bak-pre-split`
+3. **Edit `.env`:** set `GITHUB_ONTOLOGY_PATH=ontologies/ari_disease.owl`, remove
+   any `ARI_ONTOLOGY_FILE` that names `ari_t1d.owl`, and drop
+   `symptom_mapping.tsv` from `ARI_MAPPING_FILES` if it is set (above).
+4. **Merge the data PR, then the app PR.**
+5. **Move the pre-split state aside.** This is a move, not a delete. The working
+   copies, their `.json` sidecars, `ancestor/` and `baselines/` all go into one
+   dated folder, and the app recreates `ancestor/` and `baselines/` when it needs
+   them. `.sessions.json` is at the checkout root, so sign-ins survive.
+   ```bash
+   cd /opt/ari/ari-metadata-manager/.user-data
+   sudo -u ariapp mkdir -p archive/pre-split-$(date +%F)
+   sudo -u ariapp mv *.owl *.json ancestor baselines archive/pre-split-$(date +%F)/
+   ```
+   `mv` reports "cannot stat" for a pattern that matches nothing; that is harmless.
+6. **Deploy and refresh:**
+   `sudo -u ariapp env ARI_FORCE_RESTART=1 /opt/ari/ari-metadata-manager/deploy/update.sh`,
+   then `sudo -u ariapp /opt/ari/ari-metadata-manager/deploy/update-mappings.sh`.
+   `update.sh` should print `Updated …` for all eight `ontologies/` files, with
+   `ari_disease.owl` last, and then "restarted".
+7. **Check:** `curl -fsS http://127.0.0.1:8001/healthz` reports the new commit and
+   228 diseases. The tissue picker lists 23 tissues, and the journal
+   (`sudo journalctl -u ari-mm -n 30 --no-pager`) has no traceback.
+8. **Start the timers again:**
+   `sudo systemctl start ari-mm-update.timer ari-mm-ontology-update.timer ari-mm-mapping-update.timer`
+9. **Publish one small edit** and check that the PR changes only
+   `ontologies/ari_disease.owl` and passes `OWL format` and `Validate mappings`.
+   If the publish dialog says the source branch could not be read and the
+   journal shows `401 Bad credentials`, that curator's GitHub sign-in has been
+   revoked: sign out and back in.
+10. **Remove the leftovers** once the switch has held:
+    `ontologies/ari_t1d.owl` and `ari-mappings/symptom_mapping.tsv`.
+
+To roll back before step 4, restore `/opt/ari/env.bak-pre-split` and start the
+app and timers. After the merges, also revert both merges, move the archived
+files back out of `archive/pre-split-<date>/`, and rerun step 6.
 
 ## 6. Nginx
 ```bash
