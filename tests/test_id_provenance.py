@@ -135,7 +135,7 @@ def test_ontology_service_over_a_temp_file_creates_no_sibling_dirs(tmp_path, bas
     root = tmp_path / "readonly"
     holder = root / "holder"
     holder.mkdir(parents=True)
-    owl = holder / "ari_t1d.owl"
+    owl = holder / "ari_disease.owl"
     shutil.copyfile(base_owl, owl)
 
     svc = OntologyService(str(owl))

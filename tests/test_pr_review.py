@@ -123,7 +123,7 @@ def test_the_matrix_reads_its_files_together(base_owl, monkeypatch):
             time.sleep(0.05)
             with lock:
                 at_once["now"] -= 1
-            return base_owl.read_bytes() if path == github.ONTOLOGY_PATH else served[path].encode()
+            return base_owl.read_bytes() if path == config.GH_ONTOLOGY_PATH else served[path].encode()
 
     monkeypatch.setattr(compare, "get_indexes", lambda: [])
     refs = {"head_sha": "h", "merge_base": "m", "base_ref": "b", "paths": [github.EQUIV_PATH]}

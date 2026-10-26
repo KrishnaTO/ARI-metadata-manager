@@ -5,7 +5,6 @@ publish endpoints that merge the source branch in (see
 docs/superpowers/specs/2026-09-22-working-copy-merge-design.md).
 """
 import hashlib
-import shutil
 import types
 from collections import OrderedDict
 
@@ -19,10 +18,9 @@ from app.ontology_service import OntologyService
 
 
 @pytest.fixture
-def curator(tmp_path, monkeypatch, base_owl):
+def curator(tmp_path, monkeypatch, install_ontology):
     """A signed-in curator 'ada' with a private user dir and a temp base file."""
-    base = tmp_path / "base.owl"
-    shutil.copy2(base_owl, base)
+    base = install_ontology(tmp_path / "base.owl")
     monkeypatch.setattr(config, "USER_DIR", tmp_path / "user")
     monkeypatch.setattr(config, "ONTOLOGY_FILE", str(base))
     # BASE is loaded from the real file at import; a curator without a working

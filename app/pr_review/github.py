@@ -16,7 +16,6 @@ from .. import config
 
 EQUIV_PATH = "mappings/ari.equivalencies.tsv"
 SSSOM_PATH = "mappings/ari.sssom.tsv"
-ONTOLOGY_PATH = "ontologies/ari_t1d.owl"
 # Predicted matches per (disease, database), best first, from predict_target_matches.py.
 PREDICTIONS_PATH = "notebook/ari-grounding/target_predictions.json"
 REVIEWED_PATHS = (EQUIV_PATH, PREDICTIONS_PATH)

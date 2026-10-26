@@ -116,6 +116,7 @@ GITHUB_CLIENT_SECRET=<from step 2>
 GITHUB_OWNER=KrishnaTO
 GITHUB_REPO=ARI-staging
 GITHUB_BASE_BRANCH=ontology-formatter
+GITHUB_SERVICE_TOKEN=<read-only token for the data copy; required, see DEPLOY.md step 4>
 APP_BASE_URL=https://staging.aurint.ca
 APP_REPO_BRANCH=canonical-owl-format
 APP_SERVICE=ari-mm-staging
@@ -178,8 +179,10 @@ sudo -u ariapp /opt/ari-staging/ari-metadata-manager/deploy/update-mappings.sh
 ```
 
 **Check:** both report `KrishnaTO/ARI-staging:ontology-formatter`, and
-`ls /opt/ari-staging/ari-metadata-manager/ontologies/` shows `ari_t1d.owl`,
-`ari_uberon.owl` and `catalog-v001.xml`.
+`ls /opt/ari-staging/ari-metadata-manager/ontologies/` shows every file in the
+data copy's `ontologies/` folder on that branch. For the module split that is
+`ari_disease.owl`, `ari_core.owl`, `ari_symptoms.owl`, `ari_anatomy.owl`,
+`ari_biomarkers.owl`, `ari_symp.owl`, `ari_uberon.owl` and `catalog-v001.xml`.
 
 ## 8. The app service
 
@@ -243,6 +246,13 @@ in memory, as the live site does. The variable goes through `env` because sudo
 can refuse a bare `VAR=value` after `sudo -u ariapp`. The restart itself runs
 as `ariapp` through the sudoers rule from step 8; a password prompt here means
 that rule is missing or `APP_SERVICE` in `.env` is not exactly `ari-mm-staging`.
+
+For the ontology module split (rehearsing its cutover), set both branches to
+`ontology-modules-split` and push that data branch to the copy. The ontology path
+default is now `ontologies/ari_disease.owl`; if `.env` still sets
+`GITHUB_ONTOLOGY_PATH` or `ARI_ONTOLOGY_FILE` to `ari_t1d.owl`, remove those
+lines. The refresh fetches every module in the folder, so the step 7 check shows
+the eight files.
 
 ## Re-syncing the data copy
 

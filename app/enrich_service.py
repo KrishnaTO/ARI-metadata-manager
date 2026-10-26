@@ -59,7 +59,7 @@ SUBTYPE_COLS = ["parent_id", "child_id"]
 # source publishes its own term list as *approximate* synonyms. Resolving a
 # confirmed ICD-10 code to whatever ontology term happens to cross-reference it
 # therefore folds a **different** concept's names into the disease. In
-# ``ari_t1d.owl`` the code ``E10`` sits on both "Type 1 diabetes mellitus" and
+# ``ari_disease.owl`` the code ``E10`` sits on both "Type 1 diabetes mellitus" and
 # "Latent autoimmune diabetes in adults", so LADA was being handed the parent
 # disease's synonyms *and* the parent's MONDO children as its own subtypes.
 #

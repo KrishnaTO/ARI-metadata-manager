@@ -4,7 +4,6 @@ A publish grafts only its scope onto the source branch, so the diseases a
 curator leaves out of a pull request stay in their working copy, still touched,
 for a later one.
 """
-import shutil
 from collections import OrderedDict
 
 import pytest
@@ -17,10 +16,9 @@ from app.ontology_service import OntologyService
 
 
 @pytest.fixture
-def signed_in(tmp_path, monkeypatch, base_owl, make_service):
+def signed_in(tmp_path, monkeypatch, install_ontology, make_service):
     """Signed in as ada; GitHub serves the fixture ontology and captures the commit."""
-    base = tmp_path / "base.owl"
-    shutil.copy2(base_owl, base)
+    base = install_ontology(tmp_path / "base.owl")
     monkeypatch.setattr(config, "USER_DIR", tmp_path / "user")
     monkeypatch.setattr(config, "ONTOLOGY_FILE", str(base))
     monkeypatch.setattr(workspace, "BASE", OntologyService(str(base)))

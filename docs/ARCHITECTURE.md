@@ -9,14 +9,14 @@ way it is) lives in [`changelog.md`](../changelog.md) and in the docstrings.
 
 ```
                          KrishnaTO/ARI (data repo)
-          ontologies/ari_t1d.owl · mappings/*.tsv · data/4-reports/*
+          ontologies/*.owl · mappings/*.tsv · data/4-reports/*
                ▲  pull requests, authored by          │  raw file reads
                │  the signed-in curator               ▼  (contents API)
 ┌──────────────┴──────────────────────────────────────────────────────┐
 │ ARI Metadata Manager (this repo) — one uvicorn process, :8001       │
 │                                                                     │
 │  routes/ ──► services ──► owlready2 Worlds                          │
-│                             · shared BASE (ontologies/ari_t1d.owl)  │
+│                             · shared BASE (ontologies/ari_disease.owl) │
 │                             · one per curator (.user-data/<login>)  │
 │                       ──► file-backed stores (provenance/, …)       │
 │                       ──► reference indexes (data/2-databases/)     │
@@ -155,10 +155,11 @@ The ontology is one RDF/XML OWL file, compatible with Protégé. The app relies 
 
 ## Working copies and isolation
 
-- **The shared base.** `workspace.base()` serves `ontologies/ari_t1d.owl`, and
-  reloads it whenever the file's path or mtime changes. `deploy/update-ontology.sh`
-  replaces the file atomically, so anonymous readers see the data repo's `main`
-  within one timer tick, without a restart.
+- **The shared base.** `workspace.base()` serves `ontologies/ari_disease.owl`
+  (with the modules it imports from the same folder), and reloads it whenever the
+  disease file's path or the newest mtime of any `*.owl` in the folder changes.
+  `deploy/update-ontology.sh` replaces the changed files atomically, so anonymous
+  readers see the data repo's `main` within one timer tick, without a restart.
 - **A curator's own copy.** The first write by a signed-in curator copies the
   base to `.user-data/<login>.owl`; that curator's reads and writes go there from
   then on. Every write endpoint resolves its ontology through

@@ -39,6 +39,7 @@ import tempfile
 from concurrent.futures import ThreadPoolExecutor
 from urllib.parse import quote
 
+from .. import config
 from ..concept_service import lookup
 from ..ontology_service import OntologyService
 from ..predict_service import get_indexes, match_key, normalize, token_similarity
@@ -448,7 +449,7 @@ def hint(status: str, judgment: str, found: bool, score: int, flags: list[str]) 
 def build_matrix(refs: dict, reader: github.Reader) -> dict:
     """The matrix for the PR described by ``refs`` (from ``Reader.pr_refs``)."""
     # Five to seven independent file reads; they ran one after another.
-    wanted = [(github.EQUIV_PATH, refs["head_sha"]), (github.ONTOLOGY_PATH, refs["head_sha"])]
+    wanted = [(github.EQUIV_PATH, refs["head_sha"]), (config.GH_ONTOLOGY_PATH, refs["head_sha"])]
     if github.EQUIV_PATH in refs["paths"]:
         wanted += [(github.EQUIV_PATH, refs["merge_base"]), (github.EQUIV_PATH, refs["base_ref"]),
                    (github.SSSOM_PATH, refs["head_sha"])]
@@ -473,7 +474,7 @@ def build_matrix(refs: dict, reader: github.Reader) -> dict:
             parse_predictions(text(github.PREDICTIONS_PATH, refs["merge_base"])),
             parse_predictions(text(github.PREDICTIONS_PATH, refs["head_sha"])),
             parse_predictions(text(github.PREDICTIONS_PATH, refs["base_ref"])))
-    ari = load_ari(files[(github.ONTOLOGY_PATH, refs["head_sha"])])
+    ari = load_ari(files[(config.GH_ONTOLOGY_PATH, refs["head_sha"])])
     owners = _name_owners(ari)
     indexes = get_indexes()
 

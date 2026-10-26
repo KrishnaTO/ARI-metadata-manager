@@ -210,8 +210,13 @@ def test_epidemiology_figure_refuses_bad_values(service, bad):
 
 
 def test_migration_moves_flat_rates_to_figures(tmp_path):
-    from owlready2 import AnnotationProperty, DataProperty, Thing, World
+    from pathlib import Path
 
+    from owlready2 import AnnotationProperty, DataProperty, Thing, World, onto_path
+
+    from app import config
+    from app.concepts import SYMPTOMS_ONTOLOGY
+    from app.ontology_service import CORE_ONTOLOGY
     from scripts.migrate_epidemiology import migrate
     world = World()
     onto = world.get_ontology("http://example.org/ari#")
@@ -222,6 +227,13 @@ def test_migration_moves_flat_rates_to_figures(tmp_path):
         class incidenceWorldPer100k(DataProperty): range = [float]
         class incidenceWorldYear(DataProperty): range = [int]
         class incidenceWorldSource(DataProperty): range = [str]
+    # The service refuses an ontology that does not import the core and symptoms
+    # modules, so this one imports them, found beside the fixture ontology.
+    onto.imported_ontologies.extend([world.get_ontology(CORE_ONTOLOGY),
+                                     world.get_ontology(SYMPTOMS_ONTOLOGY)])
+    modules = str(Path(config.ONTOLOGY_FILE).parent)
+    if modules not in onto_path:
+        onto_path.append(modules)
     d = AutoimmuneDisease("ARI_0000001")
     prevalencePer100k[d] = [12.5]
     incidenceWorldPer100k[d] = [1.1]
@@ -291,36 +303,138 @@ def test_get_disease_detail_unknown_iri_raises(ro_service):
         ro_service.get_disease_detail("https://example.org/nope")
 
 
-def test_a_symptom_links_the_shared_symptom_its_label_maps_to(service):
-    # tests/fixtures/mappings/symptom_mapping.tsv: Polyuria is exact, Bloating
-    # broader, Abdominal bloating merged into Bloating, the last not a symptom.
-    iri = service.get_diseases_list()[0]["iri"]
-    aris = "http://www.aurint.org/ontologies/ari-symptoms#"
+ARIS = "http://www.aurint.org/ontologies/ari-symptoms#"
 
+
+def test_a_symptom_links_the_shared_symptom_its_label_names(service):
+    # tests/fixtures/ontologies/ari_symptoms.owl: Polyuria is ARIS_0000390;
+    # Bloating is ARIS_0000034, with altLabel "Abdominal bloating".
+    iri = service.get_diseases_list()[0]["iri"]
     service.add_item(iri, "symptoms", {"name": " Polyuria "}, editor="t")
     item = next(s["iri"] for s in service.get_disease_detail(iri)["symptoms"] if s["name"] == " Polyuria ")
 
     def links(svc):
-        """The item's symptomConcept lines as saved: resources, not literals."""
+        """The item's sharedConcept lines as saved: resources, not literals."""
         text = svc.path.read_text(encoding="utf-8")
         block = text[text.index(f'rdf:about="#{item.rsplit("#", 1)[1]}"'):]
         return [line.strip() for line in block[:block.index("\n</")].splitlines()
-                if "symptomConcept" in line]
+                if "sharedConcept" in line]
 
-    assert links(service) == [f'<symptomConcept rdf:resource="{aris}ARIS_0000390"/>']
-    # Each step on a fresh load, where owlready2 reads the link back as a string.
+    assert links(service) == [f'<sharedConcept rdf:resource="{ARIS}ARIS_0000390"/>']
+    # Each step on a fresh load, where owlready2 reads the link back from the file.
     for name, want in [("Abdominal bloating", "ARIS_0000034"),
                        ("Absence of orthostatic hypotension", None),
                        ("Bloating", "ARIS_0000034"),
-                       ("Polyuria", "ARIS_0000390"),
-                       ("Testitis", None)]:
+                       ("polyuria", None),
+                       ("Polyuria", "ARIS_0000390")]:
         svc = OntologyService(str(service.path))
         svc.update_item(item, "symptoms", {"name": name}, disease_iri=iri, editor="t")
-        assert links(svc) == ([f'<symptomConcept rdf:resource="{aris}{want}"/>'] if want else []), name
-
+        assert links(svc) == ([f'<sharedConcept rdf:resource="{ARIS}{want}"/>'] if want else []), name
     # Edits that leave the label alone leave the link alone.
     svc = OntologyService(str(service.path))
-    svc.update_item(item, "symptoms", {"name": "Bloating"}, disease_iri=iri, editor="t")
     svc.update_item(item, "symptoms", {"likelihood": "Rare"}, disease_iri=iri, editor="t")
-    assert links(svc) == [f'<symptomConcept rdf:resource="{aris}ARIS_0000034"/>']
-    assert svc._get_annotation(svc._entity(item), svc.base + "symptomConcept") == [aris + "ARIS_0000034"]
+    assert links(svc) == [f'<sharedConcept rdf:resource="{ARIS}ARIS_0000390"/>']
+
+
+def test_renaming_a_symptom_drops_its_no_concept_decision(service):
+    iri = service.get_diseases_list()[0]["iri"]
+    service.add_item(iri, "symptoms", {"name": "Rare:"}, editor="t")
+    item = next(s["iri"] for s in service.get_disease_detail(iri)["symptoms"] if s["name"] == "Rare:")
+    no_concept = service.world[service.base + "ARI_NoConcept"]
+    no_concept[service._entity(item)] = ["not a symptom"]
+    service._save()
+    svc = OntologyService(str(service.path))
+    svc.update_item(item, "symptoms", {"likelihood": "Rare"}, disease_iri=iri, editor="t")
+    assert svc._get_annotation(svc._entity(item), svc.base + "ARI_NoConcept") == ["not a symptom"]
+    svc.update_item(item, "symptoms", {"name": "Polyuria"}, disease_iri=iri, editor="t")
+    svc = OntologyService(str(service.path))
+    assert svc._get_annotation(svc._entity(item), svc.base + "ARI_NoConcept") == []
+    linked = svc._get_objects(svc._entity(item), svc.base + "sharedConcept")
+    assert [c.iri for c in linked] == [ARIS + "ARIS_0000390"]     # the class loads from the symptoms module
+
+
+def test_saving_a_symptom_with_its_name_unchanged_keeps_its_no_concept_decision(service):
+    # The editor PUTs every form field on every save, so "name" is always present.
+    iri = service.get_diseases_list()[0]["iri"]
+    service.add_item(iri, "symptoms", {"name": "Rare:"}, editor="t")
+    item = next(s["iri"] for s in service.get_disease_detail(iri)["symptoms"] if s["name"] == "Rare:")
+    service.world[service.base + "ARI_NoConcept"][service._entity(item)] = ["not a symptom"]
+    service._save()
+    svc = OntologyService(str(service.path))
+    svc.update_item(item, "symptoms", {"name": "Rare:", "likelihood": "Rare"}, disease_iri=iri, editor="t")
+    svc = OntologyService(str(service.path))
+    assert svc._get_annotation(svc._entity(item), svc.base + "ARI_NoConcept") == ["not a symptom"]
+    assert svc._get_objects(svc._entity(item), svc.base + "sharedConcept") == []
+
+
+def _concept_world():
+    """A World with skos:altLabel, the symptoms module and a second ontology,
+    each with a namespace for ARIS-named classes."""
+    from owlready2 import AnnotationProperty, World
+
+    from app.concepts import SYMPTOMS_ONTOLOGY
+    world = World()
+    with world.get_ontology("http://www.w3.org/2004/02/skos/core#"):
+        type("altLabel", (AnnotationProperty,), {})
+    symptoms = world.get_ontology(SYMPTOMS_ONTOLOGY).get_namespace(ARIS)
+    other = world.get_ontology("http://www.aurint.org/ontologies/ari-disease").get_namespace(ARIS)
+    return world, symptoms, other
+
+
+def test_a_string_naming_two_concepts_is_refused():
+    from owlready2 import Thing
+
+    from app.concepts import SYMPTOMS_ONTOLOGY, concept_index
+    world, symptoms, _ = _concept_world()
+    with symptoms:
+        type("ARIS_1", (Thing,), {}).label = ["Fatigue"]
+        type("ARIS_2", (Thing,), {}).label = ["Fatigue"]
+    with pytest.raises(ValueError, match="Fatigue"):
+        concept_index(world, SYMPTOMS_ONTOLOGY)
+
+
+def test_only_the_symptoms_module_is_indexed():
+    """The validator reads ari_symptoms.owl alone, so an ARIS-named class that
+    another module declares is not a concept to link."""
+    from owlready2 import Thing
+
+    from app.concepts import SYMPTOMS_ONTOLOGY, concept_index
+    world, symptoms, other = _concept_world()
+    with symptoms:
+        type("ARIS_1", (Thing,), {}).label = ["Fatigue"]
+    with other:
+        type("ARIS_2", (Thing,), {}).label = ["Polyuria"]
+    assert concept_index(world, SYMPTOMS_ONTOLOGY) == {"Fatigue": ARIS + "ARIS_1"}
+
+
+def test_a_pre_split_ontology_is_refused_with_the_cutover_steps(tmp_path):
+    """A working copy made before the split imports nothing, and failed on a
+    missing skos:altLabel declaration that said nothing about why."""
+    from owlready2 import World
+    path = tmp_path / "user-data" / "ada.owl"
+    path.parent.mkdir()
+    World().get_ontology("http://www.aurint.org/ontologies/ari-disease").save(
+        file=str(path), format="rdfxml")
+    with pytest.raises(RuntimeError, match="pre-split ontology.*DEPLOY.md"):
+        OntologyService(str(path))
+
+
+def test_tissues_are_read_from_the_anatomy_module(ro_service):
+    names = {t["local_name"] for t in ro_service.get_tissues()}
+    assert len(names) == 23 and {"Tissue_Pancreas", "Tissue_Systemic"} <= names
+
+
+def test_tissue_hierarchy_holds_every_tissue_class(ro_service):
+    seen = set()
+
+    def walk(n):
+        seen.add(n["local_name"])
+        for c in n["children"]:
+            walk(c)
+
+    walk(ro_service.get_tissue_hierarchy()[0])
+    assert len(seen) == 26 and {"Pancreas", "IsletOfLangerhans", "BetaCell"} <= seen
+
+
+def test_search_finds_a_tissue(ro_service):
+    assert any(r["local_name"] == "Tissue_Pancreas" for r in ro_service.search("pancreas"))

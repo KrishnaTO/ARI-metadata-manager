@@ -6,7 +6,10 @@ synonyms, 57 clinical subtypes and ~100 review records over two weeks. These
 tests pin the shape of the fix: the source branch is the base of the commit, and
 only the diseases in the curator's touched set are written over it.
 """
+import types
+
 import pytest
+from owlready2 import AnnotationProperty
 
 from app import merge_service
 
@@ -82,18 +85,18 @@ def test_items_deleted_in_the_working_copy_do_not_come_back(pair):
     assert victim["iri"] not in [s["iri"] for s in after]
 
 
-def test_a_property_the_branch_has_never_seen_is_declared(pair):
+def test_grafting_a_property_core_does_not_declare_is_refused(pair):
     working, branch = pair
     mine = _iris(working, 1)[0]
-    # apply_enrichment writes ARI_EnrichmentSource; a branch predating it has no
-    # such property, and using one that is never declared fails schema checks.
-    working._ensure_annotation_property("ARI_BrandNew")[working._entity(mine)] = ["hello"]
+    # Only ari_core.owl declares properties. A property the destination has never
+    # seen must stop the publish, not be copied into the disease file.
+    with working.onto:
+        types.new_class("ARI_BrandNew", (AnnotationProperty,))
+    working._annotation_property("ARI_BrandNew")[working._entity(mine)] = ["hello"]
     working._save()
 
-    merge_service.graft_diseases(working, branch, {mine})
-
-    assert branch.world[branch.base + "ARI_BrandNew"] is not None
-    assert branch._get_annotation(branch._entity(mine), branch.base + "ARI_BrandNew") == ["hello"]
+    with pytest.raises(ValueError, match="ARI_BrandNew is not declared in ari_core.owl"):
+        merge_service.graft_diseases(working, branch, {mine})
 
 
 def test_the_rebased_file_still_loads(pair, tmp_path):
@@ -135,3 +138,26 @@ def test_a_publish_diffs_only_on_the_curators_change(pair):
     assert format_owl(content) == content
     branch.path.write_bytes(content)
     assert "only-change" in OntologyService(str(branch.path)).get_disease_detail(mine)["synonyms"]
+
+
+def _subjects(root):
+    return {e.get("{http://www.w3.org/1999/02/22-rdf-syntax-ns#}about") for e in root} - {None}
+
+
+def test_a_publish_writes_only_disease_module_statements(pair):
+    import xml.etree.ElementTree as ET
+    from pathlib import Path
+
+    from app import config
+    from app.owl_format import format_owl
+    working, branch = pair
+    mine = _iris(working, 1)[0]
+    working.update_disease(mine, {"synonyms": "only-change"}, editor="ada")
+    working.add_item(mine, "symptoms", {"name": "Polyuria"}, editor="ada")
+    merge_service.graft_diseases(working, branch, {mine})
+    branch._save()
+    published = _subjects(ET.fromstring(format_owl(branch.path.read_bytes())))
+    fixtures = Path(config.ONTOLOGY_FILE).parent
+    elsewhere = set().union(*(_subjects(ET.parse(fixtures / f).getroot())
+                              for f in ("ari_core.owl", "ari_anatomy.owl", "ari_symptoms.owl")))
+    assert published and not published & elsewhere

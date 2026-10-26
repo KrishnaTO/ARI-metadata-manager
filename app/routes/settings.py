@@ -25,7 +25,7 @@ def _allowed_branches(branches):
 async def _fetch_branch(token, branch, login):
     """Point ``login`` at ``branch``, fetching it into their own working copy.
 
-    This used to write the downloaded bytes over ``ontologies/ari_t1d.owl`` —
+    This used to write the downloaded bytes over ``ontologies/ari_disease.owl`` —
     the git-tracked file — so one curator switching branch replaced what every
     other curator and every anonymous reader saw, and left `deploy/update.sh`
     finding a dirty tree (and autostashing) every ten minutes forever.

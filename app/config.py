@@ -35,7 +35,7 @@ _load_dotenv()
 
 ONTOLOGY_FILE = os.environ.get(
     "ARI_ONTOLOGY_FILE",
-    str(ROOT / "ontologies" / "ari_t1d.owl")
+    str(ROOT / "ontologies" / "ari_disease.owl")
 )
 
 STATIC_DIR = ROOT / "static"
@@ -104,7 +104,7 @@ GH_OWNER = os.environ.get("GITHUB_OWNER", "")
 GH_REPO = os.environ.get("GITHUB_REPO", "")
 GH_BASE_BRANCH = os.environ.get("GITHUB_BASE_BRANCH", "main")
 GH_ONTOLOGY_PATH = os.environ.get(
-    "GITHUB_ONTOLOGY_PATH", "ontologies/ari_t1d.owl")
+    "GITHUB_ONTOLOGY_PATH", "ontologies/ari_disease.owl")
 MAPPINGS_SSSOM_PATH = os.environ.get("GITHUB_SSSOM_PATH", "mappings/ari.sssom.tsv")
 MAPPINGS_EQUIV_PATH = os.environ.get("GITHUB_EQUIV_PATH", "mappings/ari.equivalencies.tsv")
 # The server's copies of those two files and of the synonym blocklist

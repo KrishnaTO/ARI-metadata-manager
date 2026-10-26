@@ -102,9 +102,8 @@ def test_release_manifest_refuses_to_read_corrupt_json_as_empty(make_service):
 
 # ----------------------------------------------------- #103 working copies
 @pytest.fixture
-def user_dir(tmp_path, monkeypatch, base_owl):
-    onto = tmp_path / "ari.owl"
-    shutil.copy2(base_owl, onto)
+def user_dir(tmp_path, monkeypatch, install_ontology):
+    onto = install_ontology(tmp_path / "ari.owl")
     udir = tmp_path / ".user-data"
     udir.mkdir()
     monkeypatch.setattr(config, "ONTOLOGY_FILE", str(onto))
@@ -168,6 +167,36 @@ def test_anonymous_reads_follow_the_ontology_file(user_dir):
     after = workspace.user_service(None)
     assert after is not before
     assert after is workspace.BASE
+
+
+def test_the_base_reloads_when_a_module_changes(user_dir, monkeypatch):
+    """A Protege edit to a concept module merged to main reaches the server as a
+    changed ari_anatomy.owl, with the disease file untouched."""
+    monkeypatch.setattr(workspace, "BASE", workspace.BASE)           # restored afterwards
+    monkeypatch.setattr(workspace, "_BASE_KEY", workspace._BASE_KEY)
+    first = workspace.base()
+    assert workspace.base() is first                                 # unchanged: no reload
+    anatomy = Path(config.ONTOLOGY_FILE).parent / "ari_anatomy.owl"
+    newest = max(f.stat().st_mtime_ns for f in anatomy.parent.glob("*.owl"))
+    os.utime(anatomy, ns=(newest + 10**9, newest + 10**9))           # the copies keep their mtimes
+    assert workspace.base() is not first
+
+
+def test_a_curators_world_reloads_when_a_module_changes(user_dir):
+    """Only BASE reloaded, so a signed-in curator kept the old symptoms lookup
+    and the old anatomy until a restart. The reload reads the working copy on
+    disk, which every edit has already been saved to."""
+    svc = workspace.user_service("ada", create=True)
+    iri = svc.get_diseases_list()[0]["iri"]
+    svc.update_disease(iri, {"disease_category": "EDITED-BEFORE-RELOAD"}, editor="ada")
+    assert workspace.user_service("ada") is svc                      # unchanged: no reload
+    anatomy = Path(config.ONTOLOGY_FILE).parent / "ari_anatomy.owl"
+    newest = max(f.stat().st_mtime_ns for f in anatomy.parent.glob("*.owl"))
+    os.utime(anatomy, ns=(newest + 10**9, newest + 10**9))
+    after = workspace.user_service("ada")
+    assert after is not svc
+    assert after.get_disease_detail(iri)["disease_category"] == ["EDITED-BEFORE-RELOAD"]
+    assert workspace.user_service("ada") is after                    # and only once
 
 
 def test_in_memory_worlds_are_bounded(user_dir, monkeypatch):

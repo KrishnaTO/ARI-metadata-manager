@@ -91,11 +91,14 @@ The app reads ontology data from and writes PRs to the ARI repo configured in `.
 GITHUB_OWNER=KrishnaTO
 GITHUB_REPO=ARI
 GITHUB_BASE_BRANCH=main
-GITHUB_ONTOLOGY_PATH=ontologies/ari_t1d.owl
+GITHUB_ONTOLOGY_PATH=ontologies/ari_disease.owl
 ```
 
-If the ARI repo is private or unauthenticated API limits are a concern, set a
-server-side token for unattended ontology refreshes:
+Set a server-side token for the unattended refreshes. It is **required** now that
+the ontology refresh fetches the whole `ontologies/` folder: one run costs 1
+listing plus 8 file requests, so with `update-mappings.sh` the timers need over
+60 GitHub requests an hour, the anonymous limit, and without a token the
+refreshes start failing with 403 and the server goes stale.
 ```env
 GITHUB_SERVICE_TOKEN=github_pat_or_fine_grained_token
 ```
@@ -127,18 +130,19 @@ There are three independent refresh paths:
    `ARI_FORCE_RESTART=1` to restart immediately.
 2. **Ontology-data refresh**: `ari-mm-ontology-update.timer` runs
    `deploy/update-ontology.sh`, which fetches `GITHUB_ONTOLOGY_PATH` from
-   `KrishnaTO/ARI:GITHUB_BASE_BRANCH`, writes it to the local runtime ontology
-   file atomically when the bytes changed. When that ontology `owl:imports` the
-   UBERON slice, it also fetches `ari_uberon.owl` from the same folder and branch
-   into the runtime ontology's folder, before the ontology itself, and always
-   fetches `catalog-v001.xml`, which ROBOT resolves the imports through when a
-   publish is formatted. No restart: the app reloads the shared
-   base ontology on the next request once the file's mtime changes. The runtime
-   file is gitignored in the app repo, so `update.sh`'s reset never touches it.
+   `KrishnaTO/ARI:GITHUB_BASE_BRANCH`, together with every other `.owl` and
+   `.xml` file in that file's folder (the concept modules it imports and
+   `catalog-v001.xml`, which ROBOT resolves the imports through when a publish is
+   formatted). It lists the folder through the contents API and writes each
+   changed file atomically into the runtime ontology's folder, the disease file
+   last so an import is never missing when it reloads. No restart: the app
+   reloads the shared base ontology on the next request once any `.owl` file in
+   the folder changes. The runtime files are gitignored in the app repo, so
+   `update.sh`'s reset never touches them.
 
 The local runtime ontology defaults to:
 ```bash
-/opt/ari/ari-metadata-manager/ontologies/ari_t1d.owl
+/opt/ari/ari-metadata-manager/ontologies/ari_disease.owl
 ```
 
 Override it with `ARI_ONTOLOGY_FILE` in `.env` only if you intentionally want a
@@ -147,17 +151,14 @@ different runtime location.
 3. **Mapping-data refresh**: `ari-mm-mapping-update.timer` runs
    `deploy/update-mappings.sh`, which fetches the mapping TSV files from
    `KrishnaTO/ARI:GITHUB_BASE_BRANCH` (by default `mappings/ari.equivalencies.tsv`,
-   `mappings/ari.sssom.tsv`, `mappings/ari.synonym_blocklist.tsv` and
-   `notebook/symptom-mapping/symptom_mapping.tsv`), writes them to the local runtime mapping
+   `mappings/ari.sssom.tsv` and `mappings/ari.synonym_blocklist.tsv`), writes them to the local runtime mapping
    directory, replacing each one atomically when its bytes change. It never
    restarts the app: the app reads these files from disk on every request that
    needs them.
 
 Cross-reference prediction refuses to run until `ari.synonym_blocklist.tsv` has
 been fetched: predicting without it would quietly bring back the synonym matches
-it blocks. Adding or renaming a symptom is refused until `symptom_mapping.tsv`
-has been fetched: it decides which shared symptom class the symptom links to
-(`symptomConcept`). On a new server, run the script once by hand (below) before
+it blocks. On a new server, run the script once by hand (below) before
 opening the editor.
 
 The local runtime mappings default to a gitignored directory, which is where the
@@ -166,7 +167,6 @@ app reads them for signed-out visitors:
 /opt/ari/ari-metadata-manager/ari-mappings/ari.equivalencies.tsv
 /opt/ari/ari-metadata-manager/ari-mappings/ari.sssom.tsv
 /opt/ari/ari-metadata-manager/ari-mappings/ari.synonym_blocklist.tsv
-/opt/ari/ari-metadata-manager/ari-mappings/symptom_mapping.tsv
 ```
 They are deliberately **not** the tracked files of the same name under
 `mappings/` (this repo's snapshot for the tooling and CI). Fetching over those
@@ -177,6 +177,69 @@ To customize which mapping files are fetched, set `ARI_MAPPING_FILES` in `.env`.
 The format is a newline-separated list of `remote_path:local_path` pairs. Keep
 the local paths under `ari-mappings/`, where the app looks. Leave it unset to use
 the built-in defaults.
+
+The data repo's ontology-modules split deletes
+`notebook/symptom-mapping/symptom_mapping.tsv` (a symptom's shared class now
+comes from `ari_symptoms.owl`). A server `.env` whose `ARI_MAPPING_FILES` lists
+that file must drop the entry at the cutover, or this script warns about a failed
+fetch on every run.
+
+### Cutover to the ontology modules
+
+The app cannot read state made from the old single `ari_t1d.owl`. A working copy
+that does not import `ari_core.owl` is refused as a pre-split ontology. Rehearsed
+on staging 2026-10-26 (STAGING.md, "Testing another branch"); on staging the
+paths are `/opt/ari-staging/...` and the units `ari-mm-staging*`.
+
+Before you start:
+- No curator holds unpublished work. Open `edit/*` pull requests are merged or
+  closed, and curators have published or discarded their drafts.
+- `GITHUB_SERVICE_TOKEN` is set (step 4 above). Check it without printing it:
+  `sudo grep -qE '^GITHUB_SERVICE_TOKEN=.+' /opt/ari/ari-metadata-manager/.env && echo set`.
+
+Then, in order:
+
+1. **Stop the app and its timers**, so nothing refreshes or saves a working copy
+   halfway through:
+   `sudo systemctl stop ari-mm-update.timer ari-mm-ontology-update.timer ari-mm-mapping-update.timer ari-mm`
+2. **Back up `.env` outside the checkout.** `update.sh` stashes any untracked file
+   it finds in the checkout, so a backup kept beside `.env` ends up in a git stash:
+   `sudo install -m 600 -o ariapp -g ariapp /opt/ari/ari-metadata-manager/.env /opt/ari/env.bak-pre-split`
+3. **Edit `.env`:** set `GITHUB_ONTOLOGY_PATH=ontologies/ari_disease.owl`, remove
+   any `ARI_ONTOLOGY_FILE` that names `ari_t1d.owl`, and drop
+   `symptom_mapping.tsv` from `ARI_MAPPING_FILES` if it is set (above).
+4. **Merge the data PR, then the app PR.**
+5. **Move the pre-split state aside.** This is a move, not a delete. The working
+   copies, their `.json` sidecars, `ancestor/` and `baselines/` all go into one
+   dated folder, and the app recreates `ancestor/` and `baselines/` when it needs
+   them. `.sessions.json` is at the checkout root, so sign-ins survive.
+   ```bash
+   cd /opt/ari/ari-metadata-manager/.user-data
+   sudo -u ariapp mkdir -p archive/pre-split-$(date +%F)
+   sudo -u ariapp mv *.owl *.json ancestor baselines archive/pre-split-$(date +%F)/
+   ```
+   `mv` reports "cannot stat" for a pattern that matches nothing; that is harmless.
+6. **Deploy and refresh:**
+   `sudo -u ariapp env ARI_FORCE_RESTART=1 /opt/ari/ari-metadata-manager/deploy/update.sh`,
+   then `sudo -u ariapp /opt/ari/ari-metadata-manager/deploy/update-mappings.sh`.
+   `update.sh` should print `Updated …` for all eight `ontologies/` files, with
+   `ari_disease.owl` last, and then "restarted".
+7. **Check:** `curl -fsS http://127.0.0.1:8001/healthz` reports the new commit and
+   228 diseases. The tissue picker lists 23 tissues, and the journal
+   (`sudo journalctl -u ari-mm -n 30 --no-pager`) has no traceback.
+8. **Start the timers again:**
+   `sudo systemctl start ari-mm-update.timer ari-mm-ontology-update.timer ari-mm-mapping-update.timer`
+9. **Publish one small edit** and check that the PR changes only
+   `ontologies/ari_disease.owl` and passes `OWL format` and `Validate mappings`.
+   If the publish dialog says the source branch could not be read and the
+   journal shows `401 Bad credentials`, that curator's GitHub sign-in has been
+   revoked: sign out and back in.
+10. **Remove the leftovers** once the switch has held:
+    `ontologies/ari_t1d.owl` and `ari-mappings/symptom_mapping.tsv`.
+
+To roll back before step 4, restore `/opt/ari/env.bak-pre-split` and start the
+app and timers. After the merges, also revert both merges, move the archived
+files back out of `archive/pre-split-<date>/`, and rerun step 6.
 
 ## 6. Nginx
 ```bash
@@ -328,7 +391,7 @@ grep -E '^(GITHUB_OWNER|GITHUB_REPO|GITHUB_BASE_BRANCH|GITHUB_ONTOLOGY_PATH)=' /
 
 Check the local runtime ontology file timestamp:
 ```bash
-ls -l /opt/ari/ari-metadata-manager/ontologies/ari_t1d.owl
+ls -l /opt/ari/ari-metadata-manager/ontologies/ari_disease.owl
 ```
 
 ### Cloudflare "SSL is not working on this site"

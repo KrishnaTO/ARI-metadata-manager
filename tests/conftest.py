@@ -5,7 +5,7 @@ Tests run against a *copy* of the curated ontology snapshot in
 tracked file (and so the on-disk ``releases/`` and ``feedback/`` side directories
 land under pytest's tmp dir).
 
-The app's runtime ontology (``ontologies/ari_t1d.owl``) is not tracked:
+The app's runtime ontology (``ontologies/ari_disease.owl``) is not tracked:
 deploy/update-ontology.sh fetches it from KrishnaTO/ARI. The app builds
 ``workspace.BASE`` at import, so the snapshot is set as the runtime file here,
 before any test module imports ``app``.
@@ -20,16 +20,15 @@ import pytest
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-BASE_OWL = ROOT / "tests" / "fixtures" / "ontologies" / "ari_t1d.owl"
+BASE_OWL = ROOT / "tests" / "fixtures" / "ontologies" / "ari_disease.owl"
 os.environ["ARI_ONTOLOGY_FILE"] = str(BASE_OWL)
 
 
 @pytest.fixture(scope="session", autouse=True)
 def runtime_mappings():
-    """A snapshot of the data repo's synonym blocklist and a few rows of its
-    symptom mapping, served from where deploy/update-mappings.sh puts them
-    (``config.MAPPINGS_RUNTIME_DIR``): prediction refuses to run without the
-    one, adding a symptom without the other. Tests may patch the directory again."""
+    """A snapshot of the data repo's synonym blocklist, served from where
+    deploy/update-mappings.sh puts it (``config.MAPPINGS_RUNTIME_DIR``):
+    prediction refuses to run without it. Tests may patch the directory again."""
     from app import config
     with pytest.MonkeyPatch.context() as mp:
         mp.setattr(config, "MAPPINGS_RUNTIME_DIR", ROOT / "tests" / "fixtures" / "mappings")
@@ -46,9 +45,22 @@ def _copy_service(dest_dir: Path, base_owl: Path):
     from app.ontology_service import OntologyService
     onto_dir = dest_dir / "ontologies"
     onto_dir.mkdir(parents=True, exist_ok=True)
-    dest = onto_dir / "ari_t1d.owl"
+    dest = onto_dir / "ari_disease.owl"
     shutil.copy2(base_owl, dest)
     return OntologyService(str(dest))
+
+
+@pytest.fixture
+def install_ontology(base_owl):
+    """Put the fixture ontology at ``dest`` with the modules it imports and their
+    catalog beside it, as the server's ``ontologies/`` folder holds them. A test
+    that points ``config.ONTOLOGY_FILE`` at a copy needs this: ROBOT resolves the
+    imports through the catalog next to that file."""
+    def _install(dest: Path) -> Path:
+        for f in base_owl.parent.iterdir():
+            shutil.copy2(f, dest if f == base_owl else dest.parent / f.name)
+        return dest
+    return _install
 
 
 @pytest.fixture(scope="session")

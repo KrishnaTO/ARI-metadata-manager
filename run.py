@@ -19,7 +19,7 @@ if __name__ == "__main__":
     parser.add_argument("--port", type=int, default=int(os.environ.get("PORT") or 8001),
                         help="Port to serve on (default: $PORT, else 8001)")
     parser.add_argument("--file",
-                        default=str(HERE / "ontologies" / "ari_t1d.owl"),
+                        default=str(HERE / "ontologies" / "ari_disease.owl"),
                         help="Path to OWL ontology file")
     parser.add_argument("--no-browser", action="store_true",
                         help="Don't open browser automatically")

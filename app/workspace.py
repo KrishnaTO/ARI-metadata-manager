@@ -24,22 +24,34 @@ from .ontology_service import OntologyService
 log = logging.getLogger(__name__)
 
 BASE = OntologyService(config.ONTOLOGY_FILE)   # shared, source-branch baseline
-_BASE_KEY = (config.ONTOLOGY_FILE, os.stat(config.ONTOLOGY_FILE).st_mtime_ns)
+
+
+def _base_key() -> tuple[str, int]:
+    """The disease file's path and the newest mtime of any module beside it: the
+    disease file imports the concept modules, so a change to one is a change to
+    the ontology."""
+    newest = max(f.stat().st_mtime_ns for f in Path(config.ONTOLOGY_FILE).parent.glob("*.owl"))
+    return (config.ONTOLOGY_FILE, newest)
+
+
+_BASE_KEY = _base_key()
 
 
 def base() -> OntologyService:
-    """The shared ontology, reloaded whenever its file on disk changes.
+    """The shared ontology, reloaded whenever its files on disk change.
 
     BASE used to be read once at import. deploy/update-ontology.sh replaces the
     file every ten minutes, but only a restart picked it up, and update.sh lost
     restarts it had deferred while curators had work in memory. Signed-in
     curators never noticed (they read a working copy synced from GitHub), while
     anonymous readers saw an ontology weeks out of date: retired ICD-9 ids,
-    diseases with none of their current mappings. Keying on the file's path and
-    mtime makes the file on disk the only thing that decides what BASE holds
-    (the path too, because a copied file keeps its mtime)."""
+    diseases with none of their current mappings. Keying on the disease file's
+    path and the newest mtime of the folder's ``*.owl`` files (it imports its
+    siblings, so a change to a module is a change to the ontology) makes the
+    files on disk the only thing that decides what BASE holds (the path too,
+    because a copied file keeps its mtime)."""
     global BASE, _BASE_KEY
-    key = (config.ONTOLOGY_FILE, os.stat(config.ONTOLOGY_FILE).st_mtime_ns)
+    key = _base_key()
     if key != _BASE_KEY:
         BASE = OntologyService(config.ONTOLOGY_FILE)
         _BASE_KEY = key
@@ -199,17 +211,28 @@ def _adopt_working_copy(login) -> OntologyService:
         USER_SVC.pop(oldest, None)
         log.info("Evicted %s's in-memory ontology (cap %d); the working copy on "
                  "disk is untouched", oldest, config.MAX_LOADED_WORLDS)
-    USER_SVC[login] = OntologyService(str(config.USER_DIR / f"{login}.owl"))
+    modules = _base_key()[1]
+    svc = OntologyService(str(config.USER_DIR / f"{login}.owl"))
+    svc.modules_key = modules        # the module files this World imported
+    USER_SVC[login] = svc
     USER_SVC.move_to_end(login)
-    return USER_SVC[login]
+    return svc
 
 
 def user_service(login, create=False):
     if not login:
         return base()
     if login in USER_SVC:
-        USER_SVC.move_to_end(login)               # most recently used, for the LRU bound
-        return USER_SVC[login]
+        if USER_SVC[login].modules_key == _base_key()[1]:
+            USER_SVC.move_to_end(login)           # most recently used, for the LRU bound
+            return USER_SVC[login]
+        # A module beside the base changed (a Protege edit to ari_symptoms.owl
+        # or ari_anatomy.owl merged to main): the loaded World still holds the
+        # old one. Every edit is saved before its call returns, so the working
+        # copy on disk is the whole of this curator's work; load it again.
+        USER_SVC.pop(login)
+        log.info("Reloading @%s's working copy: an ontology module changed", login)
+        return _adopt_working_copy(login)
     f = config.USER_DIR / f"{login}.owl"
     if f.exists():
         # A working copy on disk is this curator's work whether or not the
