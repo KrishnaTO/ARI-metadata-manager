@@ -1,5 +1,9 @@
 # Changelog
 
+## docs/cutover-move-scope
+
+- **DEPLOY.md's cutover step 5 now moves only what was made from the old single file.** That is each `<login>.owl`, its `branch`, `refsession` and `touched` sidecars, `ancestor/` and `baselines/`. The step said `mv *.owl *.json`, which would also have archived every curator's `*.publishes.json` (the replay guard for recent publishes) and open cross-reference review sessions of curators with no working copy, which are keyed by ARI id and may hold unpublished verdicts. The live cutover on 2026-10-26 moved the right items by name; this fixes the doc for anyone following it later.
+
 ## ontology-modules-split
 
 Reads the ontology as modules. KrishnaTO/ARI's `ontology-modules-split` branch splits `ari_t1d.owl` into `ari_disease.owl` plus the core, symptoms, anatomy, biomarkers, SYMP and UBERON modules. Both branches merge together at a confirmed cutover, after a staging rehearsal (STAGING.md, "Testing another branch"): this app cannot read the old single file once the modules are the record, and the old app cannot read the modules. Every entity IRI is unchanged.
