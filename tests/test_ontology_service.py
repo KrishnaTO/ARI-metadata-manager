@@ -367,6 +367,84 @@ def test_saving_a_symptom_with_its_name_unchanged_keeps_its_no_concept_decision(
     assert svc._get_objects(svc._entity(item), svc.base + "sharedConcept") == []
 
 
+ARIB = "http://www.aurint.org/ontologies/ari-biomarkers#"
+
+
+def _linked(svc, item):
+    """The IRIs the item's sharedConcept points to, read back from the file."""
+    svc = OntologyService(str(svc.path))
+    return sorted(c.iri for c in svc._get_objects(svc._entity(item), svc.base + "sharedConcept"))
+
+
+def _add(svc, category, name):
+    """Add an item named ``name`` to the first disease; return its IRI."""
+    iri = svc.get_diseases_list()[0]["iri"]
+    before = {i["iri"] for i in svc.get_disease_detail(iri)[category]}
+    detail = svc.add_item(iri, category, {"name": name}, editor="t")
+    return iri, next(i["iri"] for i in detail[category] if i["iri"] not in before)
+
+
+def test_an_antibody_links_the_concept_its_label_names(service):
+    # tests/fixtures/ontologies/ari_biomarkers.owl: ARIB_0000001 is "Anti-GAD65
+    # antibody", altLabel "GADA", under Autoantibody.
+    _, item = _add(service, "antibodies", "GADA")
+    assert _linked(service, item) == [ARIB + "ARIB_0000001"]
+
+
+def test_lookup_stays_within_the_kind(service):
+    # "GAD65" names the antigen concept, not an antibody one.
+    _, item = _add(service, "antibodies", "GAD65")
+    assert _linked(service, item) == []
+    _, item = _add(service, "antigens", "GAD65")
+    assert _linked(service, item) == [ARIB + "ARIB_0000002"]
+
+
+def test_a_clinical_biomarker_links_by_label(service):
+    _, item = _add(service, "biomarkers", "HbA1c")
+    assert _linked(service, item) == [ARIB + "ARIB_0000003"]
+
+
+def test_a_save_without_rename_keeps_every_link(service):
+    # A bundle entry holds several links; a save that leaves the label alone,
+    # with or without "name" in the payload, must not touch them.
+    iri, item = _add(service, "antibodies", "Islet antibodies")
+    both = [ARIB + "ARIB_0000001", ARIB + "ARIB_0000002"]
+    prop = service._annotation_property("sharedConcept")
+    for concept in both:
+        service.onto._add_obj_triple_spo(
+            service._entity(item).storid, prop.storid, service.world._abbreviate(concept))
+    service._save()
+    assert _linked(service, item) == both
+    svc = OntologyService(str(service.path))
+    svc.update_item(item, "antibodies", {"frequency": "40%"}, disease_iri=iri, editor="t")
+    assert _linked(svc, item) == both
+    svc = OntologyService(str(service.path))
+    svc.update_item(item, "antibodies", {"name": "Islet antibodies", "frequency": "50%"},
+                    disease_iri=iri, editor="t")
+    assert _linked(svc, item) == both
+
+
+def test_renaming_a_bundle_relinks_it_to_its_lookup(service):
+    iri, item = _add(service, "antibodies", "Islet antibodies")
+    prop = service._annotation_property("sharedConcept")
+    for concept in (ARIB + "ARIB_0000001", ARIB + "ARIB_0000002"):
+        service.onto._add_obj_triple_spo(
+            service._entity(item).storid, prop.storid, service.world._abbreviate(concept))
+    service._save()
+    svc = OntologyService(str(service.path))
+    svc.update_item(item, "antibodies", {"name": "GADA"}, disease_iri=iri, editor="t")
+    assert _linked(svc, item) == [ARIB + "ARIB_0000001"]
+    svc = OntologyService(str(service.path))
+    svc.update_item(item, "antibodies", {"name": "Nothing like it"}, disease_iri=iri, editor="t")
+    assert _linked(svc, item) == []
+
+
+def test_an_index_under_a_class_holds_only_its_subclasses(service):
+    from app.concepts import BIOMARKERS_ONTOLOGY, KIND_CLASSES, concept_index
+    assert concept_index(service.world, BIOMARKERS_ONTOLOGY, under=KIND_CLASSES["antigens"]) == {
+        "GAD65": ARIB + "ARIB_0000002"}
+
+
 def _concept_world():
     """A World with skos:altLabel, the symptoms module and a second ontology,
     each with a namespace for ARIS-named classes."""

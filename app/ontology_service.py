@@ -10,7 +10,7 @@ from pathlib import Path
 from owlready2 import World, comment, destroy_entity, label, onto_path
 
 from . import atomic_store, config, xref_registry
-from .concepts import SYMPTOMS_ONTOLOGY, concept_index
+from .concepts import BIOMARKERS_ONTOLOGY, KIND_CLASSES, SYMPTOMS_ONTOLOGY, concept_index
 from .errors import Invalid, NotFound
 from .feedback_service import FeedbackStore
 from .id_allocator import IdAllocator
@@ -119,7 +119,12 @@ class OntologyService:
                 f"{self.path} does not import ari_core.owl, so it is a pre-split ontology "
                 "(a single ari_t1d.owl). Archive this working copy, and see the cutover notes "
                 "in DEPLOY.md.")
-        self._symptom_concepts = concept_index(self.world, SYMPTOMS_ONTOLOGY)
+        # One index per category that links a shared concept, each over its own
+        # kind's classes: the same string may name an antibody and an antigen.
+        self._concept_indexes = {"symptoms": concept_index(self.world, SYMPTOMS_ONTOLOGY)}
+        for category, kind_class in KIND_CLASSES.items():
+            self._concept_indexes[category] = concept_index(
+                self.world, BIOMARKERS_ONTOLOGY, under=kind_class)
 
     @property
     def base(self) -> str:
@@ -1422,17 +1427,20 @@ class OntologyService:
                  for v in self._get_data(e, self.base + key)]
         label[e] = [" · ".join(parts)]
 
-    def _symptom_concept(self, category: str, values: dict) -> str | None:
-        """The ARIS class IRI a Symptom's new label names, or None."""
-        if category != "symptoms" or "name" not in values:
+    def _concept_for(self, category: str, values: dict) -> str | None:
+        """The shared class IRI an entry's new label names within its own
+        category's index, or None. Categories without an index link nothing."""
+        index = self._concept_indexes.get(category)
+        if index is None or "name" not in values:
             return None
-        return self._symptom_concepts.get(str(values["name"] or "").strip())
+        return index.get(str(values["name"] or "").strip())
 
-    def _set_symptom_concept(self, e, concept: str | None):
-        """Link a Symptom to the shared ARIS class its label names (ARI#152), or
+    def _set_shared_concept(self, e, concept: str | None):
+        """Link an entry to the shared class its label names (ARI#152), or
         to none, and drop any ARI_NoConcept decision: the label changed, so that
         decision was about a different string. Its label is the key, so adding
-        or renaming one is what leaves the link missing or stale.
+        or renaming one is what leaves the link missing or stale. Replaces every
+        link the entry held, so callers relink only on add or rename.
 
         Written as triples: the value is an IRI, and owlready2's property setter
         stores a string literal for one and cannot delete the old resource."""
@@ -1455,15 +1463,15 @@ class OntologyService:
         if cls is None:
             raise NotFound(f"Class not found: {spec['cls']}")
         self._check_item_values(category, values, adding=True)
-        concept = self._symptom_concept(category, values)
+        concept = self._concept_for(category, values)
         local = f"{spec['id_prefix']}_{uuid.uuid4().hex[:8]}"
         with self.onto:
             new = cls(local)
         self._apply_item_fields(new, category, values)
         if not (label[new] if hasattr(new, 'storid') else []):
             label[new] = [str(values.get("name") or local)]
-        if category == "symptoms":
-            self._set_symptom_concept(new, concept)
+        if category in self._concept_indexes:
+            self._set_shared_concept(new, concept)
         link = self.world[self.base + spec["link"]]
         link[de].append(new)
         self._append_changelog(de, editor, f"Added {spec['label']}: {self._get_label(new)}")
@@ -1476,13 +1484,13 @@ class OntologyService:
             raise NotFound(f"Unknown category: {category}")
         e = self._entity(item_iri)
         self._check_item_values(category, changes, adding=False)
-        concept = self._symptom_concept(category, changes)
+        concept = self._concept_for(category, changes)
         old_label = self._get_label(e).strip()
         applied = self._apply_item_fields(e, category, changes)
         # The editor sends every field on every save, so "name" is always in
         # changes: relink only when the label itself changed.
-        if category == "symptoms" and "name" in changes and self._get_label(e).strip() != old_label:
-            self._set_symptom_concept(e, concept)
+        if category in self._concept_indexes and "name" in changes and self._get_label(e).strip() != old_label:
+            self._set_shared_concept(e, concept)
         if disease_iri and applied:
             de = self._entity(disease_iri)
             self._append_changelog(
