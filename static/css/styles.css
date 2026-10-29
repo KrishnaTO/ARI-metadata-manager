@@ -474,6 +474,18 @@ body.resizing-cols { cursor: col-resize; user-select: none; }
 .data-table tr.obsolete td { opacity: .5; }
 .data-table tr.clickable { cursor: pointer; }
 .data-table tr.clickable:hover td { background: var(--accent-050); }
+/* A biomarker row expanded in place: its shared concept and the concept's relatives. */
+.data-table tr.expanded td { background: var(--accent-050); border-bottom-color: transparent; }
+.data-table tr.concept-detail > td { padding: 4px 8px 14px 20px; background: var(--paper); border-left: 2px solid var(--accent-border); }
+.concept + .concept { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--line); }
+.concept-head { margin-bottom: 6px; }
+.concept-id, .concept-entry-iri { font-family: var(--font-mono); font-size: 0.6875rem; color: var(--mute); }
+.concept-entry-iri { margin: 2px 0 8px; }
+.concept-rel { display: grid; grid-template-columns: max-content 1fr; gap: 3px 14px; margin: 0; }
+.concept-rel dt { color: var(--mute); font-size: 0.6562rem; font-weight: 600; text-transform: uppercase; letter-spacing: .1em; padding-top: 2px; }
+.concept-rel dd { margin: 0; }
+.concept-none, .concept-empty, .concept-pred { color: var(--mute); }
+.concept-none, .concept-pred { font-style: italic; }
 
 /* Prevalence and incidence figures */
 .epi-table { margin-bottom: 18px; }
