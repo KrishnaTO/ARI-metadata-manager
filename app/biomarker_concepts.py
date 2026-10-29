@@ -52,11 +52,11 @@ def curie(iri: str) -> str:
 
 
 def _objects(world, subject: str, prop: str) -> list[str]:
-    """The IRIs ``subject`` points to by ``prop``, sorted."""
+    """The distinct IRIs ``subject`` points to by ``prop``, sorted."""
     s, p = world._abbreviate(subject, False), world._abbreviate(prop, False)
     if s is None or p is None:
         return []
-    return sorted(world._unabbreviate(o) for o in world._get_obj_triples_sp_o(s, p))
+    return sorted({world._unabbreviate(o) for o in world._get_obj_triples_sp_o(s, p)})
 
 
 def _subjects(world, prop: str, obj: str) -> list[str]:

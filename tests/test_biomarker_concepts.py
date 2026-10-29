@@ -155,3 +155,15 @@ def test_the_route_serves_the_detail_and_404s_the_rest():
     assert r.json()["status"] == "linked"
     r = client.get("/api/v2/biomarker-concept/" + quote(D + "Sym_WeightLoss", safe=""))
     assert r.status_code == 404
+
+
+def test_objects_returns_distinct_values_sorted():
+    """One link asserted in two loaded ontologies is one link, not a bundle."""
+    from app.biomarker_concepts import _objects
+
+    class World:
+        _abbreviate = staticmethod(lambda iri, _: iri)
+        _unabbreviate = staticmethod(lambda o: o)
+        _get_obj_triples_sp_o = staticmethod(lambda s, p: ["b", "a", "b"])
+
+    assert _objects(World, "s", "p") == ["a", "b"]

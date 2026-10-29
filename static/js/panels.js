@@ -243,7 +243,8 @@ function renderAntibodies(d, panel){
 // the entry's own details.
 function bindConceptRows(panel, items, colspan, entryHtml){
   const cache = new Map();
-  panel.querySelectorAll('tr[data-entry]').forEach(tr => tr.addEventListener('click', async () => {
+  panel.querySelectorAll('tr[data-entry]').forEach(tr => tr.addEventListener('click', async ev => {
+    if (ev.target.closest('a')) return;
     const open = tr.nextElementSibling;
     if (open && open.classList.contains('concept-detail')){ open.remove(); tr.classList.remove('expanded'); return; }
     const item = items[+tr.dataset.entry];
