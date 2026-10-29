@@ -5,7 +5,7 @@ the disease and data-item writes, and the release snapshots cut from them.
 """
 from fastapi import APIRouter, Body, Request
 
-from .. import config, sessions, stores, workspace
+from .. import biomarker_concepts, config, sessions, stores, workspace
 
 router = APIRouter()
 
@@ -44,6 +44,13 @@ async def schema(request: Request):
 @router.get("/api/v2/disease/{iri:path}")
 async def disease_detail(request: Request, iri: str):
     return workspace.service_for(request).get_disease_detail(iri)
+
+
+@router.get("/api/v2/biomarker-concept/{iri:path}")
+async def biomarker_concept(request: Request, iri: str):
+    """An antibody, antigen or clinical-biomarker entry's shared concept(s) and
+    their relatives, for the row the disease page expands."""
+    return biomarker_concepts.concept_detail(workspace.service_for(request), iri)
 
 
 @router.put("/api/v2/disease/{iri:path}")

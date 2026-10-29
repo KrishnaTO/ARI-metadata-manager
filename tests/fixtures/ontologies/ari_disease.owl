@@ -309,6 +309,7 @@
         <antibodyFrequency>70-80%</antibodyFrequency>
         <sourcePMID>https://pubmed.ncbi.nlm.nih.gov/25614315/</sourcePMID>
         <ARI_Obsolete>false</ARI_Obsolete>
+        <sharedConcept rdf:resource="http://www.aurint.org/ontologies/ari-biomarkers#ARIB_0000001"/>
         <rdfs:label>Anti-GAD65 (GADA)</rdfs:label>
     </owl:NamedIndividual>
     
@@ -322,6 +323,7 @@
         <antibodyFrequency>50-70%</antibodyFrequency>
         <sourcePMID>https://pubmed.ncbi.nlm.nih.gov/25614315/</sourcePMID>
         <ARI_Obsolete>false</ARI_Obsolete>
+        <sharedConcept rdf:resource="http://www.aurint.org/ontologies/ari-biomarkers#ARIB_0000004"/>
         <rdfs:label>Anti-IA-2 (IA-2A)</rdfs:label>
     </owl:NamedIndividual>
     
@@ -361,6 +363,7 @@
         <antibodyFrequency>90-100%</antibodyFrequency>
         <sourcePMID>https://pubmed.ncbi.nlm.nih.gov/26494507/</sourcePMID>
         <ARI_Obsolete>false</ARI_Obsolete>
+        <sharedConcept rdf:resource="http://www.aurint.org/ontologies/ari-biomarkers#ARIB_0000001"/>
         <rdfs:label>Anti-GAD65 (GADA)</rdfs:label>
     </owl:NamedIndividual>
     
@@ -386,6 +389,7 @@
         <componentRelevance>Major autoantigen</componentRelevance>
         <mediatorDescription>Major islet autoantigen targeted by GADA</mediatorDescription>
         <sourcePMID>https://pubmed.ncbi.nlm.nih.gov/25614315/</sourcePMID>
+        <sharedConcept rdf:resource="http://www.aurint.org/ontologies/ari-biomarkers#ARIB_0000002"/>
         <rdfs:label>GAD65 (glutamic acid decarboxylase 65)</rdfs:label>
     </owl:NamedIndividual>
     
@@ -2104,6 +2108,7 @@
         <markerType>Biochemical</markerType>
         <sourcePMID>https://pubmed.ncbi.nlm.nih.gov/30609683/</sourcePMID>
         <ARI_Obsolete>false</ARI_Obsolete>
+        <sharedConcept rdf:resource="http://www.aurint.org/ontologies/ari-biomarkers#ARIB_0000003"/>
         <rdfs:comment>3-month glucose average; diagnosis &gt;=6.5%</rdfs:comment>
         <rdfs:label>HbA1c</rdfs:label>
     </owl:NamedIndividual>

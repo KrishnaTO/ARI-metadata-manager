@@ -222,21 +222,48 @@ function renderEnvironmental(d, panel){
 function renderAntibodies(d, panel){
   let html = closeHeader('Autoantibodies');
   if (!d.antibodies?.length){ panel.innerHTML = html + '<div class="empty-state">No antibody data.</div>'; return; }
-  html += `<p style="font-size:12px;color:var(--muted);margin:0 0 8px">Select a row for details.</p>`;
+  html += `<p style="font-size:12px;color:var(--muted);margin:0 0 8px">Select a row for its shared concept and related biomarkers.</p>`;
   html += `<div class="section-label">Autoantibody panel</div>`;
   html += `<table class="data-table"><thead><tr><th>Antibody</th><th>Frequency</th><th>Diagnostic value</th></tr></thead><tbody>`;
   d.antibodies.forEach((ab, i) => {
-    html += `<tr class="clickable ${ab.obsolete?'obsolete':''}" data-ab="${i}"><td><strong>${esc(ab.name)}</strong>${ab.obsolete?' <span class="obsolete-tag">(obsolete)</span>':''}</td>`+
+    html += `<tr class="clickable ${ab.obsolete?'obsolete':''}" data-entry="${i}"><td><strong>${esc(ab.name)}</strong>${ab.obsolete?' <span class="obsolete-tag">(obsolete)</span>':''}</td>`+
       `<td>${esc(first(ab.frequency))}</td><td>${esc(first(ab.diagnostic_value))}</td></tr>`;
   });
-  html += `</tbody></table><div id="ab-detail"></div>`;
+  html += `</tbody></table>`;
   panel.innerHTML = html;
-  panel.querySelectorAll('tr[data-ab]').forEach(tr => tr.addEventListener('click', () => {
-    const ab = d.antibodies[+tr.dataset.ab];
-    $('#ab-detail').innerHTML = `<div class="card"><h3>${esc(ab.name)}</h3>`+
-      `<div class="desc"><strong>Frequency:</strong> ${esc(first(ab.frequency))}<br><strong>Diagnostic value:</strong> ${esc(first(ab.diagnostic_value))}</div>`+
-      `<div class="src">${(ab.source||[]).map(s => `<a href="${esc(s)}" target="_blank">${esc(s)}</a>`).join('<br>')}</div>`+
-      `<div style="font-size:11px;color:var(--muted);margin-top:6px">IRI: ${esc(ab.iri)}</div></div>`;
+  bindConceptRows(panel, d.antibodies, 3, ab =>
+    `<div class="src">${(ab.source||[]).map(s => `<a href="${esc(s)}" target="_blank">${esc(s)}</a>`).join('<br>')}</div>`+
+    `<div class="concept-entry-iri">IRI: ${esc(ab.iri)}</div>`);
+}
+
+// Clicking a row in the antibody, antigen or clinical-biomarker table toggles a
+// row under it with the entry's shared concept and the concept's relatives
+// (biomarker-detail.js). Each entry's concept is fetched on first open and kept
+// while the panel is shown. `entryHtml(item)`, when given, leads the row with
+// the entry's own details.
+function bindConceptRows(panel, items, colspan, entryHtml){
+  const cache = new Map();
+  panel.querySelectorAll('tr[data-entry]').forEach(tr => tr.addEventListener('click', async ev => {
+    if (ev.target.closest('a')) return;
+    const open = tr.nextElementSibling;
+    if (open && open.classList.contains('concept-detail')){ open.remove(); tr.classList.remove('expanded'); return; }
+    const item = items[+tr.dataset.entry];
+    const row = document.createElement('tr');
+    row.className = 'concept-detail';
+    row.innerHTML = `<td colspan="${colspan}">${entryHtml ? entryHtml(item) : ''}<div class="concept-body">Loading&hellip;</div></td>`;
+    tr.after(row);
+    tr.classList.add('expanded');
+    const body = row.querySelector('.concept-body');
+    try {
+      if (!cache.has(item.iri)) cache.set(item.iri, await api(`/api/v2/biomarker-concept/${encodeURIComponent(item.iri)}`));
+    } catch (err){
+      console.error('biomarker concept', item.iri, err);
+      body.textContent = `Could not load the shared concept: ${err.message}`;
+      return;
+    }
+    body.innerHTML = BiomarkerDetail.conceptDetailHtml(cache.get(item.iri), esc);
+    body.querySelectorAll('a.concept-disease').forEach(a =>
+      a.addEventListener('click', ev => { ev.preventDefault(); selectDisease(a.dataset.iri); }));
   }));
 }
 
@@ -287,14 +314,15 @@ function renderBiomarkers(d, panel){
   let html = closeHeader('Clinical biomarkers');
   if (!d.biomarkers?.length){ panel.innerHTML = html + '<div class="empty-state">No biomarker data.</div>'; return; }
   html += `<table class="data-table"><thead><tr><th>Test</th><th>Type</th><th>Finding</th><th>Diagnostic use</th><th>Sensitivity</th><th>Specificity</th><th>Source</th></tr></thead><tbody>`;
-  for (const m of d.biomarkers){
+  d.biomarkers.forEach((m, i) => {
     const loinc = first(m.loinc) ? `<br><span class="src">LOINC ${esc(first(m.loinc))}</span>` : '';
-    html += `<tr class="${m.obsolete?'obsolete':''}"><td><strong>${esc(m.name)}</strong>${loinc}</td><td>${esc(first(m.type))}</td><td>${esc(m.description)}</td>`+
+    html += `<tr class="clickable ${m.obsolete?'obsolete':''}" data-entry="${i}"><td><strong>${esc(m.name)}</strong>${loinc}</td><td>${esc(first(m.type))}</td><td>${esc(m.description)}</td>`+
       `<td>${esc(first(m.diagnostic_use))}</td><td>${esc(first(m.sensitivity))}</td><td>${esc(first(m.specificity))}</td>`+
       `<td class="src">${(m.source||[]).map(s => `<a href="${esc(s)}" target="_blank">PubMed</a>`).join(', ')}</td></tr>`;
-  }
+  });
   html += `</tbody></table>`;
   panel.innerHTML = html;
+  bindConceptRows(panel, d.biomarkers, 7);
 }
 
 function renderImmuneList(d, panel, key){
@@ -316,16 +344,19 @@ function renderImmuneList(d, panel, key){
   let html = closeHeader(info ? info.title : 'Details');
   const data = info?.data || [];
   if (!data.length){ panel.innerHTML = html + '<div class="empty-state">No data.</div>'; return; }
+  // Antigens link a shared concept; their rows expand to it.
+  const expands = key === 'antigens';
   html += `<table class="data-table"><thead><tr><th>Name</th><th>Details</th><th>Relevance</th><th>Source</th></tr></thead><tbody>`;
-  for (const item of data){
+  data.forEach((item, i) => {
     const src = (item.source||[]).map(s => `<a href="${esc(s)}" target="_blank">PubMed</a>`).join(', ');
-    html += `<tr class="${item.obsolete?'obsolete':''}"><td><strong>${esc(item.name)}</strong></td>`+
+    html += `<tr class="${expands?'clickable ':''}${item.obsolete?'obsolete':''}"${expands?` data-entry="${i}"`:''}><td><strong>${esc(item.name)}</strong></td>`+
       `<td style="font-size:12px">${esc(first(item.description))}</td>`+
       `<td><span class="badge badge-moderate">${esc(first(item.relevance))}</span></td>`+
       `<td class="src">${src || '—'}</td></tr>`;
-  }
+  });
   html += `</tbody></table>`;
   panel.innerHTML = html;
+  if (expands) bindConceptRows(panel, data, 4);
 }
 
 function renderChangelog(d, panel){
