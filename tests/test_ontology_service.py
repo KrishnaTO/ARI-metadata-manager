@@ -215,7 +215,7 @@ def test_migration_moves_flat_rates_to_figures(tmp_path):
     from owlready2 import AnnotationProperty, DataProperty, Thing, World, onto_path
 
     from app import config
-    from app.concepts import SYMPTOMS_ONTOLOGY
+    from app.concepts import BIOMARKERS_ONTOLOGY, SYMPTOMS_ONTOLOGY
     from app.ontology_service import CORE_ONTOLOGY
     from scripts.migrate_epidemiology import migrate
     world = World()
@@ -227,10 +227,11 @@ def test_migration_moves_flat_rates_to_figures(tmp_path):
         class incidenceWorldPer100k(DataProperty): range = [float]
         class incidenceWorldYear(DataProperty): range = [int]
         class incidenceWorldSource(DataProperty): range = [str]
-    # The service refuses an ontology that does not import the core and symptoms
-    # modules, so this one imports them, found beside the fixture ontology.
+    # The service refuses an ontology that does not import the core, symptoms and
+    # biomarkers modules, so this one imports them, found beside the fixture ontology.
     onto.imported_ontologies.extend([world.get_ontology(CORE_ONTOLOGY),
-                                     world.get_ontology(SYMPTOMS_ONTOLOGY)])
+                                     world.get_ontology(SYMPTOMS_ONTOLOGY),
+                                     world.get_ontology(BIOMARKERS_ONTOLOGY)])
     modules = str(Path(config.ONTOLOGY_FILE).parent)
     if modules not in onto_path:
         onto_path.append(modules)
