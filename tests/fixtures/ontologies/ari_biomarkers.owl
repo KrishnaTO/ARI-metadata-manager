@@ -17,7 +17,7 @@
         <owl:imports rdf:resource="http://www.aurint.org/ontologies/ari_hgnc"/>
         <owl:imports rdf:resource="http://www.aurint.org/ontologies/ari_loinc"/>
         <owl:imports rdf:resource="http://www.aurint.org/ontologies/ari_pr"/>
-        <rdfs:comment>Shared ARI biomarker concepts: ARIB classes under Autoantibody, Antigen and ClinicalBiomarker. The test fixture holds one of each.</rdfs:comment>
+        <rdfs:comment>Shared ARI biomarker concepts: ARIB classes under Autoantibody, Antigen and ClinicalBiomarker. The test fixture holds the GAD65 antibody (with an IgG child) and antigen, an IA-2 antibody and one clinical biomarker.</rdfs:comment>
     </owl:Ontology>
     
 
@@ -37,9 +37,12 @@
 
     <owl:Class rdf:about="http://www.aurint.org/ontologies/ari-biomarkers#ARIB_0000001">
         <rdfs:subClassOf rdf:resource="http://www.aurint.org/ontologies/ari-disease#Autoantibody"/>
+        <ari-disease:expressedIn rdf:resource="http://purl.obolibrary.org/obo/UBERON_0000006"/>
+        <ari-disease:targetsAntigen rdf:resource="http://www.aurint.org/ontologies/ari-biomarkers#ARIB_0000002"/>
         <oboInOwl:id>ARIB:0000001</oboInOwl:id>
         <rdfs:label>Anti-GAD65 antibody</rdfs:label>
         <skos:altLabel>GADA</skos:altLabel>
+        <skos:exactMatch rdf:resource="http://purl.obolibrary.org/obo/HP_5000011"/>
     </owl:Class>
     
 
@@ -50,6 +53,8 @@
         <rdfs:subClassOf rdf:resource="http://www.aurint.org/ontologies/ari-disease#Antigen"/>
         <oboInOwl:id>ARIB:0000002</oboInOwl:id>
         <rdfs:label>GAD65</rdfs:label>
+        <skos:exactMatch rdf:resource="http://purl.obolibrary.org/obo/PR_Q05329"/>
+        <skos:relatedMatch rdf:resource="http://identifiers.org/hgnc/4093"/>
     </owl:Class>
     
 
@@ -61,6 +66,27 @@
         <oboInOwl:id>ARIB:0000003</oboInOwl:id>
         <rdfs:label>Glycated hemoglobin</rdfs:label>
         <skos:altLabel>HbA1c</skos:altLabel>
+    </owl:Class>
+    
+
+
+    <!-- http://www.aurint.org/ontologies/ari-biomarkers#ARIB_0000004 -->
+
+    <owl:Class rdf:about="http://www.aurint.org/ontologies/ari-biomarkers#ARIB_0000004">
+        <rdfs:subClassOf rdf:resource="http://www.aurint.org/ontologies/ari-disease#Autoantibody"/>
+        <oboInOwl:id>ARIB:0000004</oboInOwl:id>
+        <rdfs:label>Anti-IA-2 antibody</rdfs:label>
+        <skos:altLabel>IA-2A</skos:altLabel>
+    </owl:Class>
+    
+
+
+    <!-- http://www.aurint.org/ontologies/ari-biomarkers#ARIB_0000005 -->
+
+    <owl:Class rdf:about="http://www.aurint.org/ontologies/ari-biomarkers#ARIB_0000005">
+        <rdfs:subClassOf rdf:resource="http://www.aurint.org/ontologies/ari-biomarkers#ARIB_0000001"/>
+        <oboInOwl:id>ARIB:0000005</oboInOwl:id>
+        <rdfs:label>Anti-GAD65 IgG</rdfs:label>
     </owl:Class>
 </rdf:RDF>
 
