@@ -1,5 +1,13 @@
 # Changelog
 
+## biomarker-concepts-linking
+
+Links antibody, antigen and clinical-biomarker entries to the shared ARIB class their label names, as symptoms already link to ARIS. Its fixtures follow the data PR KrishnaTO/ARI#160 (the `ari_biomarkers.owl` imports and the slices), and it should be deployed before the first biomarker review PR merges there: those PRs add `sharedConcept` links to live entries, and an older app links nothing outside symptoms. A curator's added entry would stay unlinked (a warning), and renaming an entry to another concept's label would keep its stale link, which is a `biomarker-concept-mismatch` error that fails that curator's publish PR.
+
+- **A biomarker entry is linked by label, within its own kind.** `concept_index` takes `under=`, a class IRI, and indexes only the subclasses of it; the service builds one index per category (`symptoms`, `antibodies` under `Autoantibody`, `antigens` under `Antigen`, `biomarkers` under `ClinicalBiomarker`). "GAD65" names an antigen concept, so an antibody named "GAD65" gets no link, and the same string on an antibody and an antigen concept is no longer ambiguous.
+- **Saves relink exactly as symptoms do.** An added entry is linked by lookup; a rename (the stripped label changed) relinks to the lookup or to nothing, dropping any `ARI_NoConcept` decision; every other save leaves `sharedConcept` and `ARI_NoConcept` alone. That matters for a bundle entry (an antibody that stands for several concepts, with several links) because the editor sends every field on every save. `_symptom_concept` and `_set_symptom_concept` become `_concept_for` and `_set_shared_concept`, which serve any category with an index.
+- **Test fixtures follow the data repo.** They gain the `targetsAntigen`, `expressedIn`, `associatedSymptom` and `skos:relatedMatch` declarations, the empty `ari_pr`, `ari_chebi`, `ari_hgnc` and `ari_loinc` slices that `ari_biomarkers.owl` now imports, their catalog entries, and one ARIB class per kind.
+
 ## docs/cutover-move-scope
 
 - **DEPLOY.md's cutover step 5 now moves only what was made from the old single file.** That is each `<login>.owl`, its `branch`, `refsession` and `touched` sidecars, `ancestor/` and `baselines/`. The step said `mv *.owl *.json`, which would also have archived every curator's `*.publishes.json` (the replay guard for recent publishes) and open cross-reference review sessions of curators with no working copy, which are keyed by ARI id and may hold unpublished verdicts. The live cutover on 2026-10-26 moved the right items by name; this fixes the doc for anyone following it later.

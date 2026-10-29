@@ -12,9 +12,56 @@
      xmlns:oboInOwl="http://www.geneontology.org/formats/oboInOwl#"
      xmlns:ari-disease="http://www.aurint.org/ontologies/ari-disease#">
     <owl:Ontology rdf:about="http://www.aurint.org/ontologies/ari_biomarkers">
+        <owl:imports rdf:resource="http://www.aurint.org/ontologies/ari_chebi"/>
         <owl:imports rdf:resource="http://www.aurint.org/ontologies/ari_core"/>
-        <rdfs:comment>Shared ARI biomarker concepts: ARIB classes under Autoantibody, Antigen and ClinicalBiomarker. Empty until those concepts are added.</rdfs:comment>
+        <owl:imports rdf:resource="http://www.aurint.org/ontologies/ari_hgnc"/>
+        <owl:imports rdf:resource="http://www.aurint.org/ontologies/ari_loinc"/>
+        <owl:imports rdf:resource="http://www.aurint.org/ontologies/ari_pr"/>
+        <rdfs:comment>Shared ARI biomarker concepts: ARIB classes under Autoantibody, Antigen and ClinicalBiomarker. The test fixture holds one of each.</rdfs:comment>
     </owl:Ontology>
+    
+
+
+    <!-- 
+    ///////////////////////////////////////////////////////////////////////////////////////
+    //
+    // Classes
+    //
+    ///////////////////////////////////////////////////////////////////////////////////////
+     -->
+
+    
+
+
+    <!-- http://www.aurint.org/ontologies/ari-biomarkers#ARIB_0000001 -->
+
+    <owl:Class rdf:about="http://www.aurint.org/ontologies/ari-biomarkers#ARIB_0000001">
+        <rdfs:subClassOf rdf:resource="http://www.aurint.org/ontologies/ari-disease#Autoantibody"/>
+        <oboInOwl:id>ARIB:0000001</oboInOwl:id>
+        <rdfs:label>Anti-GAD65 antibody</rdfs:label>
+        <skos:altLabel>GADA</skos:altLabel>
+    </owl:Class>
+    
+
+
+    <!-- http://www.aurint.org/ontologies/ari-biomarkers#ARIB_0000002 -->
+
+    <owl:Class rdf:about="http://www.aurint.org/ontologies/ari-biomarkers#ARIB_0000002">
+        <rdfs:subClassOf rdf:resource="http://www.aurint.org/ontologies/ari-disease#Antigen"/>
+        <oboInOwl:id>ARIB:0000002</oboInOwl:id>
+        <rdfs:label>GAD65</rdfs:label>
+    </owl:Class>
+    
+
+
+    <!-- http://www.aurint.org/ontologies/ari-biomarkers#ARIB_0000003 -->
+
+    <owl:Class rdf:about="http://www.aurint.org/ontologies/ari-biomarkers#ARIB_0000003">
+        <rdfs:subClassOf rdf:resource="http://www.aurint.org/ontologies/ari-disease#ClinicalBiomarker"/>
+        <oboInOwl:id>ARIB:0000003</oboInOwl:id>
+        <rdfs:label>Glycated hemoglobin</rdfs:label>
+        <skos:altLabel>HbA1c</skos:altLabel>
+    </owl:Class>
 </rdf:RDF>
 
 
