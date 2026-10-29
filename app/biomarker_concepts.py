@@ -135,10 +135,12 @@ def _entry_category(svc, e) -> str:
 
 
 def _usage(svc) -> dict[str, set[str]]:
-    """``{concept IRI: {disease IRI}}``: the diseases with a live (not obsolete)
-    antibody, antigen or clinical-biomarker entry linked to each concept."""
+    """``{concept IRI: {disease IRI}}``: the live (not obsolete) diseases with a
+    live antibody, antigen or clinical-biomarker entry linked to each concept."""
     usage = defaultdict(set)
     for disease in svc._all_diseases():
+        if svc._is_obsolete(disease):
+            continue
         for category in KIND_CLASSES:
             for entry in svc._get_objects(disease, svc.base + CATEGORIES[category]["link"]):
                 if svc._is_obsolete(entry):
@@ -156,6 +158,8 @@ def _concept(svc, iri: str, own_diseases: set[str], usage: dict[str, set[str]],
     kind = _kind(cls)
     targets = _targets(svc, cls) if kind == "antibodies" else []
     target_of = {ab.iri: set(_targets(svc, ab)) for ab in antibodies}
+    # Parents and children already show under their own headings.
+    family = {c.iri for c in [*cls.ancestors(), *cls.descendants(world=svc.world)]}
     diseases = usage.get(iri, set())
     shared = {other: len(diseases & where) for other, where in usage.items() if other != iri}
     appears_with = sorted(({**_ref(svc, other), "shared": n} for other, n in shared.items() if n),
@@ -173,7 +177,7 @@ def _concept(svc, iri: str, own_diseases: set[str], usage: dict[str, set[str]],
         "targets": [{**_ref(svc, t), "external": _external(svc, t)} for t in targets],
         "targeted_by": _refs(svc, (ab for ab, ts in target_of.items() if iri in ts)),
         "same_target": _refs(svc, (ab for ab, ts in target_of.items()
-                                   if ab != iri and ts & set(targets))),
+                                   if ab not in family and ts & set(targets))),
         "appears_with": appears_with[:APPEARS_WITH_LIMIT],
         "also_in": _refs(svc, diseases - own_diseases),
         "body_parts": _refs(svc, _objects(svc.world, iri, EXPRESSED_IN)),
@@ -189,10 +193,13 @@ def concept_detail(svc, entry_iri: str) -> dict:
     (``ARI_NoConcept``, whose value is ``reason``) or ``unlinked``. ``also_in``
     leaves out the entry's own disease. ``appears_with`` counts, for every
     other concept, the diseases it shares with this one (across all three
-    kinds), and keeps the ten that share most. Obsolete entries count nowhere.
-    ``targets`` is an antibody's own ``targetsAntigen``, or else its nearest
-    ancestor's; ``targeted_by`` and ``same_target`` use the same inherited
-    targets. Raises NotFound for an IRI that is not a biomarker entry."""
+    kinds), and keeps the ten that share most. Obsolete entries and obsolete
+    diseases count nowhere. ``targets`` is an antibody's own
+    ``targetsAntigen``, or else its nearest ancestor's; ``targeted_by`` and
+    ``same_target`` use the same inherited targets. ``same_target`` holds the
+    other antibody concepts with a target in common, leaving out the concept's
+    own ancestors and descendants (they are under ``parents`` and
+    ``children``). Raises NotFound for an IRI that is not a biomarker entry."""
     e = svc._entity(entry_iri)
     category = _entry_category(svc, e)
     concepts = _objects(svc.world, entry_iri, SHARED_CONCEPT)

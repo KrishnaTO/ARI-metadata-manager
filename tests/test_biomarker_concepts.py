@@ -51,8 +51,8 @@ def test_detail_lists_target_and_gene(ro_service):
              "curie": "HGNC:4093", "label": "GAD2"}]}]
     assert c["parents"] == []                  # its parent is the core kind, not a concept
     assert c["children"] == [{"iri": ARIB + "ARIB_0000005", "label": "Anti-GAD65 IgG"}]
-    # The child inherits GAD65, so it is another antibody to the same antigen.
-    assert c["same_target"] == [{"iri": ARIB + "ARIB_0000005", "label": "Anti-GAD65 IgG"}]
+    # The child inherits GAD65 but is family, listed under children only.
+    assert c["same_target"] == []
     assert c["targeted_by"] == []
     assert c["body_parts"] == [{"iri": "http://purl.obolibrary.org/obo/UBERON_0000006",
                                 "label": "islet of Langerhans"}]
@@ -74,7 +74,19 @@ def test_a_child_inherits_its_parents_target(service):
     [c] = concept_detail(service, item)["concepts"]
     assert c["parents"] == [{"iri": ARIB + "ARIB_0000001", "label": "Anti-GAD65 antibody"}]
     assert [t["iri"] for t in c["targets"]] == [ARIB + "ARIB_0000002"]
-    assert c["same_target"] == [{"iri": ARIB + "ARIB_0000001", "label": "Anti-GAD65 antibody"}]
+    assert c["same_target"] == []                # its parent is family
+
+
+def test_same_target_lists_other_antibodies_to_the_antigen(service):
+    # Anti-IA-2 antibody, outside the GAD65 antibody's family, is given GAD65 too.
+    prop = service._annotation_property("targetsAntigen")
+    service.onto._add_obj_triple_spo(service.world._abbreviate(ARIB + "ARIB_0000004"), prop.storid,
+                                     service.world._abbreviate(ARIB + "ARIB_0000002"))
+    [c] = concept_detail(service, D + "Ab_GAD65")["concepts"]
+    assert c["same_target"] == [{"iri": ARIB + "ARIB_0000004", "label": "Anti-IA-2 antibody"}]
+    [c] = concept_detail(service, D + "Ab_IA2")["concepts"]
+    assert c["same_target"] == [{"iri": ARIB + "ARIB_0000001", "label": "Anti-GAD65 antibody"},
+                                {"iri": ARIB + "ARIB_0000005", "label": "Anti-GAD65 IgG"}]
 
 
 def test_appears_with_counts_shared_diseases(service):
@@ -97,6 +109,15 @@ def test_also_in_excludes_the_entrys_disease(ro_service):
     assert c["also_in"] == [{"iri": LADA, "label": "Latent autoimmune diabetes in adults (LADA)"}]
     [c] = concept_detail(ro_service, D + "Ab_LADA_GAD65")["concepts"]
     assert c["also_in"] == [{"iri": T1D, "label": "Type 1 diabetes mellitus"}]
+
+
+def test_an_obsolete_disease_counts_nowhere(service):
+    service.add_item(LADA, "antibodies", {"name": "IA-2A"}, editor="t")
+    service.update_disease(LADA, {"obsolete": True}, editor="t")
+    [c] = concept_detail(service, D + "Ab_GAD65")["concepts"]
+    assert c["also_in"] == []
+    assert [(r["label"], r["shared"]) for r in c["appears_with"]] == [
+        ("Anti-IA-2 antibody", 1), ("GAD65", 1), ("Glycated hemoglobin", 1)]
 
 
 def test_an_unlinked_entry_reports_unlinked(service):
