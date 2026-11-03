@@ -43,7 +43,7 @@ jobs:
         # The review page owns the verdict state machine, the missing-first
         # ordering, the separation-of-duties gate and the publish payload. No
         # framework: the pure functions live in static/ref-edits/review-model.js.
-        run: node --test tests/review-model.test.js tests/publish-title.test.js
+        run: node --test tests/review-model.test.js tests/publish-title.test.js tests/biomarker-detail.test.js
 
   lint:
     # A required gate. It was advisory (--exit-zero) with 184 outstanding

@@ -34,6 +34,26 @@
     <!-- http://www.geneontology.org/formats/oboInOwl#id -->
 
     <owl:AnnotationProperty rdf:about="http://www.geneontology.org/formats/oboInOwl#id"/>
+    
+
+
+    <!-- 
+    ///////////////////////////////////////////////////////////////////////////////////////
+    //
+    // Classes
+    //
+    ///////////////////////////////////////////////////////////////////////////////////////
+     -->
+
+    
+
+
+    <!-- http://identifiers.org/hgnc/4093 -->
+
+    <owl:Class rdf:about="http://identifiers.org/hgnc/4093">
+        <oboInOwl:id>HGNC:4093</oboInOwl:id>
+        <rdfs:label>GAD2</rdfs:label>
+    </owl:Class>
 </rdf:RDF>
 
 

@@ -97,6 +97,7 @@ app/                       Backend (FastAPI)
   predict_service.py       Lexical indexes and cross-reference prediction
   enrich_service.py        Synonyms/subtypes from confirmed mappings
   concept_service.py       What the local indexes know about one id
+  biomarker_concepts.py    A biomarker entry's shared concept and its relatives (the expanded row)
   stats_service.py         Dashboard numbers
   github_service.py        OAuth, file reads, commit + pull request
   export_service.py        .xlsx export

@@ -28,6 +28,26 @@
     <!-- http://www.geneontology.org/formats/oboInOwl#id -->
 
     <owl:AnnotationProperty rdf:about="http://www.geneontology.org/formats/oboInOwl#id"/>
+    
+
+
+    <!-- 
+    ///////////////////////////////////////////////////////////////////////////////////////
+    //
+    // Classes
+    //
+    ///////////////////////////////////////////////////////////////////////////////////////
+     -->
+
+    
+
+
+    <!-- http://purl.obolibrary.org/obo/PR_Q05329 -->
+
+    <owl:Class rdf:about="http://purl.obolibrary.org/obo/PR_Q05329">
+        <oboInOwl:id>PR:Q05329</oboInOwl:id>
+        <rdfs:label>glutamate decarboxylase 2 (human)</rdfs:label>
+    </owl:Class>
 </rdf:RDF>
 
 

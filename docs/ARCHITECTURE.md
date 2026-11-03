@@ -112,7 +112,8 @@ preferences live in small `boot.js` files rather than inline scripts.
 Main-page scripts, in load order: `words.js` (interface vocabulary), `help.js`
 (help sheet), `ui-dialog.js` (inline dialogs, live region, field errors),
 `core.js` (state, constants, `api()`, `BASE_PATH`, link builders), `trees.js`
-(index rail and search), `detail.js` (record view), `panels.js` (deep dives),
+(index rail and search), `detail.js` (record view), `biomarker-detail.js` (a
+biomarker row's expanded concept), `panels.js` (deep dives),
 `graph.js` (D3 pathophysiology graph), `editor.js` (edit mode, item CRUD,
 releases), `resize.js` (column gutters), `feedback.js`, `github.js` (sign-in,
 publish, sync), `settings.js` (branch, export), `symptoms.js` (search by
@@ -121,7 +122,8 @@ shared with the review page.
 
 The review page's policy (verdict state machine, separation-of-duties gate,
 missing-first ordering, publish payload) is in pure functions in
-`static/ref-edits/review-model.js`, tested by `tests/review-model.test.js`.
+`static/ref-edits/review-model.js`, tested by `tests/review-model.test.js`;
+`biomarker-detail.js` is tested the same way by `tests/biomarker-detail.test.js`.
 
 ## Data model
 
