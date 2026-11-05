@@ -172,7 +172,6 @@ function firstSentence(text){
 // the click targets into the deep dive (keyed by data-box).
 function boxNote(b){
   if (b.count > 0) return String(b.count);
-  if (state.editMode && state.schema[b.key]) return '+ add';
   return b.note || '';
 }
 function boxHTML(b){
@@ -206,8 +205,8 @@ function storyHTML(d, boxByKey){
   // record with three empty steps that left ~124px each for the two that had
   // something to say, enough to break "Biomarkers & treatments" over three lines
   // (issue #101). In read mode an empty step is not rendered and the populated
-  // ones divide the full width. Curate mode keeps all five — the "+ add"
-  // affordances in an empty step are the whole point there.
+  // ones divide the full width. Curate mode keeps all five, so an empty
+  // category is still there to click into and fill.
   const steps = [];
   for (const grp of STORY_GROUPS){
     if (grp.inSidebar) continue;

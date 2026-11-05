@@ -1,5 +1,9 @@
 # Changelog
 
+## disease-edit-subtopic-standardization
+
+- **Empty story-spine categories no longer say "+ add" in edit mode.** Editable categories with no entries (under Pathophysiology and Biomarkers & treatments) showed "+ add" where every other category shows its count or nothing, so the spine read unevenly while editing. They now look like the rest; curate mode still lists them, and clicking one opens its editor as before.
+
 ## biomarker-concepts-view
 
 Clicking a row in the Autoantibodies, Antigens or Clinical biomarkers panel expands it in place to the entry's shared ARIB concept (each concept, for a bundle) and the concept's relatives, read-only. This is what the biomarker-concepts project is for: a curator sees the direct and indirect related biomarkers, especially those found in other diseases. Stacked on `biomarker-concepts-linking`, whose fixtures it extends.
