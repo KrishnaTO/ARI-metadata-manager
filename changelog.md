@@ -1,5 +1,12 @@
 # Changelog
 
+## disease-edit-subtopic-standardization
+
+- **Empty story-spine categories no longer say "+ add" in edit mode.** Editable categories with no entries (under Pathophysiology and Biomarkers & treatments) showed "+ add" where every other category shows its count or nothing, so the spine read unevenly while editing. They now look like the rest; curate mode still lists them, and clicking one opens its editor as before.
+- **Story-spine counts sit flush right in every column.** A one-word label wider than a narrow column ("Inflammasome", "Complement") pushed its count past the column edge, so counts in Pathophysiology drifted out of line. The label now shrinks and wraps, breaking inside a word only when the column is too narrow for it, and the count keeps its place at the right edge.
+- **Pathophysiology gets its own row, grouped by aspect.** Its 15 categories were one column as narrow as the others and ran far below them. It now sits full width under the other four steps, in one column per aspect from `BOX_META` (Genetics; Pathophysiology; Innate immune component; Adaptive immunity; Signaling & molecular), so the grouping follows the data model and the deep-dive breadcrumb. The columns carry no aspect heading; a faint vertical rule separates neighbouring columns (none before a column that starts a row). The columns drop to two below 1024px and one below 900px. The step's existing `aspectGroups` flag, which nothing read, now drives this.
+- **Faint dividers between the first-row steps too.** Triggers & onset, Etiology, Biomarkers & treatments and Prevalence are separated by the same `--line` rule as the Pathophysiology columns (`quiet-ledger.css` had removed the column rules). None before a step that starts a row in the two-column layout, and none in the single-column one.
+
 ## biomarker-concepts-view
 
 Clicking a row in the Autoantibodies, Antigens or Clinical biomarkers panel expands it in place to the entry's shared ARIB concept (each concept, for a bundle) and the concept's relatives, read-only. This is what the biomarker-concepts project is for: a curator sees the direct and indirect related biomarkers, especially those found in other diseases. Stacked on `biomarker-concepts-linking`, whose fixtures it extends.

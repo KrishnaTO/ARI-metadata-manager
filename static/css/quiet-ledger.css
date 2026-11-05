@@ -29,9 +29,18 @@
 .rec-context, .rec-read:has(.right-col.open) .rec-context { display: none !important; }
 .rec-read:has(.right-col.open) { padding-top: 30px; }
 
-/* Story spine: no step numbers, no column rules, underline for the open category. */
-.story { gap: 0 32px; }
+/* Story spine: no step numbers, underline for the open category, and a faint
+   rule between neighbouring steps in the first row (none before a step that
+   starts a row; the full-width Pathophysiology row has its own rules). */
+.story { gap: 0 16px; }
 .story-step, .story-step:first-child, .story-step:last-child { padding: 0; border-left: 0; }
+.story .story-step + .story-step:not(.wide) { border-left: 1px solid var(--line); padding-left: 16px; }
+@media (max-width: 1024px) {
+  .story .story-step:nth-child(odd):not(.wide) { border-left: 0; padding-left: 0; }
+}
+@media (max-width: 900px) {
+  .story .story-step + .story-step:not(.wide) { border-left: 0; padding-left: 0; }
+}
 .story-step.active { background: none; margin-top: 0; padding-top: 0; }
 .story-num { display: none; }
 .story-title { font-size: 0.7812rem; }
