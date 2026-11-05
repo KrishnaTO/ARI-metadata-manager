@@ -4,6 +4,7 @@
 
 - **Empty story-spine categories no longer say "+ add" in edit mode.** Editable categories with no entries (under Pathophysiology and Biomarkers & treatments) showed "+ add" where every other category shows its count or nothing, so the spine read unevenly while editing. They now look like the rest; curate mode still lists them, and clicking one opens its editor as before.
 - **Story-spine counts sit flush right in every column.** A one-word label wider than a narrow column ("Inflammasome", "Complement") pushed its count past the column edge, so counts in Pathophysiology drifted out of line. The label now shrinks and wraps, breaking inside a word only when the column is too narrow for it, and the count keeps its place at the right edge.
+- **Pathophysiology gets its own row, grouped by aspect.** Its 15 categories were one column as narrow as the others and ran far below them. It now sits full width under the other four steps, in one column per aspect from `BOX_META` (Genetics; Pathophysiology; Innate immune component; Adaptive immunity; Signaling & molecular), so the grouping follows the data model and the deep-dive breadcrumb. The columns drop to two below 1024px and one below 900px. The step's existing `aspectGroups` flag, which nothing read, now drives this.
 
 ## biomarker-concepts-view
 

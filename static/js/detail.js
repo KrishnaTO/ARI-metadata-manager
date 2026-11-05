@@ -207,19 +207,39 @@ function storyHTML(d, boxByKey){
   // (issue #101). In read mode an empty step is not rendered and the populated
   // ones divide the full width. Curate mode keeps all five, so an empty
   // category is still there to click into and fill.
-  const steps = [];
+  //
+  // A step with aspectGroups (Pathophysiology, 15 categories) was one column
+  // as narrow as the others and ran far below them. It takes its own full-width
+  // row under the other steps instead, its categories in one column per BOX_META
+  // aspect.
+  const steps = [], wide = [];
   for (const grp of STORY_GROUPS){
     if (grp.inSidebar) continue;
     const keys = visibleKeys(grp, boxByKey, false);
     if (!keys.length && !state.editMode) continue;
     const active = keys.includes(state.activeBox) ? ' active' : '';
-    steps.push(`<div class="story-step${active}" title="${esc(grp.hint)}">` +
+    const body = grp.aspectGroups ? aspectGroupsHTML(keys, boxByKey)
+                                  : keys.map(k => boxHTML(boxByKey[k])).join('');
+    (grp.aspectGroups ? wide : steps).push(
+      `<div class="story-step${grp.aspectGroups ? ' wide' : ''}${active}" title="${esc(grp.hint)}">` +
       `<div class="story-head">` +
-      `<span class="story-title">${esc(grp.title)}</span></div>` +
-      keys.map(k => boxHTML(boxByKey[k])).join('') + `</div>`);
+      `<span class="story-title">${esc(grp.title)}</span></div>` + body + `</div>`);
   }
-  if (!steps.length) return '';
-  return `<div class="story" style="--story-n:${steps.length}">${steps.join('')}</div>`;
+  if (!steps.length && !wide.length) return '';
+  return `<div class="story" style="--story-n:${steps.length || 1}">${steps.join('')}${wide.join('')}</div>`;
+}
+
+// One column per aspect, in the order the step's keys first reach each aspect.
+function aspectGroupsHTML(keys, boxByKey){
+  const byAspect = new Map();
+  for (const k of keys){
+    const aspect = BOX_META[k].aspect;
+    if (!byAspect.has(aspect)) byAspect.set(aspect, []);
+    byAspect.get(aspect).push(k);
+  }
+  return `<div class="aspect-groups" style="--aspect-n:${byAspect.size}">` + [...byAspect].map(([aspect, ks]) =>
+    `<div class="aspect-group"><div class="aspect-title">${esc(aspect)}</div>` +
+    ks.map(k => boxHTML(boxByKey[k])).join('') + `</div>`).join('') + `</div>`;
 }
 
 // ------------------------------------------------------------------ sidebar
