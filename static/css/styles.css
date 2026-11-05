@@ -413,7 +413,11 @@ body.resizing-cols { cursor: col-resize; user-select: none; }
   line-height: 1.5; cursor: pointer; padding: 1px 0; transition: color .2s var(--ease); }
 .box:hover { color: var(--ink); }
 .box.active { color: var(--ink); font-weight: 600; }
-.box .count { margin-left: auto; font-family: var(--font-mono); color: var(--ink); }
+/* A one-word label wider than a narrow column ("Inflammasome") pushed its count
+   past the column edge, so counts did not line up. The label shrinks and breaks
+   instead, and every count stays flush with the column's right edge. */
+.box .lbl { min-width: 0; overflow-wrap: anywhere; }
+.box .count { flex: none; margin-left: auto; font-family: var(--font-mono); color: var(--ink); }
 .box .icon { display: none; }
 /* The grouping/umbrella story collapses to a single column of record links. */
 .story.record-only { grid-template-columns: 1fr; border-top: 0; padding-top: 0; }

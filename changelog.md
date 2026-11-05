@@ -3,6 +3,7 @@
 ## disease-edit-subtopic-standardization
 
 - **Empty story-spine categories no longer say "+ add" in edit mode.** Editable categories with no entries (under Pathophysiology and Biomarkers & treatments) showed "+ add" where every other category shows its count or nothing, so the spine read unevenly while editing. They now look like the rest; curate mode still lists them, and clicking one opens its editor as before.
+- **Story-spine counts sit flush right in every column.** A one-word label wider than a narrow column ("Inflammasome", "Complement") pushed its count past the column edge, so counts in Pathophysiology drifted out of line. The label now shrinks and wraps, breaking inside a word only when the column is too narrow for it, and the count keeps its place at the right edge.
 
 ## biomarker-concepts-view
 
