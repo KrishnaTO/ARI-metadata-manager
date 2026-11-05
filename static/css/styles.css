@@ -409,8 +409,10 @@ body.resizing-cols { cursor: col-resize; user-select: none; }
    others, its categories in one column per aspect (detail.js, aspectGroupsHTML). */
 .story .story-step.wide { grid-column: 1 / -1; margin-top: 14px; padding: 14px 0 0; border-left: 0;
   border-top: 1px solid var(--line); }
-.aspect-groups { display: grid; grid-template-columns: repeat(var(--aspect-n, 5), minmax(0, 1fr)); gap: 10px 24px; }
+.aspect-groups { display: grid; grid-template-columns: repeat(var(--aspect-n, 5), minmax(0, 1fr)); gap: 10px 12px; }
+/* A faint rule between neighbouring columns; none before a column that starts a row. */
 .aspect-group { min-width: 0; }
+.aspect-group + .aspect-group { border-left: 1px solid var(--line); padding-left: 12px; }
 /* Category lines are the click targets into the deep dive. */
 /* `.box` became a <button> so it is keyboard-reachable and announced; these
    reset the UA button chrome so it looks exactly as it did (issue #100). */
@@ -751,6 +753,7 @@ body.resizing-cols { cursor: col-resize; user-select: none; }
   .story { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px 0; }
   .story-step:nth-child(odd) { padding-left: 0; border-left: 0; }
   .aspect-groups { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .aspect-group:nth-child(odd) { border-left: 0; padding-left: 0; }
   .right-col.open { position: fixed; top: 0; right: 0; bottom: 0; width: min(520px, 92vw); z-index: 90;
     margin: 0; border-radius: 0; border: 0; border-left: 1px solid var(--line); overflow: auto;
     box-shadow: var(--shadow-3); animation: dd-slide .2s var(--ease); }
@@ -765,4 +768,5 @@ body.resizing-cols { cursor: col-resize; user-select: none; }
   .story { grid-template-columns: 1fr; }
   .story-step { padding-left: 0; border-left: 0; }
   .aspect-groups { grid-template-columns: 1fr; }
+  .aspect-group + .aspect-group { border-left: 0; padding-left: 0; }
 }
