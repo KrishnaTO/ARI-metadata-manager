@@ -402,7 +402,7 @@ body.resizing-cols { cursor: col-resize; user-select: none; }
 .story-step:first-child { padding-left: 0; border-left: 0; }
 .story-step:last-child { padding-right: 0; }
 .story-step.active { background: var(--accent-050); margin-top: -14px; padding-top: 14px; }
-.story-head { display: flex; align-items: center; justify-content: center; gap: 8px; margin-bottom: 8px; text-align: center; }
+.story-head { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
 .story-title { font-size: 0.7812rem; font-weight: 600; }
 .story-hint { display: none; }
 /* A step with many categories (Pathophysiology) is a full-width row under the
