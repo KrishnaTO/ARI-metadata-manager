@@ -411,7 +411,6 @@ body.resizing-cols { cursor: col-resize; user-select: none; }
   border-top: 1px solid var(--line); }
 .aspect-groups { display: grid; grid-template-columns: repeat(var(--aspect-n, 5), minmax(0, 1fr)); gap: 10px 24px; }
 .aspect-group { min-width: 0; }
-.aspect-title { font-size: 0.6875rem; color: var(--mute); margin-bottom: 4px; }
 /* Category lines are the click targets into the deep dive. */
 /* `.box` became a <button> so it is keyboard-reachable and announced; these
    reset the UA button chrome so it looks exactly as it did (issue #100). */

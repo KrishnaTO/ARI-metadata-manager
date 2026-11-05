@@ -237,9 +237,9 @@ function aspectGroupsHTML(keys, boxByKey){
     if (!byAspect.has(aspect)) byAspect.set(aspect, []);
     byAspect.get(aspect).push(k);
   }
-  return `<div class="aspect-groups" style="--aspect-n:${byAspect.size}">` + [...byAspect].map(([aspect, ks]) =>
-    `<div class="aspect-group"><div class="aspect-title">${esc(aspect)}</div>` +
-    ks.map(k => boxHTML(boxByKey[k])).join('') + `</div>`).join('') + `</div>`;
+  // The columns carry no aspect heading: the grouping alone does the organising.
+  return `<div class="aspect-groups" style="--aspect-n:${byAspect.size}">` + [...byAspect.values()].map(ks =>
+    `<div class="aspect-group">` + ks.map(k => boxHTML(boxByKey[k])).join('') + `</div>`).join('') + `</div>`;
 }
 
 // ------------------------------------------------------------------ sidebar
